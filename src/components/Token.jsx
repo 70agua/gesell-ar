@@ -8,7 +8,7 @@ export function CoinSVG({ size = 20 }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}>
       <circle cx="12" cy="12" r="10" fill="#FFD700" stroke="#B8860B" strokeWidth="1.5"/>
       <ellipse cx="9" cy="9" rx="3" ry="1.5" fill="#FFE87C" opacity="0.6" transform="rotate(-20 9 9)"/>
-      <text x="12" y="16.5" textAnchor="middle" fontSize="10" fontWeight="500" fill="#B8860B" fontFamily="'Geist', system-ui, sans-serif">C</text>
+      <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fontSize="10" fontWeight="500" fill="#B8860B" fontFamily="'Geist', system-ui, sans-serif">C</text>
     </svg>
   );
 }

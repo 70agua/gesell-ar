@@ -508,37 +508,39 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                   <span style={{ fontSize: 15, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
                 </div>
               ) : (
-                <div style={{ display: 'flex', borderRadius: 14, border: `1px solid ${C.line}`, overflow: 'hidden' }}>
-                  {/* Columna izquierda: Ahorro estimado */}
-                  <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted, marginBottom: 4 }}>Ahorro estimado</span>
-                    <span style={{ fontSize: 28, fontWeight: 800, color: C.green, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                /* Grid 2 columnas: cada fila queda alineada automáticamente entre columnas */
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderRadius: 14, border: `1px solid ${C.line}`, overflow: 'hidden' }}>
+
+                  {/* Fila 1 — Labels */}
+                  <div style={{ padding: '16px 16px 6px', borderRight: `1px solid ${C.line}` }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Ahorro estimado</span>
+                  </div>
+                  <div style={{ padding: '16px 14px 6px' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Lo activás con</span>
+                  </div>
+
+                  {/* Fila 2 — Valores principales */}
+                  <div style={{ padding: '4px 16px 4px', borderRight: `1px solid ${C.line}`, display: 'flex', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: 30, fontWeight: 800, color: C.green, letterSpacing: '-0.03em', lineHeight: 1 }}>
                       ~${beneficioValor.toLocaleString('es-AR')}
                     </span>
-                    {/* spacer empuja el subtexto al fondo */}
-                    <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.green }}>Aproximadamente</span>
                   </div>
-
-                  {/* Divisor vertical */}
-                  <div style={{ width: 1, background: C.line, alignSelf: 'stretch' }} />
-
-                  {/* Columna derecha: Lo activás con */}
-                  <div style={{ flex: 1, padding: '14px 14px', display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted, marginBottom: 4 }}>Lo activás con</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <CoinSVG size={26} />
-                      <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1.3 }}>{tokensCosto}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.ink2, alignSelf: 'flex-end', paddingBottom: 2 }}>
-                        crédito{tokensCosto !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    {/* spacer empuja el subtexto al fondo */}
-                    <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, color: C.muted }}>
-                      (${precioCreditosARS.toLocaleString('es-AR')} + IVA)
+                  <div style={{ padding: '4px 14px 4px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <CoinSVG size={26} />
+                    <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>{tokensCosto}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.ink2, alignSelf: 'flex-end', paddingBottom: 1 }}>
+                      crédito{tokensCosto !== 1 ? 's' : ''}
                     </span>
                   </div>
+
+                  {/* Fila 3 — Subtextos */}
+                  <div style={{ padding: '4px 16px 16px', borderRight: `1px solid ${C.line}` }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.green }}>Aproximadamente</span>
+                  </div>
+                  <div style={{ padding: '4px 14px 16px' }}>
+                    <span style={{ fontSize: 11, color: C.muted }}>(${precioCreditosARS.toLocaleString('es-AR')} + IVA)</span>
+                  </div>
+
                 </div>
               )}
 
