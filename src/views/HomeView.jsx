@@ -271,15 +271,33 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
             }}>
 
               {/* H1 rotating */}
-              <h1 style={{ fontSize: 'clamp(44px, 5vw, 78px)', lineHeight: 1.0, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
-                Ofertas y promociones en<br />
-                <span style={{ color: A.primary, display: 'inline-block', transition: 'opacity 0.28s', opacity: locFade ? 0 : 1, minWidth: 1 }}>
-                  {locations[locIdx]}
-                </span>
-              </h1>
+              {(() => {
+                const loc = locations[locIdx];
+                // Escala la fuente de la localidad según longitud para evitar salto de línea
+                const locFs = loc.length <= 11 ? 'clamp(42px, 5vw, 74px)'
+                            : loc.length <= 14 ? 'clamp(36px, 4.2vw, 64px)'
+                            :                   'clamp(30px, 3.6vw, 54px)';
+                return (
+                  <h1 style={{ fontSize: 'clamp(40px, 4.6vw, 70px)', lineHeight: 1.05, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
+                    Ofertas y promociones en<br />
+                    <span style={{
+                      fontFamily: "'NauryzRedkeds', cursive",
+                      fontSize: locFs,
+                      color: A.primary,
+                      display: 'inline-block',
+                      transition: 'opacity 0.28s, font-size 0.2s',
+                      opacity: locFade ? 0 : 1,
+                      minWidth: 1,
+                      lineHeight: 1.1,
+                    }}>
+                      {loc}
+                    </span>
+                  </h1>
+                );
+              })()}
 
               <p style={{ fontSize: 18, lineHeight: 1.55, color: A.muted, margin: '0 0 26px', fontWeight: 400, maxWidth: 600 }}>
-                Encontrá alojamientos con descuentos reales, armá tu cuponera y disfrutá la temporada sin sorpresas.
+                Encontrá alojamientos con descuentos reales, armá tu cuponera y disfrutá, sin sorpresas.
               </p>
 
               {/* ─ Filter pills ─ */}

@@ -111,7 +111,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             onClick={() => { setView('home'); setMobileOpen(false); }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}
           >
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: A.primary, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 18, letterSpacing: '-0.04em' }}>G</div>
+            <img src="/logo-pregesell.svg" alt="gesell.ar logo" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0 }} />
             <span style={{ fontWeight: 800, fontSize: 24, color: A.ink, letterSpacing: '-0.02em', fontFamily: A.font }}>gesell.ar</span>
           </div>
 
