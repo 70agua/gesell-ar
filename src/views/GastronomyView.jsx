@@ -668,7 +668,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${A.line}` }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: A.ink, marginBottom: 10, letterSpacing: '-0.01em' }}>Destino</div>
               <CheckRow
-                label="Todos los destinos"
+                label="Todos"
                 checked={!filtroLocalidad}
                 onChange={() => setFiltroLocalidad('')}
               />

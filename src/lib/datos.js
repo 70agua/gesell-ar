@@ -116,6 +116,7 @@ export async function getPromos(limit = 4) {
     image:            p.imagen_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
     fechaFinFlash:    p.fecha_fin_flash,
     tokens_costo:     p.tokens_costo,
+    ahorroEstimado:   p.ahorro_estimado || 0,
     aprobada:         p.aprobada,
     categoria:        categoriaDeNegocio(p.negocios?.tipo, p.negocio_id),
     // Datos del proveedor para la ficha
@@ -129,7 +130,7 @@ export async function getPromos(limit = 4) {
   // Filtrar flash expiradas (real y mock)
   const now = Date.now();
   const noExpirada = (p) =>
-    p.offerType !== 'Flash' || !p.fechaFinFlash || new Date(p.fechaFinFlash).getTime() > now;
+    p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash).getTime() > now);
 
   const realesFiltradas = reales.filter(noExpirada);
 
@@ -176,6 +177,7 @@ export async function getOfertasDestacadas() {
     image:            p.imagen_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
     fechaFinFlash:    p.fecha_fin_flash,
     tokens_costo:     p.tokens_costo,
+    ahorroEstimado:   p.ahorro_estimado || 0,
     aprobada:         p.aprobada,
     categoria:        categoriaDeNegocio(p.negocios?.tipo, p.negocio_id),
     proveedorNombre:  p.negocios?.nombre || '',

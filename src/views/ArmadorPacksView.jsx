@@ -25,7 +25,7 @@ const EXPERIENCIAS_MOCK = [
 const CATEGORIAS = [
   { id: 'alojamiento', label: 'Alojamiento',  icon: '🏨', color: 'bg-blue-600'    },
   { id: 'gastronomia', label: 'Gastronomía',  icon: '🍽️', color: 'bg-amber-500'   },
-  { id: 'experiencia', label: 'Experiencias', icon: '🧭', color: 'bg-emerald-600' },
+  { id: 'experiencia', label: 'Aventura & Relax', icon: '🧭', color: 'bg-emerald-600' },
 ];
 
 // ─── Tarjeta del catálogo ────────────────────────────────────

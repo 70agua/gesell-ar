@@ -144,10 +144,11 @@ function DestDropdown({ value, onChange }) {
 
 // ─── Guests dropdown (Adultos / Niños / Bebés) ───────────────
 function GuestsDropdown() {
-  const [open, setOpen]       = useState(false);
-  const [adultos, setAdultos] = useState(2);
-  const [ninos, setNinos]     = useState(0);
-  const [bebes, setBebes]     = useState(0);
+  const [open, setOpen]           = useState(false);
+  const [adultos, setAdultos]     = useState(2);
+  const [ninos, setNinos]         = useState(0);
+  const [bebes, setBebes]         = useState(0);
+  const [mascotas, setMascotas]   = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -159,7 +160,7 @@ function GuestsDropdown() {
   const summary = () => {
     const parts = [`${adultos} adulto${adultos !== 1 ? 's' : ''}`];
     if (ninos > 0) parts.push(`${ninos} niño${ninos !== 1 ? 's' : ''}`);
-    // Los bebés NO se muestran en el visor del trigger (para no expandir el ancho)
+    if (mascotas) parts.push('+ mascota');
     return parts.join(', ');
   };
 
@@ -211,12 +212,25 @@ function GuestsDropdown() {
             <Counter value={ninos} onDec={() => setNinos(v => Math.max(0, v - 1))} onInc={() => setNinos(v => Math.min(8, v + 1))} />
           </div>
           {/* Bebés */}
-          <div style={{ padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${A.line}` }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, overflow: 'hidden' }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: A.ink, flexShrink: 0 }}>Bebés</span>
               <span style={{ fontSize: 11, color: A.muted, whiteSpace: 'nowrap' }}>Menores de 2 años</span>
             </div>
             <Counter value={bebes} onDec={() => setBebes(v => Math.max(0, v - 1))} onInc={() => setBebes(v => Math.min(4, v + 1))} />
+          </div>
+          {/* Mascotas */}
+          <div
+            onClick={() => setMascotas(v => !v)}
+            style={{ padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>🐾</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: A.ink }}>Con mascotas</span>
+            </div>
+            <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${mascotas ? A.primary : A.line}`, background: mascotas ? A.primary : '#fff', display: 'grid', placeItems: 'center', transition: 'all 0.15s', flexShrink: 0 }}>
+              {mascotas && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
           </div>
           {/* Confirmar */}
           <div style={{ padding: '12px 20px', borderTop: `1px solid ${A.line}`, display: 'flex', justifyContent: 'flex-end' }}>
@@ -270,31 +284,23 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
               paddingRight: 56, paddingTop: 48, paddingBottom: 52,
             }}>
 
-              {/* H1 rotating */}
-              {(() => {
-                const loc = locations[locIdx];
-                // Escala la fuente de la localidad según longitud para evitar salto de línea
-                const locFs = loc.length <= 11 ? 'clamp(42px, 5vw, 74px)'
-                            : loc.length <= 14 ? 'clamp(36px, 4.2vw, 64px)'
-                            :                   'clamp(30px, 3.6vw, 54px)';
-                return (
-                  <h1 style={{ fontSize: 'clamp(40px, 4.6vw, 70px)', lineHeight: 1.05, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
-                    Ofertas y promociones en<br />
-                    <span style={{
-                      fontFamily: "'NauryzRedkeds', cursive",
-                      fontSize: locFs,
-                      color: A.primary,
-                      display: 'inline-block',
-                      transition: 'opacity 0.28s, font-size 0.2s',
-                      opacity: locFade ? 0 : 1,
-                      minWidth: 1,
-                      lineHeight: 1.1,
-                    }}>
-                      {loc}
-                    </span>
-                  </h1>
-                );
-              })()}
+              {/* H1 rotating — tamaño fijo calibrado para la localidad más larga */}
+              <h1 style={{ fontSize: 'clamp(40px, 4.6vw, 70px)', lineHeight: 1.05, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
+                Ofertas y promociones en<br />
+                <span style={{
+                  fontFamily: "'NauryzRedkeds', cursive",
+                  fontSize: 'clamp(30px, 3.6vw, 54px)',
+                  letterSpacing: '0.03em',
+                  color: A.primary,
+                  display: 'inline-block',
+                  transition: 'opacity 0.28s',
+                  opacity: locFade ? 0 : 1,
+                  minWidth: 1,
+                  lineHeight: 1.1,
+                }}>
+                  {locations[locIdx]}
+                </span>
+              </h1>
 
               <p style={{ fontSize: 18, lineHeight: 1.55, color: A.muted, margin: '0 0 26px', fontWeight: 400, maxWidth: 600 }}>
                 Encontrá alojamientos con descuentos reales, armá tu cuponera y disfrutá, sin sorpresas.
@@ -484,32 +490,58 @@ function OfertaCardAire({ promo, onClick, onAddToCuponera }) {
         <div style={{ position: 'absolute', bottom: 14, left: 14, color: '#fff' }}>
           <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 29 : 42, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
         </div>
-        {/* Heart */}
-        <div style={{ position: 'absolute', bottom: 12, right: 12 }}>
+        {/* Heart — top right */}
+        <div style={{ position: 'absolute', top: 12, right: 12 }}>
           <HeartButton id={promo.id} />
         </div>
       </div>
 
       {/* Body */}
       <div style={{ padding: '14px 16px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
-          {promo.categoria === 'alojamiento' && promo.negocioLocalidad
-            ? `${promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()} · ${promo.negocioLocalidad}`
-            : promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: A.ink, lineHeight: 1.3, flex: 1 }}>{promo.title}</div>
-        {/* Créditos */}
+        {/* Proveedor / Localidad */}
+        {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+            {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
+              <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
+            {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
+          </div>
+        )}
+        <div style={{ fontSize: 15, fontWeight: 700, color: A.green, lineHeight: 1.3, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
+
+        {/* Cajita de precios */}
         {promo.tokens_costo != null && (
-          promo.tokens_costo === 0
-            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 10 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={A.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-                <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>Cupón GRATIS</span>
+          promo.tokens_costo === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 12, flexShrink: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={A.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
+              <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>Cupón GRATIS</span>
+            </div>
+          ) : (
+            <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 12, flexShrink: 0 }}>
+              {promo.ahorroEstimado > 0 && <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+                </div>
+                <div style={{ height: 1, background: A.line }} />
+              </>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 12px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted, paddingTop: 2 }}>Lo activás con</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                    <CoinSVG size={14} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: A.muted, marginTop: 1 }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</div>
+                </div>
               </div>
-            : <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: A.bg, borderRadius: 10, padding: '8px 12px', border: `1px solid ${A.line}`, marginTop: 10 }}>
-                <CoinSVG size={14} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                <span style={{ fontSize: 12, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
-              </div>
+            </div>
+          )
         )}
         <button
           onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
@@ -613,7 +645,7 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta 
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 44 }}>
           <button
-            onClick={onVerTodas}
+            onClick={() => onVerTodas && onVerTodas(filtro)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '15px 36px', borderRadius: 999, border: `1.5px solid ${A.line}`, background: '#fff', fontSize: 15, fontWeight: 600, color: A.ink, cursor: 'pointer' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink; }}

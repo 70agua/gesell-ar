@@ -2,7 +2,7 @@
 //  src/views/OfertasView.jsx — Listado de todas las ofertas
 //  Diseño: mismo sistema Aire que MarketplaceView
 // ============================================================
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { secondsUntil } from '../lib/ofertas';
 import { getPromos }    from '../lib/datos';
 import { ALL_PROMOS }   from '../data/mockData';
@@ -125,22 +125,44 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
 
       {/* Body */}
       <div style={{ padding: '14px 16px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
-          {promo.categoria === 'alojamiento' && promo.negocioLocalidad
-            ? `${promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()} · ${promo.negocioLocalidad}`
-            : promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: A.ink, lineHeight: 1.3, flex: 1 }}>{promo.title}</div>
+        {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+            {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
+              <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
+            {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
+          </div>
+        )}
+        <div style={{ fontSize: 15, fontWeight: 700, color: A.green, lineHeight: 1.3, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
         {promo.tokens_costo != null && (
           promo.tokens_costo === 0
-            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 10 }}>
+            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 12, flexShrink: 0 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
               </div>
-            : <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: A.bg, borderRadius: 10, padding: '8px 12px', border: `1px solid ${A.line}`, marginTop: 10 }}>
-                <CoinSVG size={14} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                <span style={{ fontSize: 12, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
+            : <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 12, flexShrink: 0 }}>
+                {promo.ahorroEstimado > 0 && <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+                  </div>
+                  <div style={{ height: 1, background: A.line }} />
+                </>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 12px' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted, paddingTop: 2 }}>Lo activás con</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                      <CoinSVG size={14} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: A.muted, marginTop: 1 }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</div>
+                  </div>
+                </div>
               </div>
         )}
         <button
@@ -157,20 +179,11 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
 }
 
 // ─── Sección colapsable del sidebar ──────────────────────────
-function SideSection({ title, children, defaultOpen = true }) {
-  const [open, setOpen] = useState(defaultOpen);
+function SideSection({ title, children }) {
   return (
-    <div style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0 10px', fontFamily: A.font }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 700, color: A.ink, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{title}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={A.muted} strokeWidth="2" strokeLinecap="round" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
-      </button>
-      {open && <div>{children}</div>}
+    <div className="g-side-section" style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, letterSpacing: '0.04em', textTransform: 'uppercase', padding: '4px 0 10px' }}>{title}</div>
+      <div>{children}</div>
     </div>
   );
 }
@@ -178,19 +191,50 @@ function SideSection({ title, children, defaultOpen = true }) {
 // ═══════════════════════════════════════════════════════════
 //  VISTA PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function OfertasView({ onBack, onOpenOferta }) {
+function useWindowWidth() {
+  const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return w;
+}
+
+export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [] }) {
   const [promos,      setPromos]      = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [busqueda,    setBusqueda]    = useState('');
+  const [drawerOpen,  setDrawerOpen]  = useState(false);
+  const [shownCount,  setShownCount]  = useState(10);
+  const sentinelRef = useRef(null);
   const { addCupon }                  = useCuponera();
+  const winW    = useWindowWidth();
+  const isMobile = winW < 768;
 
-  // Filtros
-  const [tipoAloj,    setTipoAloj]    = useState(false);
-  const [tipoGastro,  setTipoGastro]  = useState(false);
-  const [tipoExp,     setTipoExp]     = useState(false);
+  // Filtros — pre-activados si viene con initialCategoria
+  const [tipoAloj,    setTipoAloj]    = useState(initialCategoria === 'alojamiento');
+  const [tipoGastro,  setTipoGastro]  = useState(initialCategoria === 'gastronomia');
+  const [tipoExp,     setTipoExp]     = useState(initialCategoria === 'experiencia');
   const [soloFlash,   setSoloFlash]   = useState(false);
-  const [localidad,   setLocalidad]   = useState('');
+  const [localidades, setLocalidades] = useState(initialLocalidades);
   const [creditosMin, setCreditosMin] = useState(''); // '' | 'bajo' | 'alto'
+  const [stickyTop,   setStickyTop]   = useState(90);
+  const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    const calc = () => {
+      if (!sidebarRef.current) return;
+      const sH = sidebarRef.current.offsetHeight;
+      const vH = window.innerHeight;
+      setStickyTop(Math.min(90, vH - sH - 16));
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    const ro = new ResizeObserver(calc);
+    if (sidebarRef.current) ro.observe(sidebarRef.current);
+    return () => { window.removeEventListener('resize', calc); ro.disconnect(); };
+  }, []);
 
   useEffect(() => {
     async function cargar() {
@@ -226,20 +270,21 @@ export default function OfertasView({ onBack, onOpenOferta }) {
           image:            p.imagen_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
           fechaFinFlash:    p.fecha_fin_flash,
           tokens_costo:     p.tokens_costo,
+          ahorroEstimado:   p.ahorro_estimado || 0,
           categoria:        catDe(p.negocios?.tipo, p.negocio_id),
           proveedorNombre:  p.negocios?.nombre || '',
           negocioLocalidad: p.negocios?.localidad || p.negocios?.ubicacion || '',
           negocioZone:      p.negocios?.zona || '',
           esReal:           true,
         }))
-        // filtrar flash expiradas
-        .filter(p => p.offerType !== 'Flash' || !p.fechaFinFlash || new Date(p.fechaFinFlash) > new Date());
+        // Flash solo si tiene fecha futura válida; sin fecha = se descarta igual
+        .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash) > new Date()));
 
       const { PROMO_META } = await import('../data/mockData');
       const idsReales = new Set(reales.map(p => String(p.id)));
       const mockExtra = ALL_PROMOS
         .filter(p => !idsReales.has(String(p.id)))
-        .filter(p => p.offerType !== 'Flash' || !p.fechaFinFlash || new Date(p.fechaFinFlash) > new Date())
+        .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash) > new Date()))
         .map(p => ({ ...p, ...(PROMO_META[p.id] || {}) }));
 
       setPromos([...reales, ...mockExtra]);
@@ -260,7 +305,7 @@ export default function OfertasView({ onBack, onOpenOferta }) {
       if (!ok) return false;
     }
     if (soloFlash && p.offerType !== 'Flash') return false;
-    if (localidad && p.negocioLocalidad !== localidad && p.negocioZone !== localidad) return false;
+    if (localidades.length > 0 && !localidades.includes(p.negocioLocalidad) && !localidades.includes(p.negocioZone)) return false;
     if (creditosMin === 'bajo' && (p.tokens_costo == null || p.tokens_costo > 3)) return false;
     if (creditosMin === 'alto' && (p.tokens_costo == null || p.tokens_costo < 5)) return false;
     return true;
@@ -268,114 +313,144 @@ export default function OfertasView({ onBack, onOpenOferta }) {
 
   const limpiarFiltros = () => {
     setTipoAloj(false); setTipoGastro(false); setTipoExp(false);
-    setSoloFlash(false); setLocalidad(''); setCreditosMin('');
+    setSoloFlash(false); setLocalidades([]); setCreditosMin('');
     setBusqueda('');
   };
-  const hayFiltros = tipoAloj || tipoGastro || tipoExp || soloFlash || localidad || creditosMin || busqueda;
+  const hayFiltros = tipoAloj || tipoGastro || tipoExp || soloFlash || localidades.length > 0 || creditosMin || busqueda;
+
+  // Infinite scroll
+  const filterKey = `${busqueda}|${tipoAloj}|${tipoGastro}|${tipoExp}|${soloFlash}|${localidades.join()}|${creditosMin}`;
+  useEffect(() => { setShownCount(10); }, [filterKey]);
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setShownCount(n => n + 10);
+    }, { rootMargin: '200px' });
+    obs.observe(sentinelRef.current);
+    return () => obs.disconnect();
+  }, [sentinelRef.current]);
+
+  const visiblesPaged = visibles.slice(0, shownCount);
+  const hayMas = shownCount < visibles.length;
+
+  // Cols responsive
+  const cols = isMobile ? 1 : winW < 1024 ? 2 : 3;
+
+  const SidebarContent = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: `1px solid ${A.line}` }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Filtros</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {hayFiltros && <button onClick={limpiarFiltros} style={{ background: 'none', border: 'none', fontSize: 12, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font }}>Limpiar</button>}
+          {isMobile && <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.muted, display: 'flex', padding: 4 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>}
+        </div>
+      </div>
+      <div style={{ padding: '12px 20px 8px' }}>
+        <SideSection title="Tipo de oferta">
+          <CheckRow label="Todo" checked={tipoAloj && tipoGastro && tipoExp} onChange={() => { const t = tipoAloj && tipoGastro && tipoExp; setTipoAloj(!t); setTipoGastro(!t); setTipoExp(!t); }} />
+          <CheckRow label="Alojamientos"     checked={tipoAloj}   onChange={() => setTipoAloj(v => !v)} />
+          <CheckRow label="Gastronomía"      checked={tipoGastro} onChange={() => setTipoGastro(v => !v)} />
+          <CheckRow label="Aventura & Relax" checked={tipoExp}    onChange={() => setTipoExp(v => !v)} />
+        </SideSection>
+        <SideSection title="Flash Sale">
+          <CheckRow
+            label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Solo ofertas{' '}<span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}><span style={{ fontWeight: 900, fontStyle: 'italic', color: '#EF4444', letterSpacing: '0.05em' }}>FLASH</span><span style={{ color: '#EF4444', display: 'flex', alignItems: 'center' }}><IcoBolt /></span></span></span>}
+            checked={soloFlash} onChange={() => setSoloFlash(v => !v)}
+          />
+          <p style={{ fontSize: 11, color: A.muted, marginTop: 6, lineHeight: 1.5 }}>Las Flash Sale expiran en horas. ¡Aprovechalas a tiempo!</p>
+        </SideSection>
+        <SideSection title="Destino">
+          <CheckRow label="Todos los destinos" checked={localidades.length === 0 || localidades.length === LOCALIDADES.length} onChange={() => setLocalidades(prev => (prev.length === 0 || prev.length === LOCALIDADES.length) ? [] : [...LOCALIDADES])} />
+          {LOCALIDADES.map(loc => (
+            <CheckRow key={loc} label={loc} checked={localidades.includes(loc)} onChange={() => setLocalidades(prev => prev.includes(loc) ? prev.filter(l => l !== loc) : [...prev, loc])} />
+          ))}
+        </SideSection>
+        <SideSection title="Créditos" defaultOpen={false}>
+          <CheckRow label="Cualquier precio"            checked={!creditosMin}              onChange={() => setCreditosMin('')} />
+          <CheckRow label="1–3 créditos (gastro & exp)" checked={creditosMin === 'bajo'}    onChange={() => setCreditosMin(v => v === 'bajo' ? '' : 'bajo')} />
+          <CheckRow label="5+ créditos (alojamiento)"   checked={creditosMin === 'alto'}    onChange={() => setCreditosMin(v => v === 'alto' ? '' : 'alto')} />
+        </SideSection>
+      </div>
+    </>
+  );
 
   return (
     <div style={{ minHeight: '100vh', background: A.bg, fontFamily: A.font, paddingTop: 70 }}>
-      {/* ── Header ── */}
-      <div style={{ background: '#fff', borderBottom: `1px solid ${A.line}`, padding: '18px 40px', display: 'flex', alignItems: 'center', gap: 16, maxWidth: 1328, margin: '0 auto' }}>
-        <button
-          onClick={onBack}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: A.ink2, cursor: 'pointer', flexShrink: 0, fontFamily: A.font }}
-          onMouseEnter={e => e.currentTarget.style.color = A.primary}
-          onMouseLeave={e => e.currentTarget.style.color = A.ink2}
-        >
-          <IcoArrowL /> Volver
-        </button>
-        <div style={{ flex: 1, position: 'relative' }}>
-          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: A.muted, display: 'flex' }}><IcoSearch /></span>
-          <input
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar ofertas, negocios..."
-            style={{ width: '100%', paddingLeft: 42, paddingRight: 16, paddingTop: 10, paddingBottom: 10, border: `1.5px solid ${A.line}`, borderRadius: 12, fontSize: 14, fontFamily: A.font, background: A.bg, color: A.ink, outline: 'none' }}
-            onFocus={e => e.target.style.borderColor = A.primary}
-            onBlur={e => e.target.style.borderColor = A.line}
-          />
-        </div>
-      </div>
 
-      {/* ── Layout dos columnas ── */}
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '32px 40px', display: 'flex', gap: 32, alignItems: 'flex-start' }}>
-
-        {/* ── SIDEBAR ── */}
-        <aside style={{ width: 260, flexShrink: 0, background: '#fff', borderRadius: 18, border: `1px solid ${A.line}`, padding: '20px 20px 12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: A.ink }}>Filtros</span>
-            {hayFiltros && (
-              <button onClick={limpiarFiltros} style={{ background: 'none', border: 'none', fontSize: 12, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font }}>
-                Limpiar
-              </button>
-            )}
+      {/* Drawer mobile */}
+      {isMobile && drawerOpen && (
+        <>
+          <div onClick={() => setDrawerOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(11,16,32,0.4)', zIndex: 100 }} />
+          <div style={{ position: 'fixed', top: 0, left: 0, bottom: 0, width: 300, background: '#fff', zIndex: 101, overflowY: 'auto', boxShadow: '4px 0 32px rgba(0,0,0,0.15)' }}>
+            {SidebarContent}
           </div>
+        </>
+      )}
 
-          {/* TIPO DE OFERTA */}
-          <SideSection title="Tipo de oferta">
-            <CheckRow label="Alojamientos"    checked={tipoAloj}   onChange={() => setTipoAloj(v => !v)} />
-            <CheckRow label="Gastronomía"     checked={tipoGastro} onChange={() => setTipoGastro(v => !v)} />
-            <CheckRow label="Aventura & Relax" checked={tipoExp}   onChange={() => setTipoExp(v => !v)} />
-          </SideSection>
+      <div style={{ maxWidth: 1328, margin: '0 auto', padding: isMobile ? '16px 16px 72px' : '32px 40px', display: 'flex', gap: 32, alignItems: 'flex-start' }}>
 
-          {/* FLASH SALE */}
-          <SideSection title="Flash Sale">
-            <CheckRow label="Solo ofertas Flash" checked={soloFlash} onChange={() => setSoloFlash(v => !v)} />
-            <p style={{ fontSize: 11, color: A.muted, marginTop: 6, lineHeight: 1.5 }}>Las Flash Sale expiran en horas. ¡Aprovechalas a tiempo!</p>
-          </SideSection>
+        {/* Sidebar desktop */}
+        {!isMobile && (
+          <div style={{ width: 260, flexShrink: 0, alignSelf: 'stretch' }}>
+            <aside ref={sidebarRef} style={{ background: '#fff', borderRadius: 18, border: `1px solid ${A.line}`, overflow: 'hidden', position: 'sticky', top: stickyTop }}>
+              {SidebarContent}
+            </aside>
+          </div>
+        )}
 
-          {/* DESTINO — sugerencia 1 */}
-          <SideSection title="Destino">
-            <CheckRow label="Todos los destinos" checked={!localidad} onChange={() => setLocalidad('')} />
-            {LOCALIDADES.map(loc => (
-              <CheckRow key={loc} label={loc} checked={localidad === loc} onChange={() => setLocalidad(l => l === loc ? '' : loc)} />
-            ))}
-          </SideSection>
-
-          {/* PRECIO EN CRÉDITOS — sugerencia 2 */}
-          <SideSection title="Créditos" defaultOpen={false}>
-            <CheckRow label="Cualquier precio"   checked={!creditosMin}          onChange={() => setCreditosMin('')} />
-            <CheckRow label="1–3 créditos (gastro & exp)" checked={creditosMin === 'bajo'} onChange={() => setCreditosMin(v => v === 'bajo' ? '' : 'bajo')} />
-            <CheckRow label="5+ créditos (alojamiento)"   checked={creditosMin === 'alto'} onChange={() => setCreditosMin(v => v === 'alto' ? '' : 'alto')} />
-          </SideSection>
-        </aside>
-
-        {/* ── CONTENIDO ── */}
+        {/* Resultados */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Título */}
-          <div style={{ marginBottom: 24 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Ofertas imperdibles</h1>
-            <p style={{ fontSize: 13, color: A.muted, marginTop: 4 }}>
-              {loading ? 'Cargando...' : `${visibles.length} oferta${visibles.length !== 1 ? 's' : ''} disponible${visibles.length !== 1 ? 's' : ''} en Villa Gesell y alrededores`}
-            </p>
+          {/* Header: título + [filtros mobile] + search */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+            <div style={{ flex: 1 }}>
+              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Ofertas imperdibles</h1>
+              <p style={{ fontSize: 13, color: A.muted, margin: '4px 0 0' }}>
+                {loading ? 'Cargando...' : `${visibles.length} oferta${visibles.length !== 1 ? 's' : ''} disponible${visibles.length !== 1 ? 's' : ''} en Villa Gesell y alrededores`}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+              {isMobile && (
+                <button onClick={() => setDrawerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: hayFiltros ? A.primary : '#fff', color: hayFiltros ? '#fff' : A.ink, border: `1.5px solid ${hayFiltros ? A.primary : A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+                  Filtros{hayFiltros ? ` (${[tipoAloj,tipoGastro,tipoExp,soloFlash].filter(Boolean).length + localidades.length + (creditosMin ? 1 : 0)})` : ''}
+                </button>
+              )}
+              <div style={{ position: 'relative' }}>
+                <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar en ofertas"
+                  style={{ width: isMobile ? 170 : 260, paddingLeft: 14, paddingRight: 40, paddingTop: 10, paddingBottom: 10, border: `1.5px solid ${A.line}`, borderRadius: 12, fontSize: 14, fontFamily: A.font, background: '#fff', color: A.ink, outline: 'none', boxSizing: 'border-box' }}
+                  onFocus={e => e.target.style.borderColor = A.primary} onBlur={e => e.target.style.borderColor = A.line}
+                />
+                <span style={{ position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)', color: A.muted, display: 'flex', pointerEvents: 'none' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                </span>
+              </div>
+            </div>
           </div>
 
           {loading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-              {[1,2,3,4,5,6].map(i => (
-                <div key={i} style={{ height: 340, background: A.line, borderRadius: 20, opacity: 0.5 }} />
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
+              {[1,2,3,4,5,6].map(i => <div key={i} style={{ height: 340, background: A.line, borderRadius: 20, opacity: 0.5 }} />)}
             </div>
           ) : visibles.length === 0 ? (
             <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 18, padding: '60px 24px', textAlign: 'center' }}>
               <p style={{ fontSize: 15, color: A.muted, margin: 0 }}>No hay ofertas para esta combinación de filtros.</p>
-              <button onClick={limpiarFiltros} style={{ marginTop: 14, background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
-                Limpiar filtros
-              </button>
+              <button onClick={limpiarFiltros} style={{ marginTop: 14, background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>Limpiar filtros</button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-              {visibles.map(promo => (
-                <OfertaCard
-                  key={promo.id}
-                  promo={promo}
-                  onAddToCuponera={addCupon}
-                  onOpenOferta={onOpenOferta}
-                />
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
+              {visiblesPaged.map(promo => (
+                <OfertaCard key={promo.id} promo={promo} onAddToCuponera={addCupon} onOpenOferta={onOpenOferta} />
               ))}
             </div>
           )}
+
+          {/* Sentinel infinite scroll */}
+          {hayMas && (
+            <div ref={sentinelRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
+              <div style={{ width: 28, height: 28, border: `3px solid ${A.line}`, borderTopColor: A.primary, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            </div>
+          )}
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
     </div>

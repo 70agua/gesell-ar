@@ -489,7 +489,7 @@ function AAlojDetalle() {
               <div style={{ fontFamily: A.font, fontSize: 12, color: A.primary, fontWeight: 600, display:'inline-flex', alignItems:'center', gap: 6 }}>
                 <Icon.bolt width={12} height={12}/> 3 cupones disponibles
               </div>
-              <div style={{ fontFamily: A.font, fontSize: 12, color: A.ink2, marginTop: 4, lineHeight: 1.4 }}>Reservando acá sumás cupones para canjear en restaurantes y experiencias locales.</div>
+              <div style={{ fontFamily: A.font, fontSize: 12, color: A.ink2, marginTop: 4, lineHeight: 1.4 }}>Reservando en este alojamiento accedés a cupones exclusivos para canjear en restaurantes y experiencias locales.</div>
             </div>
           </div>
         </div>

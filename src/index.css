@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+.g-side-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
 @font-face {
   font-family: 'NauryzRedkeds';
   src: url('/nauryzredkeds.ttf') format('truetype');

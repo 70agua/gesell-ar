@@ -63,8 +63,11 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const [alojOpen,   setAlojOpen]   = useState(false);
   const [gastroOpen, setGastroOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [hoveredLoc, setHoveredLoc] = useState(locations[0]);
   const { openDrawer } = useCuponera();
+  const userMenuRef = useRef(null);
+  useOutsideClose(userMenuRef, () => setUserMenuOpen(false));
 
   // Determinar tipo de sesión
   const esSocioOAdmin = session && (perfil?.negocio_id || perfil?.es_superadmin);
@@ -111,17 +114,14 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             onClick={() => { setView('home'); setMobileOpen(false); }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}
           >
-            <img src="/logo-pregesell.svg" alt="gesell.ar logo" style={{ height: 32, width: 'auto', display: 'block', flexShrink: 0 }} />
-            <span style={{ fontWeight: 800, fontSize: 24, color: A.ink, letterSpacing: '-0.02em', fontFamily: A.font }}>gesell.ar</span>
+            <img src="/logo-pregesell.svg" alt="PRE gesell.ar logo" style={{ height: 36, width: 'auto', display: 'block', flexShrink: 0 }} />
+            <span style={{ fontWeight: 800, fontSize: 22, color: A.ink, letterSpacing: '-0.02em', fontFamily: A.font }}>gesell.ar</span>
           </div>
 
           {/* ── Desktop nav links (hidden on mobile via CSS class) ── */}
           <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', gap: 24, flex: 1, paddingLeft: 24 }}>
 
-            {/* Inicio */}
-            <button onClick={() => setView('home')} style={navLinkSt}>
-              Inicio
-            </button>
+           
 
             {/* Alojamientos ▾ */}
             <div style={{ position: 'relative' }} ref={alojRef}>
@@ -239,64 +239,93 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           {/* ── Auth + hamburger ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
 
-            {/* === TURISTA logueado === */}
-            {esTurista && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {/* Avatar + nombre */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            {/* === USUARIO LOGUEADO (turista o socio) === */}
+            {session && (
+              <div style={{ position: 'relative' }} ref={userMenuRef}>
+                {/* Trigger: avatar + nombre + flecha */}
+                <button
+                  onClick={() => setUserMenuOpen(o => !o)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 10, fontFamily: A.font }}
+                  onMouseEnter={e => e.currentTarget.style.background = A.bg}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                >
                   {avatarUrl
                     ? <img src={avatarUrl} alt="Perfil" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${A.line}` }} />
                     : <div style={{ width: 34, height: 34, borderRadius: '50%', background: A.ink, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700, fontFamily: A.font, flexShrink: 0 }}>{avatarLetra}</div>
                   }
-                  <span style={{ fontSize: 14, fontWeight: 600, color: A.ink, fontFamily: A.font, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: A.ink, whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {nombreDisplay}
                   </span>
-                  <ChevD />
-                </div>
-                {/* Cuponera */}
-                <button
-                  onClick={openDrawer}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: A.primarySoft, border: 'none', borderRadius: 999, padding: '8px 16px', fontSize: 13, fontWeight: 700, color: A.primary, cursor: 'pointer', fontFamily: A.font, whiteSpace: 'nowrap' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#DDE3FD'}
-                  onMouseLeave={e => e.currentTarget.style.background = A.primarySoft}
-                >
-                  <IcoGem /> Cuponera
+                  <span style={{ color: A.muted, display: 'flex', transition: 'transform 0.2s', transform: userMenuOpen ? 'rotate(180deg)' : 'none' }}>
+                    <ChevD />
+                  </span>
                 </button>
-                {/* Separador */}
-                <span style={{ color: A.line, fontSize: 20, fontWeight: 300 }}>|</span>
-                {/* Salir */}
-                <button onClick={onLogout} style={{ background: 'none', border: 'none', fontSize: 14, color: A.muted, cursor: 'pointer', fontWeight: 500, fontFamily: A.font }}>
-                  Salir
-                </button>
-              </div>
-            )}
 
-            {/* === SOCIO / ADMIN logueado === */}
-            {esSocioOAdmin && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {/* Avatar + nombre negocio */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  {avatarUrl
-                    ? <img src={avatarUrl} alt="Negocio" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${A.line}` }} />
-                    : <div style={{ width: 34, height: 34, borderRadius: '50%', background: A.ink, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700, fontFamily: A.font, flexShrink: 0 }}>{avatarLetra}</div>
-                  }
-                  <span style={{ fontSize: 14, fontWeight: 500, color: A.ink2, fontFamily: A.font, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {nombreDisplay}
-                  </span>
-                </div>
-                {/* Mi panel */}
-                <button
-                  onClick={() => setView(perfil?.es_superadmin ? 'superadmin' : 'admin')}
-                  style={{ background: 'none', border: 'none', fontSize: 14, fontWeight: 700, color: A.primary, cursor: 'pointer', fontFamily: A.font, whiteSpace: 'nowrap' }}
-                >
-                  Mi panel
-                </button>
-                {/* Separador */}
-                <span style={{ color: A.line, fontSize: 20, fontWeight: 300 }}>|</span>
-                {/* Salir */}
-                <button onClick={onLogout} style={{ background: 'none', border: 'none', fontSize: 14, color: A.muted, cursor: 'pointer', fontWeight: 500, fontFamily: A.font }}>
-                  Salir
-                </button>
+                {/* Dropdown */}
+                {userMenuOpen && (
+                  <div style={{ ...DROP_BASE, right: 0, minWidth: 220, padding: '8px 0' }}>
+                    {/* Favoritos — todos */}
+                    <button
+                      onClick={() => { setView('favoritos'); setUserMenuOpen(false); }}
+                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 18px', fontSize: 14, fontWeight: 500, color: A.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: A.font }}
+                      onMouseEnter={e => e.currentTarget.style.background = A.bg}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                      Favoritos
+                    </button>
+
+                    {/* Cuponera — todos */}
+                    <button
+                      onClick={() => { openDrawer(); setUserMenuOpen(false); }}
+                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 18px', fontSize: 14, fontWeight: 500, color: A.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: A.font }}
+                      onMouseEnter={e => e.currentTarget.style.background = A.bg}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <img src="/ico-disc.svg" alt="" style={{ width: 22, height: 22, flexShrink: 0 }} />
+                      Cuponera
+                    </button>
+
+                    {/* Mi cuenta — todos */}
+                    <button
+                      onClick={() => { setView('mi-cuenta'); setUserMenuOpen(false); }}
+                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 18px', fontSize: 14, fontWeight: 500, color: A.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: A.font }}
+                      onMouseEnter={e => e.currentTarget.style.background = A.bg}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+                      Mi cuenta
+                    </button>
+
+                    {/* Panel de socio — solo socios/admin */}
+                    {esSocioOAdmin && (
+                      <>
+                        <div style={{ height: 1, background: A.line, margin: '6px 0' }} />
+                        <button
+                          onClick={() => { setView(perfil?.es_superadmin ? 'superadmin' : 'admin'); setUserMenuOpen(false); }}
+                          style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 18px', fontSize: 14, fontWeight: 600, color: A.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: A.font }}
+                          onMouseEnter={e => e.currentTarget.style.background = A.primarySoft}
+                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                          Panel de socio
+                        </button>
+                      </>
+                    )}
+
+                    {/* Separador + Salir */}
+                    <div style={{ height: 1, background: A.line, margin: '6px 0' }} />
+                    <button
+                      onClick={() => { onLogout(); setUserMenuOpen(false); }}
+                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '10px 18px', fontSize: 14, fontWeight: 500, color: A.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: A.font }}
+                      onMouseEnter={e => e.currentTarget.style.background = A.bg}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                      Salir
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

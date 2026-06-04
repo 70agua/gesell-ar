@@ -398,7 +398,7 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio }) {
           <option value="todas">Todas las categorías</option>
           <option value="alojamiento">Alojamientos</option>
           <option value="gastronomia">Gastronómicos</option>
-          <option value="experiencia">Experiencias</option>
+          <option value="experiencia">Aventura & Relax</option>
         </select>
         <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={inputStyle}>
           <option value="todos">Todos los estados</option>

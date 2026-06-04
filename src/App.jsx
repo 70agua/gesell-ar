@@ -39,6 +39,8 @@ function AppContent() {
   const [selectedOferta, setSelectedOferta]     = useState(null);
   const [selectedPack, setSelectedPack]         = useState(null);
   const [marketplaceLocalidad, setMarketplaceLocalidad] = useState('');
+  const [ofertasCategoria, setOfertasCategoria] = useState(null);
+  const [ofertasLocalidades, setOfertasLocalidades] = useState([]);
   const [scrolled, setScrolled]         = useState(false);
   const [session, setSession]           = useState(null);
   const [perfil, setPerfil]             = useState(null);
@@ -170,16 +172,21 @@ function AppContent() {
               accommodations={alojamientos}
               dining={gastronomia}
               onOpenDetail={handleOpenDetail}
-              onVerTodas={() => setView('ofertas')}
+              onVerTodas={(cat) => { setOfertasCategoria(cat || null); setView('ofertas'); window.scrollTo(0, 0); }}
               onArmarPack={() => setView('armador')}
-              onVerMarketplace={() => setView('marketplace')}
+              onVerMarketplace={() => { setView('marketplace'); window.scrollTo(0, 0); }}
               onOpenPack={handleOpenPack}
               onOpenOferta={handleOpenOferta}
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'ofertas' && (
-            <OfertasView onBack={() => setView('home')} onOpenOferta={handleOpenOferta} />
+            <OfertasView
+              onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setView('home'); }}
+              onOpenOferta={handleOpenOferta}
+              initialCategoria={ofertasCategoria}
+              initialLocalidades={ofertasLocalidades}
+            />
           )}
           {view === 'marketplace' && (
             <MarketplaceView
@@ -187,10 +194,11 @@ function AppContent() {
               onOpenDetail={handleOpenDetail}
               initialFiltro="todos"
               initialLocalidad={marketplaceLocalidad}
+              onVerOfertas={(locs) => { setOfertasLocalidades(locs); setOfertasCategoria(null); setView('ofertas'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'marketplace-ofertas' && (
-            <MarketplaceView onBack={() => setView('home')} onOpenDetail={handleOpenDetail} initialFiltro="oferta" />
+            <MarketplaceView onBack={() => { setView('home'); window.scrollTo(0, 0); }} onOpenDetail={handleOpenDetail} initialFiltro="oferta" />
           )}
           {view === 'armador' && (
             <ArmadorPacksView onBack={() => setView('home')} onOpenDetail={handleOpenDetail} />

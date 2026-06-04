@@ -19,7 +19,10 @@
       "Bash(git commit -m ' *)",
       "Bash(gh pr *)",
       "Bash(brew install *)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(node_modules/.bin/esbuild src/views/MarketplaceView.jsx --bundle=false --loader=jsx)",
+      "Bash(npx --yes @babel/parser --allow-import-export-everywhere)",
+      "Bash(node_modules/.bin/vite build *)"
     ]
   }
 }

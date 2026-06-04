@@ -61,7 +61,7 @@ function CoinSVG({ size = 13 }) {
 }
 
 // ─── Offer card (grid) ────────────────────────────────────────
-function OfertaCardGrid({ promo, onClick, onAddToCuponera }) {
+function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false }) {
   const esFlash = promo.offerType === 'Flash';
   const [secs, setSecs] = useState(() => esFlash ? secondsUntil(promo.fechaFinFlash) : 0);
   useEffect(() => {
@@ -75,13 +75,19 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera }) {
   const tm = Math.floor((secs % 3600) / 60);
   const ts = secs % 60;
 
-  return (
+  const card = (
     <div
       onClick={() => onClick && onClick(promo)}
-      style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s' }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
+      style={{ background: '#fff', border: inMarketplace ? 'none' : `1px solid ${A.line}`, borderRadius: inMarketplace ? 19 : 20, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s', position: 'relative', flex: 1 }}
+      onMouseEnter={e => { e.currentTarget.parentElement?.style && (e.currentTarget.parentElement.style.transform = 'translateY(-2px)'); e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; }}
+      onMouseLeave={e => { e.currentTarget.parentElement?.style && (e.currentTarget.parentElement.style.transform = 'none'); e.currentTarget.style.boxShadow = 'none'; }}
     >
+      {/* Badge PROMOCIÓN — solo en marketplace */}
+      {inMarketplace && (
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: '#d2e9f3', color: '#0c101f', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', padding: '3px 9px', borderRadius: 999 }}>
+          PROMOCIÓN
+        </div>
+      )}
       <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
         <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.65) 0%, transparent 55%)' }} />
@@ -111,27 +117,60 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera }) {
         <div style={{ position: 'absolute', bottom: 10, right: 10 }}><HeartButton id={promo.id} /></div>
       </div>
       <div style={{ padding: '12px 14px 14px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
-          {promo.categoria === 'alojamiento' && promo.negocioLocalidad
-            ? `${promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()} · ${promo.negocioLocalidad}`
-            : promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.3, flex: 1 }}>{promo.title}</div>
-        {promo.tokens_costo != null && (
-          promo.tokens_costo === 0
-            ? <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '7px 11px', border: '1px solid #BBF7D0', marginTop: 10 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
-              </div>
-            : <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: A.bg, borderRadius: 9, padding: '7px 11px', border: `1px solid ${A.line}`, marginTop: 10 }}>
-                <CoinSVG size={13} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                <span style={{ fontSize: 11, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
-              </div>
+        {/* Localidad + zona */}
+        {(promo.negocioLocalidad || promo.negocioZone) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, marginBottom: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad || promo.negocioZone}</span>
+            {promo.negocioLocalidad && promo.negocioZone && <span style={{ color: A.muted }}> · {promo.negocioZone}</span>}
+          </div>
         )}
+        {/* Nombre del negocio — título principal */}
+        <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, lineHeight: 1.2, marginBottom: 4 }}>
+          {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
+        </div>
+        {/* Título de la promo */}
+        <div style={{ fontSize: 14, fontWeight: 600, color: A.green, lineHeight: 1.3, marginBottom: 12 }}>
+          {promo.title}
+        </div>
+        {/* Cajita ahorro + créditos — siempre visible en marketplace */}
+        {(() => {
+          const tc = promo.tokens_costo;
+          if (tc === 0) return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '9px 12px', border: '1px solid #BBF7D0', marginBottom: 10, flexShrink: 0 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
+            </div>
+          );
+          return (
+            <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginBottom: 10, flexShrink: 0 }}>
+              {promo.ahorroEstimado > 0 && <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+                </div>
+                <div style={{ height: 1, background: A.line }} />
+              </>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '9px 12px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted, paddingTop: 3 }}>Lo activás con</span>
+                {tc != null ? (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                      <CoinSVG size={14} />
+                      <span style={{ fontSize: 14, fontWeight: 700, color: A.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: A.muted, marginTop: 2 }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</div>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 13, fontWeight: 600, color: A.primary }}>Consultá las tarifas</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
         <button
           onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ marginTop: 8, background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
+          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
           onMouseLeave={e => e.currentTarget.style.background = A.primary}
         >
@@ -140,6 +179,15 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera }) {
       </div>
     </div>
   );
+
+  if (inMarketplace) {
+    return (
+      <div style={{ background: 'linear-gradient(to bottom, #d2e9f3, #2d44dd)', borderRadius: 21, padding: 2, display: 'flex', transition: 'transform 0.2s' }}>
+        {card}
+      </div>
+    );
+  }
+  return card;
 }
 
 // ─── Offer card (list) ────────────────────────────────────────
@@ -194,13 +242,20 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
               <span style={{ fontSize: 11, color: A.muted, marginLeft: 5 }}>restantes</span>
             </div>
           )}
-          <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
-            {promo.categoria === 'alojamiento' && promo.negocioLocalidad
-              ? `${promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()} · ${promo.negocioLocalidad}`
-              : <>{promo.negocioLocalidad && <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>}{promo.negocioLocalidad && ' · '}{promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</>
-            }
-          </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{promo.title}</div>
+          {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+              {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
+                <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
+              {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
+            </div>
+          )}
+          <div style={{ fontSize: 16, fontWeight: 700, color: A.green, lineHeight: 1.3 }}>{promo.title}</div>
         </div>
         <div>
           {promo.tokens_costo != null && (
@@ -209,10 +264,24 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
                 </div>
-              : <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: A.bg, borderRadius: 9, padding: '7px 11px', border: `1px solid ${A.line}`, marginBottom: 10 }}>
-                  <CoinSVG size={13} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                  <span style={{ fontSize: 11, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
+              : <div style={{ border: `1px solid ${A.line}`, borderRadius: 9, overflow: 'hidden', marginBottom: 10 }}>
+                  {promo.ahorroEstimado > 0 && <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 11px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+                    </div>
+                    <div style={{ height: 1, background: A.line }} />
+                  </>}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '7px 11px' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted, paddingTop: 2 }}>Lo activás con</span>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                        <CoinSVG size={13} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: A.muted, marginTop: 1 }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</div>
+                    </div>
+                  </div>
                 </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -297,10 +366,30 @@ function CheckRow({ label, checked, onChange, count }) {
   );
 }
 
+function SideSection({ title, children }) {
+  return (
+    <div className="g-side-section" style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, letterSpacing: '0.04em', textTransform: 'uppercase', padding: '4px 0 10px' }}>{title}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
 //  VISTA PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 'todos', initialLocalidad = 'todas' }) {
+// ─── Hook ancho de ventana ────────────────────────────────────
+function useWindowWidth() {
+  const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return w;
+}
+
+export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 'todos', initialLocalidad = 'todas', onVerOfertas }) {
   const { addCupon } = useCuponera();
   const [alojamientos, setAlojamientos] = useState([]);
   const [promos,       setPromos]       = useState([]);
@@ -309,20 +398,47 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const [busqueda,     setBusqueda]     = useState('');
   const [orden,        setOrden]        = useState('relevancia');
   const [showOrden,    setShowOrden]    = useState(false);
+  const [drawerOpen,   setDrawerOpen]   = useState(false);
+  const [stickyTop,    setStickyTop]    = useState(90);
+  const sidebarRef = useRef(null);
+
+  // Recalcula el top sticky según altura de sidebar vs viewport
+  useEffect(() => {
+    const calc = () => {
+      if (!sidebarRef.current) return;
+      const sH = sidebarRef.current.offsetHeight;
+      const vH = window.innerHeight;
+      const NAV = 90; // altura nav + padding top
+      const BOT = 16; // margen inferior
+      setStickyTop(Math.min(NAV, vH - sH - BOT));
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    const ro = new ResizeObserver(calc);
+    if (sidebarRef.current) ro.observe(sidebarRef.current);
+    return () => { window.removeEventListener('resize', calc); ro.disconnect(); };
+  }, []);
 
   // Filtros sidebar
-  const [filtroLocalidad, setFiltroLocalidad] = useState(initialLocalidad === 'todas' ? '' : initialLocalidad);
+  const [filtroLocalidades, setFiltroLocalidades] = useState(
+    initialLocalidad && initialLocalidad !== 'todas' ? [initialLocalidad] : []
+  );
   const [filtroTipos,     setFiltroTipos]     = useState(initialFiltro !== 'todos' ? new Set([initialFiltro]) : new Set());
   const [filtroServicios, setFiltroServicios] = useState(new Set());
 
+  // Infinite scroll
+  const [shownCount, setShownCount] = useState(10);
+  const sentinelRef = useRef(null);
   const ordenRef = useRef(null);
+  const winW = useWindowWidth();
+  const isMobile = winW < 768;
 
   useEffect(() => {
     (async () => {
       const [aloj, proms] = await Promise.all([getAlojamientos(), getPromos(20)]);
       setAlojamientos(aloj);
-      // Solo ofertas de alojamientos
-      setPromos(proms.filter(p => p.categoria === 'alojamiento'));
+      // Guardamos TODAS las categorías para la lógica de mezcla
+      setPromos(proms);
       setLoading(false);
     })();
   }, []);
@@ -333,10 +449,20 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  // ── Filtrar + ordenar alojamientos ───────────────────────
+  // ── Infinite scroll ──────────────────────────────────────
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setShownCount(n => n + 10);
+    }, { rootMargin: '200px' });
+    obs.observe(sentinelRef.current);
+    return () => obs.disconnect();
+  }, [sentinelRef.current]);
+
+  // Filtrar + ordenar alojamientos ───────────────────────
   const alojFiltrados = alojamientos.filter(item => {
     const matchTipo      = filtroTipos.size === 0 || filtroTipos.has(item.type);
-    const matchLocalidad = !filtroLocalidad || item.localidad === filtroLocalidad;
+    const matchLocalidad = filtroLocalidades.length === 0 || filtroLocalidades.includes(item.localidad);
     const matchBusq      = !busqueda || (item.name || '').toLowerCase().includes(busqueda.toLowerCase());
     return matchTipo && matchLocalidad && matchBusq;
   }).sort((a, b) => {
@@ -345,22 +471,60 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
     return 0;
   });
 
-  // ── Filtrar ofertas (solo de la localidad seleccionada) ──
-  const promosFiltradas = promos.filter(p =>
-    !filtroLocalidad || p.negocioLocalidad === filtroLocalidad || p.negocioZone === filtroLocalidad
-  ).map(p => ({ ...p, _esOferta: true, type: 'oferta' }));
+  // ── Promos filtradas por localidad ──────────────────────
+  const promosPorLocalidad = promos.filter(p =>
+    filtroLocalidades.length === 0 || filtroLocalidades.includes(p.negocioLocalidad) || filtroLocalidades.includes(p.negocioZone)
+  );
 
-  // ── Intercalar: 1 oferta cada 10 alojamientos ───────────
+  // Separar por categoría + plan Black (usa plan del negocio en mock, siempre incluir)
+  const esBlack = p => p.negocioPlan === 'BLACK' || p.esPlanBlack;
+  const alojPromos  = promosPorLocalidad.filter(p => p.categoria === 'alojamiento');
+  const gastroPromos = promosPorLocalidad.filter(p => p.categoria === 'gastronomia');
+  const expPromos    = promosPorLocalidad.filter(p => p.categoria === 'experiencia');
+
+  // ── Lógica de mezcla 50/20/20 + Black siempre completo ──
+  const N = alojFiltrados.length;
+  const pickPromos = (list, cuota) => {
+    const black = list.filter(esBlack);
+    const resto = list.filter(p => !esBlack(p)).slice(0, Math.max(0, cuota - black.length));
+    return [...black, ...resto].map(p => ({ ...p, _esOferta: true, type: 'oferta', _inMarketplace: true }));
+  };
+  const alojOfertas  = pickPromos(alojPromos,  Math.floor(N * 0.5));
+  const todasOfertas  = [...alojOfertas];
+
+  // ── Intercalar ofertas de forma pareja entre alojamientos ──
   const visibles = [];
-  let pIdx = 0;
-  alojFiltrados.forEach((item, i) => {
-    if (i > 0 && i % 10 === 0 && pIdx < promosFiltradas.length) {
-      visibles.push(promosFiltradas[pIdx++]);
-    }
-    visibles.push(item);
+  if (todasOfertas.length === 0) {
+    visibles.push(...alojFiltrados);
+  } else {
+    const ratio = Math.max(1, Math.floor(alojFiltrados.length / todasOfertas.length));
+    let oIdx = 0;
+    alojFiltrados.forEach((item, i) => {
+      visibles.push(item);
+      if ((i + 1) % ratio === 0 && oIdx < todasOfertas.length) {
+        visibles.push(todasOfertas[oIdx++]);
+      }
+    });
+    while (oIdx < todasOfertas.length) visibles.push(todasOfertas[oIdx++]);
+  }
+
+  // ── Tags de descuento para cada alojamiento ──────────────
+  const discountTagsMap = {};
+  alojFiltrados.forEach(item => {
+    const loc = item.localidad;
+    const hasGastro = gastroPromos.some(p => p.negocioLocalidad === loc || p.negocioZone === loc);
+    const hasExp    = expPromos.some(p => p.negocioLocalidad === loc || p.negocioZone === loc);
+    discountTagsMap[item.id] = { gastro: hasGastro, exp: hasExp };
   });
 
-  const vecinas = filtroLocalidad ? getVecinas(filtroLocalidad) : [];
+  // Reset paginado cuando cambian filtros/búsqueda
+  const filterKey = `${busqueda}|${[...filtroTipos].join()}|${filtroLocalidades.join()}|${[...filtroServicios].join()}|${orden}`;
+  useEffect(() => { setShownCount(10); }, [filterKey]);
+
+  const visiblesPaged = visibles.slice(0, shownCount);
+  const hayMas = shownCount < visibles.length;
+
+  const vecinas = filtroLocalidades.length === 1 ? getVecinas(filtroLocalidades[0]) : [];
 
   const toggleTipo = (t) => setFiltroTipos(prev => {
     const next = new Set(prev);
@@ -375,26 +539,33 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   });
 
   const limpiarFiltros = () => {
-    setFiltroLocalidad('');
+    setFiltroLocalidades([]);
     setFiltroTipos(new Set());
     setFiltroServicios(new Set());
     setBusqueda('');
   };
 
-  const hayFiltros = filtroLocalidad || filtroTipos.size > 0 || busqueda || filtroServicios.size > 0;
+  const limpiarSecundarios = () => {
+    setFiltroTipos(new Set());
+    setFiltroServicios(new Set());
+  };
 
-  // Active filter chips
+  // Solo filtros secundarios (no destinos)
+  const haySecundarios = filtroTipos.size > 0 || filtroServicios.size > 0;
+  const hayFiltros = filtroLocalidades.length > 0 || haySecundarios || busqueda;
+
+  // Chips solo de filtros secundarios
   const activeChips = [
-    ...(filtroLocalidad ? [{ key: 'loc', label: filtroLocalidad, clear: () => setFiltroLocalidad('') }] : []),
     ...[...filtroTipos].map(t => ({ key: `t-${t}`, label: t, clear: () => toggleTipo(t) })),
     ...[...filtroServicios].map(s => ({ key: `s-${s}`, label: SERVICIOS_LIST.find(x => x.id === s)?.label || s, clear: () => toggleServicio(s) })),
   ];
 
+  const cols = isMobile ? 1 : winW < 1024 ? 2 : 3;
   const renderGrid = (items) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 22 }}>
       {items.map(item => item._esOferta
-        ? <OfertaCardGrid key={`o-${item.id}`} promo={item} onClick={() => {}} onAddToCuponera={p => addCupon(p)} />
-        : <AccommodationCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} />
+        ? <OfertaCardGrid key={`o-${item.id}-${item.categoria}`} promo={item} onClick={() => {}} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
+        : <AccommodationCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} discountTags={discountTagsMap[item.id]} />
       )}
     </div>
   );
@@ -402,183 +573,189 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const renderList = (items) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {items.map(item => item._esOferta
-        ? <OfertaCardList key={`o-${item.id}`} promo={item} onClick={() => {}} onAddToCuponera={p => addCupon(p)} />
-        : <AlojListCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} />
+        ? <OfertaCardList key={`o-${item.id}-${item.categoria}`} promo={item} onClick={() => {}} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
+        : <AlojListCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} discountTags={discountTagsMap[item.id]} />
       )}
     </div>
   );
 
   const renderItems = (items) => vista === 'grilla' ? renderGrid(items) : renderList(items);
 
-  return (
-    <div style={{ minHeight: '100vh', background: A.bg, fontFamily: A.font, color: A.ink }}>
-
-      {/* ── Sticky top bar ── */}
-      <div style={{ background: '#fff', borderBottom: `1px solid ${A.line}`, position: 'sticky', top: 64, zIndex: 30, boxShadow: '0 2px 12px -4px rgba(11,16,32,0.08)' }}>
-        <div style={{ maxWidth: 1328, margin: '0 auto', padding: '12px 40px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Back */}
-          <button
-            onClick={onBack}
-            style={{ background: 'none', border: 'none', color: A.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 14, padding: '6px 0', flexShrink: 0 }}
-          >
-            <IcoArrowL /> Inicio
+  // ── Contenido del sidebar (reutilizado en desktop y drawer) ──
+  const SidebarContent = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: `1px solid ${A.line}` }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Filtros</span>
+        {isMobile && (
+          <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.muted, display: 'flex', padding: 4 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
-
-          {/* Search */}
-          <div style={{ flex: 1, position: 'relative', maxWidth: 520 }}>
-            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: A.muted, display: 'flex' }}>
-              <IcoSearch />
-            </span>
-            <input
-              type="text"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar alojamientos, ofertas..."
-              style={{ width: '100%', paddingLeft: 42, paddingRight: busqueda ? 36 : 14, paddingTop: 10, paddingBottom: 10, background: A.bg, border: `1px solid ${A.line}`, borderRadius: 12, fontSize: 14, fontWeight: 500, color: A.ink, outline: 'none', boxSizing: 'border-box', fontFamily: A.font }}
-              onFocus={e => e.target.style.borderColor = A.primary}
-              onBlur={e => e.target.style.borderColor = A.line}
-            />
-            {busqueda && (
-              <button onClick={() => setBusqueda('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: A.muted, display: 'flex' }}>
-                <IcoX />
-              </button>
-            )}
-          </div>
-
-          {/* Result count */}
-          <div style={{ fontSize: 13, color: A.muted, fontWeight: 500, flexShrink: 0 }}>
-            <span style={{ fontWeight: 700, color: A.ink }}>{alojFiltrados.length}</span> alojamientos
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* ── Body: sidebar + results ── */}
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '28px 40px 72px', display: 'grid', gridTemplateColumns: '260px 1fr', gap: 32 }}>
+          {/* Bloque DESTINO */}
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 12 }}>Destino</div>
+            <CheckRow
+              label="Todos los destinos"
+              checked={filtroLocalidades.length === 0 || filtroLocalidades.length === LOCALIDADES.length}
+              onChange={() => setFiltroLocalidades(prev => (prev.length === 0 || prev.length === LOCALIDADES.length) ? [] : [...LOCALIDADES])}
+            />
+            {LOCALIDADES.map(loc => (
+              <CheckRow
+                key={loc}
+                label={loc}
+                checked={filtroLocalidades.includes(loc)}
+                onChange={() => setFiltroLocalidades(prev =>
+                  prev.includes(loc) ? prev.filter(l => l !== loc) : [...prev, loc]
+                )}
+              />
+            ))}
 
-        {/* ── SIDEBAR ── */}
-        <aside>
-          <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 18, overflow: 'hidden' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: `1px solid ${A.line}` }}>
-              <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>Filtros</span>
-              {hayFiltros && (
-                <button onClick={limpiarFiltros} style={{ background: 'none', border: 'none', color: A.primary, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            {/* Botón Ver sólo promociones */}
+            <button
+              onClick={() => onVerOfertas && onVerOfertas(filtroLocalidades)}
+              style={{ marginTop: 20, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '12px 0', background: '#fff', border: `1.5px solid ${A.line}`, borderRadius: 999, fontSize: 13, fontWeight: 600, color: A.ink, cursor: 'pointer', fontFamily: A.font, transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink; }}
+            >
+              <img src="/ico-disc.svg" alt="" style={{ width: 24, height: 24, flexShrink: 0 }} />
+              Ver sólo promociones
+            </button>
+          </div>
+
+          {/* Divisor */}
+          <div style={{ height: 1, background: A.line, margin: '4px 0' }} />
+
+          {/* Bloque OTROS FILTROS */}
+          <div style={{ padding: '18px 20px 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Otros filtros</span>
+              {haySecundarios && (
+                <button onClick={limpiarSecundarios} style={{ background: 'none', border: 'none', fontSize: 12, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font }}>
                   Limpiar
                 </button>
               )}
             </div>
 
-            {/* Destino */}
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${A.line}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: A.ink, marginBottom: 10, letterSpacing: '-0.01em' }}>Destino</div>
-              <CheckRow label="Todos los destinos" checked={!filtroLocalidad} onChange={() => setFiltroLocalidad('')} />
-              {LOCALIDADES.map(loc => (
-                <CheckRow
-                  key={loc}
-                  label={loc}
-                  checked={filtroLocalidad === loc}
-                  onChange={() => setFiltroLocalidad(filtroLocalidad === loc ? '' : loc)}
-                />
-              ))}
-            </div>
+            {/* Chips de filtros activos */}
+            {activeChips.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                {activeChips.map(chip => (
+                  <span key={chip.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: A.primarySoft, color: A.primary, borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+                    {chip.label}
+                    <button onClick={chip.clear} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.primary, display: 'flex', padding: 0, lineHeight: 1 }}>
+                      <IcoX />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
-            {/* Tipo */}
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${A.line}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: A.ink, marginBottom: 10, letterSpacing: '-0.01em' }}>Tipo de alojamiento</div>
+            <SideSection title="Tipo de alojamiento">
               {TIPOS_ALOJ.map(t => (
                 <CheckRow key={t} label={t} checked={filtroTipos.has(t)} onChange={() => toggleTipo(t)} />
               ))}
-            </div>
-
-            {/* Servicios */}
-            <div style={{ padding: '16px 20px' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: A.ink, marginBottom: 10, letterSpacing: '-0.01em' }}>Servicios</div>
+            </SideSection>
+            <SideSection title="Servicios incluidos" defaultOpen={false}>
               {SERVICIOS_LIST.map(s => (
                 <CheckRow key={s.id} label={s.label} checked={filtroServicios.has(s.id)} onChange={() => toggleServicio(s.id)} />
               ))}
-            </div>
+            </SideSection>
           </div>
-        </aside>
+        </>
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', background: A.bg, fontFamily: A.font, color: A.ink, paddingTop: 70 }}>
+
+      {/* ── Drawer mobile ── */}
+      {isMobile && drawerOpen && (
+        <>
+          <div onClick={() => setDrawerOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(11,16,32,0.4)', zIndex: 100 }} />
+          <div style={{ position: 'fixed', top: 0, left: 0, bottom: 0, width: 300, background: '#fff', zIndex: 101, overflowY: 'auto', boxShadow: '4px 0 32px rgba(0,0,0,0.15)' }}>
+            {SidebarContent}
+          </div>
+        </>
+      )}
+
+      {/* ── Body ── */}
+      <div style={{ maxWidth: 1328, margin: '0 auto', padding: isMobile ? '16px 16px 72px' : '32px 40px 72px', display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+
+        {/* Sidebar desktop */}
+        {!isMobile && (
+          <div style={{ width: 260, flexShrink: 0, alignSelf: 'stretch' }}>
+          <aside ref={sidebarRef} style={{ background: '#fff', borderRadius: 18, border: `1px solid ${A.line}`, overflow: 'hidden', position: 'sticky', top: stickyTop }}>
+            {SidebarContent}
+          </aside>
+          </div>
+        )}
 
         {/* ── RESULTS ── */}
-        <div>
-          {/* Header: título + controles */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: activeChips.length ? 14 : 22 }}>
-            <div>
-              <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>
-                {loading ? 'Buscando...' : `${alojFiltrados.length} alojamiento${alojFiltrados.length !== 1 ? 's' : ''}${filtroLocalidad ? ` en ${filtroLocalidad}` : ''}`}
-              </h1>
-              {filtroLocalidad && (
-                <div style={{ fontSize: 13, color: A.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <IcoPin /> {filtroLocalidad}
-                </div>
-              )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* Fila: título + [filtros mobile] + search */}
+          <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+            <div style={{ flex: 1 }}>
+              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Alojamientos</h1>
+              <p style={{ fontSize: 13, color: A.muted, margin: '4px 0 0' }}>
+                {loading ? 'Cargando...' : `${alojFiltrados.length} alojamiento${alojFiltrados.length !== 1 ? 's' : ''} disponible${alojFiltrados.length !== 1 ? 's' : ''}${filtroLocalidades.length === 1 ? ` en ${filtroLocalidades[0]}` : ' en Villa Gesell y alrededores'}`}
+              </p>
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {/* Grid / List toggle */}
-              <div style={{ display: 'flex', background: A.bg, padding: 3, borderRadius: 10, border: `1px solid ${A.line}` }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+              {isMobile && (
                 <button
-                  onClick={() => setVista('grilla')}
-                  style={{ padding: '6px 10px', borderRadius: 7, background: vista === 'grilla' ? '#fff' : 'transparent', border: vista === 'grilla' ? `1px solid ${A.line}` : '1px solid transparent', color: vista === 'grilla' ? A.ink : A.muted, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                  onClick={() => setDrawerOpen(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: hayFiltros ? A.primary : '#fff', color: hayFiltros ? '#fff' : A.ink, border: `1.5px solid ${hayFiltros ? A.primary : A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}
                 >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+                  Filtros{hayFiltros ? ` (${(filtroTipos.size + filtroServicios.size + filtroLocalidades.length)})` : ''}
+                </button>
+              )}
+              <div style={{ position: 'relative' }}>
+                <input
+                  value={busqueda}
+                  onChange={e => setBusqueda(e.target.value)}
+                  placeholder="Buscar en alojamientos"
+                  style={{ width: isMobile ? 180 : 260, paddingLeft: 14, paddingRight: 40, paddingTop: 10, paddingBottom: 10, border: `1.5px solid ${A.line}`, borderRadius: 12, fontSize: 14, fontFamily: A.font, background: '#fff', color: A.ink, outline: 'none', boxSizing: 'border-box' }}
+                  onFocus={e => e.target.style.borderColor = A.primary}
+                  onBlur={e => e.target.style.borderColor = A.line}
+                />
+                <span style={{ position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)', color: A.muted, display: 'flex', pointerEvents: 'none' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Controles: grilla/lista + orden */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
+            {!isMobile && (
+              <div style={{ display: 'flex', background: A.bg, padding: 3, borderRadius: 10, border: `1px solid ${A.line}` }}>
+                <button onClick={() => setVista('grilla')} style={{ padding: '6px 10px', borderRadius: 7, background: vista === 'grilla' ? '#fff' : 'transparent', border: vista === 'grilla' ? `1px solid ${A.line}` : '1px solid transparent', color: vista === 'grilla' ? A.ink : A.muted, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                   <IcoGrid /> Grilla
                 </button>
-                <button
-                  onClick={() => setVista('lista')}
-                  style={{ padding: '6px 10px', borderRadius: 7, background: vista === 'lista' ? '#fff' : 'transparent', border: vista === 'lista' ? `1px solid ${A.line}` : '1px solid transparent', color: vista === 'lista' ? A.ink : A.muted, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                >
+                <button onClick={() => setVista('lista')} style={{ padding: '6px 10px', borderRadius: 7, background: vista === 'lista' ? '#fff' : 'transparent', border: vista === 'lista' ? `1px solid ${A.line}` : '1px solid transparent', color: vista === 'lista' ? A.ink : A.muted, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                   <IcoList /> Lista
                 </button>
               </div>
-              {/* Orden */}
-              <div style={{ position: 'relative' }} ref={ordenRef}>
-                <button
-                  onClick={() => setShowOrden(o => !o)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#fff', border: `1px solid ${A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}
-                >
-                  {ORDEN_OPTS.find(o => o.id === orden)?.label} <IcoChevD />
-                </button>
-                {showOrden && (
-                  <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 14, boxShadow: '0 16px 48px -16px rgba(11,16,32,0.2)', zIndex: 50, overflow: 'hidden', minWidth: 200 }}>
-                    {ORDEN_OPTS.map(opt => (
-                      <button
-                        key={opt.id}
-                        onClick={() => { setOrden(opt.id); setShowOrden(false); }}
-                        style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', background: orden === opt.id ? A.primarySoft : 'transparent', color: orden === opt.id ? A.primary : A.ink2, fontSize: 13, fontWeight: orden === opt.id ? 600 : 500, cursor: 'pointer', fontFamily: A.font }}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Active filter chips */}
-          {activeChips.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-              {activeChips.map(chip => (
-                <span
-                  key={chip.key}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: A.primarySoft, color: A.primary, borderRadius: 999, fontSize: 12, fontWeight: 600 }}
-                >
-                  {chip.label}
-                  <button onClick={chip.clear} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.primary, display: 'flex', padding: 0 }}>
-                    <IcoX />
-                  </button>
-                </span>
-              ))}
-              {hayFiltros && (
-                <button
-                  onClick={limpiarFiltros}
-                  style={{ padding: '5px 12px', background: 'transparent', border: `1px solid ${A.line}`, borderRadius: 999, fontSize: 12, fontWeight: 600, color: A.muted, cursor: 'pointer' }}
-                >
-                  Limpiar todo
-                </button>
+            )}
+            <span style={{ fontSize: 13, color: A.muted, fontWeight: 500 }}>Ordenar por</span>
+            <div style={{ position: 'relative' }} ref={ordenRef}>
+              <button onClick={() => setShowOrden(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#fff', border: `1px solid ${A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}>
+                {ORDEN_OPTS.find(o => o.id === orden)?.label} <IcoChevD />
+              </button>
+              {showOrden && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 14, boxShadow: '0 16px 48px -16px rgba(11,16,32,0.2)', zIndex: 50, overflow: 'hidden', minWidth: 200 }}>
+                  {ORDEN_OPTS.map(opt => (
+                    <button key={opt.id} onClick={() => { setOrden(opt.id); setShowOrden(false); }} style={{ width: '100%', textAlign: 'left', padding: '11px 16px', border: 'none', background: orden === opt.id ? A.primarySoft : 'transparent', color: orden === opt.id ? A.primary : A.ink2, fontSize: 13, fontWeight: orden === opt.id ? 600 : 500, cursor: 'pointer', fontFamily: A.font }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-          )}
+          </div>
 
           {/* Results */}
           {loading ? (
@@ -593,23 +770,26 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
               <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, marginBottom: 6 }}>Sin resultados</div>
               <div style={{ fontSize: 14, color: A.muted, marginBottom: 20 }}>Probá con otros filtros o explorá otras zonas</div>
-              <button
-                onClick={limpiarFiltros}
-                style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-              >
+              <button onClick={limpiarFiltros} style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                 Limpiar filtros
               </button>
             </div>
-          ) : renderItems(visibles)}
+          ) : renderItems(visiblesPaged)}
+
+          {/* Sentinel infinite scroll */}
+          {hayMas && <div ref={sentinelRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 28, height: 28, border: `3px solid ${A.line}`, borderTopColor: A.primary, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          </div>}
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
           {/* Otras opciones cerca */}
-          {!loading && filtroLocalidad && vecinas.length > 0 && (
+          {!loading && filtroLocalidades.length === 1 && vecinas.length > 0 && (
             <div style={{ marginTop: 64 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
                 <div style={{ flex: 1, height: 1, background: A.line }} />
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>También te puede interesar</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: A.ink }}>Otras opciones similares cerca de {filtroLocalidad}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: A.ink }}>Otras opciones similares cerca de {filtroLocalidades[0]}</div>
                 </div>
                 <div style={{ flex: 1, height: 1, background: A.line }} />
               </div>
@@ -624,10 +804,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
                         <span style={{ fontSize: 16, fontWeight: 700, color: A.ink }}>{vecina}</span>
                         <span style={{ fontSize: 12, color: A.muted }}>({itemsVecina.length} opciones)</span>
                       </div>
-                      <button
-                        onClick={() => setFiltroLocalidad(vecina)}
-                        style={{ background: 'none', border: 'none', color: A.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                      >
+                      <button onClick={() => setFiltroLocalidades([vecina])} style={{ background: 'none', border: 'none', color: A.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                         Ver todo en {vecina} <IcoChevR />
                       </button>
                     </div>

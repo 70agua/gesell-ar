@@ -513,10 +513,10 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
 
                   {/* Fila 1 — Labels */}
                   <div style={{ padding: '16px 16px 6px', borderRight: `1px solid ${C.line}` }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Ahorro estimado</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Ahorro estimado</span>
                   </div>
                   <div style={{ padding: '16px 14px 6px' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Lo activás con</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Lo activás con</span>
                   </div>
 
                   {/* Fila 2 — Valores principales */}
@@ -535,7 +535,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
 
                   {/* Fila 3 — Subtextos */}
                   <div style={{ padding: '4px 16px 16px', borderRight: `1px solid ${C.line}` }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.green }}>Aproximadamente</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.green }}>Aproximadamente</span>
                   </div>
                   <div style={{ padding: '4px 14px 16px' }}>
                     <span style={{ fontSize: 11, color: C.muted }}>(${precioCreditosARS.toLocaleString('es-AR')} + IVA)</span>
