@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@media (min-width: 1024px) {
+  .zona-panel { display: flex !important; }
+}
+
 .g-side-section:last-child {
   border-bottom: none;
   margin-bottom: 0;

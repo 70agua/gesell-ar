@@ -1,7 +1,8 @@
 // ============================================================
 //  src/views/DetailView.jsx — Tailwind + Aire design system
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import MapView from '../components/MapView';
 import {
   X, Send, Gift, Check, Eye, EyeOff, Loader2, Lock,
   Heart, Share2, Zap, MessageCircle, Flag, ChevronRight, ChevronLeft,
@@ -216,6 +217,51 @@ function ConsultaDrawer({ item, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Coordenadas aproximadas por localidad ───────────────────
+const LOCALIDAD_COORDS = {
+  'Villa Gesell':      [-37.2636, -56.9769],
+  'Mar de las Pampas': [-37.3283, -57.0147],
+  'Las Gaviotas':      [-37.3050, -57.0020],
+  'Mar Azul':          [-37.3530, -57.0333],
+  'Chacras del Mar':   [-37.3750, -57.0500],
+  'Colonia Marina':    [-37.2200, -56.9500],
+  'El Salvaje':        [-37.1900, -56.9300],
+};
+const DEFAULT_COORDS = [-37.2636, -56.9769];
+
+// Fix Leaflet default marker icon
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// ZonaMap ahora usa el componente MapView reutilizable
+function ZonaMap({ item, promos, onAddCupon }) {
+  const center = LOCALIDAD_COORDS[item.localidad] || DEFAULT_COORDS;
+
+  // Solo gastro + experiencias, sin alojamientos
+  const promosZona = promos
+    .filter(p => p.categoria !== 'alojamiento')
+    .slice(0, 5)
+    .map((p, i) => {
+      const base = LOCALIDAD_COORDS[p.negocioLocalidad] || center;
+      const angle = (i / 5) * 2 * Math.PI + 0.4;
+      const r = 0.006 + (i % 3) * 0.003;
+      return { ...p, lat: base[0] + Math.sin(angle) * r, lng: base[1] + Math.cos(angle) * r };
+    });
+
+  return (
+    <MapView
+      promos={promosZona}
+      center={center}
+      hotelName={item.name}
+      onAddCupon={onAddCupon}
+    />
   );
 }
 
@@ -496,9 +542,9 @@ function FlashTimer({ fechaFin }) {
       {[h, m, s].map((v, i) => (
         <React.Fragment key={i}>
           <div style={{
-            background: '#fff', color: C.ink, borderRadius: 5,
-            fontSize: 11, fontWeight: 800, lineHeight: 1,
-            width: 25, height: 25,
+            background: '#fff', color: C.ink, borderRadius: 6,
+            fontSize: 14, fontWeight: 800, lineHeight: 1,
+            width: 32, height: 32,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
           }}>
@@ -513,13 +559,46 @@ function FlashTimer({ fechaFin }) {
   );
 }
 
+// ─── Paletas animadas para PropiaOfferCard ───────────────────
+// Inyectar keyframes una sola vez
+if (typeof document !== 'undefined' && !document.getElementById('__blob_kf__')) {
+  const s = document.createElement('style');
+  s.id = '__blob_kf__';
+  s.textContent = `
+    /* Time warp — elipses en múltiples ángulos */
+    @keyframes warp0  {0%{transform:translate(-50%,-50%) rotate(0deg)   scaleX(.04) scaleY(.12);opacity:.95}80%{opacity:.3}100%{transform:translate(-50%,-50%) rotate(0deg)   scaleX(3.2) scaleY(3.2);opacity:0}}
+    @keyframes warp40 {0%{transform:translate(-50%,-50%) rotate(40deg)  scaleX(.04) scaleY(.10);opacity:.90}80%{opacity:.3}100%{transform:translate(-50%,-50%) rotate(40deg)  scaleX(3.5) scaleY(3.5);opacity:0}}
+    @keyframes warp80 {0%{transform:translate(-50%,-50%) rotate(80deg)  scaleX(.05) scaleY(.13);opacity:.92}80%{opacity:.3}100%{transform:translate(-50%,-50%) rotate(80deg)  scaleX(3.0) scaleY(3.0);opacity:0}}
+    @keyframes warp120{0%{transform:translate(-50%,-50%) rotate(120deg) scaleX(.04) scaleY(.11);opacity:.88}80%{opacity:.3}100%{transform:translate(-50%,-50%) rotate(120deg) scaleX(3.4) scaleY(3.4);opacity:0}}
+    @keyframes warp160{0%{transform:translate(-50%,-50%) rotate(160deg) scaleX(.06) scaleY(.10);opacity:.93}80%{opacity:.3}100%{transform:translate(-50%,-50%) rotate(160deg) scaleX(2.9) scaleY(2.9);opacity:0}}
+  ` + Array.from({length:10},(_,i)=>`
+    @keyframes blobA${i}{0%{transform:translate(0,0) scale(1)}25%{transform:translate(${50+i*6}px,${-45-i*4}px) scale(1.3)}50%{transform:translate(${-30-i*3}px,${60+i*5}px) scale(0.78)}75%{transform:translate(${55+i*4}px,${30+i*3}px) scale(1.2)}100%{transform:translate(0,0) scale(1)}}
+    @keyframes blobB${i}{0%{transform:translate(0,0) scale(1)}25%{transform:translate(${-55-i*4}px,${35+i*5}px) scale(0.75)}50%{transform:translate(${40+i*5}px,${-50-i*4}px) scale(1.32)}75%{transform:translate(${-35-i*3}px,${-30-i*4}px) scale(0.88)}100%{transform:translate(0,0) scale(1)}}
+    @keyframes blobC${i}{0%{transform:translate(0,0) scale(1)}25%{transform:translate(${30+i*4}px,${55+i*4}px) scale(1.25)}50%{transform:translate(${-50-i*4}px,${-35-i*3}px) scale(0.8)}75%{transform:translate(${-20-i*3}px,${50+i*4}px) scale(1.15)}100%{transform:translate(0,0) scale(1)}}
+  `).join('');
+  document.head.appendChild(s);
+}
+
+const BLOB_PALETTES = [
+  { bg: '#1A4A6B', c: ['#2E86C1','#48C9B0','#1ABC9C'] },
+  { bg: '#5B2C6F', c: ['#E67E22','#E91E8C','#8E44AD'] },
+  { bg: '#1A5C2A', c: ['#27AE60','#52BE80','#1E8449'] },
+  { bg: '#6B4010', c: ['#F39C12','#E67E22','#D4AC0D'] },
+  { bg: '#1A3A5C', c: ['#16A085','#2E86C1','#27AE60'] },
+  { bg: '#2C1A7A', c: ['#5B2C6F','#7D3C98','#4A90D9'] },
+  { bg: '#0E4D6B', c: ['#17A589','#1A8FC0','#48C9B0'] },
+  { bg: '#6B1A3A', c: ['#C0392B','#E91E8C','#8E44AD'] },
+  { bg: '#3A2A6B', c: ['#7B68EE','#9B59B6','#4A90D9'] },
+  { bg: '#2A4A1A', c: ['#C0392B','#27AE60','#D4AC0D'] },
+];
+
 // ─── Propia offer card (ofertas del propio alojamiento) ──────
 // Click solo en área de color y título. Ancho área = 240px.
 function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
   const [titleHov, setTitleHov] = useState(false);
   const isFlash = promo.offerType === 'Flash';
-  // Cada card usa una foto distinta (estática, sin animación)
-  const bgFoto = !isFlash && fotos.length > 0 ? fotos[seed % fotos.length] : null;
+  const palette = BLOB_PALETTES[seed % BLOB_PALETTES.length];
+  const bgFoto = null; // reemplazado por blobs animados
   const goDetail = () => onOpenOferta && onOpenOferta(promo);
 
   const desc = promo.description || promo.desc ||
@@ -541,62 +620,68 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: '14px 18px 16px',
           cursor: 'pointer', textAlign: 'center',
-          background: isFlash ? '#EF4444' : C.ink,
+          background: '#B01A1A',
         }}
       >
-        {/* Foto blureada como fondo */}
-        {bgFoto && (
-          <img
-            src={bgFoto}
-            alt=""
-            style={{
-              position: 'absolute', inset: 0, width: '100%', height: '100%',
-              objectFit: 'cover', filter: 'blur(16px)', transform: 'scale(1.15)',
-              opacity: 0.75,
-            }}
-          />
+        {isFlash ? <>
+          {/* Blobs animados en rojos + naranja */}
+          <div style={{ position: 'absolute', width: 150, height: 150, borderRadius: '50%', background: '#cc2e30', filter: 'blur(40px)', opacity: 0.9, top: -25, left: -25, animation: `blobA${seed % 10} ${5.5 + (seed % 4) * 0.5}s ease-in-out infinite` }} />
+          <div style={{ position: 'absolute', width: 130, height: 130, borderRadius: '50%', background: '#d73337', filter: 'blur(35px)', opacity: 0.85, bottom: -15, right: -15, animation: `blobB${seed % 10} ${6.5 + (seed % 3) * 0.4}s ease-in-out infinite` }} />
+          <div style={{ position: 'absolute', width: 110, height: 110, borderRadius: '50%', background: '#E8622A', filter: 'blur(30px)', opacity: 0.7, top: '40%', right: 0, animation: `blobC${seed % 10} ${7.5 + (seed % 5) * 0.3}s ease-in-out infinite` }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.08)' }} />
+        </> : <>
+          {/* Blobs de paleta normal */}
+          <div style={{ position: 'absolute', width: 140, height: 140, borderRadius: '50%', background: palette.c[0], filter: 'blur(38px)', opacity: 0.8, top: -20, left: -20, animation: `blobA${seed % 10} ${6 + (seed % 4) * 0.5}s ease-in-out infinite` }} />
+          <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', background: palette.c[1], filter: 'blur(32px)', opacity: 0.75, bottom: -10, right: -10, animation: `blobB${seed % 10} ${7 + (seed % 3) * 0.4}s ease-in-out infinite` }} />
+          <div style={{ position: 'absolute', width: 100, height: 100, borderRadius: '50%', background: palette.c[2], filter: 'blur(28px)', opacity: 0.7, top: '35%', right: 10, animation: `blobC${seed % 10} ${8 + (seed % 5) * 0.3}s ease-in-out infinite` }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.12)' }} />
+        </>}
+        {/* Contenido — z elevado */}
+        {isFlash ? (
+          /* Layout Flash: pill → badge → desc → timer, centrado verticalmente */
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '75%', height: '100%', paddingTop: 14, paddingBottom: 14 }}>
+            {/* Pill OFERTA FLASH — top, fondo blanco */}
+            {/* Pill OFERTA FLASH — top */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fff', borderRadius: 999, padding: '5px 13px 5px 11px' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, letterSpacing: '0.03em' }}>OFERTA</span>
+              <span style={{ fontSize: 13, fontWeight: 900, color: '#cc2e30', fontStyle: 'italic', letterSpacing: '0.04em' }}>FLASH</span>
+              <Zap size={12} color={C.yellow} fill={C.yellow} />
+            </div>
+            {/* Badge + desc + timer — centrado */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
+              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                {promo.badge}
+              </span>
+              {promo.badgeDesc && (
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, textAlign: 'center' }}>
+                  {promo.badgeDesc}
+                </span>
+              )}
+              {promo.fechaFinFlash && <FlashTimer fechaFin={promo.fechaFinFlash} />}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Layout normal: label arriba, spacers, badge, spacers */}
+            <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase' }}>
+                CUPÓN DE DESCUENTO
+              </div>
+            </div>
+            <div style={{ flex: 1 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
+              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                {promo.badge}
+              </span>
+              {promo.badgeDesc && (
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35 }}>
+                  {promo.badgeDesc}
+                </span>
+              )}
+            </div>
+            <div style={{ flex: 1 }} />
+          </>
         )}
-        {/* Overlay solo para legibilidad, liviano */}
-        {bgFoto && <div style={{ position: 'absolute', inset: 0, background: 'rgba(11,16,32,0.25)' }} />}
-        {/* Contenido sobre la foto — z elevado */}
-        {/* TOP: Pill + Timer pegados al borde superior */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, width: '100%', position: 'relative', zIndex: 1 }}>
-          {isFlash ? (
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              border: '1.5px solid rgba(255,255,255,0.65)',
-              borderRadius: 999, padding: '4px 11px 4px 9px',
-            }}>
-              <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
-              <span style={{ fontSize: 10, fontWeight: 900, color: C.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
-              <Zap size={10} color={C.yellow} fill={C.yellow} style={{ marginLeft: 1 }} />
-            </div>
-          ) : (
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase' }}>
-              CUPÓN DE DESCUENTO
-            </div>
-          )}
-          {isFlash && promo.fechaFinFlash && (
-            <FlashTimer fechaFin={promo.fechaFinFlash} />
-          )}
-        </div>
-
-        {/* SPACER empuja badge+desc al centro */}
-        <div style={{ flex: 1 }} />
-
-        {/* Badge grande + desc — centrados verticalmente en el espacio restante */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
-          <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
-            {promo.badge}
-          </span>
-          {promo.badgeDesc && (
-            <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35 }}>
-              {promo.badgeDesc}
-            </span>
-          )}
-        </div>
-
-        <div style={{ flex: 1 }} />
       </div>
 
       {/* ── Cuerpo — NO clickeable salvo título ─────────────── */}
@@ -607,7 +692,7 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
             onClick={goDetail}
             onMouseEnter={() => setTitleHov(true)}
             onMouseLeave={() => setTitleHov(false)}
-            style={{ fontSize: 18, fontWeight: 700, color: titleHov ? C.primary : C.ink, lineHeight: 1.3, marginBottom: 8, cursor: 'pointer', transition: 'color 0.15s', textDecoration: titleHov ? 'underline' : 'none' }}
+            style={{ fontSize: 18, fontWeight: 700, color: C.green, lineHeight: 1.3, marginBottom: 8, cursor: 'pointer', transition: 'color 0.15s' }}
           >
             {promo.title || promo.titulo}
           </div>
@@ -986,12 +1071,6 @@ function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
   return (
     <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ background: '#fff', border: `1px solid ${C.line}`, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.18)' }}>
 
-      {/* Plan BLACK badge */}
-      {plan === 'BLACK' && (
-        <div className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold text-white" style={{ background: C.ink }}>
-          ★ Socio Black — atención prioritaria
-        </div>
-      )}
 
       {/* Dates */}
       {cfg.showPrice && (
@@ -1207,9 +1286,15 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
               )}
             </div>
 
-            {/* ── Ofertas del alojamiento (sin título) ─────── */}
+            {/* ── Ofertas y beneficios exclusivos ──────────── */}
+            {!loading && (promos.length > 0 || alianzasNorm.length > 0) && (
+              <div style={{ marginTop: 40, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                <img src="/ico-regalo.svg" alt="" style={{ width: 30, height: 30, filter: 'invert(36%) sepia(97%) saturate(600%) hue-rotate(205deg) brightness(90%)' }} />
+                <span style={{ fontSize: 24, fontWeight: 700, color: C.ink }}>Ofertas y beneficios exclusivos</span>
+              </div>
+            )}
             {!loading && promos.length > 0 && (
-              <div style={{ marginTop: 36 }}>
+              <div style={{ marginTop: 16 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {promos.map((p, idx) => {
                     const np = normPromo(p);
@@ -1229,15 +1314,8 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
               </div>
             )}
 
-            {/* ── Más beneficios exclusivos para sus huéspedes ── */}
             {!loading && alianzasNorm.length > 0 && (
-              <div style={{ marginTop: 36 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#E8FFF4', display: 'grid', placeItems: 'center' }}>
-                    <Gift size={14} color={C.green} />
-                  </div>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>Más beneficios exclusivos para sus huéspedes</span>
-                </div>
+              <div style={{ marginTop: promos.length > 0 ? 24 : 16 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {alianzasNorm.map((p, i) => (
                     <OfferCard
@@ -1267,85 +1345,34 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
       </div>
 
 
-      {/* ── Más descuentos en la zona ────────────────────────── */}
+      {/* ── Más descuentos en la zona — mapa interactivo ─────── */}
       {promosLocalidad.length > 0 && (
         <section style={{ background: '#fff', borderTop: `1px solid ${C.line}`, paddingTop: 56, paddingBottom: 56 }}>
           <div className="max-w-[1328px] mx-auto px-10">
-
-            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: C.primarySoft, display: 'grid', placeItems: 'center' }}>
-                  <MapPin size={15} color={C.primary} />
-                </div>
-                <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>
-                  Más descuentos en la zona
-                </h2>
+                <img src="/ico-location.svg" alt="" style={{ width: 30, height: 30, filter: 'invert(36%) sepia(97%) saturate(600%) hue-rotate(205deg) brightness(90%)' }} />
+                <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>Otros descuentos en la zona</h2>
               </div>
               {onOpenLocalidad && item.localidad && (
                 <button
                   onClick={() => onOpenLocalidad(item.localidad)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.primary, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
                 >
-                  Ver más ofertas <ChevronRight size={14} />
+                  Ver todas <ChevronRight size={14} />
                 </button>
               )}
             </div>
-
-            {/* Cards — una fila, máx 4 */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-              {promosLocalidad.slice(0, 4).map((p, i) => (
-                <BigOfferCard
-                  key={p.id || i}
-                  promo={p}
-                  onAdd={() => addCupon(p)}
-                  onOpenOferta={onOpenOferta}
-                />
-              ))}
-            </div>
-
+            <ZonaMap
+              item={item}
+              promos={promosLocalidad}
+              onAddCupon={addCupon}
+              onOpenOferta={onOpenOferta}
+            />
           </div>
         </section>
       )}
 
-      {/* ── Dónde queda ──────────────────────────────────── */}
-      <section className="py-16 bg-white" style={{ borderTop: `1px solid ${C.line}` }}>
-        <div className="max-w-[1328px] mx-auto px-10">
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest mb-3" style={{ color: C.primary }}>
-            <MapPin size={11} /> Ubicación
-          </div>
-          <h2 className="text-4xl font-extrabold tracking-tight mb-2" style={{ color: C.ink }}>Dónde queda</h2>
-          <p className="text-[15px] mb-6" style={{ color: C.muted }}>
-            {item.address
-              ? `${item.address} — ${item.localidad || 'Villa Gesell'}.`
-              : `En pleno corazón de ${item.localidad || 'Villa Gesell'}, a metros de la playa.`}
-          </p>
-
-          <BarrioMap item={item} plan={plan} />
-
-          {/* Address + CTA */}
-          <div className="mt-5 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-[14px] font-medium" style={{ color: C.ink }}>
-                <MapPin size={14} color={C.primary} />
-                {item.address || `${item.localidad || 'Villa Gesell'}, Buenos Aires`}
-              </div>
-              {item.localidad && (
-                <div className="text-[13px] mt-0.5 ml-6" style={{ color: C.muted }}>{item.localidad}, Buenos Aires</div>
-              )}
-            </div>
-            <a
-              href={`https://www.google.com/maps/search/${encodeURIComponent(item.address || item.name || 'Villa Gesell')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold cursor-pointer no-underline"
-              style={{ background: C.primarySoft, color: C.primary }}
-            >
-              Cómo llegar <ChevronRight size={14} />
-            </a>
-          </div>
-        </div>
-      </section>
     </>
   );
 }
@@ -1570,7 +1597,14 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
               style={{ background: `${pinColor}18`, color: pinColor }}>
               {item.type || item.category}
             </div>
-            <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-tight m-0" style={{ color: C.ink }}>{item.name}</h1>
+            <div className="flex items-center gap-3 flex-wrap mb-1">
+              <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-tight m-0" style={{ color: C.ink }}>{item.name}</h1>
+              {plan === 'BLACK' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shrink-0" style={{ background: C.ink }}>
+                  ★ Socio Black
+                </span>
+              )}
+            </div>
             <div className="mt-2 flex items-center flex-wrap gap-4 text-[13px]" style={{ color: C.muted }}>
               {item.rating && (
                 <span className="flex items-center gap-1.5 font-semibold" style={{ color: C.ink }}>
