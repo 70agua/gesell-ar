@@ -23,7 +23,14 @@ const A = {
   font:        "'Geist', system-ui, sans-serif",
 };
 
-const TIPOS_ALOJ = ['Hotel', 'Cabaña', 'Departamento', 'Casa', 'Hostel', 'Dormi'];
+// label (display) → val (coincide con item.type en BD)
+const TIPOS_ALOJ = [
+  { label: 'Hoteles',         val: 'Hotel' },
+  { label: 'Cabañas',         val: 'Cabaña' },
+  { label: 'Casas',           val: 'Casa' },
+  { label: 'Departamentos',   val: 'Departamento' },
+  { label: 'Dormis / Camping',val: 'Dormi' },
+];
 const SERVICIOS_LIST = [
   { id: 'mar',      label: 'Cerca del mar' },
   { id: 'piscina',  label: 'Piscina'        },
@@ -51,13 +58,7 @@ const IcoList    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="n
 const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
 
 function CoinSVG({ size = 13 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20">
-      <circle cx="10" cy="10" r="9.25" fill="#FFC93C" stroke="#C8990A" strokeWidth="1.5"/>
-      <circle cx="10" cy="10" r="6.5" fill="none" stroke="#C8990A" strokeWidth="1" opacity="0.4"/>
-      <text x="10" y="14" textAnchor="middle" fill="#7A5A00" fontSize="8" fontWeight="800" fontFamily="system-ui"></text>
-    </svg>
-  );
+  return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
 }
 
 // ─── Offer card (grid) ────────────────────────────────────────
@@ -113,6 +114,20 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
           </div>
         )}
 
+        {/* Badge "Exclusivo para huéspedes" — top */}
+        {promo.exclusivoHuespedes && (
+          <>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+              </svg>
+              <span style={{ fontSize: 12, fontWeight: 400, color: '#fff', lineHeight: 1.35 }}>
+                Exclusivo huéspedes {promo.exclusivoHuespedes}
+              </span>
+            </div>
+          </>
+        )}
         <div style={{ position: 'absolute', bottom: 12, left: 14, color: '#fff', fontSize: (promo.badge?.length || 0) > 5 ? 25 : 36, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
         <div style={{ position: 'absolute', bottom: 10, right: 10 }}><HeartButton id={promo.id} /></div>
       </div>
@@ -120,8 +135,8 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
         {/* Localidad + zona */}
         {(promo.negocioLocalidad || promo.negocioZone) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, marginBottom: 6 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad || promo.negocioZone}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad || promo.negocioZone}</span>
             {promo.negocioLocalidad && promo.negocioZone && <span style={{ color: A.muted }}> · {promo.negocioZone}</span>}
           </div>
         )}
@@ -133,17 +148,26 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
         <div style={{ fontSize: 14, fontWeight: 600, color: A.green, lineHeight: 1.3, marginBottom: 12 }}>
           {promo.title}
         </div>
+        <button
+          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
+          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
+          onMouseLeave={e => e.currentTarget.style.background = A.primary}
+        >
+          <IcoTicket /> Agregar a cuponera
+        </button>
+
         {/* Cajita ahorro + créditos — siempre visible en marketplace */}
         {(() => {
           const tc = promo.tokens_costo;
           if (tc === 0) return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '9px 12px', border: '1px solid #BBF7D0', marginBottom: 10, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '9px 12px', border: '1px solid #BBF7D0', marginTop: 10, flexShrink: 0 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
             </div>
           );
           return (
-            <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginBottom: 10, flexShrink: 0 }}>
+            <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 10, flexShrink: 0 }}>
               {promo.ahorroEstimado > 0 && <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px' }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
@@ -168,14 +192,6 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
             </div>
           );
         })()}
-        <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = A.primary}
-        >
-          <IcoTicket /> Agregar a cuponera
-        </button>
       </div>
     </div>
   );
@@ -223,6 +239,20 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
             <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
           </div>
         )}
+        {/* Badge "Exclusivo para huéspedes" — top (card lista, gradiente vertical) */}
+        {promo.exclusivoHuespedes && (
+          <>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 12, left: 12, right: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+              </svg>
+              <span style={{ fontSize: 12, fontWeight: 400, color: '#fff', lineHeight: 1.35 }}>
+                Exclusivo huéspedes {promo.exclusivoHuespedes}
+              </span>
+            </div>
+          </>
+        )}
         <div style={{ position: 'absolute', bottom: 14, left: 14, color: '#fff', fontSize: (promo.badge?.length || 0) > 5 ? 22 : 32, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
         <div style={{ position: 'absolute', bottom: 12, right: 10 }}><HeartButton id={promo.id} size={28} /></div>
       </div>
@@ -244,8 +274,8 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
           )}
           {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-              <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
               {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
                 <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
               )}
@@ -258,13 +288,24 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
           <div style={{ fontSize: 16, fontWeight: 700, color: A.green, lineHeight: 1.3 }}>{promo.title}</div>
         </div>
         <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <button
+              onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+              style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            >
+              <IcoTicket /> Agregar a cuponera
+            </button>
+            <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: A.primary, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              Ver detalle <IcoChevR />
+            </span>
+          </div>
           {promo.tokens_costo != null && (
             promo.tokens_costo === 0
-              ? <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '7px 11px', border: '1px solid #BBF7D0', marginBottom: 10 }}>
+              ? <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '7px 11px', border: '1px solid #BBF7D0' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
                 </div>
-              : <div style={{ border: `1px solid ${A.line}`, borderRadius: 9, overflow: 'hidden', marginBottom: 10 }}>
+              : <div style={{ border: `1px solid ${A.line}`, borderRadius: 9, overflow: 'hidden' }}>
                   {promo.ahorroEstimado > 0 && <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 11px' }}>
                       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
@@ -284,17 +325,6 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
                   </div>
                 </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-              style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-            >
-              <IcoTicket /> Agregar a cuponera
-            </button>
-            <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: A.primary, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              Ver detalle <IcoChevR />
-            </span>
-          </div>
         </div>
       </div>
     </div>
@@ -420,9 +450,13 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   }, []);
 
   // Filtros sidebar
-  const [filtroLocalidades, setFiltroLocalidades] = useState(
-    initialLocalidad && initialLocalidad !== 'todas' ? [initialLocalidad] : []
-  );
+  const [filtroLocalidades, setFiltroLocalidades] = useState(() => {
+    if (!initialLocalidad || initialLocalidad === 'todas') return [];
+    if (initialLocalidad.startsWith('__multi__:')) {
+      return initialLocalidad.slice('__multi__:'.length).split(',').filter(Boolean);
+    }
+    return [initialLocalidad];
+  });
   const [filtroTipos,     setFiltroTipos]     = useState(initialFiltro !== 'todos' ? new Set([initialFiltro]) : new Set());
   const [filtroServicios, setFiltroServicios] = useState(new Set());
 
@@ -554,9 +588,11 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const haySecundarios = filtroTipos.size > 0 || filtroServicios.size > 0;
   const hayFiltros = filtroLocalidades.length > 0 || haySecundarios || busqueda;
 
+  const tipoLabel = (val) => TIPOS_ALOJ.find(t => t.val === val)?.label || val;
+
   // Chips solo de filtros secundarios
   const activeChips = [
-    ...[...filtroTipos].map(t => ({ key: `t-${t}`, label: t, clear: () => toggleTipo(t) })),
+    ...[...filtroTipos].map(t => ({ key: `t-${t}`, label: tipoLabel(t), clear: () => toggleTipo(t) })),
     ...[...filtroServicios].map(s => ({ key: `s-${s}`, label: SERVICIOS_LIST.find(x => x.id === s)?.label || s, clear: () => toggleServicio(s) })),
   ];
 
@@ -584,7 +620,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   // ── Contenido del sidebar (reutilizado en desktop y drawer) ──
   const SidebarContent = (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: `1px solid ${A.line}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${A.line}` }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Filtros</span>
         {isMobile && (
           <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.muted, display: 'flex', padding: 4 }}>
@@ -594,8 +630,9 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
       </div>
 
           {/* Bloque DESTINO */}
-          <div style={{ padding: '16px 20px' }}>
+          <div style={{ padding: '14px 18px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 12 }}>Destino</div>
+
             <CheckRow
               label="Todos los destinos"
               checked={filtroLocalidades.length === 0 || filtroLocalidades.length === LOCALIDADES.length}
@@ -628,7 +665,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
           <div style={{ height: 1, background: A.line, margin: '4px 0' }} />
 
           {/* Bloque OTROS FILTROS */}
-          <div style={{ padding: '18px 20px 8px' }}>
+          <div style={{ padding: '14px 18px 8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Otros filtros</span>
               {haySecundarios && (
@@ -652,9 +689,14 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
               </div>
             )}
 
-            <SideSection title="Tipo de alojamiento">
+            <SideSection title="Tipos de alojamiento">
+              <CheckRow
+                label="Todos los tipos"
+                checked={filtroTipos.size === 0}
+                onChange={() => setFiltroTipos(new Set())}
+              />
               {TIPOS_ALOJ.map(t => (
-                <CheckRow key={t} label={t} checked={filtroTipos.has(t)} onChange={() => toggleTipo(t)} />
+                <CheckRow key={t.val} label={t.label} checked={filtroTipos.has(t.val)} onChange={() => toggleTipo(t.val)} />
               ))}
             </SideSection>
             <SideSection title="Servicios incluidos" defaultOpen={false}>
@@ -697,10 +739,33 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
           {/* Fila: título + [filtros mobile] + search */}
           <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Alojamientos</h1>
-              <p style={{ fontSize: 13, color: A.muted, margin: '4px 0 0' }}>
-                {loading ? 'Cargando...' : `${alojFiltrados.length} alojamiento${alojFiltrados.length !== 1 ? 's' : ''} disponible${alojFiltrados.length !== 1 ? 's' : ''}${filtroLocalidades.length === 1 ? ` en ${filtroLocalidades[0]}` : ' en Villa Gesell y alrededores'}`}
-              </p>
+              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Encontrá tu alojamiento ideal</h1>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                {loading ? (
+                  <span style={{ fontSize: 13, color: A.muted }}>Cargando...</span>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 13, color: A.muted }}>
+                      {`${alojFiltrados.length} alojamiento${alojFiltrados.length !== 1 ? 's' : ''} disponible${alojFiltrados.length !== 1 ? 's' : ''}`}
+                    </span>
+                    {filtroLocalidades.length === 0 ? (
+                      <span style={{ fontSize: 13, color: A.muted }}>en Villa Gesell y alrededores</span>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 13, color: A.muted }}>en</span>
+                        {filtroLocalidades.map(loc => (
+                          <span key={loc} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 10px', background: A.primarySoft, color: A.primary, borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+                            {loc}
+                            <button onClick={() => setFiltroLocalidades(prev => prev.filter(l => l !== loc))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.primary, display: 'flex', padding: 0, lineHeight: 1 }}>
+                              <IcoX />
+                            </button>
+                          </span>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
               {isMobile && (

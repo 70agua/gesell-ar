@@ -33,13 +33,7 @@ const IcoTicket  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="n
 const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>;
 
 function CoinSVG({ size = 13 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20">
-      <circle cx="10" cy="10" r="9.25" fill="#FFC93C" stroke="#C8990A" strokeWidth="1.5"/>
-      <circle cx="10" cy="10" r="6.5" fill="none" stroke="#C8990A" strokeWidth="1" opacity="0.4"/>
-      <text x="10" y="14" textAnchor="middle" fill="#7A5A00" fontSize="8" fontWeight="800" fontFamily="system-ui">₲</text>
-    </svg>
-  );
+  return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
 }
 
 // ─── CheckRow (sidebar) — toda la fila es clickeable ─────────
@@ -112,6 +106,21 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
           </div>
         )}
 
+        {/* Badge "Exclusivo para huéspedes" — top */}
+        {promo.exclusivoHuespedes && (
+          <>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+              </svg>
+              <span style={{ fontSize: 12, fontWeight: 400, color: '#fff', lineHeight: 1.35 }}>
+                Exclusivo huéspedes {promo.exclusivoHuespedes}
+              </span>
+            </div>
+          </>
+        )}
+
         {/* Heart — abajo derecha imagen */}
         <div style={{ position: 'absolute', bottom: 12, right: 12 }}>
           <HeartButton id={promo.id} />
@@ -127,8 +136,8 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
       <div style={{ padding: '14px 16px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
             {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
               <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
             )}
@@ -139,13 +148,21 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
           </div>
         )}
         <div style={{ fontSize: 15, fontWeight: 700, color: A.green, lineHeight: 1.3, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
+        <button
+          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+          style={{ marginTop: 10, background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
+          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
+          onMouseLeave={e => e.currentTarget.style.background = A.primary}
+        >
+          <IcoTicket /> Agregar a cuponera
+        </button>
         {promo.tokens_costo != null && (
           promo.tokens_costo === 0
-            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 12, flexShrink: 0 }}>
+            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 10, flexShrink: 0 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
               </div>
-            : <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 12, flexShrink: 0 }}>
+            : <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 10, flexShrink: 0 }}>
                 {promo.ahorroEstimado > 0 && <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
                     <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
@@ -165,14 +182,6 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
                 </div>
               </div>
         )}
-        <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ marginTop: 10, background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = A.primary}
-        >
-          <IcoTicket /> Agregar a cuponera
-        </button>
       </div>
     </div>
   );

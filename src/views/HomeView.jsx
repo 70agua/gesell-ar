@@ -45,13 +45,7 @@ const IcoUsers   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="n
 
 // ─── Golden coin SVG ─────────────────────────────────────────
 function CoinSVG({ size = 14 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20">
-      <circle cx="10" cy="10" r="9.25" fill="#FFC93C" stroke="#C8990A" strokeWidth="1.5"/>
-      <circle cx="10" cy="10" r="6.5" fill="none" stroke="#C8990A" strokeWidth="1" opacity="0.4"/>
-      <text x="10" y="14" textAnchor="middle" fill="#7A5A00" fontSize="8" fontWeight="800" fontFamily="system-ui"></text>
-    </svg>
-  );
+  return <img src="/cuponera-coin.svg" alt="crédito" style={{ width: size, height: size, display:'inline-block', verticalAlign:'middle' }}/>;
 }
 
 // ─── Type filter pills with SVG icons ────────────────────────
@@ -490,8 +484,23 @@ function OfertaCardAire({ promo, onClick, onAddToCuponera }) {
         <div style={{ position: 'absolute', bottom: 14, left: 14, color: '#fff' }}>
           <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 29 : 42, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
         </div>
-        {/* Heart — top right */}
-        <div style={{ position: 'absolute', top: 12, right: 12 }}>
+        {/* Badge "Exclusivo para huéspedes" — top, fondo degradado */}
+        {promo.exclusivoHuespedes && (
+          <>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+              </svg>
+              <span style={{ fontSize: 12, fontWeight: 400, color: '#fff', lineHeight: 1.35 }}>
+                Exclusivo huéspedes {promo.exclusivoHuespedes}
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* Heart — bottom right */}
+        <div style={{ position: 'absolute', bottom: 12, right: 12 }}>
           <HeartButton id={promo.id} />
         </div>
       </div>
@@ -501,8 +510,8 @@ function OfertaCardAire({ promo, onClick, onAddToCuponera }) {
         {/* Proveedor / Localidad */}
         {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ color: A.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
             {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
               <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
             )}
@@ -514,15 +523,24 @@ function OfertaCardAire({ promo, onClick, onAddToCuponera }) {
         )}
         <div style={{ fontSize: 15, fontWeight: 700, color: A.green, lineHeight: 1.3, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
 
+        <button
+          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+          style={{ marginTop: 10, background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
+          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
+          onMouseLeave={e => e.currentTarget.style.background = A.primary}
+        >
+          <IcoTicket /> Agregar a cuponera
+        </button>
+
         {/* Cajita de precios */}
         {promo.tokens_costo != null && (
           promo.tokens_costo === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 12, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 10, flexShrink: 0 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={A.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
               <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>Cupón GRATIS</span>
             </div>
           ) : (
-            <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 12, flexShrink: 0 }}>
+            <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 10, flexShrink: 0 }}>
               {promo.ahorroEstimado > 0 && <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
@@ -543,14 +561,6 @@ function OfertaCardAire({ promo, onClick, onAddToCuponera }) {
             </div>
           )
         )}
-        <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ marginTop: 10, background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = A.primary}
-        >
-          <IcoTicket /> Agregar a cuponera
-        </button>
       </div>
     </div>
   );
@@ -664,17 +674,66 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta 
 // ═══════════════════════════════════════════════════════════
 //  PACKS
 // ═══════════════════════════════════════════════════════════
+// Icono chevron izquierda para flechas del carrusel
+const IcoChevL = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
+const IcoChevR2 = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6"/></svg>;
+
 function PacksSection({ onArmarPack, onOpenPack }) {
-  const featured = mockPacks[0];
-  const others   = mockPacks.slice(1, 4);
+  const [activeIdx, setActiveIdx]           = useState(0);
+  const [contentVisible, setContentVisible] = useState(true);
+  const [badgesVisible, setBadgesVisible]   = useState(true);
+  const fadeTimerRef  = useRef(null);
+  const badgeTimerRef = useRef(null);
+  const stripRef = useRef(null);
+  const packs = mockPacks.slice(0, 6);
+
+  const CARD_H = 500;
+  const FEAT_W = 560;
+  const COLL_W = 192;
+  const MORE_W = 96;
+  const RADIUS = 24;
+  const GAP    = 16;
+  const PAD_L  = 80;
+  const ANIM_MS = 480; // debe coincidir con la duración del width transition
+
+  function handleSelect(idx) {
+    if (idx === activeIdx) return;
+
+    // 1. Fade out de contenido Y badges inmediatamente
+    setContentVisible(false);
+    setBadgesVisible(false);
+
+    // 2. Cancelar timers pendientes y arrancar el expand
+    clearTimeout(fadeTimerRef.current);
+    clearTimeout(badgeTimerRef.current);
+    setActiveIdx(idx);
+
+    // 3. Scroll suave al nuevo card
+    if (stripRef.current) {
+      const targetScroll = idx * (COLL_W + GAP) - PAD_L / 2;
+      stripRef.current.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
+    }
+
+    // 4. Fade in del contenido principal al terminar la animación de ancho
+    fadeTimerRef.current  = setTimeout(() => setContentVisible(true), ANIM_MS + 30);
+    // 5. Badges entran un poco después, como remate
+    badgeTimerRef.current = setTimeout(() => setBadgesVisible(true),  ANIM_MS + 180);
+  }
+
+  function nudge(dir) {
+    stripRef.current?.scrollBy({ left: dir * (COLL_W + GAP) * 2, behavior: 'smooth' });
+  }
 
   return (
-    <section style={{ background: A.navy, padding: '80px 56px', color: '#fff' }}>
-      <div style={{ maxWidth: 1328, margin: '0 auto' }}>
+    <section style={{ background: A.navy, padding: '88px 0 96px', color: '#fff' }}>
+      {/* Ocultar scrollbar nativa pero permitir scroll táctil */}
+      <style>{`.packs-strip::-webkit-scrollbar{display:none}`}</style>
+
+      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 80px' }}>
         {/* Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'end', marginBottom: 48 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56, alignItems: 'end', marginBottom: 52 }}>
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'rgba(255,201,60,0.16)', color: A.yellow, borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(255,201,60,0.16)', color: A.yellow, borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
               <IcoBolt /> Experiencias todo-en-uno
             </div>
             <h2 style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, margin: 0 }}>
@@ -685,87 +744,240 @@ function PacksSection({ onArmarPack, onOpenPack }) {
             </h2>
           </div>
           <div>
-            <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55, margin: '0 0 6px' }}>
+            <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, margin: '0 0 6px' }}>
               Te ahorramos la búsqueda y la negociación. Combinamos alojamiento, gastronomía y aventuras al mejor precio verificado.
             </p>
-            <button
-              onClick={onArmarPack}
-              style={{ background: 'none', border: 'none', color: '#7DA1FF', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0, marginTop: 12 }}
-            >
+            <button onClick={onArmarPack} style={{ background: 'none', border: 'none', color: '#7DA1FF', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0, marginTop: 14 }}>
               Ver todos los packs <IcoArrowR />
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Layout: featured (2fr) + column (1fr) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+      {/* Wrapper relativo para las flechas de nav */}
+      <div style={{ position: 'relative' }}>
 
-          {/* Featured */}
-          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-            <div style={{ position: 'relative', minHeight: 340 }}>
-              <img src={featured?.images?.[0] || PHOTOS.cabin} alt={featured?.title} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-              <div style={{ position: 'absolute', top: 16, left: 16, background: '#FF3D7F', color: '#fff', padding: '6px 12px', borderRadius: 999, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                MÁS VENDIDO
-              </div>
-              {featured?.discountPct && (
-                <div style={{ position: 'absolute', top: 16, right: 16, background: A.yellow, color: A.navy, padding: '6px 12px', borderRadius: 999, fontSize: 11, fontWeight: 800 }}>
-                  -{featured.discountPct}%
-                </div>
-              )}
-            </div>
-            <div style={{ padding: '28px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#7DA1FF', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Pack destacado</div>
-              <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.1 }}>{featured?.title || 'Escapada Romántica'}</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5, marginBottom: 18 }}>
-                {featured?.subtitle || 'Alojamiento + gastronomía + experiencias en un pack verificado.'}
-              </div>
-              {['Alojamiento incluido', 'Gastronomía seleccionada', 'Experiencia local'].map(item => (
-                <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(125,161,255,0.15)', color: '#7DA1FF', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                    <IcoCheck />
-                  </div>
-                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>{item}</span>
-                </div>
-              ))}
-              <div style={{ marginTop: 'auto', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 2 }}>Pack desde</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: '#22D396' }}>
-                    ${featured?.price?.toLocaleString('es-AR') || '145.000'}
-                  </div>
-                </div>
-                <button
-                  onClick={() => onOpenPack ? onOpenPack(featured) : onArmarPack()}
-                  style={{ background: '#fff', color: A.navy, border: 'none', padding: '10px 18px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  Ver pack <IcoChevR />
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Flecha izquierda */}
+        <button
+          onClick={() => nudge(-1)}
+          style={{
+            position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)',
+            zIndex: 10, width: 44, height: 44, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+          aria-label="Anterior"
+        >
+          <IcoChevL />
+        </button>
 
-          {/* Secondary packs */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {others.map(pack => (
+        {/* Flecha derecha */}
+        <button
+          onClick={() => nudge(1)}
+          style={{
+            position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)',
+            zIndex: 10, width: 44, height: 44, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+          aria-label="Siguiente"
+        >
+          <IcoChevR2 />
+        </button>
+
+        {/* Strip scrollable — orden FIJO, expansión in-place */}
+        <div
+          ref={stripRef}
+          className="packs-strip"
+          style={{
+            paddingLeft: PAD_L,
+            paddingRight: 40,
+            display: 'flex',
+            gap: GAP,
+            height: CARD_H,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {packs.map((pack, idx) => {
+            const isFeatured = idx === activeIdx;
+            const img = pack.images?.[0] || PHOTOS.cabin;
+            return (
               <div
                 key={pack.id}
-                onClick={() => onOpenPack ? onOpenPack(pack) : onArmarPack()}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.09)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onClick={() => !isFeatured && handleSelect(idx)}
+                style={{
+                  position: 'relative',
+                  flexShrink: 0,
+                  width: isFeatured ? FEAT_W : COLL_W,
+                  borderRadius: RADIUS,
+                  overflow: 'hidden',
+                  cursor: isFeatured ? 'default' : 'pointer',
+                  transition: 'width 0.48s cubic-bezier(0.4,0,0.2,1)',
+                }}
               >
-                <div style={{ width: 72, height: 72, borderRadius: 12, overflow: 'hidden', flexShrink: 0 }}>
-                  <img src={pack.images?.[0] || PHOTOS.forest} alt={pack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{pack.title}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>{pack.subtitle}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#22D396' }}>${pack.price?.toLocaleString('es-AR')}</div>
-                </div>
-                <IcoChevR />
+                {/* Imagen de fondo */}
+                <img src={img} alt={pack.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s', transform: isFeatured ? 'scale(1)' : 'scale(1.06)' }}/>
+
+                {/* Gradiente */}
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: isFeatured
+                    ? 'linear-gradient(to top, rgba(5,10,25,0.95) 0%, rgba(5,10,25,0.5) 45%, rgba(5,10,25,0.08) 100%)'
+                    : 'linear-gradient(to top, rgba(5,10,25,0.88) 0%, rgba(5,10,25,0.2) 70%, transparent 100%)',
+                  transition: 'background 0.48s',
+                }}/>
+
+                {/* Hover tint en colapsadas */}
+                {!isFeatured && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(37,69,230,0)', transition: 'background 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,69,230,0.18)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(37,69,230,0)'}
+                  />
+                )}
+
+                {/* Badge localidad — arriba izquierda, solo en expandida */}
+                {pack.location && isFeatured && (
+                  <div style={{
+                    position: 'absolute', top: 18, left: 18,
+                    background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
+                    color: '#fff', padding: '5px 11px', borderRadius: 999,
+                    fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    opacity: badgesVisible ? 1 : 0,
+                    transition: 'opacity 0.28s ease',
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2"/></svg>
+                    {pack.location}
+                  </div>
+                )}
+
+                {/* Badge descuento — arriba derecha, solo en expandida */}
+                {pack.discountPct && isFeatured && (
+                  <div style={{
+                    position: 'absolute', top: 14, right: 16,
+                    background: A.yellow, color: A.navy,
+                    padding: '7px 16px', borderRadius: 999,
+                    fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1,
+                    opacity: badgesVisible ? 1 : 0,
+                    transition: 'opacity 0.28s ease',
+                  }}>
+                    -{pack.discountPct}% OFF
+                  </div>
+                )}
+
+                {isFeatured ? (
+                  /* ── CARD EXPANDIDA ── */
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0, padding: '36px 36px 32px',
+                    opacity: contentVisible ? 1 : 0,
+                    transition: 'opacity 0.28s ease',
+                    pointerEvents: contentVisible ? 'auto' : 'none',
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#7DA1FF', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Pack destacado</div>
+                    <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, marginBottom: 10 }}>{pack.title}</div>
+                    <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.68)', lineHeight: 1.55, marginBottom: 18, maxWidth: 440 }}>{pack.subtitle}</div>
+
+                    {/* Chips de qué incluye */}
+                    {pack.includes?.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 24 }}>
+                        {pack.includes.map((item, i) => (
+                          <span key={i} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)',
+                            border: '1px solid rgba(255,255,255,0.18)',
+                            color: '#fff', fontSize: 11.5, fontWeight: 600,
+                            padding: '5px 12px', borderRadius: 999,
+                          }}>
+                            <IcoCheck /> {item}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); onOpenPack ? onOpenPack(pack) : onArmarPack(); }}
+                        style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', padding: '13px 22px', borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                      >
+                        Ver detalles
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); onOpenPack ? onOpenPack(pack) : onArmarPack(); }}
+                        style={{ marginLeft: 'auto', background: A.primary, color: '#fff', border: 'none', padding: '13px 26px', borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
+                        onMouseLeave={e => e.currentTarget.style.background = A.primary}
+                      >
+                        Pedí un presupuesto <IcoArrowR />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── CARD COLAPSADA ── */
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '18px 16px' }}>
+                    {pack.badge && (
+                      <div style={{ fontSize: 9, fontWeight: 700, color: A.yellow, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>{pack.badge}</div>
+                    )}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      {pack.title}
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+            );
+          })}
+
+          {/* Card "ver todos" */}
+          <div
+            onClick={onArmarPack}
+            style={{
+              flexShrink: 0, width: MORE_W, borderRadius: RADIUS,
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              gap: 12, cursor: 'pointer', transition: 'background 0.15s',
+              marginRight: 80,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#fff', display: 'grid', placeItems: 'center' }}>
+              <IcoArrowR />
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center', lineHeight: 1.5 }}>Ver<br/>todos</div>
           </div>
+        </div>
+
+        {/* Indicadores dot */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginTop: 28 }}>
+          {packs.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSelect(idx)}
+              style={{
+                width: idx === activeIdx ? 24 : 7,
+                height: 7,
+                borderRadius: 999,
+                background: idx === activeIdx ? '#7DA1FF' : 'rgba(255,255,255,0.25)',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s',
+              }}
+              aria-label={`Pack ${idx + 1}`}
+            />
+          ))}
         </div>
       </div>
     </section>

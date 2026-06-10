@@ -12,7 +12,6 @@ import SuperAdminView   from './views/SuperAdminView';
 import AdminNegocioView from './views/AdminNegocioView';
 import OfertasView      from './views/OfertasView';
 import MarketplaceView  from './views/MarketplaceView';
-import ArmadorPacksView  from './views/ArmadorPacksView';
 import SociosView        from './views/SociosView';
 import GastronomyView    from './views/GastronomyView';
 import LoadingScreen     from './components/LoadingScreen';
@@ -20,6 +19,7 @@ import OfertaDetailView   from './views/OfertaDetailView';
 import PackDetailView     from './views/PackDetailView';
 import PacksListView      from './views/PacksListView';
 import OfertasRegaloView  from './views/OfertasRegaloView';
+import PublicarOfertaView from './views/PublicarOfertaView';
 
 import { getAlojamientos, getGastronomia } from './lib/datos';
 import { ALL_PROMOS }                      from './data/mockData';
@@ -39,14 +39,19 @@ function AppContent() {
   const [selectedOferta, setSelectedOferta]     = useState(null);
   const [selectedPack, setSelectedPack]         = useState(null);
   const [marketplaceLocalidad, setMarketplaceLocalidad] = useState('');
+  const [marketplaceTipo,     setMarketplaceTipo]     = useState('todos');
   const [ofertasCategoria, setOfertasCategoria] = useState(null);
   const [ofertasLocalidades, setOfertasLocalidades] = useState([]);
+  const [gastroCategoria,   setGastroCategoria]   = useState('');
+  const [gastroExperiencia, setGastroExperiencia] = useState('');
+  const [gastroNavKey,      setGastroNavKey]      = useState(0);
   const [scrolled, setScrolled]         = useState(false);
   const [session, setSession]           = useState(null);
   const [perfil, setPerfil]             = useState(null);
   const [authLoading, setAuthLoading]   = useState(true);
   const [alojamientos, setAlojamientos] = useState([]);
   const [gastronomia, setGastronomia]   = useState([]);
+  const [loginInitialTab, setLoginInitialTab] = useState('ingresar');
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -145,7 +150,7 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','gastronomia','oferta-detail','pack-detail','packs','ofertas-regalo'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','gastronomia','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta'];
 
   return (
     <CuponeraProvider session={session} onLoginRequired={() => setView('login')}>
@@ -161,8 +166,27 @@ function AppContent() {
             setView={setView}
             session={session}
             perfil={perfil}
-            onLoginClick={() => setView('login')}
+            onLoginClick={(tab = 'ingresar') => { setLoginInitialTab(tab); setView('login'); }}
+            onRegisterClick={(tab = 'registrarse') => { setLoginInitialTab(tab); setView('login'); }}
             onLogout={handleLogout}
+            onPublicarOferta={() => { setView('publicar-oferta'); window.scrollTo(0, 0); }}
+            onNavbarNav={(targetView, opts = {}) => {
+              if (opts.localidades !== undefined) {
+                setMarketplaceLocalidad('__multi__:' + opts.localidades.join(','));
+              } else if (opts.localidad !== undefined) {
+                setMarketplaceLocalidad(opts.localidad === 'Todos los destinos' ? '' : (opts.localidad || ''));
+              } else if (opts.tipo !== undefined) {
+                setMarketplaceLocalidad('');
+              }
+              if (opts.tipo !== undefined) setMarketplaceTipo(opts.tipo || 'todos');
+              if (opts.gastroCategoria !== undefined || opts.gastroExperiencia !== undefined) {
+                setGastroCategoria(opts.gastroCategoria || '');
+                setGastroExperiencia(opts.gastroExperiencia || '');
+                setGastroNavKey(k => k + 1);
+              }
+              setView(targetView);
+              window.scrollTo(0, 0);
+            }}
           />
         )}
 
@@ -173,7 +197,7 @@ function AppContent() {
               dining={gastronomia}
               onOpenDetail={handleOpenDetail}
               onVerTodas={(cat) => { setOfertasCategoria(cat || null); setView('ofertas'); window.scrollTo(0, 0); }}
-              onArmarPack={() => setView('armador')}
+              onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
               onVerMarketplace={() => { setView('marketplace'); window.scrollTo(0, 0); }}
               onOpenPack={handleOpenPack}
               onOpenOferta={handleOpenOferta}
@@ -190,18 +214,16 @@ function AppContent() {
           )}
           {view === 'marketplace' && (
             <MarketplaceView
-              onBack={() => { setMarketplaceLocalidad(''); setView('home'); }}
+              key={marketplaceLocalidad + '|' + marketplaceTipo}
+              onBack={() => { setMarketplaceLocalidad(''); setMarketplaceTipo('todos'); setView('home'); }}
               onOpenDetail={handleOpenDetail}
-              initialFiltro="todos"
+              initialFiltro={marketplaceTipo}
               initialLocalidad={marketplaceLocalidad}
               onVerOfertas={(locs) => { setOfertasLocalidades(locs); setOfertasCategoria(null); setView('ofertas'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'marketplace-ofertas' && (
             <MarketplaceView onBack={() => { setView('home'); window.scrollTo(0, 0); }} onOpenDetail={handleOpenDetail} initialFiltro="oferta" />
-          )}
-          {view === 'armador' && (
-            <ArmadorPacksView onBack={() => setView('home')} onOpenDetail={handleOpenDetail} />
           )}
           {view === 'detail' && (
             <DetailView
@@ -243,18 +265,35 @@ function AppContent() {
               onOpenOferta={handleOpenOferta}
             />
           )}
+          {view === 'publicar-oferta' && (
+            <PublicarOfertaView
+              onBack={() => { setView('home'); window.scrollTo(0, 0); }}
+              onLoginSuccess={async (perfilData) => {
+                const { getSession } = await import('./lib/auth');
+                const s = await getSession();
+                setSession(s); setPerfil(perfilData);
+                setView(perfilData?.es_superadmin ? 'superadmin' : 'admin');
+              }}
+              onGoAdmin={() => setView('admin')}
+              onGoSocios={() => setView('socios')}
+            />
+          )}
           {view === 'login' && (
-            <LoginView onLoginSuccess={handleLoginSuccess} onBack={() => setView('home')} />
+            <LoginView onLoginSuccess={handleLoginSuccess} onBack={() => setView('home')} initialTab={loginInitialTab} />
           )}
           {view === 'socios' && (
             <SociosView onBack={() => setView('home')} />
           )}
           {view === 'gastronomia' && (
             <GastronomyView
-              onBack={() => setView('home')}
+              key={gastroNavKey}
+              onBack={() => { setGastroCategoria(''); setGastroExperiencia(''); setView('home'); }}
               session={session}
               onLoginClick={() => setView('login')}
               onOpenDetail={handleOpenDetail}
+              onVerOfertas={() => { setOfertasCategoria(null); setView('ofertas'); window.scrollTo(0,0); }}
+              initialCategoria={gastroCategoria}
+              initialExperiencia={gastroExperiencia}
             />
           )}
           {view === 'superadmin' && (

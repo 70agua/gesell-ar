@@ -277,9 +277,11 @@ export const mockPacks = [
   {
     id: 1,
     title: "Escapada Romántica",
-    subtitle: "Alojamiento + Cena + Spa",
-    price: 145000,
+    subtitle: "La combinación perfecta para celebrar en pareja: alojamiento boutique en los bosques de Mar de las Pampas, cena a la luz de las velas y masajes relajantes.",
     badge: "Más Vendido",
+    location: "Mar de las Pampas",
+    discountPct: 18,
+    includes: ["Alojamiento 2 noches", "Cena romántica", "Spa & masajes en pareja", "Desayuno incluido"],
     color: "from-pink-500 to-rose-600",
     iconName: "Heart",
     images: [
@@ -290,9 +292,11 @@ export const mockPacks = [
   {
     id: 2,
     title: "Aventura en el Faro",
-    subtitle: "Cabaña + 4x4 + Picnic",
-    price: 180000,
+    subtitle: "Cabaña entre los médanos, excursión 4x4 hasta el Faro Querandí y picnic en la playa virgen. Para los que buscan naturaleza y emoción.",
     badge: "Eco-Aventura",
+    location: "Las Gaviotas",
+    discountPct: 12,
+    includes: ["Cabaña 3 noches", "Excursión 4x4 al Faro", "Picnic gourmet", "Traslados incluidos"],
     color: "from-emerald-500 to-teal-600",
     iconName: "Compass",
     images: [
@@ -304,9 +308,10 @@ export const mockPacks = [
   {
     id: 3,
     title: "Ruta Gastronómica",
-    subtitle: "Apart + Degustación + Churros + Cabalgata",
-    price: 110000,
+    subtitle: "Recorrida curada por los mejores sabores de la Villa: apart céntrico, degustación de vinos y mariscos, churros históricos y cabalgata al atardecer.",
     badge: "Gourmet",
+    location: "Villa Gesell",
+    includes: ["Apart 2 noches", "Degustación de vinos", "Churros en El Topo", "Cabalgata al atardecer"],
     color: "from-amber-500 to-orange-600",
     iconName: "Utensils",
     images: [
@@ -314,6 +319,50 @@ export const mockPacks = [
       "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80",
       "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=800&q=80",
       "https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?auto=format&fit=crop&w=800&q=80",
+    ]
+  },
+  {
+    id: 4,
+    title: "Familia Plena",
+    subtitle: "Una semana sin preocupaciones para toda la familia: casa amplia con pileta, actividades para chicos, clases de surf y show de títeres.",
+    badge: "Familias",
+    location: "Villa Gesell",
+    discountPct: 15,
+    includes: ["Casa 5 noches", "Clases de surf", "Show de títeres", "Acceso parque acuático"],
+    color: "from-blue-500 to-cyan-600",
+    iconName: "Users",
+    images: [
+      "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1560090995-01632a28895b?auto=format&fit=crop&w=800&q=80",
+    ]
+  },
+  {
+    id: 5,
+    title: "Relax Total",
+    subtitle: "Desconectate del ruido y reconectate con vos. Cabaña en los bosques, yoga al amanecer, masajes y gastronomía saludable de autor.",
+    badge: "Bienestar",
+    location: "Mar de las Pampas",
+    discountPct: 10,
+    includes: ["Cabaña 3 noches", "Yoga & meditación", "Masajes relajantes", "Menú saludable"],
+    color: "from-violet-500 to-purple-600",
+    iconName: "Sparkles",
+    images: [
+      "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=800&q=80",
+    ]
+  },
+  {
+    id: 6,
+    title: "Amigos & Adrenalina",
+    subtitle: "El plan ideal para grupos: alquiler completo, noche de fogón y asado, sandboard en los médanos y fiesta en terraza con DJ.",
+    badge: "Grupos",
+    location: "Villa Gesell Centro",
+    includes: ["Casa completa 3 noches", "Sandboard en médanos", "Noche de fogón & asado", "Terraza con DJ"],
+    color: "from-orange-500 to-red-600",
+    iconName: "Zap",
+    images: [
+      "https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1543965170-e399ce2a0fb0?auto=format&fit=crop&w=800&q=80",
     ]
   },
 ];
@@ -553,6 +602,7 @@ export const ALL_PROMOS = [
     title: 'Regalo de bienvenida: Picada artesanal y cerveza.',
     subtitle: 'Cervecería Dublin · Centro',
     badge: 'Regalo', tokens_costo: 1, ahorroEstimado: 5000,
+    exclusivoHuespedes: 'Boutique Pinar',
     image: 'https://images.unsplash.com/photo-1567529692333-de9fd6772897?auto=format&fit=crop&w=600&q=80',
     proveedorNombre: 'Cervecería Dublin', negocioLocalidad: 'Villa Gesell',
     // Bartender con barba hipster
@@ -574,6 +624,7 @@ export const ALL_PROMOS = [
     title: 'Cena romántica: Postre y brindis de cortesía.',
     subtitle: 'Restaurante Amarena · Mar de las Pampas',
     badge: 'Cortesía', tokens_costo: 1, ahorroEstimado: 7000,
+    exclusivoHuespedes: 'Hotel Spa Las Olas',
     image: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=600&q=80',
     proveedorNombre: 'Restaurante Amarena', negocioLocalidad: 'Mar de las Pampas',
     // Chef con uniforme blanco
@@ -608,6 +659,7 @@ export const ALL_PROMOS = [
     title: 'Aventura 4x4 al Faro con picnic incluido.',
     subtitle: 'Excursiones Gesell · Villa Gesell',
     badge: 'Picnic', tokens_costo: 1, ahorroEstimado: 8000,
+    exclusivoHuespedes: 'Cabañas Ártico',
     image: 'https://images.unsplash.com/photo-1533481405265-e9ce0c044abb?auto=format&fit=crop&w=600&q=80',
     proveedorNombre: 'Martín — Guía 4x4', negocioLocalidad: 'Villa Gesell',
     // Hombre con ropa outdoor y expresión aventurera
@@ -642,6 +694,7 @@ export const ALL_PROMOS = [
     title: 'Clase de surf gratis con tu estadía.',
     subtitle: 'Surf School Gesell · Playa',
     badge: 'Gratis', tokens_costo: 1, ahorroEstimado: 9000,
+    exclusivoHuespedes: 'Apart Sol y Arena',
     image: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=600&q=80',
     proveedorNombre: 'Nico — Instructor de Surf', negocioLocalidad: 'Villa Gesell',
     // Surfista joven bronceado con aspecto costero

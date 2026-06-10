@@ -1,133 +1,996 @@
 // ============================================================
-//  src/views/AdminNegocioView.jsx  —  Aire design (AdminA)
+//  src/views/AdminNegocioView.jsx  —  Host Dashboard v2
 // ============================================================
-import React, { useState, useEffect } from 'react';
-import { Pencil, Plus, X, Save, CheckCircle2, XCircle, Clock, AlertCircle, Star, LogOut, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  LayoutDashboard, MessageSquare, Bell, Tag, Building2, CreditCard, Puzzle,
+  LogOut, ArrowLeft, TrendingUp, Eye, MousePointerClick, Users, ChevronRight,
+  Plus, X, Save, ToggleLeft, ToggleRight, Send, Check, Archive,
+  Clock, Star, Trash2, Upload, Image, AlertCircle, CheckCircle2, Zap, Crown,
+  Store, Coins, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar,
+  MessageCircle, ChevronDown, Edit2, RefreshCw, Package, BarChart2, Home, Search,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getOrdenesPendientes, getSaldo, debeUsarTokens, descontarToken, getComprasTokens } from '../lib/cobros';
+import { getOrdenesPendientes, getSaldo, debeUsarTokens } from '../lib/cobros';
 import ComprarTokensModal from '../components/ComprarTokensModal';
 import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
+import LoadingScreen from '../components/LoadingScreen';
 
-// ─── Aire tokens ─────────────────────────────────────────────
-const A = {
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
-  primaryDark: '#1731B8',
-  ink:         '#0B1020',
-  ink2:        '#3D4255',
-  muted:       '#6B7280',
-  line:        '#E7E9EE',
-  bg:          '#F7F7F8',
-  card:        '#FFFFFF',
-  navy:        '#0B1733',
-  yellow:      '#FFC93C',
-  green:       '#10A36B',
-  font:        "'Geist', system-ui, sans-serif",
-};
+// ─── Design tokens ───────────────────────────────────────────
+const P = '#475be1';   // primary blue
+const PD = '#3347c8';  // primary dark
+const PS = '#eef0fd';  // primary soft
+const INK = '#0f172a';
+const INK2 = '#475569';
+const MUTED = '#94a3b8';
+const LINE = '#e2e8f0';
+const BG = '#f8fafc';
+const CARD = '#ffffff';
+const NAVY = '#0f172a';
+const GREEN = '#10b981';
+const GREENS = '#ecfdf5';
+const YELLOW = '#f59e0b';
+const FONT = "'Inter', system-ui, sans-serif";
 
-const TABS = [
-  { id: 'resumen',   label: 'Ofertas'      },
-  { id: 'negocio',   label: 'Mi perfil'    },
-  { id: 'consultas', label: 'Consultas'    },
-  { id: 'cuenta',    label: 'Cuenta'       },
-  { id: 'stats',     label: 'Estadísticas' },
-];
-
-function ABtn({ onClick, children, variant = 'ghost', style: ext = {}, disabled }) {
-  const base = { border:'none', borderRadius:10, fontFamily:A.font, fontWeight:600, fontSize:13, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px' };
-  const variants = {
-    primary: { background:A.primary, color:'#fff' },
-    ghost:   { background:'#fff', border:`1px solid ${A.line}`, color:A.ink2 },
-    danger:  { background:'#FCEAEA', color:'#C03030' },
-    success: { background:'#E8F5EC', color:A.green },
-    dark:    { background:A.navy, color:'#fff' },
-  };
-  return <button onClick={onClick} disabled={disabled} style={{ ...base, ...variants[variant], ...ext, opacity: disabled ? 0.5 : 1 }}>{children}</button>;
+// ─── CreditCoin ───────────────────────────────────────────────
+function CreditCoin({ size = 22 }) {
+  return <img src="/cuponera-coin.svg" alt="crédito" style={{ width: size, height: size, display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
 }
 
-const inputSt = { padding:'10px 14px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', width:'100%', boxSizing:'border-box' };
+// ─── Tabs config ─────────────────────────────────────────────
+const TABS = [
+  { id: 'dashboard',  label: 'Resumen',      Icon: LayoutDashboard },
+  { id: 'inbox',      label: 'Consultas',    Icon: MessageSquare    },
+  { id: 'notif',      label: 'Notificaciones', Icon: Bell           },
+  { id: 'ofertas',    label: 'Mis Ofertas',  Icon: Tag              },
+  { id: 'empresa',    label: 'Mi Empresa',   Icon: Building2        },
+  { id: 'cuenta',     label: 'Mi Cuenta',    Icon: CreditCard       },
+  { id: 'addons',     label: 'Add-ons',      Icon: Puzzle           },
+];
 
-// ─── Sidebar ─────────────────────────────────────────────────
-function Sidebar({ tab, setTab, negocio, perfil, saldoTokens, showComprar, setShowComprar, stats, onVolver, onGoHome, onLogout }) {
+// ─── Mock data ───────────────────────────────────────────────
+const MOCK_CHATS = [
+  { id: 1, nombre: 'Valentina R.', avatar: 'V', avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face', msg: '¿Tienen habitaciones disponibles para el fin de semana del 20?', time: '10:32', labelId: 'pendiente', unread: 2, msgs: [
+    { from: 'turista', text: '¿Tienen habitaciones disponibles para el fin de semana del 20?', time: '10:32' },
+  ]},
+  { id: 2, nombre: 'Lucas M.', avatar: 'L', avatarUrl: null, msg: 'Perfecto, reservamos para 4 personas.', time: 'Ayer', labelId: 'confirmado', unread: 0, msgs: [
+    { from: 'turista', text: '¿Cuál es el precio por noche para una triple?', time: 'Ayer 09:10' },
+    { from: 'socio',   text: 'Hola Lucas, la triple está a $45.000 por noche.', time: 'Ayer 09:45' },
+    { from: 'turista', text: 'Perfecto, reservamos para 4 personas.', time: 'Ayer 10:12' },
+  ]},
+  { id: 3, nombre: 'Florencia G.', avatar: 'F', avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', msg: '¿El desayuno está incluido?', time: 'Lun', labelId: 'interesado', unread: 1, msgs: [
+    { from: 'turista', text: '¿El desayuno está incluido?', time: 'Lun 14:00' },
+  ]},
+  { id: 4, nombre: 'Matías P.', avatar: 'M', avatarUrl: null, msg: '¿Aceptan mascotas pequeñas?', time: 'Dom', labelId: 'pendiente', unread: 1, msgs: [
+    { from: 'turista', text: '¿Aceptan mascotas pequeñas?', time: 'Dom 17:45' },
+  ]},
+];
+
+const MOCK_NOTIFS = [
+  { id: 1, tipo: 'propia', icon: ShoppingBag, color: GREEN, title: 'Cupón propio canjeado', desc: 'Un turista descargó tu cupón "Escapada Romántica" (-15%).', time: 'Hace 5 min', creditos: 0 },
+  { id: 2, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Huésped generó créditos', desc: 'Tu huésped de hab. 104 adquirió cuponera de Churros El Topo. ¡+1 Crédito!', time: 'Hace 22 min', creditos: 1 },
+  { id: 3, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Huésped generó créditos', desc: 'Tu huésped adquirió cuponera de La Pescadería Gesell. ¡+1 Crédito!', time: 'Hace 1 h', creditos: 1 },
+  { id: 4, tipo: 'propia', icon: ShoppingBag, color: GREEN, title: 'Cupón propio canjeado', desc: 'Un turista descargó tu pack "3 noches + excursión".', time: 'Ayer 18:40', creditos: 0 },
+  { id: 5, tipo: 'tercero', icon: Map, color: YELLOW, title: 'Huésped generó créditos', desc: 'Tu huésped adquirió cuponera de Paseos en Cuatriciclo. ¡+1 Crédito!', time: 'Ayer 11:20', creditos: 1 },
+];
+
+const MOCK_OFERTAS = [
+  { id: 1, titulo: 'Escapada Romántica -15%', desc: 'Descuento especial para parejas, incluye detalle de bienvenida.', descuento: 15, tipo: 'Descuento Directo', activa: true },
+  { id: 2, titulo: 'Pack 3 Noches + Excursión', desc: 'Pack armado con traslado y entrada a Reserva Dunas.', descuento: 20, tipo: 'Pack Armado', activa: true },
+  { id: 3, titulo: 'Tarifa Anticipada -10%', desc: 'Reserva con 30 días de anticipación y ahorrá.', descuento: 10, tipo: 'Descuento Directo', activa: false },
+];
+
+const MOCK_FOTOS = [
+  { id: 1, src: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=300&q=80', alt: 'Fachada' },
+  { id: 2, src: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=300&q=80', alt: 'Habitación' },
+  { id: 3, src: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=300&q=80', alt: 'Piscina' },
+];
+
+const MOCK_FACTURAS = [
+  { fecha: 'Jun 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
+  { fecha: 'May 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
+  { fecha: 'Abr 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
+];
+
+const ADDONS_CATALOG = [
+  { id: 'rumrak',    titulo: 'Rumrak PMS/CRM', desc: 'Gestión hotelera integral: reservas, historial de huéspedes, ingresos/egresos exportable.', precio: 15000, Icon: BarChart2, color: P },
+  { id: 'destaque',  titulo: 'Destaque Fin de Semana', desc: 'Resaltá tu hotel en los listados durante los días de recambio turístico.', precio: 5000, Icon: Star, color: YELLOW },
+  { id: 'whatsapp',  titulo: 'WhatsApp Premium', desc: 'Enlace directo al celular desde la ficha pública, sin intermediarios.', precio: 3000, Icon: Smartphone, color: GREEN },
+  { id: 'traductor', titulo: 'Traductor IA', desc: 'Traduce tu perfil y promociones al inglés y portugués automáticamente.', precio: 4000, Icon: Globe, color: '#8b5cf6' },
+  { id: 'reservas',  titulo: 'Motor de Reservas Básico', desc: 'Calendario de reservas desde tu ficha de Cuponera.', precio: 8000, Icon: Calendar, color: '#0ea5e9' },
+  { id: 'sms',       titulo: 'Alertas SMS Instantáneas', desc: 'Notificaciones de consultas directamente a tu celular.', precio: 2500, Icon: MessageCircle, color: '#ec4899' },
+];
+
+const DEFAULT_LABELS = [
+  { id: 'pendiente',  label: 'Pendiente',  color: '#f59e0b' },
+  { id: 'confirmado', label: 'Confirmado', color: GREEN },
+  { id: 'interesado', label: 'Interesado', color: P },
+];
+
+// ─── Helpers UI ──────────────────────────────────────────────
+function Card({ children, style = {} }) {
+  return <div style={{ background: CARD, borderRadius: 16, border: `1px solid ${LINE}`, padding: 20, ...style }}>{children}</div>;
+}
+
+function Pill({ label, color = P }) {
   return (
-    <aside style={{ background:A.navy, color:'#fff', width:240, minWidth:240, display:'flex', flexDirection:'column', minHeight:'100vh', position:'sticky', top:0, alignSelf:'flex-start' }}>
-      {/* Logo */}
-      <button onClick={onGoHome} style={{ display:'flex', alignItems:'center', gap:10, padding:'22px 16px 18px', background:'transparent', border:'none', cursor:'pointer', color:'#fff', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ width:32, height:32, borderRadius:8, background:A.primary, display:'grid', placeItems:'center', fontFamily:A.font, fontWeight:900, fontSize:16, flexShrink:0 }}>G</div>
-        <div style={{ textAlign:'left', minWidth:0 }}>
-          <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700 }}>gesell.ar</div>
-          <div style={{ fontFamily:A.font, fontSize:11, color:'rgba(255,255,255,0.55)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:140 }}>{negocio?.nombre || 'Mi negocio'}</div>
+    <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700, background: color + '1a', color, fontFamily: FONT }}>
+      {label}
+    </span>
+  );
+}
+
+function Toggle({ on, onChange }) {
+  return (
+    <button onClick={() => onChange(!on)} style={{
+      width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
+      background: on ? P : LINE, position:'relative', transition:'background 0.2s', flexShrink:0,
+    }}>
+      <span style={{
+        position:'absolute', top: 3, left: on ? 22 : 3, width: 18, height: 18,
+        borderRadius:'50%', background:'#fff', transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+      }}/>
+    </button>
+  );
+}
+
+function Toast({ toast }) {
+  if (!toast) return null;
+  return (
+    <div style={{ position:'fixed', bottom:28, right:28, zIndex:9999, background: toast.type === 'ok' ? GREEN : '#ef4444', color:'#fff', padding:'12px 20px', borderRadius:12, fontFamily:FONT, fontSize:13, fontWeight:600, boxShadow:'0 4px 20px rgba(0,0,0,0.2)', display:'flex', alignItems:'center', gap:8 }}>
+      {toast.type === 'ok' ? <CheckCircle2 size={16}/> : <AlertCircle size={16}/>} {toast.msg}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 1 — DASHBOARD ANALYTICS
+// ════════════════════════════════════════════════════════════
+const PERIODOS = [
+  { val: 'diario',  label: 'Diario' },
+  { val: '7d',      label: 'Últimos 7 días' },
+  { val: 'mensual', label: 'Mensual' },
+  { val: '30d',     label: 'Últimos 30 días' },
+  { val: '3m',      label: 'Últimos 3 meses' },
+  { val: '6m',      label: 'Últimos 6 meses' },
+  { val: '12m',     label: 'Últimos 12 meses' },
+  { val: 'custom',  label: 'Personalizado' },
+];
+
+function TabDashboard({ credits }) {
+  const [periodo, setPeriodo]       = useState('30d');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+
+  const kpis = [
+    { label: 'Visitas a tu perfil', value: 348, sub: '+12% vs mes anterior', Icon: Eye, color: P },
+    { label: 'Clicks en tus ofertas propias', value: 127, sub: 'Turistas interesados', Icon: MousePointerClick, color: GREEN },
+    { label: 'Clicks en ofertas de socios', value: 89, sub: 'Los que pueden generar créditos a tu favor', Icon: TrendingUp, color: YELLOW },
+    { label: 'Consultas recibidas', value: 14, sub: '3 sin responder', Icon: MessageSquare, color: '#8b5cf6' },
+  ];
+
+  const planBase = 20000;
+  const valorCredito = 2000;
+  const ahorro = credits * valorCredito;
+  const final = Math.max(0, planBase - ahorro);
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Header con selector de período */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0, marginRight:'auto' }}>Resumen</h2>
+        <select
+          value={periodo}
+          onChange={e => setPeriodo(e.target.value)}
+          style={{ padding:'7px 12px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, background:CARD, cursor:'pointer', outline:'none' }}
+        >
+          {PERIODOS.map(p => <option key={p.val} value={p.val}>{p.label}</option>)}
+        </select>
+        {periodo === 'custom' && (<>
+          <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)}
+            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}
+          />
+          <span style={{ fontFamily:FONT, fontSize:12, color:MUTED }}>hasta</span>
+          <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)}
+            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}
+          />
+        </>)}
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:14 }}>
+        {kpis.map(k => (
+          <Card key={k.label} style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontFamily:FONT, fontSize:12, fontWeight:600, color:INK2 }}>{k.label}</span>
+              <div style={{ width:34, height:34, borderRadius:10, background:k.color+'15', display:'grid', placeItems:'center' }}>
+                <k.Icon size={17} color={k.color}/>
+              </div>
+            </div>
+            <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{k.value}</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:GREEN, fontWeight:600 }}>{k.sub}</div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Savings formula */}
+      <Card style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #1e293b 100%)` }}>
+        <div style={{ color:'rgba(255,255,255,0.6)', fontFamily:FONT, fontSize:12, fontWeight:600, marginBottom:12, textTransform:'uppercase', letterSpacing:'0.06em' }}>Fórmula de ahorro mensual</div>
+        <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:12, marginBottom:16 }}>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, fontFamily:FONT, marginBottom:4 }}>Abono base</div>
+            <div style={{ fontFamily:FONT, fontWeight:800, fontSize:20, color:'#fff' }}>${planBase.toLocaleString('es-AR')}</div>
+          </div>
+          <div style={{ color:'rgba(255,255,255,0.4)', fontSize:22, fontFamily:'monospace' }}>−</div>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, fontFamily:FONT, marginBottom:4 }}>Créditos × valor</div>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <CreditCoin size={20}/>
+              <span style={{ fontFamily:FONT, fontWeight:800, fontSize:20, color:'#fff' }}>{credits} × ${valorCredito.toLocaleString('es-AR')}</span>
+            </div>
+          </div>
+          <div style={{ color:'rgba(255,255,255,0.4)', fontSize:22, fontFamily:'monospace' }}>=</div>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, fontFamily:FONT, marginBottom:4 }}>Próximo abono</div>
+            <div style={{ fontFamily:FONT, fontWeight:800, fontSize:24, color: ahorro > 0 ? '#34d399' : '#fff' }}>
+              ${final.toLocaleString('es-AR')}
+            </div>
+          </div>
         </div>
+        {ahorro > 0 && (
+          <div style={{ background:'rgba(52,211,153,0.15)', border:'1px solid rgba(52,211,153,0.3)', borderRadius:10, padding:'10px 14px', fontFamily:FONT, fontSize:13, color:'#34d399', fontWeight:600 }}>
+            ✓ Ahorrás ${ahorro.toLocaleString('es-AR')} este mes recomendando comercios aliados a tus huéspedes.
+          </div>
+        )}
+        <div style={{ marginTop:12, fontFamily:FONT, fontSize:11, color:'rgba(255,255,255,0.35)', fontStyle:'italic' }}>
+          S<sub>final</sub> = S<sub>plan</sub> − (C<sub>ganados</sub> × V<sub>crédito</sub>)
+        </div>
+      </Card>
+
+      {/* Traffic chart placeholder */}
+      <Card>
+        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Tráfico últimas 4 semanas</div>
+        <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:80 }}>
+          {[42,58,35,71,89,64,77,95,55,82,68,91,73,87,110,98,120,105,88,115,94,127,108,140,132,145,119,138].map((v,i) => (
+            <div key={i} style={{ flex:1, background: i > 24 ? P : LINE, borderRadius:'3px 3px 0 0', height:`${(v/145)*100}%`, minWidth:4 }}/>
+          ))}
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, fontFamily:FONT, fontSize:10, color:MUTED }}>
+          <span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span>Sem 4 (actual)</span>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 2 — INBOX
+// ════════════════════════════════════════════════════════════
+// ── Avatar helper ────────────────────────────────────────────
+function ChatAvatar({ chat, size = 40 }) {
+  return (
+    <div style={{ width:size, height:size, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:P, display:'grid', placeItems:'center' }}>
+      {chat.avatarUrl
+        ? <img src={chat.avatarUrl} alt={chat.nombre} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+        : <span style={{ color:'#fff', fontFamily:FONT, fontWeight:700, fontSize: Math.round(size*0.38) }}>{chat.avatar}</span>
+      }
+    </div>
+  );
+}
+
+// ── Label pill ───────────────────────────────────────────────
+function LabelPill({ label, color }) {
+  if (!label) return null;
+  return (
+    <span style={{ display:'inline-block', padding:'2px 8px', borderRadius:99, fontSize:11, fontWeight:600, background:color+'20', color, fontFamily:FONT, border:`1px solid ${color}40` }}>
+      {label}
+    </span>
+  );
+}
+
+function TabInbox() {
+  const [chats, setChats]           = useState(MOCK_CHATS);
+  const [active, setActive]         = useState(1);
+  const [input, setInput]           = useState('');
+  const [labels, setLabels]         = useState(DEFAULT_LABELS);
+  const [search, setSearch]         = useState('');
+  const [filterLabel, setFilterLabel] = useState(null);
+  const [selected, setSelected]     = useState(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [showLabelMgr, setShowLabelMgr] = useState(false);
+  const [newLabelText, setNewLabelText] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState('#8b5cf6');
+  const [editingId, setEditingId]   = useState(null);
+  const messagesEndRef = useRef(null);
+
+  const chat = chats.find(c => c.id === active);
+
+  const getLabel = id => labels.find(l => l.id === id);
+
+  const visibleChats = chats.filter(c => {
+    const matchSearch = !search || c.nombre.toLowerCase().includes(search.toLowerCase()) || c.msg.toLowerCase().includes(search.toLowerCase());
+    const matchLabel  = !filterLabel || c.labelId === filterLabel;
+    return matchSearch && matchLabel;
+  });
+
+  function sendMsg() {
+    if (!input.trim()) return;
+    setChats(prev => prev.map(c => c.id === active
+      ? { ...c, msg: input, msgs: [...c.msgs, { from:'socio', text:input, time:'Ahora' }] }
+      : c
+    ));
+    setInput('');
+  }
+
+  function setLabel(labelId) {
+    setChats(prev => prev.map(c => c.id === active ? { ...c, labelId } : c));
+  }
+
+  function toggleSelect(id) {
+    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+
+  function deleteSelected() {
+    setChats(prev => prev.filter(c => !selected.has(c.id)));
+    if (selected.has(active)) setActive(chats.find(c => !selected.has(c.id))?.id || null);
+    setSelected(new Set());
+    setSelectMode(false);
+  }
+
+  function addLabel() {
+    if (!newLabelText.trim()) return;
+    const id = newLabelText.toLowerCase().replace(/\s+/g,'-') + '_' + Date.now();
+    setLabels(prev => [...prev, { id, label: newLabelText.trim(), color: newLabelColor }]);
+    setNewLabelText('');
+  }
+
+  function deleteLabel(id) {
+    setLabels(prev => prev.filter(l => l.id !== id));
+    setChats(prev => prev.map(c => c.labelId === id ? { ...c, labelId: null } : c));
+  }
+
+  function saveEditLabel(id, newText) {
+    setLabels(prev => prev.map(l => l.id === id ? { ...l, label: newText } : l));
+    setEditingId(null);
+  }
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior:'smooth' }); }, [chat?.msgs]);
+
+  const LABEL_COLORS = ['#f59e0b','#10b981','#475be1','#ef4444','#8b5cf6','#0ea5e9','#ec4899','#64748b'];
+
+  return (
+    <div style={{ display:'flex', gap:0, height:'calc(100vh - 120px)', minHeight:500, borderRadius:16, border:`1px solid ${LINE}`, overflow:'hidden', background:CARD, position:'relative' }}>
+
+      {/* ── Panel izquierdo ── */}
+      <div style={{ width:300, minWidth:300, borderRight:`1px solid ${LINE}`, display:'flex', flexDirection:'column' }}>
+
+        {/* Header tipo email */}
+        <div style={{ padding:'10px 12px', borderBottom:`1px solid ${LINE}`, display:'flex', flexDirection:'column', gap:8 }}>
+          {/* Fila 1: búsqueda */}
+          <div style={{ display:'flex', alignItems:'center', gap:6, background:BG, borderRadius:9, padding:'6px 10px', border:`1px solid ${LINE}` }}>
+            <Search size={13} color={MUTED}/>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar consultas..."
+              style={{ flex:1, border:'none', background:'transparent', fontFamily:FONT, fontSize:12, color:INK, outline:'none' }}
+            />
+            {search && <button onClick={() => setSearch('')} style={{ background:'none', border:'none', cursor:'pointer', padding:0, color:MUTED }}><X size={11}/></button>}
+          </div>
+          {/* Fila 2: acciones */}
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            {/* Filtro por etiqueta */}
+            <select value={filterLabel || ''} onChange={e => setFilterLabel(e.target.value || null)}
+              style={{ flex:1, padding:'5px 8px', borderRadius:8, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:12, color: filterLabel ? P : INK2, background:CARD, cursor:'pointer', outline:'none' }}
+            >
+              <option value=''>Todas las etiquetas</option>
+              {labels.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+            </select>
+            {/* Selección múltiple */}
+            <button onClick={() => { setSelectMode(s => !s); setSelected(new Set()); }}
+              title={selectMode ? 'Cancelar selección' : 'Seleccionar'}
+              style={{ width:30, height:30, borderRadius:8, border:`1px solid ${selectMode ? P : LINE}`, background: selectMode ? PS : 'transparent', cursor:'pointer', display:'grid', placeItems:'center', color: selectMode ? P : INK2 }}
+            >
+              <CheckCircle2 size={14}/>
+            </button>
+            {/* Eliminar seleccionados */}
+            <button onClick={deleteSelected} disabled={selected.size === 0}
+              title="Eliminar seleccionados"
+              style={{ width:30, height:30, borderRadius:8, border:`1px solid ${selected.size > 0 ? '#ef4444' : LINE}`, background:'transparent', cursor: selected.size > 0 ? 'pointer' : 'default', display:'grid', placeItems:'center', color: selected.size > 0 ? '#ef4444' : MUTED, opacity: selected.size > 0 ? 1 : 0.4 }}
+            >
+              <Trash2 size={14}/>
+            </button>
+            {/* Gestionar etiquetas */}
+            <button onClick={() => setShowLabelMgr(s => !s)}
+              title="Gestionar etiquetas"
+              style={{ width:30, height:30, borderRadius:8, border:`1px solid ${showLabelMgr ? P : LINE}`, background: showLabelMgr ? PS : 'transparent', cursor:'pointer', display:'grid', placeItems:'center', color: showLabelMgr ? P : INK2 }}
+            >
+              <Tag size={14}/>
+            </button>
+          </div>
+        </div>
+
+        {/* Lista de consultas */}
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {visibleChats.length === 0 && (
+            <div style={{ padding:32, textAlign:'center', color:MUTED, fontFamily:FONT, fontSize:13 }}>Sin resultados</div>
+          )}
+          {visibleChats.map(c => {
+            const lbl = getLabel(c.labelId);
+            return (
+              <button key={c.id} onClick={() => { setActive(c.id); if (selectMode) toggleSelect(c.id); }} style={{
+                width:'100%', display:'flex', gap:10, padding:'12px 14px', border:'none', textAlign:'left',
+                background: active === c.id ? PS : 'transparent', cursor:'pointer',
+                borderBottom:`1px solid ${LINE}`, alignItems:'flex-start',
+              }}>
+                {/* Checkbox modo selección */}
+                {selectMode && (
+                  <div onClick={e => { e.stopPropagation(); toggleSelect(c.id); }}
+                    style={{ width:16, height:16, borderRadius:4, border:`2px solid ${selected.has(c.id) ? P : LINE}`, background: selected.has(c.id) ? P : '#fff', display:'grid', placeItems:'center', flexShrink:0, marginTop:12, cursor:'pointer' }}
+                  >
+                    {selected.has(c.id) && <Check size={10} color="#fff"/>}
+                  </div>
+                )}
+                <ChatAvatar chat={c} size={38}/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>{c.nombre}</span>
+                    <span style={{ fontFamily:FONT, fontSize:10, color:MUTED, flexShrink:0 }}>{c.time}</span>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:INK2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2 }}>{c.msg}</div>
+                  {lbl && <div style={{ marginTop:4 }}><LabelPill label={lbl.label} color={lbl.color}/></div>}
+                </div>
+                {c.unread > 0 && <span style={{ background:P, color:'#fff', fontSize:10, fontWeight:700, width:17, height:17, borderRadius:'50%', display:'grid', placeItems:'center', flexShrink:0 }}>{c.unread}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Panel derecho: chat ── */}
+      {chat && (
+        <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
+          <div style={{ padding:'12px 18px', borderBottom:`1px solid ${LINE}`, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <ChatAvatar chat={chat} size={36}/>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>{chat.nombre}</div>
+                {getLabel(chat.labelId) && <LabelPill label={getLabel(chat.labelId).label} color={getLabel(chat.labelId).color}/>}
+              </div>
+            </div>
+            {/* Selector de etiqueta */}
+            <select value={chat.labelId || ''} onChange={e => setLabel(e.target.value || null)}
+              style={{ padding:'6px 10px', borderRadius:9, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:12, color:INK, background:CARD, cursor:'pointer', outline:'none' }}
+            >
+              <option value=''>Sin etiqueta</option>
+              {labels.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+            </select>
+          </div>
+
+          {/* Mensajes */}
+          <div style={{ flex:1, overflowY:'auto', padding:'20px', display:'flex', flexDirection:'column', gap:12 }}>
+            {chat.msgs.map((m,i) => (
+              <div key={i} style={{ display:'flex', justifyContent: m.from === 'socio' ? 'flex-end' : 'flex-start' }}>
+                <div style={{
+                  maxWidth:'70%', padding:'10px 14px',
+                  borderRadius: m.from === 'socio' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  background: m.from === 'socio' ? P : BG,
+                  color: m.from === 'socio' ? '#fff' : INK,
+                  fontFamily:FONT, fontSize:13,
+                }}>
+                  <div>{m.text}</div>
+                  <div style={{ fontSize:10, marginTop:4, color: m.from === 'socio' ? 'rgba(255,255,255,0.6)' : MUTED, textAlign:'right' }}>{m.time}</div>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef}/>
+          </div>
+
+          {/* Input */}
+          <div style={{ padding:'12px 18px', borderTop:`1px solid ${LINE}`, display:'flex', gap:10 }}>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMsg()}
+              placeholder="Escribí tu respuesta..."
+              style={{ flex:1, padding:'10px 14px', borderRadius:12, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, outline:'none', color:INK }}
+            />
+            <button onClick={sendMsg} style={{ width:42, height:42, borderRadius:12, background:P, border:'none', cursor:'pointer', display:'grid', placeItems:'center' }}>
+              <Send size={17} color="#fff"/>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Drawer gestión de etiquetas ── */}
+      {showLabelMgr && (
+        <div style={{ position:'absolute', top:0, left:300, bottom:0, width:280, background:CARD, borderRight:`1px solid ${LINE}`, display:'flex', flexDirection:'column', zIndex:20, boxShadow:'4px 0 16px rgba(0,0,0,0.07)' }}>
+          <div style={{ padding:'14px 16px', borderBottom:`1px solid ${LINE}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>Gestionar etiquetas</span>
+            <button onClick={() => setShowLabelMgr(false)} style={{ background:'none', border:'none', cursor:'pointer', color:MUTED }}><X size={16}/></button>
+          </div>
+          <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+            {labels.map(l => (
+              <div key={l.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:10, border:`1px solid ${LINE}`, background:BG }}>
+                <div style={{ width:12, height:12, borderRadius:'50%', background:l.color, flexShrink:0 }}/>
+                {editingId === l.id
+                  ? <input defaultValue={l.label} autoFocus onBlur={e => saveEditLabel(l.id, e.target.value)} onKeyDown={e => e.key === 'Enter' && saveEditLabel(l.id, e.target.value)}
+                      style={{ flex:1, border:`1px solid ${P}`, borderRadius:6, padding:'3px 7px', fontFamily:FONT, fontSize:12, outline:'none' }}/>
+                  : <span style={{ flex:1, fontFamily:FONT, fontSize:12, fontWeight:600, color:INK }}>{l.label}</span>
+                }
+                <button onClick={() => setEditingId(l.id)} style={{ background:'none', border:'none', cursor:'pointer', color:MUTED, padding:2 }}><Edit2 size={12}/></button>
+                <button onClick={() => deleteLabel(l.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#ef4444', padding:2 }}><Trash2 size={12}/></button>
+              </div>
+            ))}
+          </div>
+          {/* Agregar nueva etiqueta */}
+          <div style={{ padding:'12px 14px', borderTop:`1px solid ${LINE}` }}>
+            <div style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:MUTED, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.05em' }}>Nueva etiqueta</div>
+            <input value={newLabelText} onChange={e => setNewLabelText(e.target.value)} placeholder="Nombre de la etiqueta"
+              onKeyDown={e => e.key === 'Enter' && addLabel()}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:9, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, outline:'none', color:INK, marginBottom:8, boxSizing:'border-box' }}
+            />
+            <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' }}>
+              {LABEL_COLORS.map(c => (
+                <div key={c} onClick={() => setNewLabelColor(c)}
+                  style={{ width:20, height:20, borderRadius:'50%', background:c, cursor:'pointer', border: newLabelColor === c ? `2px solid ${INK}` : '2px solid transparent' }}/>
+              ))}
+            </div>
+            <button onClick={addLabel} style={{ width:'100%', padding:'8px', borderRadius:9, background:P, border:'none', color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+              <Plus size={14}/> Agregar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 3 — NOTIFICACIONES
+// ════════════════════════════════════════════════════════════
+function TabNotificaciones({ credits, setCredits }) {
+  const [notifs, setNotifs] = useState(MOCK_NOTIFS);
+  const [filter, setFilter] = useState('todas');
+
+  function markRead(id) { setNotifs(prev => prev.filter(n => n.id !== id)); }
+
+  const filtered = filter === 'todas' ? notifs
+    : filter === 'propias' ? notifs.filter(n => n.tipo === 'propia')
+    : notifs.filter(n => n.tipo === 'tercero');
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Centro de Notificaciones</h2>
+        <div style={{ display:'flex', alignItems:'center', gap:8, background:`${YELLOW}15`, border:`1px solid ${YELLOW}40`, borderRadius:12, padding:'8px 14px' }}>
+          <CreditCoin size={20}/>
+          <span style={{ fontFamily:FONT, fontWeight:700, fontSize:16, color:INK }}>{credits} créditos</span>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:'flex', gap:8 }}>
+        {['todas','propias','terceros'].map(f => (
+          <button key={f} onClick={() => setFilter(f)} style={{
+            padding:'6px 16px', borderRadius:99, border:`1px solid ${filter===f ? P : LINE}`,
+            background: filter===f ? PS : 'transparent', color: filter===f ? P : INK2,
+            fontFamily:FONT, fontSize:12, fontWeight:600, cursor:'pointer', textTransform:'capitalize',
+          }}>{f}</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <Card style={{ textAlign:'center', padding:40, color:MUTED }}>
+          <Bell size={32} style={{ margin:'0 auto 10px', display:'block', opacity:0.3 }}/>
+          <div style={{ fontFamily:FONT, fontSize:14 }}>Sin notificaciones</div>
+        </Card>
+      )}
+
+      {filtered.map(n => (
+        <Card key={n.id} style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:n.color+'15', display:'grid', placeItems:'center', flexShrink:0 }}>
+            <n.icon size={20} color={n.color}/>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>{n.title}</div>
+              <span style={{ fontFamily:FONT, fontSize:11, color:MUTED, whiteSpace:'nowrap', marginLeft:12 }}>{n.time}</span>
+            </div>
+            <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:4 }}>{n.desc}</div>
+            {n.creditos > 0 && (
+              <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:6 }}>
+                <CreditCoin size={16}/>
+                <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:YELLOW }}>+{n.creditos} Crédito acumulado</span>
+              </div>
+            )}
+          </div>
+          <button onClick={() => markRead(n.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:MUTED, padding:4 }}>
+            <X size={16}/>
+          </button>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 4 — MIS OFERTAS
+// ════════════════════════════════════════════════════════════
+function TabOfertas({ dbPromos, negocioId, showToast }) {
+  const [ofertas, setOfertas] = useState(dbPromos.length > 0 ? dbPromos.map(p => ({
+    id: p.id, titulo: p.titulo || p.nombre, desc: p.descripcion || '', descuento: p.descuento || 0, tipo: p.tipo || 'Descuento Directo', activa: p.activo !== false,
+  })) : MOCK_OFERTAS);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ titulo:'', descuento:'', desc:'', tipo:'Descuento Directo' });
+
+  function toggleActiva(id) {
+    setOfertas(prev => prev.map(o => o.id === id ? { ...o, activa: !o.activa } : o));
+    showToast('Estado actualizado', 'ok');
+  }
+
+  function addOferta() {
+    if (!form.titulo) return;
+    setOfertas(prev => [...prev, { id: Date.now(), titulo:form.titulo, desc:form.desc, descuento:Number(form.descuento)||0, tipo:form.tipo, activa:true }]);
+    setModal(false);
+    setForm({ titulo:'', descuento:'', desc:'', tipo:'Descuento Directo' });
+    showToast('Oferta creada correctamente', 'ok');
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Mis Ofertas</h2>
+        <button onClick={() => setModal(true)} style={{ display:'flex', alignItems:'center', gap:8, background:P, color:'#fff', border:'none', borderRadius:12, padding:'10px 16px', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+          <Plus size={16}/> Nueva oferta
+        </button>
+      </div>
+
+      {ofertas.map(o => (
+        <Card key={o.id} style={{ display:'flex', gap:16, alignItems:'center' }}>
+          <div style={{ flex:1 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+              <span style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>{o.titulo}</span>
+              <Pill label={o.tipo} color={o.tipo === 'Pack Armado' ? GREEN : P}/>
+              <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:YELLOW }}>−{o.descuento}%</span>
+            </div>
+            <div style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>{o.desc}</div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontFamily:FONT, fontSize:11, color:o.activa ? GREEN : MUTED, fontWeight:600 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
+            <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
+          </div>
+        </Card>
+      ))}
+
+      {/* Modal */}
+      {modal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'grid', placeItems:'center' }} onClick={() => setModal(false)}>
+          <div style={{ background:CARD, borderRadius:20, padding:28, width:480, maxWidth:'90vw' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <h3 style={{ fontFamily:FONT, fontSize:17, fontWeight:700, color:INK, margin:0 }}>Crear oferta</h3>
+              <button onClick={() => setModal(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:MUTED }}><X size={18}/></button>
+            </div>
+            {[
+              { key:'titulo', label:'Título', type:'text' },
+              { key:'descuento', label:'Descuento (%)', type:'number' },
+              { key:'desc', label:'Descripción', type:'text' },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom:14 }}>
+                <label style={{ fontFamily:FONT, fontSize:12, fontWeight:600, color:INK2, display:'block', marginBottom:6 }}>{f.label}</label>
+                <input type={f.type} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]:e.target.value }))}
+                  style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none', boxSizing:'border-box' }}/>
+              </div>
+            ))}
+            <div style={{ marginBottom:20 }}>
+              <label style={{ fontFamily:FONT, fontSize:12, fontWeight:600, color:INK2, display:'block', marginBottom:6 }}>Tipo</label>
+              <select value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo:e.target.value }))}
+                style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}>
+                <option>Descuento Directo</option>
+                <option>Pack Armado</option>
+              </select>
+            </div>
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button onClick={() => setModal(false)} style={{ padding:'10px 18px', borderRadius:12, border:`1px solid ${LINE}`, background:'transparent', fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', color:INK2 }}>Cancelar</button>
+              <button onClick={addOferta} style={{ padding:'10px 18px', borderRadius:12, border:'none', background:P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>Crear oferta</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 5 — MI EMPRESA
+// ════════════════════════════════════════════════════════════
+function TabEmpresa({ negocio, showToast }) {
+  const [form, setForm] = useState({
+    nombre: negocio?.nombre || 'Hotel Gesell Mar',
+    direccion: negocio?.direccion || 'Av. 3 nº 784',
+    telefono: negocio?.telefono || '+54 9 2255 000000',
+    zona: negocio?.zona || 'Centro',
+    tipo: negocio?.tipo || 'Hotel',
+    descripcion: negocio?.descripcion || 'Hotel a media cuadra del mar, con pileta, desayuno incluido y cochera privada.',
+  });
+  const [fotos, setFotos] = useState(MOCK_FOTOS);
+  const fileRef = useRef();
+
+  function save() { showToast('Perfil guardado correctamente', 'ok'); }
+
+  function addFoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setFotos(prev => [...prev, { id: Date.now(), src: url, alt: file.name }]);
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Mi Empresa</h2>
+
+      <Card>
+        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:16 }}>Datos de la propiedad</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+          {[
+            { key:'nombre', label:'Nombre comercial' },
+            { key:'tipo',   label:'Tipo de establecimiento' },
+            { key:'direccion', label:'Dirección' },
+            { key:'telefono',  label:'Teléfono' },
+            { key:'zona',      label:'Zona de la costa' },
+          ].map(f => (
+            <div key={f.key}>
+              <label style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:INK2, display:'block', marginBottom:6 }}>{f.label}</label>
+              <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]:e.target.value }))}
+                style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none', boxSizing:'border-box' }}/>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:12 }}>Descripción pública</div>
+        <textarea value={form.descripcion} onChange={e => setForm(p => ({ ...p, descripcion:e.target.value }))} rows={4}
+          style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none', resize:'vertical', boxSizing:'border-box' }}/>
+      </Card>
+
+      <Card>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>Galería de imágenes</div>
+          <button onClick={() => fileRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, border:`1px dashed ${P}`, background:PS, color:P, fontFamily:FONT, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+            <Upload size={14}/> Subir foto
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={addFoto}/>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }}>
+          {fotos.map(f => (
+            <div key={f.id} style={{ position:'relative', borderRadius:12, overflow:'hidden', aspectRatio:'4/3' }}>
+              <img src={f.src} alt={f.alt} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+              <button onClick={() => setFotos(prev => prev.filter(x => x.id !== f.id))}
+                style={{ position:'absolute', top:6, right:6, width:26, height:26, borderRadius:'50%', background:'rgba(0,0,0,0.6)', border:'none', cursor:'pointer', display:'grid', placeItems:'center' }}>
+                <Trash2 size={12} color="#fff"/>
+              </button>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div style={{ display:'flex', justifyContent:'flex-end' }}>
+        <button onClick={save} style={{ display:'flex', alignItems:'center', gap:8, background:P, color:'#fff', border:'none', borderRadius:12, padding:'12px 24px', fontFamily:FONT, fontSize:14, fontWeight:700, cursor:'pointer' }}>
+          <Save size={16}/> Guardar cambios
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 6 — MI CUENTA
+// ════════════════════════════════════════════════════════════
+function TabCuenta({ credits, addonTotal }) {
+  const planBase = 20000;
+  const valorCredito = 2000;
+  const descuentoCreditos = credits * valorCredito;
+  const total = Math.max(0, planBase - descuentoCreditos) + addonTotal;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Mi Cuenta</h2>
+
+      {/* Plan */}
+      <Card style={{ background:`linear-gradient(135deg, ${NAVY} 0%, #1e293b 100%)` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:16 }}>
+          <div style={{ width:48, height:48, borderRadius:14, background:P, display:'grid', placeItems:'center' }}>
+            <Zap size={24} color="#fff"/>
+          </div>
+          <div>
+            <div style={{ fontFamily:FONT, fontSize:12, color:'rgba(255,255,255,0.5)', fontWeight:600 }}>Plan activo</div>
+            <div style={{ fontFamily:FONT, fontSize:22, fontWeight:800, color:'#fff' }}>PLUS</div>
+          </div>
+          <div style={{ marginLeft:'auto', textAlign:'right' }}>
+            <div style={{ fontFamily:FONT, fontSize:12, color:'rgba(255,255,255,0.5)' }}>Tarifa base</div>
+            <div style={{ fontFamily:FONT, fontSize:18, fontWeight:700, color:'#fff' }}>${planBase.toLocaleString('es-AR')}/mes</div>
+          </div>
+        </div>
+        <div style={{ background:'rgba(255,255,255,0.08)', borderRadius:12, padding:14, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span style={{ fontFamily:FONT, fontSize:13, color:'rgba(255,255,255,0.7)' }}>Próximo abono estimado</span>
+          <span style={{ fontFamily:FONT, fontSize:18, fontWeight:800, color:'#34d399' }}>${total.toLocaleString('es-AR')}</span>
+        </div>
+      </Card>
+
+      {/* Wallet */}
+      <Card>
+        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:16 }}>Billetera de Créditos</div>
+        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, background:`${YELLOW}10`, border:`1px solid ${YELLOW}30`, borderRadius:16, padding:'16px 24px' }}>
+            <CreditCoin size={40}/>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, fontWeight:600 }}>Saldo este mes</div>
+              <div style={{ fontFamily:FONT, fontSize:36, fontWeight:900, color:INK }}>{credits}</div>
+            </div>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:FONT, fontSize:13, color:INK2, marginBottom:8 }}>Cada crédito = <strong>${valorCredito.toLocaleString('es-AR')}</strong> de descuento en tu próximo abono.</div>
+            <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:GREEN }}>
+              Ahorro acumulado: ${descuentoCreditos.toLocaleString('es-AR')}
+            </div>
+            {addonTotal > 0 && <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, marginTop:6 }}>+ ${addonTotal.toLocaleString('es-AR')} en add-ons contratados</div>}
+          </div>
+        </div>
+      </Card>
+
+      {/* Facturas */}
+      <Card>
+        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Historial de facturas</div>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:FONT, fontSize:13 }}>
+          <thead>
+            <tr style={{ borderBottom:`2px solid ${LINE}` }}>
+              {['Fecha','Concepto','Monto','Estado'].map(h => (
+                <th key={h} style={{ textAlign:'left', padding:'8px 12px', color:INK2, fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.04em' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {MOCK_FACTURAS.map((f,i) => (
+              <tr key={i} style={{ borderBottom:`1px solid ${LINE}` }}>
+                <td style={{ padding:'12px', color:INK2 }}>{f.fecha}</td>
+                <td style={{ padding:'12px', color:INK }}>{f.concepto}</td>
+                <td style={{ padding:'12px', color:INK, fontWeight:700 }}>${f.monto.toLocaleString('es-AR')}</td>
+                <td style={{ padding:'12px' }}>
+                  <Pill label={f.estado} color={f.estado==='Pagado' ? GREEN : YELLOW}/>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TAB 7 — ADD-ONS
+// ════════════════════════════════════════════════════════════
+function TabAddons({ addonTotal, setAddonTotal, showToast }) {
+  const [contratados, setContratados] = useState(new Set());
+
+  function contratar(addon) {
+    if (contratados.has(addon.id)) return;
+    setContratados(prev => new Set([...prev, addon.id]));
+    setAddonTotal(prev => prev + addon.precio);
+    showToast(`${addon.titulo} contratado correctamente`, 'ok');
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div>
+        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:'0 0 4px' }}>Módulos Extras</h2>
+        <p style={{ fontFamily:FONT, fontSize:13, color:INK2, margin:0 }}>Amplía las capacidades de tu ficha contratando servicios adicionales.</p>
+      </div>
+      {addonTotal > 0 && (
+        <div style={{ background:PS, border:`1px solid ${P}30`, borderRadius:12, padding:'12px 16px', fontFamily:FONT, fontSize:13, color:P, fontWeight:600 }}>
+          Add-ons activos: +${addonTotal.toLocaleString('es-AR')}/mes al plan
+        </div>
+      )}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14 }}>
+        {ADDONS_CATALOG.map(a => {
+          const activo = contratados.has(a.id);
+          return (
+            <Card key={a.id} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
+                <div style={{ width:44, height:44, borderRadius:12, background:a.color+'15', display:'grid', placeItems:'center', flexShrink:0 }}>
+                  <a.Icon size={22} color={a.color}/>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>{a.titulo}</div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:4, lineHeight:1.5 }}>{a.desc}</div>
+                </div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'auto' }}>
+                <span style={{ fontFamily:FONT, fontSize:15, fontWeight:800, color:INK }}>${a.precio.toLocaleString('es-AR')}<span style={{ fontSize:11, fontWeight:400, color:MUTED }}>/mes</span></span>
+                <button onClick={() => contratar(a)} style={{
+                  padding:'8px 16px', borderRadius:10, border: activo ? `1px solid ${GREEN}` : 'none',
+                  background: activo ? GREENS : P, color: activo ? GREEN : '#fff',
+                  fontFamily:FONT, fontSize:12, fontWeight:700, cursor: activo ? 'default' : 'pointer',
+                  display:'flex', alignItems:'center', gap:6,
+                }}>
+                  {activo ? <><Check size={13}/> Contratado</> : <>Contratar</>}
+                </button>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  SIDEBAR
+// ════════════════════════════════════════════════════════════
+function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, setShowComprar, onVolver, onGoHome, onLogout }) {
+  return (
+    <aside style={{ background:NAVY, color:'#fff', width:230, minWidth:230, display:'flex', flexDirection:'column', minHeight:'100vh', position:'sticky', top:0, alignSelf:'flex-start' }}>
+      <button onClick={onGoHome} style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'20px 0 16px', background:'transparent', border:'none', cursor:'pointer', color:'#fff', borderBottom:'1px solid rgba(255,255,255,0.08)', width:'100%', boxSizing:'border-box' }}>
+        <img src="/logo-cuponera-wh.svg" alt="Cuponera" style={{ width:196, height:'auto', display:'block' }}/>
       </button>
 
-      {/* Nav */}
-      <nav style={{ flex:1, padding:'14px 12px', display:'flex', flexDirection:'column', gap:2 }}>
+      <nav style={{ flex:1, padding:'12px 10px', display:'flex', flexDirection:'column', gap:2 }}>
         {TABS.map(t => {
           const active = tab === t.id;
-          const badge = t.id === 'consultas' ? stats.consultas : 0;
+          const badge = t.id === 'notif' ? notifCount : 0;
           return (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
-              border:'none', borderRadius:10,
-              background: active ? A.primary : 'transparent',
-              color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-              fontFamily:A.font, fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left',
+              border:'none', borderRadius:10, background: active ? P : 'transparent',
+              color: active ? '#fff' : 'rgba(255,255,255,0.65)',
+              fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left',
             }}>
+              <t.Icon size={16}/>
               <span style={{ flex:1 }}>{t.label}</span>
-              {badge > 0 && <span style={{ background:A.yellow, color:A.ink, fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:999 }}>{badge}</span>}
+              {badge > 0 && <span style={{ background:YELLOW, color:NAVY, fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:999 }}>{badge}</span>}
             </button>
           );
         })}
       </nav>
 
-      {/* Token widget — FREE alojamientos only */}
       {negocio && debeUsarTokens(negocio.tipo, negocio.plan) && (
-        <div style={{ margin:'0 12px 12px', background:'rgba(255,255,255,0.08)', borderRadius:12, padding:14 }}>
+        <div style={{ margin:'0 10px 10px', background:'rgba(255,255,255,0.07)', borderRadius:12, padding:12 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-            <span style={{ fontFamily:A.font, fontSize:12, color:'rgba(255,255,255,0.6)', fontWeight:600 }}>Tokens</span>
-            <span style={{ fontFamily:A.font, fontSize:14, fontWeight:700 }}>🪙 {saldoTokens}</span>
+            <span style={{ fontFamily:FONT, fontSize:11, color:'rgba(255,255,255,0.5)', fontWeight:600 }}>Tokens</span>
+            <span style={{ fontFamily:FONT, fontSize:13, fontWeight:700 }}>🪙 {saldoTokens}</span>
           </div>
-          <div style={{ fontFamily:A.font, fontSize:11, color:'rgba(255,255,255,0.45)', marginBottom:8 }}>
-            {saldoTokens === 0 ? 'Sin tokens para publicar.' : `Podés publicar ${saldoTokens} oferta${saldoTokens !== 1 ? 's' : ''}.`}
-          </div>
-          <button onClick={() => setShowComprar(true)} style={{ width:'100%', background:A.primary, color:'#fff', border:'none', borderRadius:8, padding:'7px 0', fontFamily:A.font, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+          <button onClick={() => setShowComprar(true)} style={{ width:'100%', background:P, color:'#fff', border:'none', borderRadius:8, padding:'7px 0', fontFamily:FONT, fontSize:11, fontWeight:700, cursor:'pointer' }}>
             Comprar tokens
           </button>
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{ padding:'14px 12px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ fontFamily:A.font, fontSize:10, color:'rgba(255,255,255,0.5)', fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase' }}>Sesión activa</div>
-        <div style={{ fontFamily:A.font, fontSize:13, fontWeight:600, marginTop:4, marginBottom:8 }}>{perfil?.nombre || 'Usuario'}</div>
+      <div style={{ padding:'12px 10px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ fontFamily:FONT, fontSize:10, color:'rgba(255,255,255,0.4)', fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase' }}>Sesión activa</div>
+        <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, marginTop:4, marginBottom:8 }}>{perfil?.nombre || 'Socio'}</div>
         {onVolver && (
-          <button onClick={onVolver} style={{ display:'flex', alignItems:'center', gap:8, background:'transparent', border:'none', color:'rgba(255,255,255,0.6)', fontFamily:A.font, fontSize:12, cursor:'pointer', marginBottom:4, padding:'4px 0' }}>
-            <ArrowLeft size={14} /> Volver al panel
+          <button onClick={onVolver} style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'none', color:'rgba(255,255,255,0.55)', fontFamily:FONT, fontSize:12, cursor:'pointer', marginBottom:4, padding:'3px 0' }}>
+            <ArrowLeft size={13}/> Volver al panel
           </button>
         )}
-        <button onClick={onLogout} style={{ display:'flex', alignItems:'center', gap:8, background:'transparent', border:'none', color:'rgba(255,255,255,0.45)', fontFamily:A.font, fontSize:12, cursor:'pointer', padding:'4px 0' }}>
-          <LogOut size={14} /> Cerrar sesión
+        <button onClick={onLogout} style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'none', color:'rgba(255,255,255,0.35)', fontFamily:FONT, fontSize:12, cursor:'pointer', padding:'3px 0' }}>
+          <LogOut size={13}/> Cerrar sesión
         </button>
       </div>
     </aside>
   );
 }
 
-// ═══════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
-// ═══════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
-  const [tab, setTab]               = useState('resumen');
-  const [negocio, setNegocio]       = useState(perfil?.negocios || null);
-  const [promos, setPromos]         = useState([]);
-  const [alianzas, setAlianzas]     = useState([]);
-  const [ordenes, setOrdenes]       = useState([]);
+  const [tab, setTab]             = useState('dashboard');
+  const [negocio, setNegocio]     = useState(perfil?.negocios || null);
+  const [promos, setPromos]       = useState([]);
   const [saldoTokens, setSaldoTokens] = useState(0);
   const [showComprar, setShowComprar] = useState(false);
-  const [consultas, setConsultas]   = useState([]);
-  const [visitas, setVisitas]       = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [toast, setToast]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [toast, setToast]         = useState(null);
+  const [credits, setCredits]     = useState(7);
+  const [addonTotal, setAddonTotal] = useState(0);
+
+  const notifCount = MOCK_NOTIFS.length;
 
   useEffect(() => { cargarTodo(); }, []);
 
@@ -138,19 +1001,11 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       const { data } = await supabase.from('negocios').select('*').eq('id', perfil.negocio_id).single();
       if (data) setNegocio(data);
     }
-    const [proRes, conRes, visRes, aliRes, ordRes, saldoRes] = await Promise.all([
+    const [proRes, saldoRes] = await Promise.all([
       supabase.from('promociones').select('*').eq('negocio_id', perfil.negocio_id).order('creado_en', { ascending: false }),
-      supabase.from('consultas').select('*').eq('negocio_id', perfil.negocio_id).order('creado_en', { ascending: false }),
-      supabase.from('visitas').select('*').eq('negocio_id', perfil.negocio_id).order('fecha', { ascending: false }),
-      supabase.from('alianzas').select('*, promociones(*, negocios(nombre, localidad, foto_perfil, imagen_url))').eq('negocio_id', perfil.negocio_id).eq('aprobada', true),
-      getOrdenesPendientes(perfil.negocio_id),
       getSaldo(perfil.negocio_id),
     ]);
     if (proRes.data) setPromos(proRes.data);
-    if (conRes.data) setConsultas(conRes.data);
-    if (visRes.data) setVisitas(visRes.data);
-    if (aliRes.data) setAlianzas(aliRes.data);
-    setOrdenes(Array.isArray(ordRes) ? ordRes : []);
     setSaldoTokens(typeof saldoRes === 'number' ? saldoRes : 0);
     setLoading(false);
   }
@@ -160,978 +1015,47 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
     setTimeout(() => setToast(null), 3000);
   }
 
-  const handleLogout = async () => { await supabase.auth.signOut(); window.location.reload(); };
+  async function handleLogout() {
+    const { logout } = await import('../lib/auth');
+    await logout();
+    onGoHome?.();
+  }
 
-  const sinNegocio = !perfil?.negocio_id;
-  const pendienteAprobacion = negocio && !negocio.aprobado;
-
-  const stats = {
-    consultas:    consultas.filter(c => !c.leida).length,
-    promos:       promos.filter(p => p.activa).length,
-    totalVisitas: visitas.reduce((acc, v) => acc + (v.cantidad || 0), 0),
-  };
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:A.bg, fontFamily:A.font, color:A.ink }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:BG, fontFamily:FONT }}>
       <Sidebar
         tab={tab} setTab={setTab} negocio={negocio} perfil={perfil}
-        saldoTokens={saldoTokens} showComprar={showComprar} setShowComprar={setShowComprar}
-        stats={stats} onVolver={onVolver} onGoHome={onGoHome} onLogout={handleLogout}
+        notifCount={notifCount} saldoTokens={saldoTokens}
+        setShowComprar={setShowComprar} onVolver={onVolver}
+        onGoHome={onGoHome} onLogout={handleLogout}
       />
 
-      {/* Modal comprar tokens */}
-      {showComprar && negocio && (
-        <ComprarTokensModal
-          negocioId={negocio.id}
-          saldoActual={saldoTokens}
-          onClose={() => setShowComprar(false)}
-          onCompraExitosa={(cantidad) => {
-            setSaldoTokens(s => s + cantidad);
-            setShowComprar(false);
-            showToast(`¡${cantidad} token${cantidad > 1 ? 's' : ''} acreditado${cantidad > 1 ? 's' : ''}!`);
-          }}
-        />
-      )}
-
-      <main style={{ flex:1, padding:'22px 28px' }}>
-        {/* Toast */}
-        {toast && (
-          <div style={{
-            position:'fixed', top:24, right:24, zIndex:50,
-            display:'flex', alignItems:'center', gap:8, padding:'12px 20px', borderRadius:14,
-            background: toast.type === 'error' ? '#C03030' : A.green,
-            color:'#fff', fontFamily:A.font, fontWeight:600, fontSize:13, boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
-          }}>
-            {toast.type === 'error' ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
-            {toast.msg}
-          </div>
-        )}
-
-        {/* Alerts */}
-        {sinNegocio && (
-          <div style={{ background:'#FFF7E5', border:`1px solid #FFC93C55`, borderRadius:14, padding:20, display:'flex', gap:14, marginBottom:20 }}>
-            <AlertCircle size={20} color="#C28A1B" style={{ flexShrink:0, marginTop:2 }} />
-            <div>
-              <div style={{ fontFamily:A.font, fontWeight:700, color:'#C28A1B', marginBottom:4 }}>Tu cuenta no tiene un negocio asignado todavía</div>
-              <div style={{ fontFamily:A.font, fontSize:13, color:'#C28A1B', opacity:0.8 }}>Contactá al administrador del portal para que vincule tu cuenta a tu negocio.</div>
-            </div>
-          </div>
-        )}
-        {pendienteAprobacion && (
-          <div style={{ background:A.primarySoft, border:`1px solid ${A.primary}33`, borderRadius:14, padding:20, display:'flex', gap:14, marginBottom:20 }}>
-            <Clock size={20} color={A.primary} style={{ flexShrink:0, marginTop:2 }} />
-            <div>
-              <div style={{ fontFamily:A.font, fontWeight:700, color:A.primary, marginBottom:4 }}>Tu negocio está pendiente de aprobación</div>
-              <div style={{ fontFamily:A.font, fontSize:13, color:A.primary, opacity:0.8 }}>El equipo de gesell.ar va a revisarlo pronto. Te avisamos cuando esté publicado.</div>
-            </div>
-          </div>
-        )}
-
-        {/* Header */}
-        <div style={{ marginBottom:22 }}>
-          <h1 style={{ fontFamily:A.font, fontSize:28, fontWeight:700, margin:0, letterSpacing:'-0.025em' }}>
-            {TABS.find(t => t.id === tab)?.label}
-          </h1>
-        </div>
-
-        {loading ? (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:240, color:A.muted, fontFamily:A.font }}>Cargando...</div>
-        ) : (
-          <>
-            {tab === 'resumen'   && <TabResumen stats={stats} negocio={negocio} consultas={consultas} promos={promos} setPromos={setPromos} showToast={showToast} alianzas={alianzas} ordenes={ordenes} />}
-            {tab === 'negocio'   && <TabNegocio negocio={negocio} setNegocio={setNegocio} showToast={showToast} />}
-            {tab === 'consultas' && <TabConsultas consultas={consultas} setConsultas={setConsultas} showToast={showToast} />}
-            {tab === 'cuenta'    && <TabCuenta negocio={negocio} ordenes={ordenes} setOrdenes={setOrdenes} showToast={showToast} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens} />}
-            {tab === 'stats'     && <TabStats visitas={visitas} stats={stats} />}
-          </>
-        )}
+      <main style={{ flex:1, padding:28, overflowY:'auto', maxWidth:'100%' }}>
+        {tab === 'dashboard' && <TabDashboard credits={credits}/>}
+        {tab === 'inbox'     && <TabInbox/>}
+        {tab === 'notif'     && <TabNotificaciones credits={credits} setCredits={setCredits}/>}
+        {tab === 'ofertas'   && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast}/>}
+        {tab === 'empresa'   && <TabEmpresa negocio={negocio} showToast={showToast}/>}
+        {tab === 'cuenta'    && <TabCuenta credits={credits} addonTotal={addonTotal}/>}
+        {tab === 'addons'    && <TabAddons addonTotal={addonTotal} setAddonTotal={setAddonTotal} showToast={showToast}/>}
       </main>
+
+      <Toast toast={toast}/>
+
+      {showComprar && (
+        <ComprarTokensModal negocioId={perfil?.negocio_id} onClose={() => setShowComprar(false)}
+          onSuccess={(nuevos) => { setSaldoTokens(p => p + nuevos); setShowComprar(false); }}/>
+      )}
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        * { box-sizing: border-box; }
+        input:focus, textarea:focus, select:focus { border-color: ${P} !important; box-shadow: 0 0 0 3px ${PS}; }
+      `}</style>
     </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  TAB: OFERTAS (Resumen)
-// ═══════════════════════════════════════════════════════════
-function TabResumen({ stats, negocio, consultas, promos, setPromos, showToast, alianzas = [], ordenes = [] }) {
-  const [ofertaEditando, setOfertaEditando] = useState(null);
-  const [editandoPerfil, setEditandoPerfil] = useState(false);
-
-  async function togglePromo(id, activa) {
-    const update = activa ? { activa: false, motivo_inactiva: 'socio' } : { activa: true, motivo_inactiva: null };
-    const { error } = await supabase.from('promociones').update(update).eq('id', id);
-    if (error) return showToast('Error al actualizar', 'error');
-    setPromos(prev => prev.map(p => p.id === id ? { ...p, ...update } : p));
-    showToast(activa ? 'Oferta desactivada' : 'Oferta activada');
-  }
-
-  async function eliminarPromo(id) {
-    const { error } = await supabase.from('promociones').delete().eq('id', id);
-    if (error) return showToast('Error al eliminar', 'error');
-    setPromos(prev => prev.filter(p => p.id !== id));
-    showToast('Oferta eliminada');
-  }
-
-  const plan = negocio?.plan || 'free';
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
-
-      {/* Banner negocio */}
-      {negocio && (
-        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:18, display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{ width:52, height:52, borderRadius:12, overflow:'hidden', background:A.bg, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:A.muted }}>
-            {negocio.foto_perfil ? <img src={negocio.foto_perfil} alt={negocio.nombre} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              : negocio.imagen_url ? <img src={negocio.imagen_url} alt={negocio.nombre} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              : negocio.nombre?.[0]}
-          </div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{negocio.nombre}</div>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:3, flexWrap:'wrap' }}>
-              <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{negocio.tipo} · {negocio.localidad}</span>
-              <span style={{
-                fontFamily:A.font, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999,
-                background: plan === 'black' ? A.navy : plan === 'plus' ? A.primarySoft : A.bg,
-                color: plan === 'black' ? '#fff' : plan === 'plus' ? A.primary : A.muted,
-              }}>Plan {plan.toUpperCase()}</span>
-            </div>
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-            {negocio.aprobado && negocio.activo
-              ? <span style={{ background:'#E8F5EC', color:A.green, fontFamily:A.font, fontSize:11, fontWeight:600, padding:'4px 10px', borderRadius:999 }}>✓ Publicado</span>
-              : negocio.aprobado
-              ? <span style={{ background:A.bg, color:A.muted, fontFamily:A.font, fontSize:11, fontWeight:600, padding:'4px 10px', borderRadius:999 }}>Inactivo</span>
-              : <span style={{ background:'#FFF7E5', color:'#C28A1B', fontFamily:A.font, fontSize:11, fontWeight:600, padding:'4px 10px', borderRadius:999 }}>Pendiente</span>
-            }
-            <ABtn onClick={() => setEditandoPerfil(true)} style={{ fontSize:12, padding:'6px 10px' }}>
-              <Pencil size={12} /> Editar perfil
-            </ABtn>
-          </div>
-        </div>
-      )}
-
-      {/* Órdenes pendientes */}
-      {ordenes.length > 0 && (
-        <div style={{ background:'#FFF7E5', border:`1px solid #FFC93C55`, borderRadius:14, padding:18, display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:14 }}>
-          <div>
-            <div style={{ fontFamily:A.font, fontWeight:700, color:'#C28A1B', marginBottom:4 }}>
-              {ordenes.length === 1 ? 'Tenés 1 crédito pendiente de pago' : `Tenés ${ordenes.length} créditos pendientes de pago`}
-            </div>
-            <div style={{ fontFamily:A.font, fontSize:13, color:'#C28A1B' }}>
-              Total: ${(ordenes.reduce((acc, o) => acc + Number(o.monto) + Number(o.monto_iva), 0)).toLocaleString('es-AR')} IVA incluido
-            </div>
-          </div>
-          <ABtn variant="primary" style={{ fontSize:13, flexShrink:0 }}>Pagar ahora</ABtn>
-        </div>
-      )}
-
-      {/* Upgrade banners */}
-      {plan === 'free' && (
-        <div style={{ background:A.primary, borderRadius:14, padding:18, display:'flex', alignItems:'center', justifyContent:'space-between', gap:14 }}>
-          <div>
-            <div style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:'#fff', marginBottom:4 }}>¿Querés más visibilidad?</div>
-            <div style={{ fontFamily:A.font, fontSize:13, color:'rgba(255,255,255,0.75)' }}>Con el plan PLUS publicás ofertas ilimitadas y solo pagás cuando te canjean.</div>
-          </div>
-          <button style={{ background:'#fff', color:A.primary, border:'none', borderRadius:10, padding:'9px 16px', fontFamily:A.font, fontWeight:700, fontSize:13, cursor:'pointer', flexShrink:0 }}>Ver planes →</button>
-        </div>
-      )}
-      {plan === 'plus' && (
-        <div style={{ background:A.navy, borderRadius:14, padding:18, display:'flex', alignItems:'center', justifyContent:'space-between', gap:14 }}>
-          <div>
-            <div style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:'#fff', marginBottom:4 }}>Pasá al plan BLACK</div>
-            <div style={{ fontFamily:A.font, fontSize:13, color:'rgba(255,255,255,0.6)' }}>Incluí tu alojamiento en los destacados y ofrecé descuentos SIN CARGO.</div>
-          </div>
-          <button style={{ background:A.yellow, color:A.ink, border:'none', borderRadius:10, padding:'9px 16px', fontFamily:A.font, fontWeight:700, fontSize:13, cursor:'pointer', flexShrink:0 }}>Ver BLACK →</button>
-        </div>
-      )}
-
-      {/* Perfil editor drawer */}
-      {editandoPerfil && (
-        <PerfilEditorDrawer
-          negocio={negocio}
-          onClose={() => setEditandoPerfil(false)}
-          onSave={(updated) => { setEditandoPerfil(false); showToast('Perfil actualizado'); }}
-        />
-      )}
-
-      {/* Oferta editor drawer */}
-      {ofertaEditando !== null && (
-        <OfertaEditorDrawer
-          oferta={ofertaEditando?.id ? ofertaEditando : null}
-          negocioId={negocio?.id}
-          onClose={() => setOfertaEditando(null)}
-          onSave={(result, esNueva) => {
-            if (esNueva) setPromos(prev => [result, ...prev]);
-            else setPromos(prev => prev.map(p => p.id === result.id ? result : p));
-            setOfertaEditando(null);
-            showToast(esNueva ? 'Oferta enviada para aprobación' : 'Cambios guardados');
-          }}
-        />
-      )}
-
-      {/* Título sección */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <h2 style={{ fontFamily:A.font, fontSize:18, fontWeight:700, color:A.ink, margin:0 }}>Mis ofertas</h2>
-        {consultas.filter(c => !c.leida).length > 0 && (
-          <span style={{ background:'#FFF7E5', color:'#C28A1B', fontFamily:A.font, fontSize:12, fontWeight:700, padding:'4px 12px', borderRadius:999 }}>
-            {consultas.filter(c => !c.leida).length} consultas sin leer
-          </span>
-        )}
-      </div>
-
-      {/* Grilla de ofertas */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:14 }}>
-        {/* Nueva oferta placeholder */}
-        <button onClick={() => setOfertaEditando({})} style={{
-          border:`2px dashed ${A.line}`, borderRadius:14, display:'flex', flexDirection:'column',
-          alignItems:'center', justifyContent:'center', gap:12, background:'transparent',
-          minHeight:320, cursor:'pointer', transition:'border-color .15s',
-        }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = A.primary}
-          onMouseLeave={e => e.currentTarget.style.borderColor = A.line}
-        >
-          <div style={{ width:52, height:52, borderRadius:'50%', background:A.bg, display:'grid', placeItems:'center' }}>
-            <Plus size={24} color={A.muted} />
-          </div>
-          <span style={{ fontFamily:A.font, fontSize:13, fontWeight:600, color:A.muted }}>Nueva oferta</span>
-        </button>
-
-        {/* Fichas de ofertas */}
-        {promos.map(p => (
-          <div key={p.id} style={{
-            background:'#fff', borderRadius:14, overflow:'hidden',
-            border:`1px solid ${!p.aprobada ? '#FFC93C55' : A.line}`,
-            display:'flex', flexDirection:'column',
-            opacity: !p.aprobada ? 0.65 : !p.activa ? 0.5 : 1,
-          }}>
-            <div style={{ position:'relative', aspectRatio:'1', overflow:'hidden' }}>
-              <img
-                src={p.imagen_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80'}
-                alt={p.titulo} style={{ width:'100%', height:'100%', objectFit:'cover', filter: !p.aprobada ? 'grayscale(1)' : 'none' }}
-              />
-              <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.8), rgba(11,16,32,0.2) 50%, transparent)' }} />
-              {p.offer_type === 'Flash' && (
-                <div style={{ position:'absolute', top:10, left:10, background:'#C03030', color:'#fff', fontSize:10, fontWeight:700, fontStyle:'italic', padding:'3px 8px', borderRadius:6 }}>⚡ FLASH</div>
-              )}
-              <div style={{ position:'absolute', top:10, right:10 }}>
-                {!p.aprobada
-                  ? <span style={{ background:A.yellow, color:A.ink, fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>Pendiente</span>
-                  : !p.activa
-                  ? <span style={{ background:'#6B7280', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>Inactiva</span>
-                  : <span style={{ background:A.green, color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>Activa</span>
-                }
-              </div>
-              <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'14px 14px 12px', textAlign:'center' }}>
-                <div style={{ color:'#fff', fontSize:36, fontWeight:700, lineHeight:1, marginBottom:4, textShadow:'0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>
-                <div style={{ color:'rgba(255,255,255,0.8)', fontSize:11, lineHeight:1.3, fontWeight:500 }}>{p.titulo}</div>
-              </div>
-            </div>
-            <div style={{ padding:'10px 12px', display:'flex', gap:8, borderTop:`1px solid ${A.line}` }}>
-              <button onClick={() => setOfertaEditando(p)} style={{
-                display:'flex', alignItems:'center', gap:5, background:A.bg, border:'none', borderRadius:8, padding:'7px 10px', fontFamily:A.font, fontSize:12, fontWeight:600, color:A.ink2, cursor:'pointer', flexShrink:0,
-              }}>
-                <Pencil size={11} /> Editar
-              </button>
-              <select onChange={e => {
-                if (e.target.value === 'desactivar') togglePromo(p.id, true);
-                if (e.target.value === 'activar')    togglePromo(p.id, false);
-                if (e.target.value === 'eliminar')   eliminarPromo(p.id);
-                e.target.value = '';
-              }} defaultValue="" style={{ flex:1, fontSize:12, fontWeight:600, background:A.bg, border:`1px solid ${A.line}`, borderRadius:8, padding:'7px 8px', fontFamily:A.font, cursor:'pointer', color:A.ink2, outline:'none' }}>
-                <option value="" disabled>Acciones...</option>
-                {p.activa ? <option value="desactivar">⏸ Desactivar</option> : <option value="activar">▶ Activar</option>}
-                <option value="eliminar" style={{ color:'#C03030' }}>✕ Eliminar</option>
-              </select>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Alianzas */}
-      {alianzas.length > 0 && (
-        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <Star size={16} color={A.yellow} fill={A.yellow} />
-            <h2 style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink, margin:0 }}>Beneficios exclusivos asignados</h2>
-          </div>
-          <div style={{ fontFamily:A.font, fontSize:13, color:A.muted, marginTop:-4 }}>Otros socios te asignaron beneficios especiales para tus huéspedes.</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:14 }}>
-            {alianzas.map(al => {
-              const p = al.promociones;
-              if (!p) return null;
-              return (
-                <div key={al.id} style={{ background:'#fff', border:`1px solid ${A.yellow}44`, borderRadius:14, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-                  <div style={{ position:'relative', aspectRatio:'1', overflow:'hidden' }}>
-                    <img src={p.imagen_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80'} alt={p.titulo} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.8), transparent)' }} />
-                    <div style={{ position:'absolute', top:10, left:10, background:A.yellow, color:A.ink, fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>Alianza</div>
-                    <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:12, textAlign:'center' }}>
-                      <div style={{ color:'#fff', fontSize:28, fontWeight:700 }}>{p.badge}</div>
-                      <div style={{ color:'rgba(255,255,255,0.8)', fontSize:10 }}>{p.titulo}</div>
-                    </div>
-                  </div>
-                  <div style={{ padding:12 }}>
-                    <div style={{ fontFamily:A.font, fontSize:12, fontWeight:700, color:A.ink }}>{p.negocios?.nombre}</div>
-                    <div style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>{p.negocios?.localidad}</div>
-                    {al.descripcion && (
-                      <div style={{ marginTop:8, background:'#FFF7E5', border:`1px solid ${A.yellow}44`, borderRadius:8, padding:'6px 10px' }}>
-                        <div style={{ fontFamily:A.font, fontSize:11, fontWeight:600, color:'#C28A1B' }}>{al.descripcion}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Consultas recientes */}
-      {consultas.length > 0 && (
-        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
-          <div style={{ padding:'16px 18px', borderBottom:`1px solid ${A.line}` }}>
-            <h3 style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink, margin:0 }}>Consultas recientes</h3>
-          </div>
-          {consultas.slice(0, 3).map((c, i) => (
-            <div key={c.id} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'14px 18px', borderTop: i > 0 ? `1px solid ${A.line}` : 'none', background: !c.leida ? A.primarySoft : 'transparent' }}>
-              <div style={{ width:8, height:8, borderRadius:'50%', background: !c.leida ? A.primary : A.line, flexShrink:0, marginTop:6 }} />
-              <div>
-                <div style={{ fontFamily:A.font, fontSize:13, fontWeight:600, color:A.ink, marginBottom:2 }}>{c.nombre_visitante || 'Visitante'}</div>
-                <div style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{c.mensaje}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  TAB: MI NEGOCIO
-// ═══════════════════════════════════════════════════════════
-function TabNegocio({ negocio, setNegocio, showToast }) {
-  const [form, setForm] = useState({
-    nombre:      negocio?.nombre      || '',
-    descripcion: negocio?.descripcion || '',
-    precio:      negocio?.precio      || '',
-    ubicacion:   negocio?.ubicacion   || '',
-    imagen_url:  negocio?.imagen_url  || '',
-  });
-  const [saving, setSaving] = useState(false);
-  const set = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
-
-  async function guardar() {
-    if (!negocio?.id) return showToast('Sin negocio asignado', 'error');
-    setSaving(true);
-    const { data, error } = await supabase.from('negocios').update({
-      nombre:      form.nombre,
-      descripcion: form.descripcion,
-      precio:      form.precio ? Number(form.precio) : null,
-      ubicacion:   form.ubicacion,
-      imagen_url:  form.imagen_url,
-    }).eq('id', negocio.id).select().single();
-    if (error) showToast('Error al guardar', 'error');
-    else { setNegocio(data); showToast('Cambios guardados correctamente'); }
-    setSaving(false);
-  }
-
-  return (
-    <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:28, maxWidth:720 }}>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:18 }}>
-        {[
-          { label:'Nombre del negocio', key:'nombre', placeholder:'Ej: Hotel Las Olas' },
-          { label:'Ubicación / Zona', key:'ubicacion', placeholder:'Ej: Centro, Barrio Norte...' },
-          { label:'Precio por noche (en pesos)', key:'precio', placeholder:'Ej: 85000', type:'number' },
-          { label:'URL de imagen principal', key:'imagen_url', placeholder:'https://...' },
-        ].map(f => (
-          <div key={f.key}>
-            <label style={{ display:'block', fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{f.label}</label>
-            <input type={f.type || 'text'} value={form[f.key]} onChange={set(f.key)} placeholder={f.placeholder} style={inputSt} />
-          </div>
-        ))}
-        <div style={{ gridColumn:'1 / -1' }}>
-          <label style={{ display:'block', fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>Descripción</label>
-          <textarea value={form.descripcion} onChange={set('descripcion')} placeholder="Contá todo sobre tu negocio..." rows={5}
-            style={{ ...inputSt, resize:'none' }} />
-        </div>
-        {form.imagen_url && (
-          <div style={{ gridColumn:'1 / -1' }}>
-            <label style={{ display:'block', fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>Vista previa</label>
-            <div style={{ width:'100%', height:200, borderRadius:12, overflow:'hidden', background:A.bg }}>
-              <img src={form.imagen_url} alt="Preview" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-            </div>
-          </div>
-        )}
-      </div>
-      <div style={{ marginTop:24, display:'flex', justifyContent:'flex-end' }}>
-        <ABtn onClick={guardar} variant="primary" disabled={saving} style={{ padding:'12px 24px', fontSize:14 }}>
-          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
-        </ABtn>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  TAB: CONSULTAS
-// ═══════════════════════════════════════════════════════════
-function TabConsultas({ consultas, setConsultas, showToast }) {
-  async function marcarLeida(id) {
-    const { error } = await supabase.from('consultas').update({ leida: true }).eq('id', id);
-    if (error) return showToast('Error', 'error');
-    setConsultas(prev => prev.map(c => c.id === id ? { ...c, leida: true } : c));
-  }
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-      {consultas.length === 0 ? (
-        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'48px 24px', textAlign:'center', color:A.muted, fontFamily:A.font }}>No recibiste consultas todavía</div>
-      ) : consultas.map(c => (
-        <div key={c.id} style={{ background:'#fff', border:`1px solid ${!c.leida ? A.primary + '44' : A.line}`, borderRadius:14, padding:20 }}>
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:14 }}>
-            <div style={{ flex:1 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                {!c.leida && <div style={{ width:8, height:8, borderRadius:'50%', background:A.primary, flexShrink:0 }} />}
-                <span style={{ fontFamily:A.font, fontSize:14, fontWeight:600, color:A.ink }}>{c.nombre_visitante || 'Visitante anónimo'}</span>
-                {c.email && <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>· {c.email}</span>}
-              </div>
-              <div style={{ fontFamily:A.font, fontSize:13, color:A.ink2, lineHeight:1.5, marginBottom:8 }}>{c.mensaje}</div>
-              <div style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>
-                📅 {new Date(c.creado_en).toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' })}
-              </div>
-            </div>
-            {!c.leida && (
-              <ABtn onClick={() => marcarLeida(c.id)} variant="success" style={{ fontSize:12, padding:'6px 12px', flexShrink:0 }}>
-                <CheckCircle2 size={14} /> Marcar leída
-              </ABtn>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  TAB: CUENTA
-// ═══════════════════════════════════════════════════════════
-function TabCuenta({ negocio, ordenes, setOrdenes, showToast, saldoTokens, setSaldoTokens }) {
-  const [historial, setHistorial]     = useState([]);
-  const [compras, setCompras]         = useState([]);
-  const [showComprar, setShowComprar] = useState(false);
-  const [saldo, setSaldo]             = useState(saldoTokens || 0);
-
-  const plan   = negocio?.plan || 'free';
-  const esAloj = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'].includes(negocio?.tipo);
-
-  const PLAN_INFO = {
-    free:  { label:'FREE',  bg:A.bg, col:A.muted, desc:'Sin costo de membresía' },
-    plus:  { label:'PLUS',  bg:A.primarySoft, col:A.primary, desc:'$220.000 / año' },
-    black: { label:'BLACK', bg:A.navy, col:'#fff', desc:'$350.000 / año' },
-  };
-
-  useEffect(() => {
-    async function cargar() {
-      if (!negocio?.id) return;
-      const [{ data: hist }, comprasData, saldoData] = await Promise.all([
-        supabase.from('ordenes_cobro').select('*, promociones(titulo, badge, imagen_url)').eq('negocio_id', negocio.id).eq('estado', 'pagada').order('pagado_en', { ascending: false }),
-        getComprasTokens(negocio.id),
-        getSaldo(negocio.id),
-      ]);
-      setHistorial(hist || []);
-      setCompras(comprasData);
-      setSaldo(saldoData);
-    }
-    cargar();
-  }, [negocio?.id]);
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:18, maxWidth:680 }}>
-      {/* Plan */}
-      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:24 }}>
-        <h3 style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink, margin:'0 0 16px' }}>Tu plan actual</h3>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:14 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            <span style={{ background:PLAN_INFO[plan].bg, color:PLAN_INFO[plan].col, fontFamily:A.font, fontSize:13, fontWeight:700, padding:'7px 14px', borderRadius:10 }}>Plan {PLAN_INFO[plan].label}</span>
-            <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{PLAN_INFO[plan].desc}</span>
-          </div>
-          {plan === 'free' && (
-            <div style={{ background:A.primary, borderRadius:12, padding:14, maxWidth:200 }}>
-              <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:'#fff', marginBottom:4 }}>Pasá a PLUS</div>
-              <div style={{ fontFamily:A.font, fontSize:11, color:'rgba(255,255,255,0.7)', lineHeight:1.4, marginBottom:8 }}>Ofertas ilimitadas sin tokens. Solo pagás cuando te canjean.</div>
-              <button style={{ background:'#fff', color:A.primary, border:'none', borderRadius:8, padding:'5px 12px', fontFamily:A.font, fontSize:11, fontWeight:700, cursor:'pointer' }}>Ver planes →</button>
-            </div>
-          )}
-          {plan === 'plus' && (
-            <div style={{ background:A.navy, borderRadius:12, padding:14, maxWidth:200 }}>
-              <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:'#fff', marginBottom:4 }}>Pasá a BLACK</div>
-              <div style={{ fontFamily:A.font, fontSize:11, color:'rgba(255,255,255,0.6)', lineHeight:1.4, marginBottom:8 }}>Destacados, difusión y 1 crédito cada 3 canjes.</div>
-              <button style={{ background:A.yellow, color:A.ink, border:'none', borderRadius:8, padding:'5px 12px', fontFamily:A.font, fontSize:11, fontWeight:700, cursor:'pointer' }}>Ver BLACK →</button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Tokens — FREE alojamientos only */}
-      {esAloj && plan === 'free' && (
-        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:24 }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <h3 style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink, margin:0 }}>Saldo de tokens</h3>
-            <ABtn onClick={() => setShowComprar(true)} variant="primary">+ Comprar tokens</ABtn>
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-            <div style={{ fontFamily:A.font, fontSize:36, fontWeight:700, color:A.ink }}>🪙 {saldo}</div>
-            <div style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>
-              {saldo === 0 ? 'No tenés tokens. Comprá para publicar ofertas.' : `Podés publicar ${saldo} oferta${saldo !== 1 ? 's' : ''} más.`}
-            </div>
-          </div>
-          {compras.length > 0 && (
-            <div style={{ marginTop:16, borderTop:`1px solid ${A.line}`, paddingTop:14 }}>
-              <div style={{ fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>Últimas compras</div>
-              {compras.slice(0, 3).map(c => (
-                <div key={c.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                  <span style={{ fontFamily:A.font, fontSize:13, color:A.ink2 }}>🪙 {c.cantidad} tokens · {c.forma_pago}</span>
-                  <span style={{ background: c.estado === 'pagada' ? '#E8F5EC' : '#FFF7E5', color: c.estado === 'pagada' ? A.green : '#C28A1B', fontFamily:A.font, fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:999 }}>{c.estado}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {showComprar && (
-            <ComprarTokensModal
-              negocioId={negocio.id}
-              saldoActual={saldo}
-              onClose={() => setShowComprar(false)}
-              onCompraExitosa={(cantidad) => {
-                const nuevo = saldo + cantidad;
-                setSaldo(nuevo);
-                setSaldoTokens && setSaldoTokens(nuevo);
-                setShowComprar(false);
-                showToast(`¡${cantidad} token${cantidad > 1 ? 's' : ''} acreditado${cantidad > 1 ? 's' : ''}!`);
-              }}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Órdenes pendientes */}
-      {ordenes.length > 0 && (
-        <div style={{ background:'#FFF7E5', border:`1px solid #FFC93C55`, borderRadius:14, padding:20 }}>
-          <h3 style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:'#C28A1B', margin:'0 0 12px' }}>Cobros pendientes</h3>
-          {ordenes.map(o => (
-            <div key={o.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderTop:`1px solid #FFC93C33` }}>
-              <div style={{ fontFamily:A.font, fontSize:13, color:'#C28A1B' }}>
-                {o.tipo === 'publicacion' ? 'Publicación de oferta' : o.tipo === 'renovacion' ? 'Renovación (30 días)' : 'Canje de oferta'}
-              </div>
-              <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:'#C28A1B' }}>
-                ${(Number(o.monto) + Number(o.monto_iva)).toLocaleString('es-AR')}
-              </div>
-            </div>
-          ))}
-          <div style={{ marginTop:14 }}>
-            <ABtn variant="primary" style={{ fontSize:13 }}>Pagar ${ordenes.reduce((acc, o) => acc + Number(o.monto) + Number(o.monto_iva), 0).toLocaleString('es-AR')}</ABtn>
-          </div>
-        </div>
-      )}
-
-      {/* Historial */}
-      {historial.length > 0 && (
-        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
-          <div style={{ padding:'16px 18px', borderBottom:`1px solid ${A.line}` }}>
-            <h3 style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink, margin:0 }}>Historial de cobros</h3>
-          </div>
-          {historial.map((h, i) => (
-            <div key={h.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 18px', borderTop: i > 0 ? `1px solid ${A.line}` : 'none' }}>
-              <div style={{ fontFamily:A.font, fontSize:13, color:A.ink2 }}>{h.tipo} · {h.promociones?.titulo || '—'}</div>
-              <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:A.green }}>
-                ${(Number(h.monto) + Number(h.monto_iva)).toLocaleString('es-AR')} <span style={{ fontSize:10, fontWeight:400, color:A.muted }}>IVA incl.</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  TAB: ESTADÍSTICAS
-// ═══════════════════════════════════════════════════════════
-function TabStats({ visitas, stats }) {
-  const totalPorDia = visitas.slice(0, 14);
-  const maximo = Math.max(...totalPorDia.map(v => v.cantidad || 0), 1);
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:14 }}>
-        {[
-          { label:'Visitas totales',   value: stats.totalVisitas, col:A.primary },
-          { label:'Promos activas',    value: stats.promos,       col:A.green },
-          { label:'Consultas sin leer', value: stats.consultas,  col:'#C28A1B' },
-        ].map(s => (
-          <div key={s.label} style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'24px 20px', textAlign:'center' }}>
-            <div style={{ fontFamily:A.font, fontSize:40, fontWeight:700, color:s.col, marginBottom:4 }}>{s.value}</div>
-            <div style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:24 }}>
-        <h3 style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink, margin:'0 0 20px' }}>Visitas últimos 14 días</h3>
-        {totalPorDia.length === 0 ? (
-          <div style={{ textAlign:'center', color:A.muted, fontFamily:A.font, padding:'32px 0' }}>No hay datos de visitas todavía</div>
-        ) : (
-          <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:160 }}>
-            {totalPorDia.map(v => {
-              const pct = Math.round(((v.cantidad || 0) / maximo) * 100);
-              return (
-                <div key={v.fecha} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                  <div style={{ width:'100%', background:A.primary, borderRadius:'4px 4px 0 0', minHeight:4, height: `${Math.max(pct, 4)}%` }} />
-                  <span style={{ fontFamily:A.font, fontSize:9, color:A.muted }}>{new Date(v.fecha).getDate()}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  DRAWER: EDICIÓN DE PERFIL DEL SOCIO
-// ═══════════════════════════════════════════════════════════
-function PerfilEditorDrawer({ negocio, onClose, onSave }) {
-  const TIPOS = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa','Restaurante','Bar','Café','Balneario','Pastelería','Gourmet','Experiencia'];
-  const LOCALIDADES = ['Villa Gesell','Mar de las Pampas','Las Gaviotas','Mar Azul'];
-  const ZONAS_PRESET = ['Centro','Zona norte','Zona sur','Línea de playa','A 100m de playa','Casco histórico','Barrio de los médanos','Bosque','Zona de hoteles','Zona residencial','Costa','Acceso principal','Otra...'];
-  const TIPOS_ALOJ = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
-  const esAlojamiento = TIPOS_ALOJ.includes(negocio?.tipo);
-
-  const [form, setForm] = useState({
-    nombre:      negocio?.nombre      || '',
-    tipo:        negocio?.tipo        || 'Hotel',
-    localidad:   negocio?.localidad   || 'Villa Gesell',
-    zona:        negocio?.zona        || '',
-    zonaCustom:  '',
-    foto_perfil: negocio?.foto_perfil || '',
-    imagen_url:  negocio?.imagen_url  || '',
-    descripcion: negocio?.descripcion || '',
-    precio_min:          negocio?.precio_min          || '',
-    precio_min_especial: negocio?.precio_min_especial || '',
-    unidad_precio:       negocio?.unidad_precio       || 'noche',
-    pack_precio:         negocio?.pack_precio         || '',
-    pack_noches:         negocio?.pack_noches         || '',
-    pack_aclaracion:     negocio?.pack_aclaracion     || '',
-    pack_aclaracion_custom: '',
-  });
-  const [saving, setSaving]             = useState(false);
-  const [uploadingFoto, setUploadingFoto] = useState(false);
-  const [uploadingImg, setUploadingImg]   = useState(false);
-  const [passForm, setPassForm]           = useState({ nueva: '', confirma: '' });
-  const [savingPass, setSavingPass]       = useState(false);
-
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
-  const zonaEsCustom = form.zona === 'Otra...' || (form.zona && !ZONAS_PRESET.slice(0, -1).includes(form.zona));
-
-  async function subirFoto(file, campo) {
-    if (campo === 'foto_perfil') setUploadingFoto(true); else setUploadingImg(true);
-    const ext  = file.name.split('.').pop();
-    const path = `${negocio.id}/${campo}_${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('avatares').upload(path, file, { upsert: true });
-    if (!error) {
-      const { data: urlData } = supabase.storage.from('avatares').getPublicUrl(path);
-      setForm(f => ({ ...f, [campo]: urlData.publicUrl }));
-    }
-    if (campo === 'foto_perfil') setUploadingFoto(false); else setUploadingImg(false);
-  }
-
-  async function guardar() {
-    setSaving(true);
-    const zonaFinal = form.zona === 'Otra...' ? form.zonaCustom : form.zona;
-    const { data, error } = await supabase.from('negocios').update({
-      nombre:      form.nombre,
-      tipo:        form.tipo,
-      localidad:   form.localidad,
-      zona:        zonaFinal,
-      foto_perfil: form.foto_perfil,
-      imagen_url:  form.imagen_url,
-      descripcion: form.descripcion,
-      ...(esAlojamiento ? {
-        precio_min:          form.precio_min          ? Number(form.precio_min)          : null,
-        precio_min_especial: form.precio_min_especial ? Number(form.precio_min_especial) : null,
-        unidad_precio:       form.unidad_precio       || 'noche',
-        pack_precio:         form.pack_precio         ? Number(form.pack_precio)         : null,
-        pack_noches:         form.pack_noches         ? Number(form.pack_noches)         : null,
-        pack_aclaracion:     form.pack_aclaracion === 'Personalizado...'
-                               ? form.pack_aclaracion_custom
-                               : (form.pack_aclaracion || null),
-      } : {}),
-    }).eq('id', negocio.id).select().single();
-    setSaving(false);
-    if (!error) onSave(data);
-  }
-
-  async function cambiarPassword() {
-    if (passForm.nueva.length < 6 || passForm.nueva !== passForm.confirma) return;
-    setSavingPass(true);
-    await supabase.auth.updateUser({ password: passForm.nueva });
-    setSavingPass(false);
-    setPassForm({ nueva: '', confirma: '' });
-  }
-
-  const labelSt = { display:'block', fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 };
-
-  return (
-    <>
-      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(4px)', zIndex:40 }} onClick={onClose} />
-      <div style={{ position:'fixed', right:0, top:0, height:'100%', width:'100%', maxWidth:440, background:'#fff', zIndex:50, display:'flex', flexDirection:'column', boxShadow:'-8px 0 40px rgba(0,0,0,0.15)' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${A.line}`, flexShrink:0 }}>
-          <div>
-            <h2 style={{ fontFamily:A.font, fontSize:18, fontWeight:700, color:A.ink, margin:0 }}>Mi perfil</h2>
-            <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginTop:3 }}>Los cambios se reflejan en el catálogo</div>
-          </div>
-          <button onClick={onClose} style={{ background:'transparent', border:'none', cursor:'pointer', color:A.muted, padding:4 }}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <div style={{ flex:1, overflowY:'auto', padding:'24px', display:'flex', flexDirection:'column', gap:18 }}>
-          {/* Foto perfil */}
-          <div>
-            <label style={labelSt}>Foto de perfil</label>
-            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{ width:72, height:72, borderRadius:'50%', overflow:'hidden', background:A.bg, border:`2px dashed ${A.line}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                {form.foto_perfil ? <img src={form.foto_perfil} alt="perfil" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <Plus size={22} color={A.muted} />}
-              </div>
-              <div style={{ flex:1 }}>
-                <label style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:A.bg, border:`1px solid ${A.line}`, borderRadius:10, padding:'8px 12px', fontFamily:A.font, fontSize:12, fontWeight:600, color:A.ink2, cursor:'pointer', marginBottom:8 }}>
-                  <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => e.target.files?.[0] && subirFoto(e.target.files[0], 'foto_perfil')} />
-                  {uploadingFoto ? 'Subiendo...' : '📁 Subir foto'}
-                </label>
-                <input value={form.foto_perfil} onChange={set('foto_perfil')} placeholder="O pegá una URL..." style={{ ...inputSt, fontSize:12, padding:'7px 10px' }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Imagen principal */}
-          <div>
-            <label style={labelSt}>Imagen principal</label>
-            {form.imagen_url && (
-              <div style={{ width:'100%', aspectRatio:'16/9', borderRadius:10, overflow:'hidden', border:`1px solid ${A.line}`, marginBottom:8 }}>
-                <img src={form.imagen_url} alt="principal" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              </div>
-            )}
-            <label style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:A.bg, border:`1px solid ${A.line}`, borderRadius:10, padding:'8px 12px', fontFamily:A.font, fontSize:12, fontWeight:600, color:A.ink2, cursor:'pointer', marginBottom:8 }}>
-              <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => e.target.files?.[0] && subirFoto(e.target.files[0], 'imagen_url')} />
-              {uploadingImg ? 'Subiendo...' : '📁 Subir imagen'}
-            </label>
-            <input value={form.imagen_url} onChange={set('imagen_url')} placeholder="O pegá una URL..." style={inputSt} />
-          </div>
-
-          {/* Nombre */}
-          <div>
-            <label style={labelSt}>Nombre del negocio</label>
-            <input value={form.nombre} onChange={set('nombre')} style={inputSt} />
-          </div>
-
-          {/* Tipo y localidad */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <div>
-              <label style={labelSt}>Tipo</label>
-              <select value={form.tipo} onChange={set('tipo')} style={{ ...inputSt, cursor:'pointer' }}>
-                {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelSt}>Localidad</label>
-              <select value={form.localidad} onChange={set('localidad')} style={{ ...inputSt, cursor:'pointer' }}>
-                {LOCALIDADES.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Zona */}
-          <div>
-            <label style={labelSt}>Zona</label>
-            <select value={zonaEsCustom ? 'Otra...' : (form.zona || '')} onChange={e => {
-              if (e.target.value === 'Otra...') setForm(f => ({ ...f, zona: 'Otra...' }));
-              else setForm(f => ({ ...f, zona: e.target.value, zonaCustom: '' }));
-            }} style={{ ...inputSt, cursor:'pointer' }}>
-              <option value="">Sin zona específica</option>
-              {ZONAS_PRESET.map(z => <option key={z} value={z}>{z}</option>)}
-            </select>
-            {zonaEsCustom && (
-              <input value={form.zonaCustom || (zonaEsCustom && form.zona !== 'Otra...' ? form.zona : '')}
-                onChange={e => setForm(f => ({ ...f, zonaCustom: e.target.value }))}
-                placeholder="Escribí la zona..." style={{ ...inputSt, marginTop:8 }} />
-            )}
-          </div>
-
-          {/* Descripción */}
-          <div>
-            <label style={labelSt}>Descripción</label>
-            <textarea value={form.descripcion} onChange={set('descripcion')} rows={3}
-              placeholder="Describí tu negocio en pocas palabras..." style={{ ...inputSt, resize:'none' }} />
-          </div>
-
-          {/* Tarifas — solo alojamientos */}
-          {esAlojamiento && (() => {
-            const unidad = form.unidad_precio || 'noche';
-            const unidadLabel = unidad === 'huesped' ? 'por huésped' : 'por noche';
-            const fmtNum = v => v ? Number(v).toLocaleString('es-AR') : null;
-            const aclaracionOpciones = [
-              '', 'Entre lunes y jueves', 'De domingo a jueves', 'Solo temporada baja',
-              'Noches consecutivas', 'Válido de lunes a viernes', 'Con desayuno incluido',
-              'Para familias', 'Solo para parejas', 'Personalizado...',
-            ];
-            const packAclaracionFinal = form.pack_aclaracion === 'Personalizado...'
-              ? form.pack_aclaracion_custom
-              : form.pack_aclaracion;
-
-            return (
-              <div style={{ display:'flex', flexDirection:'column', gap:16, borderTop:`1px solid ${A.line}`, paddingTop:18 }}>
-                <h4 style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink, margin:0 }}>Tarifas <span style={{ fontSize:12, fontWeight:400, color:A.muted }}>(opcional)</span></h4>
-
-                {/* Unidad */}
-                <div>
-                  <label style={labelSt}>Unidad de precio</label>
-                  <div style={{ display:'flex', gap:8 }}>
-                    {[['noche','Por noche, la unidad'],['huesped','Por huésped']].map(([val, lbl]) => (
-                      <button key={val} type="button"
-                        onClick={() => setForm(f => ({ ...f, unidad_precio: val }))}
-                        style={{ flex:1, padding:'9px 0', borderRadius:10, border:`1.5px solid ${unidad === val ? A.primary : A.line}`, background: unidad === val ? A.primarySoft : '#fff', fontFamily:A.font, fontSize:12, fontWeight:600, color: unidad === val ? A.primary : A.ink2, cursor:'pointer' }}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tarifa común */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                  <div>
-                    <label style={labelSt}>Tarifa común</label>
-                    <input type="number" value={form.precio_min} onChange={set('precio_min')} placeholder="Ej: 85000" style={inputSt} />
-                  </div>
-                  <div>
-                    <label style={labelSt}>Tarifa especial</label>
-                    <input type="number" value={form.precio_min_especial} onChange={set('precio_min_especial')} placeholder="Feriados, etc." style={inputSt} />
-                  </div>
-                </div>
-
-                {/* Pack */}
-                <div style={{ background:A.bg, borderRadius:12, padding:'14px', display:'flex', flexDirection:'column', gap:10 }}>
-                  <p style={{ fontFamily:A.font, fontSize:12, fontWeight:700, color:A.ink, margin:0 }}>Pack (opcional)</p>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                    <div>
-                      <label style={labelSt}>Noches del pack</label>
-                      <select value={form.pack_noches} onChange={set('pack_noches')} style={{ ...inputSt, cursor:'pointer' }}>
-                        <option value="">— sin pack —</option>
-                        {[2,3,4,5,7,10,14].map(n => <option key={n} value={n}>{n} noches</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelSt}>Precio del pack</label>
-                      <input type="number" value={form.pack_precio} onChange={set('pack_precio')} placeholder="Ej: 220000" style={inputSt} disabled={!form.pack_noches} />
-                    </div>
-                  </div>
-                  {form.pack_noches && (
-                    <div>
-                      <label style={labelSt}>Aclaración</label>
-                      <select value={form.pack_aclaracion} onChange={set('pack_aclaracion')} style={{ ...inputSt, cursor:'pointer' }}>
-                        {aclaracionOpciones.map(o => <option key={o} value={o}>{o || '— sin aclaración —'}</option>)}
-                      </select>
-                      {form.pack_aclaracion === 'Personalizado...' && (
-                        <input value={form.pack_aclaracion_custom} onChange={set('pack_aclaracion_custom')} placeholder="Escribí la aclaración..." style={{ ...inputSt, marginTop:8 }} />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Preview */}
-                {(form.precio_min || form.precio_min_especial || form.pack_precio) && (
-                  <div>
-                    <label style={{ ...labelSt, color: A.primary }}>Vista previa</label>
-                    <div style={{ background:A.bg, borderRadius:14, padding:'16px 18px', border:`1px solid ${A.line}` }}>
-                      <p style={{ fontFamily:A.font, fontSize:10, fontWeight:700, color:A.muted, letterSpacing:'0.09em', textTransform:'uppercase', margin:'0 0 14px' }}>
-                        Precios promedio
-                      </p>
-                      {form.precio_min && (
-                        <div>
-                          <span style={{ fontFamily:A.font, fontSize:10, fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>Tarifa común</span>
-                          <div style={{ display:'flex', alignItems:'baseline', gap:5, marginTop:2 }}>
-                            <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>Desde</span>
-                            <span style={{ fontFamily:A.font, fontSize:20, fontWeight:800, color:A.ink, letterSpacing:'-0.02em' }}>${fmtNum(form.precio_min)}</span>
-                            <span style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:A.ink2 }}>{unidad === 'huesped' ? 'por huésped' : 'por noche'}</span>
-                          </div>
-                        </div>
-                      )}
-                      {form.precio_min_especial && (
-                        <>
-                          <div style={{ height:1, background:A.line, margin:'10px 0' }} />
-                          <div>
-                            <span style={{ fontFamily:A.font, fontSize:10, fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>
-                              Tarifa especial <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0 }}>(feriados, etc.)</span>
-                            </span>
-                            <div style={{ display:'flex', alignItems:'baseline', gap:5, marginTop:2 }}>
-                              <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>Desde</span>
-                              <span style={{ fontFamily:A.font, fontSize:20, fontWeight:800, color:A.ink, letterSpacing:'-0.02em' }}>${fmtNum(form.precio_min_especial)}</span>
-                              <span style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:A.ink2 }}>{unidad === 'huesped' ? 'por huésped' : 'por noche'}</span>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      {form.pack_precio && form.pack_noches && (
-                        <>
-                          <div style={{ height:1, background:A.line, margin:'10px 0' }} />
-                          <div>
-                            <span style={{ fontFamily:A.font, fontSize:10, fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>
-                              Pack {form.pack_noches} noches
-                              {packAclaracionFinal && <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0 }}> · {packAclaracionFinal}</span>}
-                            </span>
-                            <div style={{ display:'flex', alignItems:'baseline', gap:5, marginTop:2 }}>
-                              <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>Desde</span>
-                              <span style={{ fontFamily:A.font, fontSize:20, fontWeight:800, color:A.ink, letterSpacing:'-0.02em' }}>${fmtNum(form.pack_precio)}</span>
-                              <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>el pack</span>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      <p style={{ fontFamily:A.font, fontSize:11, color:A.muted, margin:'12px 0 0', lineHeight:1.45 }}>
-                        Precios referenciales mínimos. Consultá disponibilidad y tarifas exactas con el alojamiento.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Cambiar contraseña */}
-          <div style={{ borderTop:`1px solid ${A.line}`, paddingTop:18 }}>
-            <h4 style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink, margin:'0 0 12px' }}>Cambiar contraseña</h4>
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              <div>
-                <label style={labelSt}>Nueva contraseña</label>
-                <input type="password" value={passForm.nueva} onChange={e => setPassForm(f => ({ ...f, nueva: e.target.value }))} placeholder="Mínimo 6 caracteres" style={inputSt} />
-              </div>
-              <div>
-                <label style={labelSt}>Confirmar contraseña</label>
-                <input type="password" value={passForm.confirma} onChange={e => setPassForm(f => ({ ...f, confirma: e.target.value }))} placeholder="Repetí la nueva contraseña" style={inputSt} />
-              </div>
-              <ABtn onClick={cambiarPassword} variant="dark" disabled={savingPass || !passForm.nueva || passForm.nueva !== passForm.confirma}>
-                {savingPass ? 'Guardando...' : 'Cambiar contraseña'}
-              </ABtn>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ padding:'16px 24px', borderTop:`1px solid ${A.line}`, display:'flex', gap:10, flexShrink:0 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'12px 0', background:A.bg, border:'none', borderRadius:10, fontFamily:A.font, fontSize:13, fontWeight:600, color:A.ink2, cursor:'pointer' }}>Cancelar</button>
-          <ABtn onClick={guardar} variant="primary" disabled={saving} style={{ flex:1, justifyContent:'center', padding:'12px 0', fontSize:13 }}>
-            {saving ? 'Guardando...' : 'Guardar cambios'}
-          </ABtn>
-        </div>
-      </div>
-    </>
   );
 }
