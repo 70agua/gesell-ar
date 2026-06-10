@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Calendar, List, LayoutGrid, BarChart2 } from 'lucide-react';
 import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import { CoinSVG } from '../components/Token';
+const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { descontarToken, debeUsarTokens } from '../lib/cobros';
 import { supabase } from '../lib/supabase';
 
@@ -204,9 +205,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
         </div>
 
         {loading ? (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:240, color:A.muted, fontFamily:A.font }}>
-            Cargando datos...
-          </div>
+          <MiniLoader />
         ) : (
           <>
             {tab === 'resumen'   && <TabResumen stats={stats} negocios={negocios} consultas={consultas} ofertas={ofertas} ventas={ventas} onEditarSocio={onEditarSocio} setTab={setTab} setOfertas={setOfertas} showToast={showToast} />}
@@ -329,7 +328,7 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
               <div style={{ width:36, height:36, borderRadius:10, background:'#F3E8FF', display:'grid', placeItems:'center', flexShrink:0, fontSize:16 }}>💰</div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:A.ink }}>${Number(v.monto_total).toLocaleString('es-AR')}</div>
-                <div style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>🪙 {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas</div>
+                <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, display:'flex', alignItems:'center', gap:4 }}><img src="/cuponera-coin.svg" alt="crédito" style={{width:12,height:12}}/> {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas</div>
               </div>
               <span style={{ background: v.estado === 'completada' ? '#E8F5EC' : '#FFF7E5', color: v.estado === 'completada' ? A.green : '#C28A1B', padding:'3px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>{v.estado}</span>
             </div>
@@ -513,7 +512,7 @@ function OfertaStatsPanel({ ofertaId }) {
         {(desde || hasta) && <button onClick={() => { setDesde(''); setHasta(''); }} style={{ background:'transparent', border:'none', color:A.primary, fontFamily:A.font, fontSize:12, fontWeight:600, cursor:'pointer' }}>Ver todo</button>}
       </div>
       {loading ? (
-        <div style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>Cargando estadísticas...</div>
+        <MiniLoader />
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10 }}>
           {[
@@ -773,7 +772,7 @@ function TabVentas({ ventas }) {
                     }}>{v.estado}</span>
                   </div>
                   <div style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>
-                    🪙 {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas · {v.forma_pago || '—'}
+                    <span style={{display:'flex',alignItems:'center',gap:4}}><img src="/cuponera-coin.svg" alt="crédito" style={{width:12,height:12}}/> {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas · {v.forma_pago || '—'}</span>
                   </div>
                 </div>
                 {seleccionada === v.id ? <ChevronUp size={18} color={A.muted} /> : <ChevronDown size={18} color={A.muted} />}
@@ -789,7 +788,7 @@ function TabVentas({ ventas }) {
                           <div style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>{item.negocios?.nombre || '—'}</div>
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-                          <span style={{ fontFamily:A.font, fontSize:12, fontWeight:700, color:A.ink }}>🪙 {item.tokens}</span>
+                          <span style={{ fontFamily:A.font, fontSize:12, fontWeight:700, color:A.ink, display:'flex', alignItems:'center', gap:4 }}><img src="/cuponera-coin.svg" alt="crédito" style={{width:14,height:14}}/> {item.tokens}</span>
                           {item.canjeado
                             ? <span style={{ background:'#E8F5EC', color:A.green, padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Canjeado</span>
                             : <span style={{ background:A.bg, color:A.muted, padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Pendiente</span>

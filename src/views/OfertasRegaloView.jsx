@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { getOfertasDestacadas } from '../lib/datos';
+const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'60px 0' }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { useCuponera } from '../lib/cuponera';
 import { ALL_PROMOS } from '../data/mockData';
 
@@ -153,9 +154,7 @@ export default function OfertasRegaloView({ onBack, onOpenOferta }) {
 
         {/* Grid */}
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0', color: C.muted, fontSize: 15 }}>
-            Cargando ofertas…
-          </div>
+          <MiniLoader />
         ) : ofertas.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', color: C.muted }}>
             <p style={{ fontSize: 18, fontWeight: 600, color: C.ink2, marginBottom: 8 }}>Próximamente</p>

@@ -82,10 +82,10 @@ function PromoCard({ promo, active, onClick, onAdd, innerRef }) {
       <div style={{ padding: '10px 12px 12px' }}>
         {promo.negocioLocalidad && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, marginBottom: 3 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="2.5" strokeLinecap="round">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.5" strokeLinecap="round">
               <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>
             </svg>
-            <span style={{ color: C.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
             {promo.proveedorNombre && <span style={{ color: C.muted }}> · {promo.proveedorNombre}</span>}
           </div>
         )}
@@ -132,11 +132,7 @@ function PromoCard({ promo, active, onClick, onAdd, innerRef }) {
 }
 
 function CoinSVGSmall() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 20 20">
-      <circle cx="10" cy="10" r="9.25" fill="#FFC93C" stroke="#C8990A" strokeWidth="1.5"/>
-    </svg>
-  );
+  return <img src="/cuponera-coin.svg" alt="crédito" width="11" height="11" style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
 }
 
 // ─── Componente principal MapView ────────────────────────────

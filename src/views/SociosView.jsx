@@ -361,6 +361,7 @@ export default function SociosView({ onBack }) {
   const [registrado, setRegistrado]       = useState(false);
   const [modalServicio, setModalServicio] = useState(null);
   const [tipoDefault, setTipoDefault]     = useState('Hotel');
+  const [categoriaSocios, setCategoriaSocios] = useState('alojamientos'); // 'alojamientos' | 'comercios'
 
   return (
     <div className="min-h-screen bg-white">
@@ -380,19 +381,19 @@ export default function SociosView({ onBack }) {
             <p className="text-slate-400 text-sm mb-7">El plan que te ofrecemos depende de tu tipo de negocio</p>
             <div className="flex flex-wrap gap-4 justify-center">
               <button
-                onClick={() => { setTipoDefault('Hotel'); document.getElementById('planes-alojamiento')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onClick={() => { setTipoDefault('Hotel'); setCategoriaSocios('alojamientos'); window.scrollTo({ top: 600, behavior: 'smooth' }); }}
                 className="bg-white hover:bg-slate-100 text-slate-900 px-7 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-3"
               >
                 <span className="text-2xl">🚪</span> Alojamiento
               </button>
               <button
-                onClick={() => { setTipoDefault('Restaurante'); document.getElementById('planes-gastronomia')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onClick={() => { setTipoDefault('Restaurante'); setCategoriaSocios('comercios'); window.scrollTo({ top: 600, behavior: 'smooth' }); }}
                 className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-7 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-3"
               >
                 <span className="text-2xl">🍽️</span> Gastronomía
               </button>
               <button
-                onClick={() => { setTipoDefault('Experiencia'); document.getElementById('planes-gastronomia')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onClick={() => { setTipoDefault('Experiencia'); setCategoriaSocios('comercios'); window.scrollTo({ top: 600, behavior: 'smooth' }); }}
                 className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-7 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-3"
               >
                 <span className="text-2xl">🏄</span> Aventura & Relax
@@ -402,7 +403,33 @@ export default function SociosView({ onBack }) {
         </div>
       </div>
 
+      {/* ── Selector de categoría ── */}
+      <div className="flex justify-center pt-12 pb-2 px-4">
+        <div style={{ display: 'inline-flex', background: '#F1F5F9', borderRadius: 14, padding: 4, gap: 4 }}>
+          {[
+            { id: 'alojamientos', label: '🚪 Alojamientos' },
+            { id: 'comercios',    label: '🏪 Comercios y servicios' },
+          ].map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => setCategoriaSocios(id)}
+              style={{
+                padding: '10px 24px', border: 'none', borderRadius: 11, cursor: 'pointer',
+                fontSize: 14, fontWeight: 700, fontFamily: "'Geist', system-ui, sans-serif",
+                transition: 'all .2s',
+                background: categoriaSocios === id ? '#0B1020' : 'transparent',
+                color: categoriaSocios === id ? '#fff' : '#6B7280',
+                boxShadow: categoriaSocios === id ? '0 2px 10px rgba(11,16,32,0.20)' : 'none',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Tabla de planes — Alojamientos */}
+      {categoriaSocios === 'alojamientos' && (
       <div id="planes-alojamiento" className="max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-14">
           <h2 className="text-4xl font-black text-slate-900 mb-3">Planes para alojamientos</h2>
@@ -495,7 +522,10 @@ export default function SociosView({ onBack }) {
         </div>
       </div>
 
-      {/* Tabla de planes — Gastronómicos y experiencias */}
+      )} {/* fin alojamientos */}
+
+      {/* Tabla de planes — Comercios y servicios */}
+      {categoriaSocios === 'comercios' && (
       <div id="planes-gastronomia" className="bg-emerald-950 px-6 py-20">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
@@ -550,6 +580,8 @@ export default function SociosView({ onBack }) {
           </div>
         </div>
       </div>
+
+      )} {/* fin comercios */}
 
       {/* Otros servicios */}
       <div className="bg-slate-50 border-t border-slate-100 py-20 px-6">

@@ -478,8 +478,8 @@ function OfferCard({ promo, onAdd, onOpenOferta }) {
           {/* Localidad + proveedor */}
           {promo.negocioLocalidad ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginBottom: 3 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-              <span style={{ color: C.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
               {promo.proveedorNombre && <span style={{ color: C.muted }}> · {promo.proveedorNombre}</span>}
             </div>
           ) : promo.proveedorNombre ? (
@@ -786,8 +786,8 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
         {/* Localidad + nombre socio */}
         {promo.negocioLocalidad ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ color: C.primary, fontWeight: 600 }}>{promo.negocioLocalidad}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
             {provNombre && <span style={{ color: C.muted }}> · {provNombre}</span>}
           </div>
         ) : provNombre ? (

@@ -13,6 +13,7 @@ import { getConfiguracion, tokensPorTipo, calcularResumen, getCombinaciones } fr
 import { getAlojamientos, getGastronomia } from '../lib/datos';
 import { calcularDesbloqueos, ACCIONES, otorgarTokens, getWallet } from '../lib/gamificacion';
 import { supabase } from '../lib/supabase';
+import LoadingScreen from '../components/LoadingScreen';
 
 // ─── Experiencias mock ───────────────────────────────────────
 const EXPERIENCIAS_MOCK = [
@@ -101,7 +102,7 @@ function TokensGanados({ session, onCompartir }) {
         ))}
         {!session && (
           <div className="px-5 py-3 bg-blue-50/50">
-            <p className="text-blue-600 text-xs font-bold">Iniciá sesión para acumular tokens 🪙</p>
+            <p className="text-blue-600 text-xs font-bold flex items-center gap-1">Iniciá sesión para acumular tokens <img src="/cuponera-coin.svg" alt="crédito" style={{width:14,height:14}}/></p>
           </div>
         )}
       </div>
@@ -225,9 +226,7 @@ export default function ArmadorPacksView({ onBack }) {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <p className="text-slate-400 font-medium animate-pulse">Cargando catálogo...</p>
-    </div>
+    <LoadingScreen />
   );
 
   return (
@@ -413,7 +412,7 @@ export default function ArmadorPacksView({ onBack }) {
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-black text-amber-800 text-sm flex items-center gap-1.5">
-                      <span>🪙</span> Usar mis tokens
+                      <img src="/cuponera-coin.svg" alt="crédito" style={{width:16,height:16}}/> Usar mis tokens
                     </p>
                     <Token amount={wallet.balance} label size="sm" />
                   </div>
@@ -446,7 +445,7 @@ export default function ArmadorPacksView({ onBack }) {
                     )}
                     {resumen.descTokens > 0 && (
                       <div className="flex justify-between text-amber-400">
-                        <span className="flex items-center gap-1"><span>🪙</span> Tokens canjeados ({tokensAUsar})</span>
+                        <span className="flex items-center gap-1"><img src="/cuponera-coin.svg" alt="crédito" style={{width:14,height:14}}/> Tokens canjeados ({tokensAUsar})</span>
                         <span className="font-bold">-${resumen.descTokens.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                       </div>
                     )}
@@ -555,7 +554,7 @@ export default function ArmadorPacksView({ onBack }) {
                   )}
                   {resumen.descTokens > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-amber-400 flex items-center gap-1">🪙 Tokens ({tokensAUsar})</span>
+                      <span className="text-amber-400 flex items-center gap-1"><img src="/cuponera-coin.svg" alt="crédito" style={{width:14,height:14}}/> Tokens ({tokensAUsar})</span>
                       <span className="text-amber-400 font-bold">-${resumen.descTokens.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                     </div>
                   )}

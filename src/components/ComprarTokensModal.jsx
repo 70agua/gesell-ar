@@ -100,7 +100,7 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
                         -{p.descuento}%
                       </span>
                     )}
-                    <p className="font-black text-slate-900 text-lg">🪙 {p.cantidad}</p>
+                    <p className="font-black text-slate-900 text-lg flex items-center gap-1"><img src="/cuponera-coin.svg" alt="crédito" style={{width:20,height:20}}/> {p.cantidad}</p>
                     <p className="text-slate-500 text-xs font-medium mt-0.5">{p.desc}</p>
                     <p className="font-black text-blue-600 text-sm mt-2">
                       ${pr.sinIva.toLocaleString('es-AR')}

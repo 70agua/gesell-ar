@@ -7,6 +7,8 @@ export const LOCALIDADES = [
   "Mar de las Pampas",
   "Las Gaviotas",
   "Mar Azul",
+  "Chacras del Mar",
+  "El Salvaje",
 ];
 
 // Zonas transversales — aplican a cualquier localidad
