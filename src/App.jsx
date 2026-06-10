@@ -316,7 +316,7 @@ function AppContent() {
           )}
         </main>
 
-        {PUBLIC_VIEWS.includes(view) && <Footer />}
+        {PUBLIC_VIEWS.includes(view) && <Footer onNavigate={(v) => { setView(v); window.scrollTo(0,0); }} />}
 
         <CuponeraDrawer />
 
