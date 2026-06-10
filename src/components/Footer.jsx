@@ -2,7 +2,7 @@
 //  src/components/Footer.jsx
 // ============================================================
 import React from 'react';
-import { MapPin, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 
 const IcoInstagram = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -54,12 +54,8 @@ export default function Footer({ onNavigate }) {
         <div>
           <img src="/logo-cuponera-wh.svg" alt="gesell.ar" style={{ height: 36, width: 'auto', marginBottom: 18 }} />
           <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.7, maxWidth: 280, margin: '0 0 24px' }}>
-            El portal de turismo de Villa Gesell. Descubrí alojamientos, gastronomía y armá tu cuponera con los mejores descuentos.
+            Descubrí alojamientos, gastronomía y las mejores experiencias. Armá tu cuponera y ahorrá en cada salida.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: MUTED, fontSize: 13 }}>
-            <MapPin size={13} color={P}/>
-            <span>Villa Gesell, Buenos Aires</span>
-          </div>
           {/* Redes sociales */}
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             {[
@@ -117,8 +113,8 @@ export default function Footer({ onNavigate }) {
 
       {/* ── Barra inferior ── */}
       <div style={{ borderTop: `1px solid ${LINE}`, padding: '18px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, maxWidth: 1200, margin: '0 auto' }}>
-        <span style={{ fontSize: 12, color: MUTED }}>© {new Date().getFullYear()} gesell.ar — Todos los derechos reservados</span>
-        <span style={{ fontSize: 12, color: '#334155' }}>Hecho con ♥ en Villa Gesell</span>
+        <span style={{ fontSize: 12, color: MUTED }}>© {new Date().getFullYear()} Cuponera — Todos los derechos reservados</span>
+        <span style={{ fontSize: 12, color: 'rgb(148, 163, 184)' }}>Hecho con <span style={{ color: 'rgb(37, 69, 230)' }}>♥</span> en Argentina</span>
       </div>
 
     </footer>

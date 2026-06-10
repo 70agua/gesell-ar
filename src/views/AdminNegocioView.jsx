@@ -7,7 +7,7 @@ import {
   LogOut, ArrowLeft, TrendingUp, Eye, MousePointerClick, Users, ChevronRight,
   Plus, X, Save, ToggleLeft, ToggleRight, Send, Check, Archive,
   Clock, Star, Trash2, Upload, Image, AlertCircle, CheckCircle2, Zap, Crown,
-  Store, Coins, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar,
+  Store, Coins, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar, Gift,
   MessageCircle, ChevronDown, Edit2, RefreshCw, Package, BarChart2, Home, Search,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -39,13 +39,13 @@ function CreditCoin({ size = 22 }) {
 
 // ─── Tabs config ─────────────────────────────────────────────
 const TABS = [
-  { id: 'dashboard',  label: 'Resumen',      Icon: LayoutDashboard },
-  { id: 'inbox',      label: 'Consultas',    Icon: MessageSquare    },
-  { id: 'notif',      label: 'Notificaciones', Icon: Bell           },
-  { id: 'ofertas',    label: 'Mis Ofertas',  Icon: Tag              },
-  { id: 'empresa',    label: 'Mi Empresa',   Icon: Building2        },
-  { id: 'cuenta',     label: 'Mi Cuenta',    Icon: CreditCard       },
-  { id: 'addons',     label: 'Add-ons',      Icon: Puzzle           },
+  { id: 'cuenta',     label: 'Cuenta',         Icon: CreditCard      },
+  { id: 'ofertas',    label: 'Ofertas',        Icon: Tag             },
+  { id: 'inbox',      label: 'Consultas',      Icon: MessageSquare   },
+  { id: 'notif',      label: 'Notificaciones', Icon: Bell            },
+  { id: 'stats',      label: 'Estadísticas',   Icon: BarChart2       },
+  { id: 'empresa',    label: 'Mi Empresa',     Icon: Building2       },
+  { id: 'addons',     label: 'Add-ons',        Icon: Puzzle, separator: true },
 ];
 
 // ─── Mock data ───────────────────────────────────────────────
@@ -108,9 +108,9 @@ const DEFAULT_LABELS = [
 ];
 
 // ─── Helpers UI ──────────────────────────────────────────────
-function Card({ children, style = {} }) {
-  return <div style={{ background: CARD, borderRadius: 16, border: `1px solid ${LINE}`, padding: 20, ...style }}>{children}</div>;
-}
+const Card = React.forwardRef(function Card({ children, style = {} }, ref) {
+  return <div ref={ref} style={{ background: CARD, borderRadius: 16, border: `1px solid ${LINE}`, padding: 20, ...style }}>{children}</div>;
+});
 
 function Pill({ label, color = P }) {
   return (
@@ -157,48 +157,54 @@ const PERIODOS = [
   { val: 'custom',  label: 'Personalizado' },
 ];
 
-function TabDashboard({ credits }) {
+function TabEstadisticas() {
   const [periodo, setPeriodo]       = useState('30d');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
   const kpis = [
-    { label: 'Visitas a tu perfil', value: 348, sub: '+12% vs mes anterior', Icon: Eye, color: P },
-    { label: 'Clicks en tus ofertas propias', value: 127, sub: 'Turistas interesados', Icon: MousePointerClick, color: GREEN },
-    { label: 'Clicks en ofertas de socios', value: 89, sub: 'Los que pueden generar créditos a tu favor', Icon: TrendingUp, color: YELLOW },
-    { label: 'Consultas recibidas', value: 14, sub: '3 sin responder', Icon: MessageSquare, color: '#8b5cf6' },
+    { label: 'Visitas a tu perfil',          value: 348, sub: '+12% vs período anterior', Icon: Eye,              color: P        },
+    { label: 'Clicks en tus ofertas',         value: 127, sub: '+8% vs período anterior',  Icon: MousePointerClick, color: GREEN    },
+    { label: 'Clicks en ofertas de socios',   value: 89,  sub: 'Generan créditos a tu favor', Icon: TrendingUp,   color: YELLOW   },
+    { label: 'Consultas recibidas',           value: 14,  sub: '3 sin responder',           Icon: MessageSquare,   color: '#8b5cf6'},
+    { label: 'Favoritos acumulados',          value: 52,  sub: 'Tu ficha guardada',          Icon: Star,            color: '#f43f5e'},
+    { label: 'Tasa de conversión',            value: '3.7%', sub: 'Visitas → consulta',     Icon: BarChart2,       color: '#0ea5e9'},
   ];
 
-  const planBase = 20000;
-  const valorCredito = 2000;
-  const ahorro = credits * valorCredito;
-  const final = Math.max(0, planBase - ahorro);
+  // Datos mock para gráficos
+  const trafico  = [42,58,35,71,89,64,77,95,55,82,68,91,73,87,110,98,120,105,88,115,94,127,108,140,132,145,119,138];
+  const maxT = Math.max(...trafico);
+  const consultas = [2,5,3,7,4,6,8,5,9,7,11,8,10,14];
+  const maxC = Math.max(...consultas);
+
+  const topOfertas = [
+    { nombre: 'Noche gratis en temporada baja', clicks: 47, conv: '18%' },
+    { nombre: '2×1 en cena incluida',           clicks: 31, conv: '12%' },
+    { nombre: 'Late check-out sin cargo',        clicks: 28, conv: '9%'  },
+    { nombre: 'Upgrade de habitación',           clicks: 21, conv: '7%'  },
+  ];
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       {/* Header con selector de período */}
       <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0, marginRight:'auto' }}>Resumen</h2>
-        <select
-          value={periodo}
-          onChange={e => setPeriodo(e.target.value)}
+        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0, marginRight:'auto' }}>Estadísticas</h2>
+        <select value={periodo} onChange={e => setPeriodo(e.target.value)}
           style={{ padding:'7px 12px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, background:CARD, cursor:'pointer', outline:'none' }}
         >
           {PERIODOS.map(p => <option key={p.val} value={p.val}>{p.label}</option>)}
         </select>
         {periodo === 'custom' && (<>
           <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)}
-            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}
-          />
+            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}/>
           <span style={{ fontFamily:FONT, fontSize:12, color:MUTED }}>hasta</span>
           <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)}
-            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}
-          />
+            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}/>
         </>)}
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:14 }}>
+      {/* KPIs — 3 columnas × 2 filas */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
         {kpis.map(k => (
           <Card key={k.label} style={{ display:'flex', flexDirection:'column', gap:10 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -208,57 +214,110 @@ function TabDashboard({ credits }) {
               </div>
             </div>
             <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{k.value}</div>
-            <div style={{ fontFamily:FONT, fontSize:11, color:GREEN, fontWeight:600 }}>{k.sub}</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:k.color, fontWeight:600 }}>{k.sub}</div>
           </Card>
         ))}
       </div>
 
-      {/* Savings formula */}
-      <Card style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #1e293b 100%)` }}>
-        <div style={{ color:'rgba(255,255,255,0.6)', fontFamily:FONT, fontSize:12, fontWeight:600, marginBottom:12, textTransform:'uppercase', letterSpacing:'0.06em' }}>Fórmula de ahorro mensual</div>
-        <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:12, marginBottom:16 }}>
-          <div style={{ textAlign:'center' }}>
-            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, fontFamily:FONT, marginBottom:4 }}>Abono base</div>
-            <div style={{ fontFamily:FONT, fontWeight:800, fontSize:20, color:'#fff' }}>${planBase.toLocaleString('es-AR')}</div>
+      {/* Gráficos en 2 columnas */}
+      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14 }}>
+
+        {/* Tráfico — barras */}
+        <Card>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>Visitas al perfil</div>
+            <span style={{ fontFamily:FONT, fontSize:11, color:MUTED }}>Últimas 4 semanas</span>
           </div>
-          <div style={{ color:'rgba(255,255,255,0.4)', fontSize:22, fontFamily:'monospace' }}>−</div>
-          <div style={{ textAlign:'center' }}>
-            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, fontFamily:FONT, marginBottom:4 }}>Créditos × valor</div>
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <CreditCoin size={20}/>
-              <span style={{ fontFamily:FONT, fontWeight:800, fontSize:20, color:'#fff' }}>{credits} × ${valorCredito.toLocaleString('es-AR')}</span>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:4, height:90 }}>
+            {trafico.map((v,i) => (
+              <div key={i} style={{ flex:1, background: i >= 24 ? P : `${P}30`, borderRadius:'3px 3px 0 0', height:`${(v/maxT)*100}%`, minWidth:4, transition:'height 0.3s' }}/>
+            ))}
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, fontFamily:FONT, fontSize:10, color:MUTED }}>
+            <span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span style={{ color:P, fontWeight:700 }}>Sem 4 (actual)</span>
+          </div>
+        </Card>
+
+        {/* Consultas — barras verticales */}
+        <Card>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>Consultas</div>
+            <span style={{ fontFamily:FONT, fontSize:11, color:MUTED }}>14 días</span>
+          </div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:5, height:90 }}>
+            {consultas.map((v,i) => (
+              <div key={i} style={{ flex:1, background: i >= 10 ? '#8b5cf6' : '#8b5cf620', borderRadius:'3px 3px 0 0', height:`${(v/maxC)*100}%`, minWidth:6 }}/>
+            ))}
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, fontFamily:FONT, fontSize:10, color:MUTED }}>
+            <span>Día 1</span><span>Día 14</span>
+          </div>
+        </Card>
+      </div>
+
+      {/* Top ofertas */}
+      <Card>
+        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Rendimiento de ofertas</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+          {topOfertas.map((o, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 0', borderBottom: i < topOfertas.length-1 ? `1px solid ${BG}` : 'none' }}>
+              <div style={{ width:26, height:26, borderRadius:8, background: i===0 ? `${YELLOW}25` : BG, display:'grid', placeItems:'center', flexShrink:0 }}>
+                <span style={{ fontFamily:FONT, fontSize:12, fontWeight:800, color: i===0 ? YELLOW : MUTED }}>#{i+1}</span>
+              </div>
+              <div style={{ flex:1, fontFamily:FONT, fontSize:13, fontWeight:600, color:INK }}>{o.nombre}</div>
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>{o.clicks} clicks</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:GREEN, fontWeight:600 }}>conv. {o.conv}</div>
+              </div>
+              {/* Barra de progreso */}
+              <div style={{ width:80, height:6, background:LINE, borderRadius:999, overflow:'hidden', flexShrink:0 }}>
+                <div style={{ height:'100%', background:P, borderRadius:999, width:`${(o.clicks/topOfertas[0].clicks)*100}%` }}/>
+              </div>
             </div>
-          </div>
-          <div style={{ color:'rgba(255,255,255,0.4)', fontSize:22, fontFamily:'monospace' }}>=</div>
-          <div style={{ textAlign:'center' }}>
-            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, fontFamily:FONT, marginBottom:4 }}>Próximo abono</div>
-            <div style={{ fontFamily:FONT, fontWeight:800, fontSize:24, color: ahorro > 0 ? '#34d399' : '#fff' }}>
-              ${final.toLocaleString('es-AR')}
-            </div>
-          </div>
-        </div>
-        {ahorro > 0 && (
-          <div style={{ background:'rgba(52,211,153,0.15)', border:'1px solid rgba(52,211,153,0.3)', borderRadius:10, padding:'10px 14px', fontFamily:FONT, fontSize:13, color:'#34d399', fontWeight:600 }}>
-            ✓ Ahorrás ${ahorro.toLocaleString('es-AR')} este mes recomendando comercios aliados a tus huéspedes.
-          </div>
-        )}
-        <div style={{ marginTop:12, fontFamily:FONT, fontSize:11, color:'rgba(255,255,255,0.35)', fontStyle:'italic' }}>
-          S<sub>final</sub> = S<sub>plan</sub> − (C<sub>ganados</sub> × V<sub>crédito</sub>)
+          ))}
         </div>
       </Card>
 
-      {/* Traffic chart placeholder */}
-      <Card>
-        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Tráfico últimas 4 semanas</div>
-        <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:80 }}>
-          {[42,58,35,71,89,64,77,95,55,82,68,91,73,87,110,98,120,105,88,115,94,127,108,140,132,145,119,138].map((v,i) => (
-            <div key={i} style={{ flex:1, background: i > 24 ? P : LINE, borderRadius:'3px 3px 0 0', height:`${(v/145)*100}%`, minWidth:4 }}/>
+      {/* Fuente de tráfico */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+        <Card>
+          <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Fuente de tráfico</div>
+          {[
+            { label:'Búsqueda directa', pct:42, color:P },
+            { label:'Recomendación de otro alojamiento', pct:28, color:GREEN },
+            { label:'Redes sociales', pct:18, color:YELLOW },
+            { label:'Otros', pct:12, color:MUTED },
+          ].map(s => (
+            <div key={s.label} style={{ marginBottom:10 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>{s.label}</span>
+                <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:INK }}>{s.pct}%</span>
+              </div>
+              <div style={{ height:6, background:LINE, borderRadius:999, overflow:'hidden' }}>
+                <div style={{ height:'100%', background:s.color, borderRadius:999, width:`${s.pct}%` }}/>
+              </div>
+            </div>
           ))}
-        </div>
-        <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, fontFamily:FONT, fontSize:10, color:MUTED }}>
-          <span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span>Sem 4 (actual)</span>
-        </div>
-      </Card>
+        </Card>
+        <Card>
+          <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Créditos ganados</div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:90, marginBottom:8 }}>
+            {[1,2,1,3,2,4,3,5,4,6,5,7].map((v,i) => (
+              <div key={i} style={{ flex:1, background: i >= 9 ? '#f9c829' : '#f9c82930', borderRadius:'3px 3px 0 0', height:`${(v/7)*100}%` }}/>
+            ))}
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:FONT, fontSize:10, color:MUTED }}>
+            <span>Hace 12 sem</span><span style={{ color:'#f9c829', fontWeight:700 }}>Últimas 3 sem</span>
+          </div>
+          <div style={{ marginTop:14, paddingTop:12, borderTop:`1px solid ${BG}`, display:'flex', alignItems:'center', gap:8 }}>
+            <CreditCoin size={22}/>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:20, fontWeight:800, color:INK }}>+8 créditos</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:GREEN, fontWeight:600 }}>este mes</div>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -611,11 +670,20 @@ function TabNotificaciones({ credits, setCredits }) {
 // ════════════════════════════════════════════════════════════
 //  TAB 4 — MIS OFERTAS
 // ════════════════════════════════════════════════════════════
+const MOCK_OFERTAS_ASOCIADAS = [
+  { id: 'as1', titulo: 'Cena para dos en La Parrilla del Puerto', tipo: 'Gastronomía', descuento: 20, socio: 'La Parrilla del Puerto', img: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=220&fit=crop' },
+  { id: 'as2', titulo: 'Alquiler de bicicletas — día completo', tipo: 'Actividades', descuento: 15, socio: 'BiciAventura', img: 'https://images.unsplash.com/photo-1558981033-0f0309284409?w=400&h=220&fit=crop' },
+];
+
 function TabOfertas({ dbPromos, negocioId, showToast }) {
   const [ofertas, setOfertas] = useState(dbPromos.length > 0 ? dbPromos.map(p => ({
     id: p.id, titulo: p.titulo || p.nombre, desc: p.descripcion || '', descuento: p.descuento || 0, tipo: p.tipo || 'Descuento Directo', activa: p.activo !== false,
-  })) : MOCK_OFERTAS);
+    img: null,
+  })) : MOCK_OFERTAS.map(o => ({ ...o, img: null })));
+  const ofertasAsociadas = MOCK_OFERTAS_ASOCIADAS;
+  const [vistaGrid, setVistaGrid] = useState(true);
   const [modal, setModal] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null); // id a eliminar
   const [form, setForm] = useState({ titulo:'', descuento:'', desc:'', tipo:'Descuento Directo' });
 
   function toggleActiva(id) {
@@ -623,41 +691,289 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
     showToast('Estado actualizado', 'ok');
   }
 
+  function eliminar(id) {
+    setOfertas(prev => prev.filter(o => o.id !== id));
+    setConfirmDel(null);
+    showToast('Oferta eliminada', 'ok');
+  }
+
   function addOferta() {
     if (!form.titulo) return;
-    setOfertas(prev => [...prev, { id: Date.now(), titulo:form.titulo, desc:form.desc, descuento:Number(form.descuento)||0, tipo:form.tipo, activa:true }]);
+    setOfertas(prev => [...prev, { id: Date.now(), titulo:form.titulo, desc:form.desc, descuento:Number(form.descuento)||0, tipo:form.tipo, activa:true, img:null }]);
     setModal(false);
     setForm({ titulo:'', descuento:'', desc:'', tipo:'Descuento Directo' });
     showToast('Oferta creada correctamente', 'ok');
   }
 
+  // ── Card vista ficha (estilo home) ──
+  const PLACEHOLDER_IMGS = [
+    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&h=220&fit=crop',
+    'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=220&fit=crop',
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=220&fit=crop',
+    'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400&h=220&fit=crop',
+  ];
+
+  function OfertaCardGrid({ o, idx }) {
+    const img = o.img || PLACEHOLDER_IMGS[idx % PLACEHOLDER_IMGS.length];
+    const ahorro = o.descuento ? Math.round(o.descuento * 800) : 0;
+    return (
+      <div style={{ background:CARD, border:`1px solid ${LINE}`, borderRadius:20, overflow:'hidden', display:'flex', flexDirection:'column', fontFamily:FONT, transition:'box-shadow 0.2s,transform 0.2s' }}
+        onMouseEnter={e => { e.currentTarget.style.boxShadow='0 16px 48px -16px rgba(11,16,32,0.18)'; e.currentTarget.style.transform='translateY(-2px)'; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow='none'; e.currentTarget.style.transform='none'; }}
+      >
+        {/* Imagen */}
+        <div style={{ position:'relative', height:160, overflow:'hidden' }}>
+          <img src={img} alt={o.titulo} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+          <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.65) 0%, rgba(11,16,32,0.1) 50%, transparent 100%)' }}/>
+          {/* Badge descuento */}
+          <div style={{ position:'absolute', bottom:12, left:14, color:'#fff', fontSize:38, fontWeight:800, letterSpacing:'-0.025em', lineHeight:1 }}>
+            −{o.descuento}%
+          </div>
+          {/* Badge activa/inactiva */}
+          <div style={{ position:'absolute', top:10, left:10, background: o.activa ? 'rgba(16,185,129,0.85)' : 'rgba(100,116,139,0.7)', backdropFilter:'blur(4px)', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:999 }}>
+            {o.activa ? 'Activa' : 'Inactiva'}
+          </div>
+        </div>
+        {/* Body */}
+        <div style={{ padding:'12px 14px 14px', flex:1, display:'flex', flexDirection:'column' }}>
+          <div style={{ fontSize:11, color:MUTED, fontWeight:600, marginBottom:3 }}>{o.tipo}</div>
+          <div style={{ fontSize:14, fontWeight:700, color:GREEN, lineHeight:1.3, flex:1 }}>{o.titulo}</div>
+          {/* Toggle activa + botón Editar */}
+          <div style={{ display:'flex', alignItems:'center', gap:7, margin:'10px 0 10px' }}>
+            <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
+            <span style={{ fontSize:11, fontWeight:600, color: o.activa ? GREEN : MUTED, flex:1 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
+            <button title="Editar" onClick={e => e.stopPropagation()} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:8, border:`1px solid ${LINE}`, background:CARD, color:INK2, fontFamily:FONT, fontSize:11, fontWeight:600, cursor:'pointer' }}>
+              <Edit2 size={11}/> Editar
+            </button>
+          </div>
+          {/* Cajita solo ahorro estimado */}
+          {ahorro > 0 && (
+            <div style={{ border:`1px solid ${LINE}`, borderRadius:10, overflow:'hidden' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px' }}>
+                <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorro estimado</span>
+                <span style={{ fontSize:13, fontWeight:700, color:GREEN }}>~${ahorro.toLocaleString('es-AR')} aprox.</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Fila vista lista ──
+  function OfertaRowList({ o }) {
+    return (
+      <div style={{ background:CARD, border:`1px solid ${LINE}`, borderRadius:12, padding:'14px 16px', display:'flex', alignItems:'center', gap:14, fontFamily:FONT }}>
+        {/* Color swatch con descuento */}
+        <div style={{ width:48, height:48, borderRadius:12, background:PS, display:'grid', placeItems:'center', flexShrink:0 }}>
+          <span style={{ fontSize:13, fontWeight:800, color:P }}>−{o.descuento}%</span>
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:INK }}>{o.titulo}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:3 }}>
+            <span style={{ fontSize:11, color:MUTED }}>{o.tipo}</span>
+            {o.desc && <span style={{ fontSize:11, color:INK2 }}>· {o.desc}</span>}
+          </div>
+        </div>
+        {/* Toggle activa */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+          <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
+          <span style={{ fontSize:11, fontWeight:600, color: o.activa ? GREEN : MUTED, minWidth:44 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
+        </div>
+        {/* Acciones */}
+        <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+          <button title="Editar" style={{ width:30, height:30, borderRadius:8, border:`1px solid ${LINE}`, background:'#fff', display:'grid', placeItems:'center', cursor:'pointer', color:INK2 }}>
+            <Edit2 size={13}/>
+          </button>
+          <button title="Eliminar" onClick={() => setConfirmDel(o.id)} style={{ width:30, height:30, borderRadius:8, border:`1px solid #fecaca`, background:'#fff7f7', display:'grid', placeItems:'center', cursor:'pointer', color:'#ef4444' }}>
+            <Trash2 size={13}/>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const IcoGrid = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
+  const IcoList = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
+
+  // Barra de compartir el portal de beneficios asociados
+  function ShareAsociadasBar() {
+    const [email, setEmail] = React.useState('');
+    const [sent, setSent] = React.useState(false);
+    const portalUrl = `https://cuponera.ar/beneficios/${negocioId || 'mi-hotel'}`;
+
+    function handleSendEmail(e) {
+      e.preventDefault();
+      if (!email) return;
+      setSent(true);
+      setTimeout(() => { setSent(false); setEmail(''); }, 2500);
+    }
+
+    function copyLink() {
+      navigator.clipboard?.writeText(portalUrl);
+      showToast('Link copiado', 'ok');
+    }
+
+    function sendWhatsapp() {
+      const msg = encodeURIComponent(`¡Hola! Te comparto los beneficios exclusivos de nuestros socios: ${portalUrl}`);
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+    }
+
+    return (
+      <div style={{ background:PS, border:`1px solid #c7d0f8`, borderRadius:14, padding:'14px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={P} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:P }}>Enviá el portal de beneficios a tus huéspedes</span>
+        </div>
+
+        {/* Fila: campo email + botón enviar */}
+        <form onSubmit={handleSendEmail} style={{ display:'flex', gap:8 }}>
+          <input
+            type="email"
+            placeholder="correo@ejemplo.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={{ flex:1, padding:'9px 13px', borderRadius:10, border:`1px solid #c7d0f8`, background:'#fff', fontFamily:FONT, fontSize:13, color:INK, outline:'none', minWidth:0 }}
+          />
+          <button type="submit" style={{ padding:'9px 16px', borderRadius:10, border:'none', background: sent ? GREEN : P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', transition:'background 0.2s', display:'flex', alignItems:'center', gap:6 }}>
+            {sent
+              ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Enviado</>
+              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar</>
+            }
+          </button>
+        </form>
+
+        {/* Botones secundarios */}
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={copyLink} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:10, border:`1px solid #c7d0f8`, background:'#fff', fontFamily:FONT, fontSize:12, fontWeight:600, color:INK2, cursor:'pointer' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar link
+          </button>
+          <button onClick={sendWhatsapp} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:10, border:`1px solid #c7d0f8`, background:'#fff', fontFamily:FONT, fontSize:12, fontWeight:600, color:'#16a34a', cursor:'pointer' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#16a34a"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+            WhatsApp
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const SectionHeader = ({ title, subtitle }) => (
+    <div style={{ marginTop:8, marginBottom:4 }}>
+      <div style={{ fontFamily:FONT, fontSize:15, fontWeight:700, color:INK }}>{title}</div>
+      {subtitle && <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, marginTop:2 }}>{subtitle}</div>}
+    </div>
+  );
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Mis Ofertas</h2>
-        <button onClick={() => setModal(true)} style={{ display:'flex', alignItems:'center', gap:8, background:P, color:'#fff', border:'none', borderRadius:12, padding:'10px 16px', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>
-          <Plus size={16}/> Nueva oferta
-        </button>
+
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0, flex:1 }}>Ofertas</h2>
+        {/* Selector de vista */}
+        <div style={{ display:'flex', border:`1px solid ${LINE}`, borderRadius:10, overflow:'hidden' }}>
+          {[{ grid:true, icon:<IcoGrid/> }, { grid:false, icon:<IcoList/> }].map(({ grid, icon }) => (
+            <button key={String(grid)} onClick={() => setVistaGrid(grid)} style={{ width:34, height:34, border:'none', background: vistaGrid===grid ? PS : 'transparent', color: vistaGrid===grid ? P : MUTED, display:'grid', placeItems:'center', cursor:'pointer' }}>
+              {icon}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {ofertas.map(o => (
-        <Card key={o.id} style={{ display:'flex', gap:16, alignItems:'center' }}>
-          <div style={{ flex:1 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
-              <span style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>{o.titulo}</span>
-              <Pill label={o.tipo} color={o.tipo === 'Pack Armado' ? GREEN : P}/>
-              <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:YELLOW }}>−{o.descuento}%</span>
+      {/* ── Sección: Creadas por mí ── */}
+      <SectionHeader
+        title="Creadas por mí"
+        subtitle="Estas ofertas las administrás vos: podés activarlas, pausarlas o editarlas."
+      />
+      {vistaGrid ? (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:16 }}>
+          <button onClick={() => setModal(true)} style={{ background:'transparent', border:`2px dashed ${LINE}`, borderRadius:20, minHeight:300, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, cursor:'pointer', color:MUTED, fontFamily:FONT, transition:'border-color 0.15s,background 0.15s,color 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor=P; e.currentTarget.style.background=PS; e.currentTarget.style.color=P; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=LINE; e.currentTarget.style.background='transparent'; e.currentTarget.style.color=MUTED; }}
+          >
+            <div style={{ width:44, height:44, borderRadius:'50%', border:`2px dashed currentColor`, display:'grid', placeItems:'center' }}>
+              <Plus size={20}/>
             </div>
-            <div style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>{o.desc}</div>
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <span style={{ fontFamily:FONT, fontSize:11, color:o.activa ? GREEN : MUTED, fontWeight:600 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
-            <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
-          </div>
-        </Card>
-      ))}
+            <span style={{ fontSize:13, fontWeight:600 }}>Crear oferta</span>
+          </button>
+          {[...ofertas].reverse().map((o, idx) => <OfertaCardGrid key={o.id} o={o} idx={idx}/>)}
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {[...ofertas].reverse().map(o => <OfertaRowList key={o.id} o={o}/>)}
+          <button onClick={() => setModal(true)} style={{ background:'transparent', border:`2px dashed ${LINE}`, borderRadius:12, padding:'14px 16px', display:'flex', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer', color:MUTED, fontFamily:FONT, fontSize:13, fontWeight:600 }}>
+            <Plus size={16} color={MUTED}/> Crear oferta
+          </button>
+        </div>
+      )}
 
-      {/* Modal */}
+      {/* ── Divisor ── */}
+      <div style={{ borderTop:`1px solid ${LINE}`, margin:'8px 0' }}/>
+
+      {/* ── Sección: Ofertas de socios asociados ── */}
+      <div style={{ marginTop:8, marginBottom:0 }}>
+        {/* Título + badge */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:4 }}>
+          <div style={{ fontFamily:FONT, fontSize:15, fontWeight:700, color:INK }}>Ofertas asociadas a tu empresa</div>
+          <div style={{ display:'flex', alignItems:'center', gap:5, background:'linear-gradient(90deg,#fef3c7,#fde68a)', border:'1px solid #fcd34d', borderRadius:999, padding:'3px 10px' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span style={{ fontFamily:FONT, fontSize:11, fontWeight:800, color:'#92400e' }}>¡Compartí y sumá créditos!</span>
+          </div>
+        </div>
+        <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, marginBottom:14 }}>Estas ofertas fueron creadas por otros socios que se asociaron a vos. Se muestran en tu perfil pero no las podés editar ni activar.</div>
+
+        {/* Barra de compartir */}
+        <ShareAsociadasBar />
+      </div>
+      {ofertasAsociadas.length === 0 ? (
+        <div style={{ fontFamily:FONT, fontSize:13, color:MUTED, padding:'18px 0' }}>No tenés ofertas de socios asociados todavía.</div>
+      ) : vistaGrid ? (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:16 }}>
+          {ofertasAsociadas.map((o, idx) => {
+            const ahorro = o.descuento ? Math.round(o.descuento * 800) : 0;
+            return (
+              <div key={o.id} style={{ background:CARD, border:`1px solid ${LINE}`, borderRadius:20, overflow:'hidden', display:'flex', flexDirection:'column', fontFamily:FONT, opacity:0.85 }}>
+                <div style={{ position:'relative', height:160, overflow:'hidden' }}>
+                  <img src={o.img} alt={o.titulo} style={{ width:'100%', height:'100%', objectFit:'cover', filter:'grayscale(20%)' }}/>
+                  <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.65) 0%, rgba(11,16,32,0.1) 50%, transparent 100%)' }}/>
+                  <div style={{ position:'absolute', bottom:12, left:14, color:'#fff', fontSize:38, fontWeight:800, letterSpacing:'-0.025em', lineHeight:1 }}>−{o.descuento}%</div>
+                  <div style={{ position:'absolute', top:10, left:10, background:'rgba(100,116,139,0.75)', backdropFilter:'blur(4px)', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:999 }}>Asociada</div>
+                </div>
+                <div style={{ padding:'12px 14px 14px', flex:1, display:'flex', flexDirection:'column', gap:4 }}>
+                  <div style={{ fontSize:11, color:MUTED, fontWeight:600 }}>{o.tipo} · {o.socio}</div>
+                  <div style={{ fontSize:14, fontWeight:700, color:INK2, lineHeight:1.3 }}>{o.titulo}</div>
+                  {ahorro > 0 && (
+                    <div style={{ border:`1px solid ${LINE}`, borderRadius:10, marginTop:10 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px' }}>
+                        <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorro estimado</span>
+                        <span style={{ fontSize:13, fontWeight:700, color:GREEN }}>~${ahorro.toLocaleString('es-AR')} aprox.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {ofertasAsociadas.map(o => (
+            <div key={o.id} style={{ background:CARD, border:`1px solid ${LINE}`, borderRadius:12, padding:'14px 16px', display:'flex', alignItems:'center', gap:14, fontFamily:FONT, opacity:0.85 }}>
+              <div style={{ width:48, height:48, borderRadius:12, background:'#f1f5f9', display:'grid', placeItems:'center', flexShrink:0 }}>
+                <span style={{ fontSize:13, fontWeight:800, color:MUTED }}>−{o.descuento}%</span>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:INK2 }}>{o.titulo}</div>
+                <div style={{ fontSize:11, color:MUTED, marginTop:3 }}>{o.tipo} · {o.socio}</div>
+              </div>
+              <div style={{ fontSize:10, fontWeight:600, color:MUTED, background:'#f1f5f9', padding:'4px 10px', borderRadius:999, flexShrink:0 }}>Asociada</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal crear */}
       {modal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'grid', placeItems:'center' }} onClick={() => setModal(false)}>
           <div style={{ background:CARD, borderRadius:20, padding:28, width:480, maxWidth:'90vw' }} onClick={e => e.stopPropagation()}>
@@ -687,6 +1003,23 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button onClick={() => setModal(false)} style={{ padding:'10px 18px', borderRadius:12, border:`1px solid ${LINE}`, background:'transparent', fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', color:INK2 }}>Cancelar</button>
               <button onClick={addOferta} style={{ padding:'10px 18px', borderRadius:12, border:'none', background:P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>Crear oferta</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar eliminación */}
+      {confirmDel && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'grid', placeItems:'center' }} onClick={() => setConfirmDel(null)}>
+          <div style={{ background:CARD, borderRadius:20, padding:28, width:360, maxWidth:'90vw', textAlign:'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width:48, height:48, borderRadius:'50%', background:'#fff7f7', border:'1px solid #fecaca', display:'grid', placeItems:'center', margin:'0 auto 16px' }}>
+              <Trash2 size={22} color="#ef4444"/>
+            </div>
+            <div style={{ fontFamily:FONT, fontSize:16, fontWeight:700, color:INK, marginBottom:8 }}>¿Eliminar esta oferta?</div>
+            <div style={{ fontFamily:FONT, fontSize:13, color:INK2, marginBottom:24 }}>Esta acción no se puede deshacer.</div>
+            <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+              <button onClick={() => setConfirmDel(null)} style={{ padding:'10px 20px', borderRadius:12, border:`1px solid ${LINE}`, background:'transparent', fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', color:INK2 }}>Cancelar</button>
+              <button onClick={() => eliminar(confirmDel)} style={{ padding:'10px 20px', borderRadius:12, border:'none', background:'#ef4444', color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>Eliminar</button>
             </div>
           </div>
         </div>
@@ -781,82 +1114,343 @@ function TabEmpresa({ negocio, showToast }) {
 // ════════════════════════════════════════════════════════════
 //  TAB 6 — MI CUENTA
 // ════════════════════════════════════════════════════════════
-function TabCuenta({ credits, addonTotal }) {
-  const planBase = 20000;
-  const valorCredito = 2000;
-  const descuentoCreditos = credits * valorCredito;
-  const total = Math.max(0, planBase - descuentoCreditos) + addonTotal;
+// ─── Moneda dorada inline (el SVG público viene con clases sin definir) ───────
+function CoinSVG({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }} aria-hidden="true">
+      <defs>
+        <linearGradient id="coin_rim" x1="6" y1="5" x2="34" y2="35" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#FBDB72"/><stop offset="0.55" stopColor="#F4A91C"/><stop offset="1" stopColor="#D87708"/>
+        </linearGradient>
+        <linearGradient id="coin_face" x1="9" y1="8" x2="31" y2="32" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#FFEEB0"/><stop offset="0.5" stopColor="#F9C829"/><stop offset="1" stopColor="#F0A211"/>
+        </linearGradient>
+      </defs>
+      <circle cx="20" cy="20" r="19" fill="url(#coin_rim)"/>
+      <circle cx="20" cy="20" r="14.5" fill="url(#coin_face)"/>
+      <path d="M20 9 C20.6 16.5 23.5 19.4 31 20 C23.5 20.6 20.6 23.5 20 31 C19.4 23.5 16.5 20.6 9 20 C16.5 19.4 19.4 16.5 20 9 Z" fill="#E08A0B" opacity="0.5"/>
+      <ellipse cx="14.5" cy="13.5" rx="5.5" ry="3.6" fill="#FFFFFF" opacity="0.4"/>
+    </svg>
+  );
+}
+
+const MOCK_MOVS = [
+  { kind:'cred-in',  socio:'Churros El Topo',   oferta:'Docena de churros con chocolate',  date:'Hoy · 12:40',  cred:+1 },
+  { kind:'cred-in',  socio:'La Pescadería',      oferta:'Menú del día para dos',            date:'Hoy · 09:15',  cred:+1 },
+  { kind:'cred-out', title:'Canjeaste Pack −$2.000 de abono',                               date:'Ayer · 18:02', cred:-8 },
+  { kind:'pesos',    title:'Cobro plan PLUS · Junio',                                       date:'1 jun',        pesos:-18333 },
+  { kind:'cred-out', title:'Enviaste créditos a Valentina R.',                              date:'29 may',       cred:-5 },
+  { kind:'cred-in',  socio:'Paseos en Cuatri',   oferta:'Paseo de 2 horas por la costa',   date:'28 may',       cred:+1 },
+  { kind:'pesos',    title:'Compra de 20 créditos',                                         date:'27 may',       pesos:-12100, cred:+20 },
+];
+
+const PACKS_ABONO = [
+  { badge:'-2k',  off:2000,  cred:8,  popular:false },
+  { badge:'-5k',  off:5000,  cred:16, popular:true  },
+  { badge:'-10k', off:10000, cred:32, popular:false },
+];
+
+// dark1 = oscuro medio, dark2 = más oscuro
+const PACK_DARKS = ['#2d3a5c', '#1a2440'];
+
+const PACK_IMGS = { '-2k': '/img/2k.jpg', '-5k': '/img/5k.jpg' };
+
+function PackFicha({ badge, off, cred, popular, darkIdx = 0 }) {
+  const fmt = n => '$' + n.toLocaleString('es-AR');
+  const imgSrc = PACK_IMGS[badge];
+  return (
+    <div style={{ background:'#fff', border:`1px solid ${LINE}`, borderRadius:18, overflow:'hidden', display:'flex', flexDirection:'column', fontFamily:FONT }}>
+      {/* Imagen con proporción nativa */}
+      <div style={{ position:'relative', overflow:'hidden' }}>
+        <img src={imgSrc} alt={badge} style={{ width:'100%', display:'block' }}/>
+        {popular && (
+          <div style={{ position:'absolute', top:11, right:11, background:YELLOW, color:'#5a3d00', fontSize:15, fontWeight:800, padding:'4px 9px', borderRadius:7 }}>−20%</div>
+        )}
+      </div>
+      {/* Cuerpo */}
+      <div style={{ padding:'14px 16px 16px', display:'flex', flexDirection:'column', flex:1 }}>
+        <div style={{ fontSize:11, color:MUTED, fontWeight:600, marginBottom:4 }}>Cuponera · Descuento de abono</div>
+        <div style={{ fontFamily:FONT, fontSize:16, fontWeight:600, color:GREEN, lineHeight:1.3, marginBottom:10 }}>Bajá tu abono mensual</div>
+        <button style={{ background:P, color:'#fff', border:'none', borderRadius:12, padding:'10px 0', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT }}>
+          <Tag size={14}/> Agregar a cuponera
+        </button>
+        {/* Cajita de precios */}
+        <div style={{ border:`1px solid ${LINE}`, borderRadius:10, overflow:'hidden', marginTop:10 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px' }}>
+            <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorro</span>
+            <span style={{ fontSize:13, fontWeight:800, color:GREEN }}>{fmt(off)}</span>
+          </div>
+          <div style={{ height:1, background:LINE }}/>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px' }}>
+            <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED, whiteSpace:'nowrap' }}>Lo activás con</span>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
+              <CreditCoin size={15}/><span style={{ fontSize:13, fontWeight:800, color:INK }}>{cred} créditos</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MovRow({ m, last }) {
+  const cfg = m.kind === 'cred-in'
+    ? { bg:GREENS,      fg:GREEN }
+    : m.kind === 'cred-out'
+    ? { bg:'#fff4f4',   fg:'#ef4444' }
+    : { bg:PS,          fg:P };
+  const IcoMov = m.kind === 'cred-in'
+    ? () => <img src="/income-ico.svg" width="22" height="22" style={{ display:'block' }}/>
+    : m.kind === 'cred-out'
+    ? () => <img src="/spend-ico.svg" width="22" height="22" style={{ display:'block' }}/>
+    )
+    : () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>;
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:13, padding:'13px 4px', borderBottom: last ? 'none' : `1px solid ${BG}` }}>
+      <div style={{ width:38, height:38, borderRadius:11, background:cfg.bg, display:'grid', placeItems:'center', color:cfg.fg, flexShrink:0 }}><IcoMov/></div>
+      <div style={{ flex:1, minWidth:0 }}>
+        {m.kind === 'cred-in' && m.socio ? (
+          <>
+            <div style={{ fontSize:13, fontWeight:600, color:INK, lineHeight:1.4 }}>
+              Sumaste créditos por haber recomendado <span style={{ color:P }}>{m.socio}</span>
+            </div>
+            {m.oferta && (
+              <div style={{ fontSize:11, color:MUTED, marginTop:2 }}>
+                Tu huésped ya está disfrutando <span style={{ fontWeight:600, color:INK2 }}>{m.oferta}</span>
+              </div>
+            )}
+            <div style={{ fontSize:11, color:MUTED, marginTop:2 }}>{m.date}</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize:13, fontWeight:600, color:INK, lineHeight:1.3 }}>{m.title}</div>
+            <div style={{ fontSize:11, color:MUTED, marginTop:2 }}>{m.date}</div>
+          </>
+        )}
+      </div>
+      <div style={{ textAlign:'right', flexShrink:0 }}>
+        {m.cred != null && (
+          <div style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:14, fontWeight:800, color: m.cred > 0 ? GREEN : INK2 }}>
+            {m.cred > 0 ? '+' : '−'}<CoinSVG size={14}/>{Math.abs(m.cred)}
+          </div>
+        )}
+        {m.pesos != null && (
+          <div style={{ fontSize:13, fontWeight:700, color:INK, marginTop: m.cred != null ? 2 : 0 }}>
+            −${Math.abs(m.pesos).toLocaleString('es-AR')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TabCuenta({ credits, addonTotal, setShowComprar }) {
+  const [filtroMov, setFiltroMov] = useState('todo');
+  const movRef = useRef(null);
+
+  const movsFiltrados = MOCK_MOVS.filter(m => {
+    if (filtroMov === 'cred')  return m.cred != null;
+    if (filtroMov === 'pesos') return m.pesos != null;
+    return true;
+  });
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Mi Cuenta</h2>
+      <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Cuenta</h2>
 
-      {/* Plan */}
-      <Card style={{ background:`linear-gradient(135deg, ${NAVY} 0%, #1e293b 100%)` }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:16 }}>
-          <div style={{ width:48, height:48, borderRadius:14, background:P, display:'grid', placeItems:'center' }}>
-            <Zap size={24} color="#fff"/>
-          </div>
-          <div>
-            <div style={{ fontFamily:FONT, fontSize:12, color:'rgba(255,255,255,0.5)', fontWeight:600 }}>Plan activo</div>
-            <div style={{ fontFamily:FONT, fontSize:22, fontWeight:800, color:'#fff' }}>PLUS</div>
-          </div>
-          <div style={{ marginLeft:'auto', textAlign:'right' }}>
-            <div style={{ fontFamily:FONT, fontSize:12, color:'rgba(255,255,255,0.5)' }}>Tarifa base</div>
-            <div style={{ fontFamily:FONT, fontSize:18, fontWeight:700, color:'#fff' }}>${planBase.toLocaleString('es-AR')}/mes</div>
-          </div>
-        </div>
-        <div style={{ background:'rgba(255,255,255,0.08)', borderRadius:12, padding:14, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontFamily:FONT, fontSize:13, color:'rgba(255,255,255,0.7)' }}>Próximo abono estimado</span>
-          <span style={{ fontFamily:FONT, fontSize:18, fontWeight:800, color:'#34d399' }}>${total.toLocaleString('es-AR')}</span>
-        </div>
-      </Card>
+      {/* ── Layout principal: 35% izq / 65% der ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'35fr 65fr', gap:16, alignItems:'stretch' }}>
 
-      {/* Wallet */}
-      <Card>
-        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:16 }}>Billetera de Créditos</div>
-        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12, background:`${YELLOW}10`, border:`1px solid ${YELLOW}30`, borderRadius:16, padding:'16px 24px' }}>
-            <CreditCoin size={40}/>
+        {/* ── Columna izquierda — card unificada ── */}
+        <Card style={{ display:'flex', flexDirection:'column', gap:0, padding:0, overflow:'hidden' }}>
+
+          {/* Saldo */}
+          <div style={{ padding:'20px 20px 18px', display:'flex', gap:14, alignItems:'flex-start' }}>
+            <div style={{ width:56, flexShrink:0, display:'flex', alignItems:'center', paddingTop:22 }}>
+              <CreditCoin size={52}/>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Créditos disponibles</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontFamily:FONT, fontSize:38, fontWeight:800, color:INK, lineHeight:1 }}>{credits}</span>
+                <span style={{ fontFamily:FONT, fontSize:15, fontWeight:600, color:INK2 }}>créditos</span>
+              </div>
+              <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:GREENS, color:GREEN, fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:999, marginTop:8 }}>
+                +3 este mes
+              </span>
+            </div>
+          </div>
+
+          {/* Compartir ofertas — banner integrado al bloque de saldo */}
+          <div style={{ margin:'0 14px 16px', borderRadius:16, background:'#eef0fd', border:'1px solid #d8defb', padding:'16px 18px', display:'flex', flexDirection:'column' }}>
+            {/* Decoración: mini fichas superpuestas — arriba, ancho completo */}
+            <div style={{ position:'relative', height:68, marginBottom:14 }}>
+              <div style={{ position:'absolute', left:'50%', top:4, marginLeft:-26, width:52, height:62, borderRadius:10, background:'#fff', border:'1px solid #d8defb', boxShadow:'0 2px 8px rgba(71,91,225,0.10)', transform:'rotate(6deg)', overflow:'hidden' }}>
+                <div style={{ height:28, background:`linear-gradient(135deg,${P} 0%,#6b7ff7 100%)` }}/>
+                <div style={{ padding:'6px 8px' }}>
+                  <div style={{ height:6, borderRadius:3, background:'#e2e8f0', marginBottom:4 }}/>
+                  <div style={{ height:6, borderRadius:3, background:'#e2e8f0', width:'70%' }}/>
+                </div>
+              </div>
+              <div style={{ position:'absolute', left:'50%', top:0, marginLeft:-54, width:52, height:62, borderRadius:10, background:'#fff', border:'1px solid #d8defb', boxShadow:'0 2px 8px rgba(71,91,225,0.13)', transform:'rotate(-4deg)', overflow:'hidden' }}>
+                <div style={{ height:28, background:`linear-gradient(135deg,#34d399 0%,#10b981 100%)` }}/>
+                <div style={{ padding:'6px 8px' }}>
+                  <div style={{ height:6, borderRadius:3, background:'#e2e8f0', marginBottom:4 }}/>
+                  <div style={{ height:6, borderRadius:3, background:'#e2e8f0', width:'60%' }}/>
+                </div>
+              </div>
+            </div>
+            {/* Texto — centrado */}
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
+              <div style={{ fontFamily:FONT, fontSize:10, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:P, marginBottom:4, whiteSpace:'nowrap' }}>
+                Cupones para tus huéspedes
+              </div>
+              <div style={{ fontFamily:FONT, fontSize:18, fontWeight:600, color:INK, lineHeight:1.25, marginBottom:5 }}>
+                ¡Compartí ofertas y sumá créditos!
+              </div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, lineHeight:1.4, marginBottom:12 }}>
+                Tus huéspedes canjean ofertas en restaurantes y experiencias. Vos obtenés <b>créditos para usar en tu cuponera ó reducir el valor de tu plan.</b>
+              </div>
+              <button style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 16px', borderRadius:10, border:'none', background:P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                
+                Compartir ofertas asociadas
+              </button>
+            </div>
+          </div>
+
+          <div style={{ height:1, background:LINE }}/>
+
+          {/* Enviar créditos */}
+          <div style={{ padding:'18px 20px', display:'flex', gap:14, alignItems:'flex-start' }}>
+            <div style={{ width:56, height:56, flexShrink:0, display:'grid', placeItems:'center' }}>
+              <img src="/send.svg" alt="" style={{ width:35, height:35 }}/>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:FONT, fontSize:14, fontWeight:800, color:INK }}>Enviar créditos</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Pasale saldo a un huésped o amigo al instante.</div>
+              {/* Campo de cantidad */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, background:BG, border:`1px solid ${LINE}`, borderRadius:10, padding:'8px 12px' }}>
+                <CreditCoin size={16}/>
+                <input type="number" min="1" placeholder="Cantidad a enviar"
+                  style={{ flex:1, border:'none', background:'transparent', fontFamily:FONT, fontSize:13, color:INK, outline:'none', width:0 }}
+                />
+                <span style={{ fontFamily:FONT, fontSize:11, color:MUTED, whiteSpace:'nowrap' }}>créditos</span>
+              </div>
+              {/* Botones en fila */}
+              <div style={{ display:'flex', gap:6 }}>
+                {[
+                  { label:'Whatsapp', icon:<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+                  { label:'Link',     icon:<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+                  { label:'QR',       icon:<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 21v-4M17 21h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg> },
+                ].map(({ label, icon }) => (
+                  <button key={label} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'9px 6px', borderRadius:9, border:`1px solid ${LINE}`, background:'#fff', color:INK2, fontFamily:FONT, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                    {icon}{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ height:1, background:LINE }}/>
+
+          {/* Canjear beneficios */}
+          <div style={{ padding:'18px 20px', display:'flex', gap:14, alignItems:'flex-start' }}>
+            <div style={{ width:56, height:56, flexShrink:0, display:'grid', placeItems:'center' }}>
+              <img src="/ico-disc.svg" alt="" style={{ width:45, height:45 }}/>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:FONT, fontSize:14, fontWeight:800, color:INK }}>Canjear beneficios para vos</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Usá tus créditos en ofertas de Cuponera y armá tu propia cuponera.</div>
+              <button style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 14px', borderRadius:9, border:`1px solid ${LINE}`, background:'#fff', color:INK2, fontFamily:FONT, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                Explorar el marketplace
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        {/* ── Columna derecha ── */}
+        <div style={{ display:'flex', flexDirection:'column', gap:14, height:'100%' }}>
+
+          {/* Plan activo */}
+          <Card>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
+              <div style={{ width:44, height:44, borderRadius:12, background:PS, color:P, display:'grid', placeItems:'center', flexShrink:0 }}>
+                <Zap size={22}/>
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Plan activo</div>
+                <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>PLUS</div>
+              </div>
+              <div style={{ textAlign:'right' }}>
+                <div style={{ display:'flex', alignItems:'baseline', gap:4, justifyContent:'flex-end' }}>
+                  <span style={{ fontFamily:FONT, fontSize:26, fontWeight:800, color:INK, letterSpacing:'-0.02em' }}>$18.333</span>
+                  <span style={{ fontFamily:FONT, fontSize:13, color:MUTED, fontWeight:600 }}>/mes</span>
+                </div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:INK2, fontWeight:600, marginTop:2 }}>$220.000 /año</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, marginTop:2 }}>(no incluye impuestos nacionales)</div>
+              </div>
+            </div>
+            {(() => { const deuda = 0; return (
+              <div style={{ background:BG, borderRadius:11, padding:'11px 14px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                  <span style={{ fontFamily:FONT, fontSize:13, fontWeight:800, color: deuda > 0 ? '#ef4444' : INK }}>
+                    Debés: ${deuda.toLocaleString('es-AR')}
+                  </span>
+                  <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Próximo cobro · 1 de julio</span>
+                </div>
+                <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:P, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:3, flexShrink:0 }}>
+                  Gestionar <ChevronRight size={13}/>
+                </span>
+              </div>
+            );})()}
+          </Card>
+
+          {/* Botón ver movimientos */}
+          <div style={{ display:'flex', justifyContent:'center' }}>
+            <button onClick={() => movRef.current?.scrollIntoView({ behavior:'smooth', block:'start' })}
+              style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 18px', borderRadius:10, border:`1px solid ${LINE}`, background:'#fff', color:INK2, fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+              </svg>
+              Ver movimientos de cuenta
+            </button>
+          </div>
+
+          {/* Bajá tu abono — 2 packs en 2 columnas */}
+          <Card style={{ flex:1 }}>
             <div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, fontWeight:600 }}>Saldo este mes</div>
-              <div style={{ fontFamily:FONT, fontSize:36, fontWeight:900, color:INK }}>{credits}</div>
+              <div style={{ fontFamily:FONT, fontSize:18, fontWeight:600, color:INK }}>Usá tus créditos para reducir el abono de tu plan!</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3 }}>Agregálos a tu cuponera y pagá con créditos.</div>
             </div>
-          </div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:FONT, fontSize:13, color:INK2, marginBottom:8 }}>Cada crédito = <strong>${valorCredito.toLocaleString('es-AR')}</strong> de descuento en tu próximo abono.</div>
-            <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:GREEN }}>
-              Ahorro acumulado: ${descuentoCreditos.toLocaleString('es-AR')}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginTop:20 }}>
+              {PACKS_ABONO.filter(p => p.badge !== '-10k').map((p, i) => <PackFicha key={p.badge} {...p} darkIdx={i}/>)}
             </div>
-            {addonTotal > 0 && <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, marginTop:6 }}>+ ${addonTotal.toLocaleString('es-AR')} en add-ons contratados</div>}
+          </Card>
+        </div>
+      </div>
+
+      {/* ── Movimientos (ancho completo) ── */}
+      <Card ref={movRef}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:10 }}>
+          <div style={{ fontFamily:FONT, fontSize:16, fontWeight:800, color:INK }}>Movimientos</div>
+          {/* Filtro por moneda */}
+          <div style={{ display:'flex', gap:6 }}>
+            {[['todo','Todo'],['cred','Créditos'],['pesos','Pesos']].map(([id, label]) => (
+              <button key={id} onClick={() => setFiltroMov(id)} style={{
+                display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:999,
+                fontSize:12, fontWeight:700, cursor:'pointer', border:`1px solid ${filtroMov===id ? INK : LINE}`,
+                background: filtroMov===id ? INK : 'transparent', color: filtroMov===id ? '#fff' : INK2,
+                fontFamily:FONT,
+              }}>
+                {id === 'cred' && <CoinSVG size={13}/>}{label}
+              </button>
+            ))}
           </div>
         </div>
-      </Card>
-
-      {/* Facturas */}
-      <Card>
-        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Historial de facturas</div>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:FONT, fontSize:13 }}>
-          <thead>
-            <tr style={{ borderBottom:`2px solid ${LINE}` }}>
-              {['Fecha','Concepto','Monto','Estado'].map(h => (
-                <th key={h} style={{ textAlign:'left', padding:'8px 12px', color:INK2, fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.04em' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_FACTURAS.map((f,i) => (
-              <tr key={i} style={{ borderBottom:`1px solid ${LINE}` }}>
-                <td style={{ padding:'12px', color:INK2 }}>{f.fecha}</td>
-                <td style={{ padding:'12px', color:INK }}>{f.concepto}</td>
-                <td style={{ padding:'12px', color:INK, fontWeight:700 }}>${f.monto.toLocaleString('es-AR')}</td>
-                <td style={{ padding:'12px' }}>
-                  <Pill label={f.estado} color={f.estado==='Pagado' ? GREEN : YELLOW}/>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div>
+          {movsFiltrados.map((m, i) => <MovRow key={i} m={m} last={i === movsFiltrados.length - 1}/>)}
+        </div>
       </Card>
     </div>
   );
@@ -934,16 +1528,19 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, setSho
           const active = tab === t.id;
           const badge = t.id === 'notif' ? notifCount : 0;
           return (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
-              border:'none', borderRadius:10, background: active ? P : 'transparent',
-              color: active ? '#fff' : 'rgba(255,255,255,0.65)',
-              fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left',
-            }}>
-              <t.Icon size={16}/>
-              <span style={{ flex:1 }}>{t.label}</span>
-              {badge > 0 && <span style={{ background:YELLOW, color:NAVY, fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:999 }}>{badge}</span>}
-            </button>
+            <React.Fragment key={t.id}>
+              {t.separator && <div style={{ height:1, background:'rgba(255,255,255,0.1)', margin:'6px 4px' }}/>}
+              <button onClick={() => setTab(t.id)} style={{
+                display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                border:'none', borderRadius:10, background: active ? P : 'transparent',
+                color: active ? '#fff' : 'rgba(255,255,255,0.65)',
+                fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left',
+              }}>
+                <t.Icon size={16}/>
+                <span style={{ flex:1 }}>{t.label}</span>
+                {badge > 0 && <span style={{ background:YELLOW, color:NAVY, fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:999 }}>{badge}</span>}
+              </button>
+            </React.Fragment>
           );
         })}
       </nav>
@@ -980,7 +1577,7 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, setSho
 //  COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════
 export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
-  const [tab, setTab]             = useState('dashboard');
+  const [tab, setTab]             = useState('cuenta');
   const [negocio, setNegocio]     = useState(perfil?.negocios || null);
   const [promos, setPromos]       = useState([]);
   const [saldoTokens, setSaldoTokens] = useState(0);
@@ -1035,12 +1632,12 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       />
 
       <main style={{ flex:1, padding:28, overflowY:'auto', maxWidth:'100%' }}>
-        {tab === 'dashboard' && <TabDashboard credits={credits}/>}
+        {tab === 'cuenta'    && <TabCuenta credits={credits} addonTotal={addonTotal} setShowComprar={setShowComprar}/>}
         {tab === 'inbox'     && <TabInbox/>}
         {tab === 'notif'     && <TabNotificaciones credits={credits} setCredits={setCredits}/>}
         {tab === 'ofertas'   && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast}/>}
+        {tab === 'stats'     && <TabEstadisticas/>}
         {tab === 'empresa'   && <TabEmpresa negocio={negocio} showToast={showToast}/>}
-        {tab === 'cuenta'    && <TabCuenta credits={credits} addonTotal={addonTotal}/>}
         {tab === 'addons'    && <TabAddons addonTotal={addonTotal} setAddonTotal={setAddonTotal} showToast={showToast}/>}
       </main>
 

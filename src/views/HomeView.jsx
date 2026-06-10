@@ -280,7 +280,7 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
 
               {/* H1 rotating — tamaño fijo calibrado para la localidad más larga */}
               <h1 style={{ fontSize: 'clamp(40px, 4.6vw, 70px)', lineHeight: 1.05, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
-                Ofertas y promociones en<br />
+                <span style={{ fontWeight: 600 }}>Ofertas y promociones en</span><br />
                 <span style={{
                   fontFamily: "'NauryzRedkeds', cursive",
                   fontSize: 'clamp(30px, 3.6vw, 54px)',

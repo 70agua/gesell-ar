@@ -19,7 +19,8 @@ import OfertaDetailView   from './views/OfertaDetailView';
 import PackDetailView     from './views/PackDetailView';
 import PacksListView      from './views/PacksListView';
 import OfertasRegaloView  from './views/OfertasRegaloView';
-import PublicarOfertaView from './views/PublicarOfertaView';
+import PublicarOfertaView    from './views/PublicarOfertaView';
+import BeneficiosPortalView  from './views/BeneficiosPortalView';
 
 import { getAlojamientos, getGastronomia } from './lib/datos';
 import { ALL_PROMOS }                      from './data/mockData';
@@ -150,7 +151,7 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','gastronomia','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','gastronomia','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal'];
 
   return (
     <CuponeraProvider session={session} onLoginRequired={() => setView('login')}>
@@ -276,6 +277,12 @@ function AppContent() {
               }}
               onGoAdmin={() => setView('admin')}
               onGoSocios={() => setView('socios')}
+            />
+          )}
+          {view === 'beneficios-portal' && (
+            <BeneficiosPortalView
+              onBack={() => { setView('home'); window.scrollTo(0, 0); }}
+              onActivarOferta={handleOpenOferta}
             />
           )}
           {view === 'login' && (
