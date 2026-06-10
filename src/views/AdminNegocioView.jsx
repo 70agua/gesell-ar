@@ -1203,7 +1203,6 @@ function MovRow({ m, last }) {
     ? () => <img src="/income-ico.svg" width="22" height="22" style={{ display:'block' }}/>
     : m.kind === 'cred-out'
     ? () => <img src="/spend-ico.svg" width="22" height="22" style={{ display:'block' }}/>
-    )
     : () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>;
   return (
     <div style={{ display:'flex', alignItems:'center', gap:13, padding:'13px 4px', borderBottom: last ? 'none' : `1px solid ${BG}` }}>
