@@ -158,7 +158,7 @@ function GastroCard({ item, isHovered, onHover, session, onLoginClick, onOpenDet
     <div
       onMouseEnter={() => onHover(item.id)}
       onMouseLeave={() => onHover(null)}
-      onClick={() => onOpenDetail && onOpenDetail(item, 'gastronomia')}
+      onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
       style={{
         background:'#fff', border:`1px solid ${isHovered ? color+'60' : A.line}`,
         borderRadius:18, overflow:'hidden', display:'flex', flexDirection:'column',
@@ -212,9 +212,9 @@ function GastroCard({ item, isHovered, onHover, session, onLoginClick, onOpenDet
 }
 
 // ═══════════════════════════════════════════════════════════
-export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, initialCategoria = '', initialExperiencia = '' }) {
+export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, initialCategoria = '', initialAventura = '' }) {
   const { addCupon } = useCuponera();
-  const [gastronomia, setGastronomia] = useState([]);
+  const [salidas, setSalidas] = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [busqueda,    setBusqueda]    = useState('');
   const [orden,       setOrden]       = useState('relevancia');
@@ -233,7 +233,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
   // Aplicar filtros iniciales desde navbar tras el primer render
   useEffect(() => {
 if (initialCategoria)  setFiltroTipos(new Set([initialCategoria]));
-    if (initialExperiencia) setFiltroExperiencia(initialExperiencia);
+    if (initialAventura) setFiltroExperiencia(initialExperiencia);
   }, []);
 
   const ordenRef = useRef(null);
@@ -241,7 +241,7 @@ if (initialCategoria)  setFiltroTipos(new Set([initialCategoria]));
   useEffect(() => {
     (async () => {
       const gastro = await getGastronomia();
-      setGastronomia(gastro);
+      setSalidas(gastro);
       setLoading(false);
     })();
   }, []);
@@ -264,7 +264,7 @@ if (initialCategoria)  setFiltroTipos(new Set([initialCategoria]));
   }, []);
 
   // Asociar lat/lng a cada ítem (estable, no recalcula)
-  const itemsConLatLng = gastronomia.map(item => ({
+  const itemsConLatLng = salidas.map(item => ({
     ...item,
     _lat: itemLatLng(item.id, item.zona)[0],
     _lng: itemLatLng(item.id, item.zona)[1],
@@ -462,7 +462,7 @@ if (initialCategoria)  setFiltroTipos(new Set([initialCategoria]));
                           )}
                           {/* CTA */}
                           <button
-                            onClick={() => onOpenDetail && onOpenDetail(item, 'gastronomia')}
+                            onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
                             style={{ width:'100%', padding:'7px 0', background:A.primary, color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:A.font }}
                           >
                             Ver detalle →

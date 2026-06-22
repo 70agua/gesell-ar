@@ -52,9 +52,9 @@ export default function Footer({ onNavigate }) {
 
         {/* Columna marca */}
         <div>
-          <img src="/logo-cuponera-wh.svg" alt="gesell.ar" style={{ height: 36, width: 'auto', marginBottom: 18 }} />
+          <img src="/logo-cuponera-wh.svg" alt="Cuponear" style={{ height: 36, width: 'auto', marginBottom: 18 }} />
           <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.7, maxWidth: 280, margin: '0 0 24px' }}>
-            Descubrí alojamientos, gastronomía y las mejores experiencias. Armá tu cuponera y ahorrá en cada salida.
+            Descubrí alojamientos, salidas y las mejores salidas y aventura & relax. Armá tu cuponera y ahorrá en cada salida.
           </p>
           {/* Redes sociales */}
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
@@ -82,7 +82,7 @@ export default function Footer({ onNavigate }) {
           <div style={COL.title}>Explorar</div>
           <NavLink label="Inicio"           onClick={() => nav('home')} />
           <NavLink label="Alojamientos"     onClick={() => nav('marketplace')} />
-          <NavLink label="Gastronomía"      onClick={() => nav('gastronomia')} />
+          <NavLink label="Salidas"      onClick={() => nav('salidas')} />
           <NavLink label="Ofertas y descuentos" onClick={() => nav('ofertas')} />
           <NavLink label="Packs exclusivos" onClick={() => nav('packs')} />
           <NavLink label="Ofertas de regalo" onClick={() => nav('ofertas-regalo')} />

@@ -1,7 +1,7 @@
 // ============================================================
 //  src/lib/cobros.js
 //  Modelo de cobros definitivo:
-//  - Gastronómicos y experiencias: NUNCA pagan nada
+//  - Salidas y Aventura & Relax: NUNCA pagan nada
 //  - Alojamientos FREE: pagan tokens ANTES de publicar
 //  - Alojamientos PLUS/BLACK: pagan solo al canjear
 // ============================================================

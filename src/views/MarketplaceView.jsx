@@ -8,6 +8,7 @@ import { LOCALIDADES, ZONAS, getVecinas } from '../lib/localidades';
 import { secondsUntil, formatCountdown } from '../lib/ofertas';
 import { useCuponera } from '../lib/cuponera';
 import HeartButton     from '../components/HeartButton';
+import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
 
 const A = {
   primary:     '#2545E6',
@@ -55,6 +56,7 @@ const IcoBolt    = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="c
 
 const IcoGrid    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
 const IcoList    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>;
+const IcoMap     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>;
 const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
 
 function CoinSVG({ size = 13 }) {
@@ -75,6 +77,7 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
   const th = Math.floor(secs / 3600);
   const tm = Math.floor((secs % 3600) / 60);
   const ts = secs % 60;
+  const tc = promo.tokens_costo;
 
   const card = (
     <div
@@ -83,19 +86,14 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
       onMouseEnter={e => { e.currentTarget.parentElement?.style && (e.currentTarget.parentElement.style.transform = 'translateY(-2px)'); e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; }}
       onMouseLeave={e => { e.currentTarget.parentElement?.style && (e.currentTarget.parentElement.style.transform = 'none'); e.currentTarget.style.boxShadow = 'none'; }}
     >
-      {/* Badge PROMOCIÓN — solo en marketplace */}
-      {inMarketplace && (
-        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: '#d2e9f3', color: '#0c101f', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', padding: '3px 9px', borderRadius: 999 }}>
-          PROMOCIÓN
-        </div>
-      )}
-      <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
+      {/* Imagen 4:3 */}
+      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
         <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.65) 0%, transparent 55%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }} />
 
-        {/* Pill OFERTA FLASH + timer en misma fila */}
+        {/* Pill FLASH + timer */}
         {esFlash && secs > 0 && (
-          <div style={{ position: 'absolute', top: 12, left: 12, right: 12, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ position: 'absolute', top: 10, left: 10, right: 10, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
             <div style={{ height: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', borderRadius: 999, padding: '0 10px 0 9px' }}>
               <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
               <span style={{ fontSize: 10, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
@@ -104,7 +102,7 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: '100%' }}>
               {[th, tm, ts].map((v, i) => (
                 <React.Fragment key={i}>
-                  <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, height: '100%', minWidth: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
+                  <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, height: '100%', minWidth: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
                     {i === 0 ? v : pad(v)}
                   </div>
                   {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13 }}>:</span>}
@@ -114,84 +112,98 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
           </div>
         )}
 
-        {/* Badge "Exclusivo para huéspedes" — top */}
+        {/* Exclusivo huéspedes */}
         {promo.exclusivoHuespedes && (
           <>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
               </svg>
-              <span style={{ fontSize: 12, fontWeight: 400, color: '#fff', lineHeight: 1.35 }}>
-                Exclusivo huéspedes {promo.exclusivoHuespedes}
-              </span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>Exclusivo huéspedes {promo.exclusivoHuespedes}</span>
             </div>
           </>
         )}
-        <div style={{ position: 'absolute', bottom: 12, left: 14, color: '#fff', fontSize: (promo.badge?.length || 0) > 5 ? 25 : 36, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
-        <div style={{ position: 'absolute', bottom: 10, right: 10 }}><HeartButton id={promo.id} /></div>
-      </div>
-      <div style={{ padding: '12px 14px 14px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Localidad + zona */}
-        {(promo.negocioLocalidad || promo.negocioZone) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, marginBottom: 6 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad || promo.negocioZone}</span>
-            {promo.negocioLocalidad && promo.negocioZone && <span style={{ color: A.muted }}> · {promo.negocioZone}</span>}
+
+        {/* Badge PROMOCIÓN — solo marketplace, top right */}
+        {inMarketplace && (
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3, background: '#d2e9f3', color: '#0c101f', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '3px 8px', borderRadius: 999 }}>
+            PROMOCIÓN
           </div>
         )}
-        {/* Nombre del negocio — título principal */}
-        <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, lineHeight: 1.2, marginBottom: 4 }}>
-          {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
+
+        {/* Heart — top right (sin marketplace badge) */}
+        {!inMarketplace && (
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }}>
+            <HeartButton id={promo.id} />
+          </div>
+        )}
+
+        {/* Badge + título — abajo */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 14px 13px' }}>
+          <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 25 : 36, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
         </div>
-        {/* Título de la promo */}
-        <div style={{ fontSize: 14, fontWeight: 600, color: A.green, lineHeight: 1.3, marginBottom: 12 }}>
-          {promo.title}
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Proveedor */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: A.bg, border: `1px solid ${A.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {promo.proveedorImage
+              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 12, fontWeight: 700, color: A.muted }}>{(promo.proveedorNombre || '?')[0]}</span>
+            }
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+              {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
+            </div>
+            {(promo.negocioLocalidad || promo.negocioZone) && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: A.primary, marginTop: 2 }}>
+                <IcoPin /> {promo.negocioLocalidad || promo.negocioZone}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Botón */}
         <button
           onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
+          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 11, padding: '10px 0', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s', flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
           onMouseLeave={e => e.currentTarget.style.background = A.primary}
         >
           <IcoTicket /> Agregar a cuponera
         </button>
 
-        {/* Cajita ahorro + créditos — siempre visible en marketplace */}
-        {(() => {
-          const tc = promo.tokens_costo;
-          if (tc === 0) return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '9px 12px', border: '1px solid #BBF7D0', marginTop: 10, flexShrink: 0 }}>
+        {/* Info rows */}
+        {tc === 0
+          ? <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '8px 11px', border: '1px solid #BBF7D0', flexShrink: 0 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón DE REGALO para vos</span>
             </div>
-          );
-          return (
-            <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 10, flexShrink: 0 }}>
-              {promo.ahorroEstimado > 0 && <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+          : tc != null && (
+            <div style={{ borderTop: `1px solid ${A.line}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+              {promo.ahorroEstimado > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Ahorrás</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
                 </div>
-                <div style={{ height: 1, background: A.line }} />
-              </>}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '9px 12px' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted, paddingTop: 3 }}>Lo activás con</span>
-                {tc != null ? (
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                      <CoinSVG size={14} />
-                      <span style={{ fontSize: 14, fontWeight: 700, color: A.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: A.muted, marginTop: 2 }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</div>
-                  </div>
-                ) : (
-                  <span style={{ fontSize: 13, fontWeight: 600, color: A.primary }}>Consultá las tarifas</span>
-                )}
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <CoinSVG size={13} />
+                  <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+                  <CreditTooltip />
+                  <span style={{ fontSize: 10, fontWeight: 600, color: A.muted }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</span>
+                </div>
               </div>
             </div>
-          );
-        })()}
+          )
+        }
       </div>
     </div>
   );
@@ -220,6 +232,7 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
   const th = Math.floor(secs / 3600);
   const tm = Math.floor((secs % 3600) / 60);
   const ts = secs % 60;
+  const tc = promo.tokens_costo;
 
   return (
     <div
@@ -228,104 +241,92 @@ function OfertaCardList({ promo, onClick, onAddToCuponera }) {
       onMouseEnter={e => e.currentTarget.style.boxShadow = '0 8px 32px -12px rgba(11,16,32,0.18)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
     >
-      <div style={{ position: 'relative', width: 200, flexShrink: 0, overflow: 'hidden' }}>
+      {/* Imagen — lado izquierdo, 4:3 dentro de ancho fijo */}
+      <div style={{ position: 'relative', width: 160, flexShrink: 0, overflow: 'hidden' }}>
         <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(11,16,32,0.45), transparent)' }} />
-        {/* Pill OFERTA FLASH — top left de la imagen */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.1) 50%, transparent 100%)' }} />
         {esFlash && secs > 0 && (
-          <div style={{ position: 'absolute', top: 10, left: 10, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', borderRadius: 999, padding: '4px 10px 4px 9px' }}>
-            <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
-            <span style={{ fontSize: 10, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
+          <div style={{ position: 'absolute', top: 8, left: 8, display: 'inline-flex', alignItems: 'center', gap: 3, background: '#EF4444', borderRadius: 999, padding: '3px 8px 3px 7px' }}>
+            <span style={{ fontSize: 9, fontWeight: 500, color: '#fff' }}>OFERTA</span>
+            <span style={{ fontSize: 9, fontWeight: 900, color: A.yellow, fontStyle: 'italic' }}>FLASH</span>
             <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
           </div>
         )}
-        {/* Badge "Exclusivo para huéspedes" — top (card lista, gradiente vertical) */}
-        {promo.exclusivoHuespedes && (
-          <>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: 12, left: 12, right: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-              </svg>
-              <span style={{ fontSize: 12, fontWeight: 400, color: '#fff', lineHeight: 1.35 }}>
-                Exclusivo huéspedes {promo.exclusivoHuespedes}
-              </span>
-            </div>
-          </>
-        )}
-        <div style={{ position: 'absolute', bottom: 14, left: 14, color: '#fff', fontSize: (promo.badge?.length || 0) > 5 ? 22 : 32, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
-        <div style={{ position: 'absolute', bottom: 12, right: 10 }}><HeartButton id={promo.id} size={28} /></div>
+        {/* Heart top right */}
+        <div style={{ position: 'absolute', top: 8, right: 8 }}><HeartButton id={promo.id} size={26} /></div>
+        {/* Badge + título — abajo */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px 9px' }}>
+          <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 20 : 28, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.85)', lineHeight: 1.3, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
+        </div>
       </div>
-      <div style={{ flex: 1, padding: '14px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div>
-          {/* Timer flash — en el body, al tope */}
-          {esFlash && secs > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 8 }}>
-              {[th, tm, ts].map((v, i) => (
-                <React.Fragment key={i}>
-                  <div style={{ background: A.bg, border: `1px solid ${A.line}`, color: A.ink, borderRadius: 5, fontSize: 13, fontWeight: 800, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {i === 0 ? v : pad(v)}
-                  </div>
-                  {i < 2 && <span style={{ color: A.muted, fontWeight: 700, fontSize: 14 }}>:</span>}
-                </React.Fragment>
-              ))}
-              <span style={{ fontSize: 11, color: A.muted, marginLeft: 5 }}>restantes</span>
-            </div>
-          )}
-          {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-              <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
-              {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
-                <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
-              )}
-            </div>
-          ) : (
-            <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
+
+      {/* Body */}
+      <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {/* Timer flash en body */}
+        {esFlash && secs > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            {[th, tm, ts].map((v, i) => (
+              <React.Fragment key={i}>
+                <div style={{ background: A.bg, border: `1px solid ${A.line}`, color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {i === 0 ? v : pad(v)}
+                </div>
+                {i < 2 && <span style={{ color: A.muted, fontWeight: 700, fontSize: 13 }}>:</span>}
+              </React.Fragment>
+            ))}
+            <span style={{ fontSize: 10, color: A.muted, marginLeft: 4 }}>restantes</span>
+          </div>
+        )}
+
+        {/* Proveedor */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: A.bg, border: `1px solid ${A.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {promo.proveedorImage
+              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 11, fontWeight: 700, color: A.muted }}>{(promo.proveedorNombre || '?')[0]}</span>
+            }
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
               {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
             </div>
-          )}
-          <div style={{ fontSize: 16, fontWeight: 700, color: A.green, lineHeight: 1.3 }}>{promo.title}</div>
-        </div>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <button
-              onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-              style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-            >
-              <IcoTicket /> Agregar a cuponera
-            </button>
-            <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: A.primary, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              Ver detalle <IcoChevR />
-            </span>
+            {promo.negocioLocalidad && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: A.primary, marginTop: 1 }}>
+                <IcoPin /> {promo.negocioLocalidad}
+              </div>
+            )}
           </div>
-          {promo.tokens_costo != null && (
-            promo.tokens_costo === 0
-              ? <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '7px 11px', border: '1px solid #BBF7D0' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
-                </div>
-              : <div style={{ border: `1px solid ${A.line}`, borderRadius: 9, overflow: 'hidden' }}>
-                  {promo.ahorroEstimado > 0 && <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 11px' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
-                    </div>
-                    <div style={{ height: 1, background: A.line }} />
-                  </>}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '7px 11px' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted, paddingTop: 2 }}>Lo activás con</span>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                        <CoinSVG size={13} />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: A.muted, marginTop: 1 }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</div>
-                    </div>
-                  </div>
-                </div>
-          )}
         </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Botón + info */}
+        <button
+          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 0', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
+          onMouseLeave={e => e.currentTarget.style.background = A.primary}
+        >
+          <IcoTicket /> Agregar a cuponera
+        </button>
+
+        {tc === 0
+          ? <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F0FDF4', borderRadius: 8, padding: '6px 10px', border: '1px solid #BBF7D0' }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#10A36B' }}>Cupón DE REGALO para vos</span>
+            </div>
+          : tc != null && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <CoinSVG size={12} />
+                <span style={{ fontSize: 12, fontWeight: 800, color: A.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+                <CreditTooltip />
+                <span style={{ fontSize: 9.5, fontWeight: 600, color: A.muted }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</span>
+              </div>
+            </div>
+          )
+        }
       </div>
     </div>
   );
@@ -406,6 +407,104 @@ function SideSection({ title, children }) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  Mapa de resultados
+// ═══════════════════════════════════════════════════════════
+function MarketplaceMapView({ items, onBoundsChange }) {
+  const mapRef     = useRef(null);
+  const leafletRef = useRef(null);
+  const markersRef = useRef({});
+
+  // Inicializar mapa
+  useEffect(() => {
+    if (!mapRef.current || leafletRef.current) return;
+    const L = window.L;
+    if (!L) return;
+
+    const map = L.map(mapRef.current, {
+      center: [-37.2636, -56.9769],
+      zoom: 13,
+      zoomControl: true,
+      scrollWheelZoom: true,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const fireBounds = () => {
+      const b = map.getBounds();
+      onBoundsChange({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() });
+    };
+
+    map.on('moveend', fireBounds);
+    map.on('zoomend', fireBounds);
+    leafletRef.current = map;
+
+    // Bounds iniciales después de que el mapa renderizó
+    setTimeout(fireBounds, 150);
+
+    return () => { map.remove(); leafletRef.current = null; };
+  }, []);
+
+  // Actualizar marcadores cuando cambian los items
+  useEffect(() => {
+    const L = window.L;
+    const map = leafletRef.current;
+    if (!L || !map) return;
+
+    Object.values(markersRef.current).forEach(m => m.remove());
+    markersRef.current = {};
+
+    // Si hay items con coords, ajustar zoom para verlos todos
+    const conCoords = items.filter(i => i.lat && i.lng);
+    if (conCoords.length > 0 && Object.keys(markersRef.current).length === 0) {
+      try {
+        const bounds = L.latLngBounds(conCoords.map(i => [i.lat, i.lng]));
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      } catch (_) {}
+    }
+
+    conCoords.forEach(item => {
+      const precioLabel = item.precioMin > 0
+        ? `$${Math.round(item.precioMin / 1000)}k`
+        : item.type?.[0] || '•';
+
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="
+          background:#2545E6; color:#fff; border:2.5px solid #fff;
+          border-radius:20px; padding:5px 9px;
+          font-size:12px; font-weight:700; white-space:nowrap;
+          box-shadow:0 2px 10px rgba(37,69,230,0.38);
+          font-family:-apple-system,sans-serif; cursor:pointer;
+          line-height:1;
+        ">${precioLabel}</div>`,
+        iconAnchor: [20, 16],
+      });
+
+      const marker = L.marker([item.lat, item.lng], { icon })
+        .addTo(map)
+        .bindTooltip(`<strong style="font-size:13px">${item.name}</strong><br/><span style="color:#6B7280;font-size:11px">${item.type} · ${item.localidad}</span>`, {
+          direction: 'top', offset: [0, -10], className: '',
+        });
+
+      markersRef.current[item.id] = marker;
+    });
+  }, [items]);
+
+  return (
+    <div style={{ marginBottom: 24, borderRadius: 16, overflow: 'hidden', border: `1px solid ${A.line}`, position: 'relative' }}>
+      <div ref={mapRef} style={{ height: 440, width: '100%' }} />
+      <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(11,16,32,0.75)', backdropFilter: 'blur(6px)', borderRadius: 999, padding: '6px 14px', color: '#fff', fontSize: 12, fontWeight: 500, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+        Mové o hacé zoom para filtrar los resultados
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 //  VISTA PRINCIPAL
 // ═══════════════════════════════════════════════════════════
 // ─── Hook ancho de ventana ────────────────────────────────────
@@ -425,6 +524,8 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const [promos,       setPromos]       = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [vista,        setVista]        = useState('grilla');
+  const [mapaActivo,   setMapaActivo]   = useState(false);
+  const [mapaBounds,   setMapaBounds]   = useState(null);
   const [busqueda,     setBusqueda]     = useState('');
   const [orden,        setOrden]        = useState('relevancia');
   const [showOrden,    setShowOrden]    = useState(false);
@@ -457,7 +558,10 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
     }
     return [initialLocalidad];
   });
-  const [filtroTipos,     setFiltroTipos]     = useState(initialFiltro !== 'todos' ? new Set([initialFiltro]) : new Set());
+  const [filtroTipos,     setFiltroTipos]     = useState(() => {
+    if (!initialFiltro || initialFiltro === 'todos') return new Set();
+    return new Set(initialFiltro.split(',').filter(Boolean));
+  });
   const [filtroServicios, setFiltroServicios] = useState(new Set());
 
   // Infinite scroll
@@ -471,8 +575,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
     (async () => {
       const [aloj, proms] = await Promise.all([getAlojamientos(), getPromos(20)]);
       setAlojamientos(aloj);
-      // Guardamos TODAS las categorías para la lógica de mezcla
-      setPromos(proms);
+      setPromos(proms.filter(p => p.tokens_costo !== 0));
       setLoading(false);
     })();
   }, []);
@@ -513,8 +616,8 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   // Separar por categoría + plan Black (usa plan del negocio en mock, siempre incluir)
   const esBlack = p => p.negocioPlan === 'BLACK' || p.esPlanBlack;
   const alojPromos  = promosPorLocalidad.filter(p => p.categoria === 'alojamiento');
-  const gastroPromos = promosPorLocalidad.filter(p => p.categoria === 'gastronomia');
-  const expPromos    = promosPorLocalidad.filter(p => p.categoria === 'experiencia');
+  const gastroPromos = promosPorLocalidad.filter(p => p.categoria === 'salidas');
+  const expPromos    = promosPorLocalidad.filter(p => p.categoria === 'aventura_relax');
 
   // ── Lógica de mezcla 50/20/20 + Black siempre completo ──
   const N = alojFiltrados.length;
@@ -557,6 +660,17 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
 
   const visiblesPaged = visibles.slice(0, shownCount);
   const hayMas = shownCount < visibles.length;
+
+  // Items filtrados por lo que muestra el mapa en pantalla
+  const visiblesEnMapa = React.useMemo(() => {
+    if (!mapaActivo || !mapaBounds) return [];
+    return visibles.filter(item => {
+      const lat = item.lat, lng = item.lng;
+      if (!lat || !lng) return false;
+      return lat >= mapaBounds.south && lat <= mapaBounds.north
+          && lng >= mapaBounds.west  && lng <= mapaBounds.east;
+    });
+  }, [mapaActivo, mapaBounds, visibles]);
 
   const vecinas = filtroLocalidades.length === 1 ? getVecinas(filtroLocalidades[0]) : [];
 
@@ -739,7 +853,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
           {/* Fila: título + [filtros mobile] + search */}
           <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Encontrá tu alojamiento ideal</h1>
+              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Encontrá tu alojamiento ideal</h1>
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                 {loading ? (
                   <span style={{ fontSize: 13, color: A.muted }}>Cargando...</span>
@@ -803,6 +917,12 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
                 <button onClick={() => setVista('lista')} style={{ padding: '6px 10px', borderRadius: 7, background: vista === 'lista' ? '#fff' : 'transparent', border: vista === 'lista' ? `1px solid ${A.line}` : '1px solid transparent', color: vista === 'lista' ? A.ink : A.muted, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                   <IcoList /> Lista
                 </button>
+                <button
+                  onClick={() => setMapaActivo(m => !m)}
+                  style={{ padding: '6px 10px', borderRadius: 7, background: mapaActivo ? A.primary : 'transparent', border: mapaActivo ? `1px solid ${A.primary}` : '1px solid transparent', color: mapaActivo ? '#fff' : A.muted, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                >
+                  <IcoMap /> Mapa
+                </button>
               </div>
             )}
             <span style={{ fontSize: 13, color: A.muted, fontWeight: 500 }}>Ordenar por</span>
@@ -822,6 +942,14 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
             </div>
           </div>
 
+          {/* Mapa */}
+          {mapaActivo && !loading && (
+            <MarketplaceMapView
+              items={visibles.filter(i => i.lat && i.lng && !i._esOferta)}
+              onBoundsChange={setMapaBounds}
+            />
+          )}
+
           {/* Results */}
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 320, gap: 12 }}>
@@ -839,10 +967,18 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
                 Limpiar filtros
               </button>
             </div>
+          ) : mapaActivo ? (
+            <>
+              {visiblesEnMapa.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: A.muted, fontSize: 14 }}>
+                  No hay alojamientos en esta zona del mapa. Hacé zoom out o mové el mapa.
+                </div>
+              ) : renderItems(visiblesEnMapa)}
+            </>
           ) : renderItems(visiblesPaged)}
 
-          {/* Sentinel infinite scroll */}
-          {hayMas && <div ref={sentinelRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Sentinel infinite scroll — solo cuando el mapa no está activo */}
+          {!mapaActivo && hayMas && <div ref={sentinelRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: 28, height: 28, border: `3px solid ${A.line}`, borderTopColor: A.primary, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
           </div>}
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

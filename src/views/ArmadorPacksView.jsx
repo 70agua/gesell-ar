@@ -15,7 +15,7 @@ import { calcularDesbloqueos, ACCIONES, otorgarTokens, getWallet } from '../lib/
 import { supabase } from '../lib/supabase';
 import LoadingScreen from '../components/LoadingScreen';
 
-// ─── Experiencias mock ───────────────────────────────────────
+// ─── Aventura & Relax mock ───────────────────────────────────────
 const EXPERIENCIAS_MOCK = [
   { id: 'exp1', name: 'Safari en médanos',     type: 'Experiencia', tokens_costo: 1, location: 'Villa Gesell',  zone: 'Villa Gesell',  image: 'https://images.unsplash.com/photo-1533481405265-e9ce0c044abb?auto=format&fit=crop&w=800&q=80',  description: 'Recorrido en 4x4 por los médanos más imponentes.' },
   { id: 'exp2', name: 'Cabalgata al atardecer',type: 'Experiencia', tokens_costo: 1, location: 'Barrio Norte', zone: 'Villa Gesell',  image: 'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?auto=format&fit=crop&w=800&q=80',  description: 'Cabalgata guiada por el pinar y la playa.' },
@@ -25,8 +25,8 @@ const EXPERIENCIAS_MOCK = [
 
 const CATEGORIAS = [
   { id: 'alojamiento', label: 'Alojamiento',  icon: '🏨', color: 'bg-blue-600'    },
-  { id: 'gastronomia', label: 'Gastronomía',  icon: '🍽️', color: 'bg-amber-500'   },
-  { id: 'experiencia', label: 'Aventura & Relax', icon: '🧭', color: 'bg-emerald-600' },
+  { id: 'salidas', label: 'Salidas',  icon: '🍽️', color: 'bg-amber-500'   },
+  { id: 'aventura_relax', label: 'Aventura & Relax', icon: '🧭', color: 'bg-emerald-600' },
 ];
 
 // ─── Tarjeta del catálogo ────────────────────────────────────
@@ -119,7 +119,7 @@ export default function ArmadorPacksView({ onBack }) {
   const [config, setConfig]               = useState({});
   const [formaPago, setFormaPago]         = useState('tarjeta');
   const [alojamientos, setAlojamientos]   = useState([]);
-  const [gastronomia, setGastronomia]     = useState([]);
+  const [salidas, setSalidas]     = useState([]);
   const [combinaciones, setCombinaciones] = useState([]);
   const [desbloqueos, setDesbloqueos]     = useState([]);
   const [loading, setLoading]             = useState(true);
@@ -140,7 +140,7 @@ export default function ArmadorPacksView({ onBack }) {
       ]);
       setConfig(cfg);
       setAlojamientos(aloj);
-      setGastronomia(gastro);
+      setSalidas(gastro);
 
       // Verificar sesión
       const { data: { session: s } } = await supabase.auth.getSession();
@@ -169,7 +169,7 @@ export default function ArmadorPacksView({ onBack }) {
 
   const catalogoPorCategoria = {
     alojamiento: alojamientos,
-    gastronomia: gastronomia,
+    salidas: salidas,
     experiencia: EXPERIENCIAS_MOCK,
   };
 
@@ -221,7 +221,7 @@ export default function ArmadorPacksView({ onBack }) {
     }
     // Abrir share nativo si está disponible
     if (navigator.share) {
-      navigator.share({ title: 'Mi pack en gesell.ar', url: window.location.href }).catch(() => {});
+      navigator.share({ title: 'Mi pack en Cuponear', url: window.location.href }).catch(() => {});
     }
   };
 

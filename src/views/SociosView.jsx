@@ -87,7 +87,7 @@ const OTROS_SERVICIOS = [
     ],
   },
   {
-    titulo: 'Gastronomía',
+    titulo: 'Salidas',
     items: [
       'Catering y organización de eventos',
       'Box de desayunos a pedido',
@@ -169,7 +169,7 @@ function ModalPresupuesto({ servicio, onClose }) {
 // ─── Modal de registro ────────────────────────────────────────
 const TIPOS_ALOJ     = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
 const TIPOS_GASTRO   = ['Restaurante','Bar','Café','Pastelería','Gourmet'];
-const TIPOS_AVENTURA = ['Experiencia','Balneario'];
+const TIPOS_AVENTURA = ['Experiencia','Balneario','Actividad','Spa'];
 const LOCALIDADES    = ['Villa Gesell','Mar de las Pampas','Las Gaviotas','Mar Azul'];
 
 function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess }) {
@@ -285,7 +285,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">¿A qué rubro pertenecés?</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'gastro',   label: '🍽️ Gastronomía' },
+                    { id: 'salidas',   label: '🍽️ Salidas' },
                     { id: 'aventura', label: '🏄 Aventura & Relax' },
                   ].map(s => (
                     <button
@@ -347,7 +347,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
             {loading ? 'Creando cuenta...' : 'Crear mi cuenta'}
           </button>
           <p className="text-center text-slate-400 text-xs font-medium">
-            Tu cuenta quedará activa una vez que el equipo de gesell.ar la apruebe.
+            Tu cuenta quedará activa una vez que el equipo de Cuponear la apruebe.
           </p>
         </div>
       </div>
@@ -371,7 +371,7 @@ export default function SociosView({ onBack }) {
         <div className="max-w-3xl mx-auto">
           <span className="text-blue-400 font-black text-xs uppercase tracking-widest mb-4 block">Para proveedores de servicios</span>
           <h1 className="text-5xl md:text-6xl font-black text-white mb-6 leading-tight">
-            Sumá tu negocio a <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">gesell.ar</span>
+            Sumá tu negocio a <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Cuponear</span>
           </h1>
           <p className="text-slate-400 text-lg font-medium leading-relaxed mb-8">
             Miles de turistas buscan alojamiento, gastronomía y experiencias en Villa Gesell y alrededores. Hacé que te encuentren.
@@ -390,7 +390,7 @@ export default function SociosView({ onBack }) {
                 onClick={() => { setTipoDefault('Restaurante'); setCategoriaSocios('comercios'); window.scrollTo({ top: 600, behavior: 'smooth' }); }}
                 className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-7 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 cursor-pointer flex items-center gap-3"
               >
-                <span className="text-2xl">🍽️</span> Gastronomía
+                <span className="text-2xl">🍽️</span> Salidas
               </button>
               <button
                 onClick={() => { setTipoDefault('Experiencia'); setCategoriaSocios('comercios'); window.scrollTo({ top: 600, behavior: 'smooth' }); }}
@@ -526,13 +526,13 @@ export default function SociosView({ onBack }) {
 
       {/* Tabla de planes — Comercios y servicios */}
       {categoriaSocios === 'comercios' && (
-      <div id="planes-gastronomia" className="bg-emerald-950 px-6 py-20">
+      <div id="planes-salidas" className="bg-emerald-950 px-6 py-20">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 bg-emerald-800/60 text-emerald-300 text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-4">
               <span>🍽️</span> Restaurantes, cafés y actividades
             </div>
-            <h2 className="text-4xl font-black text-white mb-3">Plan para gastronómicos y experiencias</h2>
+            <h2 className="text-4xl font-black text-white mb-3">Plan para comercios y salidas y experiencias</h2>
             <p className="text-emerald-300 font-medium">Publicá tus ofertas sin costo. Solo pagás cuando hay resultado.</p>
           </div>
 

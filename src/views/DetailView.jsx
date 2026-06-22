@@ -5,16 +5,23 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapView from '../components/MapView';
 import {
   X, Send, Gift, Check, Eye, EyeOff, Loader2, Lock,
-  Heart, Share2, Zap, MessageCircle, Flag, ChevronRight, ChevronLeft,
+  Heart, Share2, Zap, MessageCircle, Flag, ChevronRight, ChevronLeft, Home,
   Wifi, Car, Waves, Coffee, ShieldCheck, KeyRound,
   Utensils, Phone, Clock, Globe, MapPin, Ticket,
   Star, Minus, Plus, Sunrise, Users,
+  Dumbbell, Wind, Flame, PawPrint, Baby, Bike, Tv, ChefHat,
+  TreePine, Droplets, Sparkles, BedDouble, AirVent,
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { supabase }                                    from '../lib/supabase';
 import { getPromosDeNegocio, getAlianzasPorNegocio, getPromosLocalidad } from '../lib/datos';
 import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
 import { useCuponera } from '../lib/cuponera';
+import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
+import { busqueda } from '../lib/busqueda';
+import DateRangePicker from '../components/DateRangePicker';
+
+const toDateStr = d => d instanceof Date ? d.toISOString().split('T')[0] : '';
 
 // ─── Design tokens (para inline styles puntuales) ───────────
 const C = {
@@ -29,6 +36,21 @@ const C = {
   green:       '#10A36B',
   yellow:      '#FFC93C',
 };
+
+// ─── Cálculo de créditos: 20%/15%/10% del ahorro, mínimo 1 ─
+const PRECIO_CREDITO = 2000; // pesos sin IVA
+function calcTokensCosto(ahorroEstimado) {
+  if (!ahorroEstimado || ahorroEstimado <= 0) return 1;
+  const pct = ahorroEstimado <= 10000 ? 0.20 : ahorroEstimado < 60000 ? 0.15 : 0.10;
+  return Math.max(1, Math.ceil((ahorroEstimado * pct) / PRECIO_CREDITO));
+}
+// Formatea el ahorro para mostrar en UI. ahorroMax presente → rango.
+function formatAhorro(estimado, max) {
+  if (!estimado || estimado <= 0) return null;
+  const fmt = n => '$' + Math.round(n).toLocaleString('es-AR');
+  if (max && max > estimado) return `entre ${fmt(estimado)} y ${fmt(max)} aprox.`;
+  return `~${fmt(estimado)} aprox.`;
+}
 
 // ─── Plan config ────────────────────────────────────────────
 const PLAN_CFG = {
@@ -46,8 +68,8 @@ function detectarTipo(item) {
   if (item.itemType) return item.itemType;
   const t = item.type || item.category || '';
   if (TIPOS_ALOJ.has(t))   return 'alojamiento';
-  if (TIPOS_GASTRO.has(t)) return 'gastronomia';
-  return 'experiencia';
+  if (TIPOS_GASTRO.has(t)) return 'salidas';
+  return 'aventura_relax';
 }
 
 // ─── Helpers de formulario ───────────────────────────────────
@@ -165,11 +187,11 @@ function ConsultaDrawer({ item, onClose }) {
                     <Gift size={18} color="#fff" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold" style={{ color: C.ink }}>¡Ganás 2 créditos gesell.ar!</div>
+                    <div className="text-sm font-bold" style={{ color: C.ink }}>¡Ganás 2 créditos Cuponear!</div>
                     <div className="text-[11px]" style={{ color: C.muted }}>Valor: $4.840 en descuentos</div>
                   </div>
                 </div>
-                <p className="text-[13px] leading-relaxed mb-3.5" style={{ color: C.ink2 }}>Registrate en 30 segundos y usá tus créditos en ofertas, restaurantes y experiencias.</p>
+                <p className="text-[13px] leading-relaxed mb-3.5" style={{ color: C.ink2 }}>Registrate en 30 segundos y usá tus créditos en ofertas, salidas y aventura & relax.</p>
                 <button onClick={() => setStep('register')} className="w-full py-3 rounded-[10px] font-bold text-[13px] text-white cursor-pointer" style={{ background: C.primary }}>
                   Crear mi cuenta y recibir créditos
                 </button>
@@ -207,7 +229,7 @@ function ConsultaDrawer({ item, onClose }) {
               </div>
               <div>
                 <p className="text-2xl font-extrabold tracking-tight mb-1.5" style={{ color: C.ink }}>¡Bienvenido/a, {nombre.split(' ')[0]}!</p>
-                <p className="text-sm leading-relaxed" style={{ color: C.muted }}>Tus <strong style={{ color: C.primary }}>2 créditos gesell.ar</strong> ya están en tu cuenta.</p>
+                <p className="text-sm leading-relaxed" style={{ color: C.muted }}>Tus <strong style={{ color: C.primary }}>2 créditos Cuponear</strong> ya están en tu cuenta.</p>
               </div>
               <button onClick={onClose} className="px-7 py-3 rounded-[10px] font-bold text-[13px] text-white cursor-pointer" style={{ background: C.primary }}>
                 Ver ofertas y usar créditos
@@ -244,7 +266,7 @@ L.Icon.Default.mergeOptions({
 function ZonaMap({ item, promos, onAddCupon }) {
   const center = LOCALIDAD_COORDS[item.localidad] || DEFAULT_COORDS;
 
-  // Solo gastro + experiencias, sin alojamientos
+  // Solo salidas + aventura & relax, sin alojamientos
   const promosZona = promos
     .filter(p => p.categoria !== 'alojamiento')
     .slice(0, 5)
@@ -420,27 +442,71 @@ function Gallery({ item, plan }) {
 
 // ─── Amenity chip ─────────────────────────────────────────
 const TAG_ICONS = {
-  'WiFi gratuito':        <Wifi size={15} />,
-  'Estacionamiento':      <Car size={15} />,
-  'Cerca del mar':        <Waves size={15} />,
-  'A 80m del mar':        <Waves size={15} />,
-  'Pileta':               <Waves size={15} />,
-  'Piscina climatizada':  <Waves size={15} />,
-  'Spa':                  <Sunrise size={15} />,
-  'Spa y circuito termal':<Sunrise size={15} />,
-  'Desayuno':             <Coffee size={15} />,
-  'Desayuno buffet incluido': <Coffee size={15} />,
-  'Check-in flexible':    <KeyRound size={15} />,
-  'Check-in 24hs':        <KeyRound size={15} />,
-  'Cancelación flexible': <ShieldCheck size={15} />,
+  // Conectividad
+  'WiFi gratuito':             <Wifi size={15} />,
+  'WiFi':                      <Wifi size={15} />,
+  // Estacionamiento
+  'Estacionamiento':           <Car size={15} />,
+  'Cochera cubierta':          <Car size={15} />,
+  // Mar / agua
+  'Cerca del mar':             <Waves size={15} />,
+  'A 80m del mar':             <Waves size={15} />,
+  'Vista al mar':              <Waves size={15} />,
+  'Frente al mar':             <Waves size={15} />,
+  // Piscina
+  'Pileta':                    <Droplets size={15} />,
+  'Piscina':                   <Droplets size={15} />,
+  'Piscina climatizada':       <Droplets size={15} />,
+  'Piscina con temperatura':   <Droplets size={15} />,
+  // Spa / relax
+  'Spa':                       <Sparkles size={15} />,
+  'Spa y circuito termal':     <Sparkles size={15} />,
+  'Jacuzzi':                   <Sparkles size={15} />,
+  'Sauna':                     <Flame size={15} />,
+  // Comidas
+  'Desayuno':                  <Coffee size={15} />,
+  'Desayuno buffet incluido':  <ChefHat size={15} />,
+  'Desayuno incluido':         <Coffee size={15} />,
+  'Cocina equipada':           <Utensils size={15} />,
+  'Parrilla':                  <Flame size={15} />,
+  // Check-in
+  'Check-in flexible':         <KeyRound size={15} />,
+  'Check-in 24hs':             <KeyRound size={15} />,
+  'Early check-in':            <KeyRound size={15} />,
+  // Cancelación / políticas
+  'Cancelación flexible':      <ShieldCheck size={15} />,
+  // Entorno / naturaleza
+  'Jardín':                    <TreePine size={15} />,
+  'Parque':                    <TreePine size={15} />,
+  'Quincho':                   <ChefHat size={15} />,
+  // Aire acondicionado / clima
+  'Aire acondicionado':        <AirVent size={15} />,
+  'A/C':                       <AirVent size={15} />,
+  'Calefacción':               <Wind size={15} />,
+  // Fitness
+  'Gimnasio':                  <Dumbbell size={15} />,
+  // Entretenimiento
+  'TV por cable':              <Tv size={15} />,
+  'Smart TV':                  <Tv size={15} />,
+  // Familias / mascotas
+  'Apto mascotas':             <PawPrint size={15} />,
+  'Acepta mascotas':           <PawPrint size={15} />,
+  'Apto para niños':           <Baby size={15} />,
+  'Cuna disponible':           <Baby size={15} />,
+  // Actividades
+  'Alquiler de bicicletas':    <Bike size={15} />,
+  'Bicicletas':                <Bike size={15} />,
+  // Camas / habitaciones
+  'Camas extra':               <BedDouble size={15} />,
+  'Habitaciones familiares':   <BedDouble size={15} />,
 };
 
 function AmenityChip({ tag }) {
   const icon = TAG_ICONS[tag] || <Check size={15} />;
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ border: `1px solid ${C.line}` }}>
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.primarySoft, color: C.primary }}>{icon}</div>
-      <span className="text-[13px] font-medium" style={{ color: C.ink }}>{tag}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 0' }}>
+      <span style={{ color: C.primary, display: 'flex', flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontSize: 14, color: C.ink2, lineHeight: 1.3 }}>{tag}</span>
     </div>
   );
 }
@@ -487,34 +553,39 @@ function OfferCard({ promo, onAdd, onOpenOferta }) {
           ) : null}
           <div style={{ fontSize: 15, fontWeight: 700, color: C.green, lineHeight: 1.3 }}>{promo.title || promo.titulo}</div>
         </div>
-        {/* Cajita ahorro + créditos */}
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, overflow: 'hidden', fontSize: 11 }}>
-          {(promo.ahorroEstimado > 0) && <>
+        {/* Ahorrás */}
+        {promo.ahorroEstimado > 0 && (
+          <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, overflow: 'hidden', fontSize: 11 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 9px' }}>
-              <span style={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted }}>Ahorro estimado</span>
-              <span style={{ fontWeight: 700, color: '#10A36B' }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+              <span style={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted }}>Ahorrás</span>
+              <span style={{ fontWeight: 700, color: '#10A36B' }}>{formatAhorro(promo.ahorroEstimado, promo.ahorroMax)}<InfoTooltip /></span>
             </div>
-            <div style={{ height: 1, background: C.line }} />
-          </>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 9px' }}>
-            <span style={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted }}>Lo activás con</span>
-            {promo.tokens_costo != null ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, color: C.ink }}>
-                <CoinSVG size={12} /> {promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}
-              </span>
-            ) : (
-              <span style={{ color: C.primary, fontWeight: 600 }}>Consultá</span>
-            )}
           </div>
-        </div>
+        )}
         <button
           onClick={e => { e.stopPropagation(); onAdd && onAdd(promo); }}
           style={{ background: C.primary, color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start' }}
           onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
           onMouseLeave={e => e.currentTarget.style.background = C.primary}
         >
-          <Ticket size={11} /> Agregar a cuponera
+          <Send size={11} /> Solicitar este cupón
         </button>
+        {/* Activalo con — debajo del CTA */}
+        {(() => { const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted, lineHeight: '18px' }}>Activalo con</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <CoinSVG size={11} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 10, color: C.muted }}>(${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                <CreditTooltip />
+              </div>
+            </div>
+          </div>
+        ); })()}
       </div>
     </div>
   );
@@ -553,6 +624,30 @@ function FlashTimer({ fechaFin }) {
           {i < 2 && (
             <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13, lineHeight: 1 }}>:</span>
           )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+// Timer compacto inline para la pill de oferta flash
+function MiniFlashTimer({ fechaFin }) {
+  const getR = () => {
+    const diff = new Date(fechaFin) - Date.now();
+    if (diff <= 0) return { h: 0, m: 0, s: 0 };
+    const t = Math.floor(diff / 1000);
+    return { h: Math.floor(t / 3600), m: Math.floor((t % 3600) / 60), s: t % 60 };
+  };
+  const [r, setR] = useState(getR);
+  useEffect(() => { const id = setInterval(() => setR(getR()), 1000); return () => clearInterval(id); }, [fechaFin]);
+  if (r.h === 0 && r.m === 0 && r.s === 0) return null;
+  const pad = n => String(n).padStart(2, '0');
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: '#e02020', borderRadius: 999, padding: '3px 8px' }}>
+      {[r.h, r.m, r.s].map((v, i) => (
+        <React.Fragment key={i}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{i === 0 ? v : pad(v)}</span>
+          {i < 2 && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>:</span>}
         </React.Fragment>
       ))}
     </div>
@@ -605,37 +700,35 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
     (promo.subtitle ? promo.subtitle.split('·').slice(1).join('·').trim() || promo.subtitle : '') ||
     'Guardalo en tu cuponera y canjealo durante tu estadía.';
 
-  const precioCreditos = promo.tokens_costo != null
-    ? `$${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA`
-    : null;
+  const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
+  const precioCreditos = `$${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', borderRadius: 16, overflow: 'hidden', border: `1px solid ${C.line}`, minHeight: 190 }}>
 
-      {/* ── Área de foto blureada — clickeable ────────────── */}
+      {/* ── Foto de fondo — clickeable ────────────── */}
       <div
         onClick={goDetail}
         style={{
-          width: 240, flexShrink: 0, position: 'relative', overflow: 'hidden',
+          width: 220, flexShrink: 0, position: 'relative', overflow: 'hidden',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: '14px 18px 16px',
           cursor: 'pointer', textAlign: 'center',
-          background: '#B01A1A',
+          background: '#0B1020',
         }}
       >
-        {isFlash ? <>
-          {/* Blobs animados en rojos + naranja */}
-          <div style={{ position: 'absolute', width: 150, height: 150, borderRadius: '50%', background: '#cc2e30', filter: 'blur(40px)', opacity: 0.9, top: -25, left: -25, animation: `blobA${seed % 10} ${5.5 + (seed % 4) * 0.5}s ease-in-out infinite` }} />
-          <div style={{ position: 'absolute', width: 130, height: 130, borderRadius: '50%', background: '#d73337', filter: 'blur(35px)', opacity: 0.85, bottom: -15, right: -15, animation: `blobB${seed % 10} ${6.5 + (seed % 3) * 0.4}s ease-in-out infinite` }} />
-          <div style={{ position: 'absolute', width: 110, height: 110, borderRadius: '50%', background: '#E8622A', filter: 'blur(30px)', opacity: 0.7, top: '40%', right: 0, animation: `blobC${seed % 10} ${7.5 + (seed % 5) * 0.3}s ease-in-out infinite` }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.08)' }} />
-        </> : <>
-          {/* Blobs de paleta normal */}
-          <div style={{ position: 'absolute', width: 140, height: 140, borderRadius: '50%', background: palette.c[0], filter: 'blur(38px)', opacity: 0.8, top: -20, left: -20, animation: `blobA${seed % 10} ${6 + (seed % 4) * 0.5}s ease-in-out infinite` }} />
-          <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', background: palette.c[1], filter: 'blur(32px)', opacity: 0.75, bottom: -10, right: -10, animation: `blobB${seed % 10} ${7 + (seed % 3) * 0.4}s ease-in-out infinite` }} />
-          <div style={{ position: 'absolute', width: 100, height: 100, borderRadius: '50%', background: palette.c[2], filter: 'blur(28px)', opacity: 0.7, top: '35%', right: 10, animation: `blobC${seed % 10} ${8 + (seed % 5) * 0.3}s ease-in-out infinite` }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.12)' }} />
-        </>}
+        {/* Foto real de la promo o del alojamiento */}
+        {(promo.image || fotos[0]) && (
+          <img
+            src={promo.image || fotos[seed % fotos.length] || fotos[0]}
+            alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.82 }}
+          />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(11,16,32,0.25) 0%, rgba(11,16,32,0.72) 100%)' }} />
+        {isFlash && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(180,20,20,0.28)' }} />
+        )}
         {/* Contenido — z elevado */}
         {isFlash ? (
           /* Layout Flash: pill → badge → desc → timer, centrado verticalmente */
@@ -692,7 +785,7 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
             onClick={goDetail}
             onMouseEnter={() => setTitleHov(true)}
             onMouseLeave={() => setTitleHov(false)}
-            style={{ fontSize: 18, fontWeight: 700, color: C.green, lineHeight: 1.3, marginBottom: 8, cursor: 'pointer', transition: 'color 0.15s' }}
+            style={{ fontSize: 16, fontWeight: 700, color: C.ink, lineHeight: 1.3, marginBottom: 6, cursor: 'pointer', transition: 'color 0.15s' }}
           >
             {promo.title || promo.titulo}
           </div>
@@ -714,25 +807,12 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
           )}
         </div>
 
-        {/* Cajita AHORRO ESTIMADO + LO ACTIVÁS CON */}
-        {promo.tokens_costo != null && (
+        {/* Ahorrás */}
+        {promo.ahorroEstimado > 0 && (
           <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: 'hidden' }}>
-            {promo.ahorroEstimado > 0 && <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted }}>Ahorro estimado</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
-              </div>
-              <div style={{ height: 1, background: C.line }} />
-            </>}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 14px' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted, paddingTop: 2 }}>Lo activás con</span>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                  <CoinSVG size={14} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                </div>
-                {precioCreditos && <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>({precioCreditos})</div>}
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted }}>Ahorrás</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{formatAhorro(promo.ahorroEstimado, promo.ahorroMax)}<InfoTooltip /></span>
             </div>
           </div>
         )}
@@ -745,7 +825,7 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
             onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
             onMouseLeave={e => e.currentTarget.style.background = C.primary}
           >
-            <Ticket size={14} /> Agregar a cuponera
+            <Send size={14} /> Solicitar este cupón
           </button>
           <button
             onClick={e => e.stopPropagation()}
@@ -755,6 +835,21 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
           >
             <Share2 size={15} /> Compartir
           </button>
+        </div>
+
+        {/* Activalo con — debajo del CTA */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 4 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted, lineHeight: '18px' }}>Activalo con</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <CoinSVG size={12} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ fontSize: 11, color: C.muted }}>({precioCreditos})</span>
+              <CreditTooltip />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -770,62 +865,54 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
       style={{ border: `1px solid ${C.line}` }}
       onClick={() => onOpenOferta && onOpenOferta(promo)}
     >
-      {/* Foto con badge centrado, sin moneda */}
-      <div className="relative h-[140px] shrink-0">
+      {/* Foto 4:3 con badge + título en bottom-left */}
+      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden', flexShrink: 0 }}>
         <img src={promo.image || promo.imagen_url} alt={promo.title || promo.titulo}
-          className="w-full h-full object-cover" />
-        <div className="absolute inset-0" style={{ background: 'rgba(11,16,32,0.45)' }} />
-        {promo.badge && (
-          <div className="absolute inset-0 flex items-center justify-center text-white font-extrabold leading-none tracking-tight" style={{ fontSize: 42 }}>
-            {promo.badge}
-          </div>
-        )}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.78) 0%, rgba(11,16,32,0.12) 55%, transparent 100%)' }} />
+        {/* Badge + título — abajo izquierda */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 13px 12px' }}>
+          {promo.badge && (
+            <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 27 : 36, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
+          )}
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title || promo.titulo}</div>
+        </div>
       </div>
 
-      <div style={{ padding: '14px 16px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Localidad + nombre socio */}
-        {promo.negocioLocalidad ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
-            {provNombre && <span style={{ color: C.muted }}> · {provNombre}</span>}
+      <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Proveedor: logo + nombre + localidad */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: '#F7F7F8', border: `1px solid ${C.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {promo.proveedorImage
+              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{(provNombre || '?')[0]}</span>
+            }
           </div>
-        ) : provNombre ? (
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>{provNombre}</div>
-        ) : null}
-
-        {/* Título en verde */}
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.green, lineHeight: 1.3, flex: 1, marginBottom: 12 }}>{promo.title || promo.titulo}</div>
-
-        {/* Cajita ahorro + créditos */}
-        {promo.tokens_costo != null && (
-          promo.tokens_costo === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginBottom: 10, flexShrink: 0 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>Cupón GRATIS</span>
-            </div>
-          ) : (
-            <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: 'hidden', marginBottom: 10, flexShrink: 0 }}>
-              {promo.ahorroEstimado > 0 && <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted }}>Ahorro estimado</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
-                </div>
-                <div style={{ height: 1, background: C.line }} />
-              </>}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 12px' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted, paddingTop: 2 }}>Lo activás con</span>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                    <CoinSVG size={14} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</div>
-                </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{provNombre}</div>
+            {promo.negocioLocalidad && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: C.primary, marginTop: 1 }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                {promo.negocioLocalidad}
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ahorrás */}
+        {(() => { const btc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return (
+          btc === 0 ? (
+            <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>Cupón DE REGALO para vos</span>
             </div>
-          )
-        )}
+          ) : promo.ahorroEstimado > 0 ? (
+            <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ahorrás</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>{formatAhorro(promo.ahorroEstimado, promo.ahorroMax)}<InfoTooltip /></span>
+            </div>
+          ) : null
+        ); })()}
 
         <button
           onClick={e => { e.stopPropagation(); onAdd && onAdd(promo); }}
@@ -833,8 +920,25 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
           onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
           onMouseLeave={e => e.currentTarget.style.background = C.primary}
         >
-          <Ticket size={13} /> Agregar a cuponera
+          <Send size={13} /> Solicitar este cupón
         </button>
+
+        {/* Activalo con — debajo del CTA */}
+        {(() => { const btc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return btc > 0 ? (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: '18px' }}>Activalo con</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <CoinSVG size={11} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{btc} crédito{btc !== 1 ? 's' : ''}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 10, color: C.muted }}>(${(btc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                <CreditTooltip />
+              </div>
+            </div>
+          </div>
+        ) : null; })()}
       </div>
     </div>
   );
@@ -1001,8 +1105,8 @@ function GuestsSelectorField({ adultos, setAdultos, ninos, setNinos, bebes, setB
 
       {open && (
         <div
-          className="absolute z-50 bg-white rounded-2xl overflow-hidden"
-          style={{ top: 'calc(100% + 6px)', left: 0, right: 0, border: `1px solid ${C.line}`, boxShadow: '0 20px 48px -16px rgba(11,16,32,0.22)' }}
+          className="absolute bg-white rounded-2xl overflow-hidden"
+          style={{ top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 1000, border: `1px solid ${C.line}`, boxShadow: '0 20px 48px -16px rgba(11,16,32,0.22)' }}
         >
           {rows.map((r, i) => (
             <div key={r.label} className="flex items-center justify-between px-4 py-3"
@@ -1056,6 +1160,17 @@ const RULES = [
 function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
   const totalCupones = promos.length + alianzas.length;
 
+  // Tariff tabs — labels configurables por el socio
+  const hasTarifaComun     = item.precioMin > 0;
+  const hasTarifaEspecial  = item.precioMinEspecial > 0;
+  const hasTarifaPack      = item.packPrecio > 0 && item.packNoches;
+  const tarifaTabs = [
+    hasTarifaComun    && { id: 'comun',    label: item.tarifaComunLabel    || 'Tarifa común' },
+    hasTarifaEspecial && { id: 'especial', label: item.tarifaEspecialLabel || 'Tarifa especial' },
+    hasTarifaPack     && { id: 'pack',     label: item.tarifaPackLabel     || (item.packAclaracion ? item.packAclaracion : `Pack ${item.packNoches} noches`) },
+  ].filter(Boolean);
+  const [tarifaTab, setTarifaTab] = useState('comun');
+
   // Dates
   const [checkin,  setCheckin]  = useState(null);
   const [checkout, setCheckout] = useState(null);
@@ -1072,37 +1187,109 @@ function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
     <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ background: '#fff', border: `1px solid ${C.line}`, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.18)' }}>
 
 
-      {/* Dates */}
-      {cfg.showPrice && (
-        <div className="grid grid-cols-2 gap-2">
-          <DatePickerField
-            label="CHECK-IN"
-            value={checkin}
-            onChange={d => { setCheckin(d); if (checkout && checkout <= d) setCheckout(null); }}
-            minDate={new Date()}
-          />
-          <DatePickerField
-            label="CHECK-OUT"
-            value={checkout}
-            onChange={setCheckout}
-            minDate={checkoutMin}
-          />
+      {/* ── 1. TARIFAS — siempre primero ─────────────────────── */}
+      {cfg.showPrice && hasTarifaComun && (
+        <div style={{ margin: '-20px -20px 0' }}>
+          {/* Tabs con wrap — se acomodan en múltiples filas si son muchas */}
+          <div style={{ borderBottom: `1px solid ${C.line}`, borderRadius: '14px 14px 0 0', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+              {tarifaTabs.map((t, i) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTarifaTab(t.id)}
+                  style={{
+                    flex: tarifaTabs.length <= 3 ? 1 : '0 0 auto',
+                    padding: '12px 16px',
+                    fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center',
+                    fontWeight: tarifaTab === t.id ? 700 : 400,
+                    cursor: 'pointer', background: 'transparent',
+                    color: tarifaTab === t.id ? C.ink : C.muted,
+                    border: 'none',
+                    borderRight: `1px solid ${C.line}`,
+                    borderBottom: tarifaTab === t.id ? `2.5px solid ${C.ink}` : '2.5px solid transparent',
+                    marginBottom: '-1px',
+                  }}
+                >{t.label}</button>
+              ))}
+            </div>
+          </div>
+          {/* Precio del tab activo */}
+          <div style={{ padding: '14px 20px' }}>
+            {tarifaTab === 'comun' && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
+                <span style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.precioMin.toLocaleString('es-AR')}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.ink2 }}>{item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}</span>
+              </div>
+            )}
+            {tarifaTab === 'especial' && hasTarifaEspecial && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
+                <span style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.precioMinEspecial.toLocaleString('es-AR')}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.ink2 }}>{item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}</span>
+              </div>
+            )}
+            {tarifaTab === 'pack' && hasTarifaPack && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
+                <span style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.packPrecio.toLocaleString('es-AR')}</span>
+                <span style={{ fontSize: 13, color: C.muted }}>el pack</span>
+              </div>
+            )}
+            <p style={{ fontSize: 11, color: C.muted, margin: '10px 0 0', lineHeight: 1.45 }}>
+              <b>Importante:</b> Esta plataforma no alquila alojamientos. Los precios son referenciales y orientativos.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Guests */}
-      {cfg.showPrice && (
-        <GuestsSelectorField
-          adultos={adultos}   setAdultos={setAdultos}
-          ninos={ninos}       setNinos={setNinos}
-          bebes={bebes}       setBebes={setBebes}
-          mascotas={mascotas} setMascotas={setMascotas}
-        />
+      {cfg.showPrice && !cfg.showContact && (
+        <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl" style={{ background: C.bg, border: `1px dashed ${C.line}` }}>
+          <Lock size={14} color={C.muted} />
+          <span className="text-sm font-medium" style={{ color: C.muted }}>Precio visible en plan Plus</span>
+        </div>
       )}
 
-      {/* CTAs + Reglas */}
+      {/* ── 2. CONSULTA — debajo de tarifas ──────────────────── */}
       {cfg.showContact ? (
         <div className="flex flex-col gap-2">
+
+          {/* Separador + encabezado */}
+          <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 16, marginTop: hasTarifaComun ? 4 : 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.2 }}>Consultá por fechas específicas:</div>
+          </div>
+
+          {/* Dates */}
+          {cfg.showPrice && (
+            <div className="grid grid-cols-2 gap-2">
+              <DatePickerField
+                label="INGRESO"
+                value={checkin}
+                onChange={d => { setCheckin(d); if (checkout && checkout <= d) setCheckout(null); }}
+                minDate={new Date()}
+              />
+              <DatePickerField
+                label="SALIDA"
+                value={checkout}
+                onChange={setCheckout}
+                minDate={checkoutMin}
+              />
+            </div>
+          )}
+
+          {/* Guests */}
+          {cfg.showPrice && (
+            <div style={{ marginBottom: 10 }}>
+              <GuestsSelectorField
+                adultos={adultos}   setAdultos={setAdultos}
+                ninos={ninos}       setNinos={setNinos}
+                bebes={bebes}       setBebes={setBebes}
+                mascotas={mascotas} setMascotas={setMascotas}
+              />
+            </div>
+          )}
+
+          {/* Botón principal */}
           <button
             onClick={onOpenDrawer}
             className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white cursor-pointer border-0 transition-colors"
@@ -1110,62 +1297,11 @@ function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
             onMouseEnter={e => e.currentTarget.style.background = '#1a2035'}
             onMouseLeave={e => e.currentTarget.style.background = C.ink}
           >
-            Enviar consulta rápida
+            Pedir un presupuesto
           </button>
 
-          {/* Información compartida por el alojamiento: tarifas */}
-          {cfg.showPrice ? (
-            item.precioMin > 0 ? (
-              <div style={{ background: C.bg, borderRadius: 14, padding: '16px 18px', border: `1px solid ${C.line}` }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: '0.09em', textTransform: 'uppercase', margin: '0 0 14px' }}>
-                  Información compartida por el alojamiento:
-                </p>
-                <div>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tarifa común</span>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-                    <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.precioMin.toLocaleString('es-AR')}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: C.ink2 }}>{item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}</span>
-                  </div>
-                </div>
-                {item.precioMinEspecial > 0 && (<>
-                  <div style={{ height: 1, background: C.line, margin: '10px 0' }} />
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tarifa especial <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(feriados, etc.)</span></span>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-                      <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
-                      <span style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.precioMinEspecial.toLocaleString('es-AR')}</span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: C.ink2 }}>{item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}</span>
-                    </div>
-                  </div>
-                </>)}
-                {item.packPrecio > 0 && item.packNoches && (<>
-                  <div style={{ height: 1, background: C.line, margin: '10px 0' }} />
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pack {item.packNoches} noches{item.packAclaracion && <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> · {item.packAclaracion}</span>}</span>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-                      <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
-                      <span style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.packPrecio.toLocaleString('es-AR')}</span>
-                      <span style={{ fontSize: 12, color: C.muted }}>el pack</span>
-                    </div>
-                  </div>
-                </>)}
-                <p style={{ fontSize: 11, color: C.muted, margin: '12px 0 0', lineHeight: 1.45 }}>
-                  <b>IMPORTANTE:</b> Esta plataforma no alquila alojamientos. Los precios referenciales son meramente orientativos. Consultá disponibilidad y tarifas exactas con el alojamiento en el formulario.
-                </p>
-              </div>
-            ) : (
-              <span className="text-base font-semibold" style={{ color: C.muted }}></span>
-            )
-          ) : (
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl" style={{ background: C.bg, border: `1px dashed ${C.line}` }}>
-              <Lock size={14} color={C.muted} />
-              <span className="text-sm font-medium" style={{ color: C.muted }}>Precio visible en plan Plus</span>
-            </div>
-          )}
-
           {/* Reglas del alojamiento */}
-          <div className="rounded-xl overflow-hidden mt-2" style={{ border: `1px solid ${C.line}` }}>
+          <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.line}`, marginTop: 30 }}>
             <div className="px-4 py-3" style={{ background: C.bg, borderBottom: `1px solid ${C.line}` }}>
               <span className="text-[13px] font-semibold" style={{ color: C.ink }}>Reglas del alojamiento</span>
             </div>
@@ -1208,7 +1344,7 @@ function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
             <Zap size={12} /> {totalCupones} cupón{totalCupones !== 1 ? 'es' : ''} disponible{totalCupones !== 1 ? 's' : ''}
           </div>
           <div className="text-[12px] leading-snug" style={{ color: C.ink2 }}>
-            Reservando en este alojamiento accedés a cupones exclusivos para canjear en restaurantes y experiencias locales.
+            Reservando en este alojamiento accedés a cupones exclusivos para canjear en salidas y aventura & relax locales.
           </div>
         </div>
       )}
@@ -1224,22 +1360,695 @@ function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  AlojamientoGallery — foto grande + columna 3 thumbs
+// ═══════════════════════════════════════════════════════════
+function AlojamientoGallery({ item, plan }) {
+  const cfg      = PLAN_CFG[plan] || PLAN_CFG.PLUS;
+  const rawFotos = (item.fotos?.length ? item.fotos : [item.image]).filter(Boolean).slice(0, cfg.maxFotos);
+  const [light, setLight] = useState(null);
+
+  const main   = rawFotos[0] || item.image;
+  const thumbs = [1, 2, 3].map(i => rawFotos[i] || main);
+  const extra  = rawFotos.length > 4 ? rawFotos.length - 4 : 0;
+  const fotos  = rawFotos.length ? rawFotos : [main];
+
+  useEffect(() => {
+    if (light === null) return;
+    const handler = e => {
+      if (e.key === 'ArrowRight') setLight(i => (i + 1) % fotos.length);
+      else if (e.key === 'ArrowLeft') setLight(i => (i - 1 + fotos.length) % fotos.length);
+      else if (e.key === 'Escape') setLight(null);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [light, fotos.length]);
+
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px', gap: 8, height: 400, marginTop: 20 }}>
+        {/* Foto principal */}
+        <div className="rounded-2xl overflow-hidden cursor-pointer" onClick={() => setLight(0)}>
+          <img src={main} alt={item.name} className="w-full h-full object-cover" />
+        </div>
+
+        {/* Columna 3 thumbs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {thumbs.map((src, i) => {
+            const isLast = i === 2 && extra > 0;
+            return (
+              <div
+                key={i}
+                className="rounded-xl overflow-hidden relative cursor-pointer"
+                style={{ flex: 1 }}
+                onClick={() => setLight(Math.min(i + 1, fotos.length - 1))}
+              >
+                <img
+                  src={src} alt=""
+                  className="w-full h-full object-cover"
+                  style={{ filter: isLast ? 'brightness(0.42)' : 'none' }}
+                />
+                {isLast && (
+                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-sm pointer-events-none">
+                    +{extra} fotos
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Lightbox */}
+      {light !== null && (
+        <div className="fixed inset-0 z-[2000] bg-black/90 flex items-center justify-center" onClick={() => setLight(null)}>
+          <img src={fotos[light]} alt="" className="max-w-[90vw] max-h-[88vh] object-contain rounded-xl" />
+          <button onClick={() => setLight(null)} className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer border-0" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+            <X size={18} />
+          </button>
+          {fotos.length > 1 && (
+            <>
+              <button onClick={e => { e.stopPropagation(); setLight((light - 1 + fotos.length) % fotos.length); }}
+                className="absolute left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer border-0 text-white text-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>‹</button>
+              <button onClick={e => { e.stopPropagation(); setLight((light + 1) % fotos.length); }}
+                className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer border-0 text-white text-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>›</button>
+            </>
+          )}
+          <div className="absolute bottom-5 text-[13px]" style={{ color: 'rgba(255,255,255,0.6)' }}>{light + 1} / {fotos.length}</div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CuponeraItem — mini-ficha para columna derecha
+// ═══════════════════════════════════════════════════════════
+function CuponeraItem({ promo, onOpenOferta }) {
+  const tokens = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
+  const tokensMitad = Math.max(1, Math.floor(tokens / 2));
+  return (
+    <div
+      onClick={() => onOpenOferta?.(promo)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+        border: `1px solid ${C.line}`, background: '#fff',
+        transition: 'border-color 0.15s',
+      }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = C.primary}
+      onMouseLeave={e => e.currentTarget.style.borderColor = C.line}
+    >
+      {/* Foto limpia sin overlay */}
+      <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: C.line, position: 'relative' }}>
+        {(promo.image || promo.imagen_url) && (
+          <img src={promo.image || promo.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Badge inline + título más grande */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+          {promo.badge && (
+            <span style={{ flexShrink: 0, background: C.primary, color: '#fff', fontSize: 12, fontWeight: 800, borderRadius: 4, padding: '2px 7px', letterSpacing: '0.02em', lineHeight: 1.4 }}>
+              {promo.badge}
+            </span>
+          )}
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, lineHeight: 1.4 }}>
+            {promo.title || promo.titulo}
+          </span>
+        </div>
+        {/* Localidad · Socio — igual que microficha del mapa */}
+        {(promo.proveedorNombre || promo.negocios?.nombre || promo.negocioLocalidad || promo.negocios?.localidad) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.muted }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0, color: C.primary }}>
+              <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>
+            </svg>
+            {[promo.negocioLocalidad || promo.negocios?.localidad, promo.proveedorNombre || promo.negocios?.nombre].filter(Boolean).join(' · ')}
+          </div>
+        )}
+        {/* Créditos */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <CoinSVG size={11} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tokens} crédito{tokens !== 1 ? 's' : ''}</span>
+            <CreditTooltip />
+          </div>
+          <span style={{ fontSize: 10, color: C.muted }}>(${(tokens * 2000).toLocaleString('es-AR')} + IVA)</span>
+        </div>
+      </div>
+      <ChevronRight size={14} color={C.muted} style={{ flexShrink: 0 }} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SolicitudModal — modal de confirmación de reserva
+// ═══════════════════════════════════════════════════════════
+function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
+  const _b = busqueda.get();
+  const [fechas,    setFechas]    = useState(() => ({ desde: _b.desde, hasta: _b.hasta }));
+  const [huespedes, setHuespedes] = useState(2);
+  const [enviando,  setEnviando]  = useState(false);
+  const [exito,     setExito]     = useState(false);
+  const [error,     setError]     = useState('');
+
+  const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
+  const disponibilidad = negocio?.disponibilidad_estimada;
+
+  async function confirmar() {
+    const checkin  = toDateStr(fechas.desde);
+    const checkout = toDateStr(fechas.hasta);
+    if (!checkin || !checkout) { setError('Elegí las fechas de entrada y salida.'); return; }
+    if (new Date(checkout) <= new Date(checkin)) { setError('La salida debe ser posterior a la entrada.'); return; }
+    setError(''); setEnviando(true);
+    try {
+      const { data: cuponera } = await supabase
+        .from('cuponeras')
+        .select('id')
+        .eq('usuario_id', session.user.id)
+        .single();
+
+      const cuponera_id = cuponera?.id;
+
+      const { error: insertErr } = await supabase.from('cuponera_items').insert({
+        cuponera_id,
+        promocion_id:     promo.id,
+        estado_solicitud: 'pendiente_confirmacion',
+        fecha_checkin:    toDateStr(fechas.desde),
+        fecha_checkout:   toDateStr(fechas.hasta),
+        num_huespedes:    huespedes,
+        vence_en:         new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      });
+
+      if (insertErr) throw insertErr;
+      setExito(true);
+      onConfirmado?.();
+    } catch (e) {
+      setError('Hubo un problema al enviar la solicitud. Intentá de nuevo.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  const inputStyle = { width: '100%', padding: '10px 12px', border: `1px solid ${C.line}`, borderRadius: 10, fontSize: 14, fontWeight: 500, color: C.ink, background: '#fff', outline: 'none', boxSizing: 'border-box' };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(11,16,32,0.55)', backdropFilter: 'blur(4px)' }} />
+      <div style={{ position: 'relative', background: '#fff', borderRadius: 20, width: '100%', maxWidth: 480, boxShadow: '0 32px 80px -16px rgba(11,16,32,0.32)', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>Solicitud de reserva</p>
+            <p style={{ fontSize: 17, fontWeight: 800, color: C.ink, margin: '3px 0 0' }}>{promo.title}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: 4 }}><X size={20} /></button>
+        </div>
+
+        {exito ? (
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#EDFAF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Check size={28} color="#10A36B" strokeWidth={2.5} />
+            </div>
+            <p style={{ fontSize: 18, fontWeight: 800, color: C.ink, margin: '0 0 8px' }}>¡Solicitud enviada!</p>
+            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, margin: '0 0 24px' }}>
+              Te avisamos en cuanto el alojamiento confirme (máx. 48hs). Podés ver el estado en tu cuponera.
+            </p>
+            <button onClick={onClose} style={{ padding: '10px 28px', borderRadius: 12, background: C.primary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              Cerrar
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Disponibilidad */}
+            {disponibilidad && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10,
+                background: disponibilidad === 'amplia' ? '#EDFAF4' : disponibilidad === 'limitada' ? '#FFF7ED' : '#F3F4F6',
+                border: `1px solid ${disponibilidad === 'amplia' ? '#6EE7B7' : disponibilidad === 'limitada' ? '#FED7AA' : C.line}` }}>
+                <span style={{ fontSize: 13, fontWeight: 700,
+                  color: disponibilidad === 'amplia' ? '#059669' : disponibilidad === 'limitada' ? '#D97706' : C.muted }}>
+                  {disponibilidad === 'amplia' ? '✓ Disponibilidad amplia' : disponibilidad === 'limitada' ? '⚠ Disponibilidad limitada' : 'Consultá disponibilidad'}
+                </span>
+              </div>
+            )}
+
+            {/* Resumen oferta */}
+            <div style={{ background: C.bg, borderRadius: 12, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: 11, color: C.muted, margin: 0, fontWeight: 600 }}>Ahorrás</p>
+                <p style={{ fontSize: 16, fontWeight: 800, color: '#10A36B', margin: '2px 0 0' }}>{formatAhorro(promo.ahorroEstimado, promo.ahorroMax)}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 11, color: C.muted, margin: 0, fontWeight: 600 }}>Créditos</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: C.ink, margin: 0 }}>{tc} crédito{tc !== 1 ? 's' : ''}</p>
+                  <CreditTooltip />
+                </div>
+                <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0' }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</p>
+              </div>
+            </div>
+
+            {/* Fechas */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Fechas de estadía</label>
+              <DateRangePicker value={fechas} onChange={setFechas} variant="field" />
+            </div>
+
+            {/* Huéspedes */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Huéspedes</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1px solid ${C.line}`, borderRadius: 10, padding: '8px 14px', width: 'fit-content' }}>
+                <button onClick={() => setHuespedes(h => Math.max(1, h - 1))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink, display: 'flex', alignItems: 'center', padding: 0 }}><Minus size={16} /></button>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.ink, minWidth: 20, textAlign: 'center' }}>{huespedes}</span>
+                <button onClick={() => setHuespedes(h => Math.min(20, h + 1))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink, display: 'flex', alignItems: 'center', padding: 0 }}><Plus size={16} /></button>
+              </div>
+            </div>
+
+            {/* Disclaimer — una sola vez, tono de continuidad */}
+            <p style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, margin: 0, padding: '10px 12px', background: C.bg, borderRadius: 10 }}>
+              Pagás con créditos de tu cuenta Cuponear. Los créditos no son reembolsables en dinero, pero si el alojamiento no puede confirmar tus fechas, tu saldo queda disponible para usar en cualquier otro alojamiento o beneficio.
+            </p>
+
+            {error && <p style={{ fontSize: 13, color: '#EF4444', margin: 0, fontWeight: 600 }}>{error}</p>}
+
+            <button
+              onClick={confirmar}
+              disabled={enviando}
+              style={{ padding: '13px 0', borderRadius: 12, background: C.primary, color: '#fff', border: 'none', fontSize: 15, fontWeight: 800, cursor: enviando ? 'default' : 'pointer', opacity: enviando ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              {enviando ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={16} />}
+              {enviando ? 'Enviando...' : 'Confirmar y pagar con créditos'}
+            </button>
+
+            <p style={{ fontSize: 11, color: C.muted, textAlign: 'center', margin: 0 }}>
+              Esta es una solicitud. El alojamiento confirma disponibilidad en menos de 48hs.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  OfertasPropiasCard — ofertas del alojamiento con paginador
+// ═══════════════════════════════════════════════════════════
+function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }) {
+  const _b = busqueda.get();
+  const [idx, setIdx]           = useState(0);
+  const [fechas, setFechas]     = useState(() => ({ desde: _b.desde, hasta: _b.hasta }));
+  const [adultos,  setAdultos]  = useState(2);
+  const [ninos,    setNinos]    = useState(0);
+  const [bebes,    setBebes]    = useState(0);
+  const [mascotas, setMascotas] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [exito, setExito]       = useState(false);
+  const [formError, setFormError] = useState('');
+  const touchStartX = useRef(null);
+  if (!promos.length) return null;
+
+  const p       = promos[idx];
+  const total   = promos.length;
+  const isFlash = p.offerType === 'Flash';
+  const creditos = calcTokensCosto(p.ahorroEstimado);
+
+  const prev = () => setIdx(i => (i - 1 + total) % total);
+  const next = () => setIdx(i => (i + 1) % total);
+  const onTouchStart = e => { touchStartX.current = e.touches[0].clientX; };
+  const onTouchEnd   = e => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 40) dx < 0 ? next() : prev();
+    touchStartX.current = null;
+  };
+
+  const handleSolicitar = async () => {
+    setFormError('');
+    if (!session) { onSolicitar?.(p); return; }
+    if (!fechas.desde) { setFormError('Elegí la fecha de entrada'); return; }
+    if (!fechas.hasta) { setFormError('Elegí la fecha de salida');  return; }
+    setEnviando(true);
+    try {
+      let { data: cup } = await supabase.from('cuponeras').select('id').eq('usuario_id', session.user.id).single();
+      if (!cup) {
+        const { data: nc } = await supabase.from('cuponeras').insert({ usuario_id: session.user.id }).select('id').single();
+        cup = nc;
+      }
+      const venceEn = new Date(Date.now() + 48 * 3600000).toISOString();
+      const { error } = await supabase.from('cuponera_items').insert({
+        cuponera_id: cup.id, promo_id: p.id,
+        estado_solicitud: 'pendiente_confirmacion',
+        fecha_checkin: toDateStr(fechas.desde), fecha_checkout: toDateStr(fechas.hasta),
+        num_huespedes: adultos + ninos + bebes, vence_en: venceEn,
+      });
+      if (error) throw error;
+      setExito(true);
+    } catch {
+      setFormError('Error al enviar. Intentá de nuevo.');
+    }
+    setEnviando(false);
+  };
+
+  const inputS = {
+    width: '100%', padding: '7px 10px', border: `1px solid ${C.line}`,
+    borderRadius: 8, fontSize: 13, color: C.ink, background: '#fff',
+    outline: 'none', boxSizing: 'border-box',
+  };
+
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)', position: 'relative' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 18px 0' }}>
+        <img src="/ico-disc.svg" style={{ width: 32, height: 42, objectFit: 'contain' }} alt="" />
+        <span style={{ fontSize: 18, fontWeight: 800, color: C.ink, flex: 1 }}>Armá tu cuponera</span>
+        {total > 1 && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={prev} style={{ width: 26, height: 26, borderRadius: '50%', border: 'none', background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><ChevronLeft size={13} /></button>
+            <button onClick={next} style={{ width: 26, height: 26, borderRadius: '50%', border: 'none', background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><ChevronRight size={13} /></button>
+          </div>
+        )}
+      </div>
+
+      {/* Imagen */}
+      <div
+        onClick={() => onOpenOferta?.(p)}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        style={{ position: 'relative', height: 150, cursor: 'pointer', overflow: 'hidden', marginTop: 12, background: '#1a2a35' }}
+      >
+        {(p.image || p.imagen_url) && (
+          <img src={p.image || p.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)' }} />
+        {isFlash && (
+          <div style={{ position: 'absolute', top: 10, left: 14, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', borderRadius: 999, padding: '3px 8px 3px 6px' }}>
+            <Zap size={10} color="#f5c842" fill="#f5c842" />
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.ink }}>OFERTA</span>
+            <span style={{ fontSize: 10, fontWeight: 900, color: '#e02020', fontStyle: 'italic' }}>FLASH</span>
+          </div>
+        )}
+        <div style={{ position: 'absolute', bottom: 12, left: 14, right: 46 }}>
+          {p.badge && <div style={{ fontSize: 36, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 3, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>}
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.95)', lineHeight: 1.3, textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>{p.title || p.titulo}</div>
+        </div>
+      </div>
+
+      {/* Banda verde ahorro — debajo de la imagen */}
+      {p.ahorroEstimado > 0 && (
+        <div style={{ background: '#EDFAF4', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke={C.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke={C.green} strokeWidth="2.5" strokeLinecap="round"/></svg>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: C.green }}>Ahorrás</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: C.green, letterSpacing: '-0.02em' }}>{formatAhorro(p.ahorroEstimado, p.ahorroMax)}</span>
+            <span style={{ fontSize: 11, color: C.green }}>aprox.</span>
+            <span onClick={e => e.stopPropagation()}><InfoTooltip /></span>
+          </div>
+        </div>
+      )}
+
+      {/* Contenido */}
+      <div style={{ padding: '14px 16px' }}>
+        {total > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginBottom: 12 }}>
+            {promos.map((_, i) => (
+              <button key={i} onClick={() => setIdx(i)} style={{ width: i === idx ? 16 : 6, height: 6, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0, background: i === idx ? C.primary : C.line, transition: 'width 0.2s, background 0.2s' }} />
+            ))}
+          </div>
+        )}
+
+        {exito ? (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#EDFAF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+              <Check size={22} color={C.green} />
+            </div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: C.ink, margin: '0 0 4px' }}>¡Solicitud enviada!</p>
+            <p style={{ fontSize: 12, color: C.muted, margin: 0, lineHeight: 1.4 }}>El alojamiento tiene 48hs para confirmar.</p>
+          </div>
+        ) : (
+          <>
+            {/* Form de fechas */}
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: C.muted, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fechas de estadía</label>
+              <DateRangePicker value={fechas} onChange={f => { setFechas(f); setFormError(''); }} variant="field" />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <GuestsSelectorField
+                adultos={adultos}   setAdultos={setAdultos}
+                ninos={ninos}       setNinos={setNinos}
+                bebes={bebes}       setBebes={setBebes}
+                mascotas={mascotas} setMascotas={setMascotas}
+              />
+            </div>
+
+            {/* Disclaimer */}
+            <div style={{ padding: '10px 12px', background: '#F7F7F8', borderRadius: 8, marginBottom: 12 }}>
+              <p style={{ fontSize: 13, color: C.ink2, margin: 0, lineHeight: 1.55 }}>
+                No te cobraremos hasta que el socio confirme la solicitud. Si acepta, los créditos se debitarán automáticamente de tu billetera de créditos (o podés adquirirlos en el momento si no tenés suficientes).
+              </p>
+            </div>
+
+            {formError && <p style={{ fontSize: 11, color: '#EF4444', margin: '0 0 8px', textAlign: 'center' }}>{formError}</p>}
+
+            <button
+              onClick={handleSolicitar}
+              disabled={enviando}
+              style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: enviando ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: enviando ? C.muted : C.primary, transition: 'background 0.2s' }}
+            >
+              {enviando ? 'Enviando...' : <><Send size={13} /> Solicitar este cupón</>}
+            </button>
+
+            {/* Activalo con — debajo del CTA, una sola fila centrada */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', gap: 5, marginTop: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                <CoinSVG size={12} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
+              </div>
+              <span style={{ fontSize: 11, color: C.muted }}>${(creditos * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+              <CreditTooltip />
+            </div>
+          </>
+        )}
+
+        {total > 1 && !exito && (
+          <div style={{ marginTop: 8, textAlign: 'right' }}>
+            <span style={{ fontSize: 11, color: C.muted }}>{idx + 1} / {total}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MiCuponeraPanel — columna derecha: ítems ya en la cuponera
+// ═══════════════════════════════════════════════════════════
+function MiCuponeraPanel() {
+  const { cupones, removeCupon } = useCuponera();
+  if (cupones.length === 0) return null;
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '16px 20px', boxShadow: '0 4px 24px -8px rgba(11,16,32,0.08)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <img src="/ico-disc.svg" style={{ width: 22, height: 22 }} alt="" />
+        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink, flex: 1 }}>Tu cuponera</span>
+        <span style={{ background: C.primary, color: '#fff', borderRadius: 999, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>{cupones.length}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {cupones.map(c => (
+          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: C.bg, borderRadius: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: (c.accent || C.primary) + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: c.accent || C.primary }}>{c.d}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: C.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.t}</p>
+              <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.p}</p>
+            </div>
+            <button onClick={() => removeCupon(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: 2, lineHeight: 1, flexShrink: 0 }}>
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CuponeraCard — columna derecha sticky (alianzas)
+// ═══════════════════════════════════════════════════════════
+function CuponeraCard({ alianzas, onOpenOferta, cuponeraSectionRef }) {
+  const items = alianzas.map(al => {
+
+    if (al.promociones) {
+      const p = al.promociones;
+      return { ...p, title: p.titulo, image: p.imagen_url, badge: p.badge, proveedorNombre: p.negocios?.nombre };
+    }
+    if (al.promo) return { ...al.promo };
+    return null;
+  }).filter(Boolean).slice(0, 3);
+
+  const total = alianzas.length;
+  // Total de créditos a mitad de precio para todos los items visibles
+  const totalTokensMitad = items.reduce((acc, p) => {
+    const t = p.tokens_costo || calcTokensCosto(p.ahorroEstimado);
+    return acc + Math.max(1, Math.floor(t / 2));
+  }, 0);
+  const totalTokensNormal = items.reduce((acc, p) => {
+    return acc + (p.tokens_costo || calcTokensCosto(p.ahorroEstimado));
+  }, 0);
+
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <img src="/ico-disc.svg" style={{ width: 22, height: 22 }} alt="" />
+        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>¡Sumá estos beneficios!</span>
+      </div>
+      <p style={{ fontSize: 12, color: C.muted, margin: '0 0 14px', lineHeight: 1.4 }}>
+        Alojándote acá accedés a estos beneficios:
+      </p>
+
+      {total === 0 ? (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: C.muted, fontSize: 13 }}>
+          Próximamente...
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {items.map((p, i) => (
+              <CuponeraItem key={p.id || i} promo={p} onOpenOferta={onOpenOferta} />
+            ))}
+          </div>
+
+          {/* AHORRÁS + ACTIVALO CON con tachado diagonal */}
+          {items.length > 0 && (() => {
+            const totalMin = items.reduce((acc, p) => acc + (p.ahorro_estimado || p.ahorroEstimado || 0), 0);
+            const totalMax = items.reduce((acc, p) => acc + (p.ahorro_max || p.ahorroMax || p.ahorro_estimado || p.ahorroEstimado || 0), 0);
+            const ahorroLabel = totalMin > 0 ? formatAhorro(totalMin, totalMax > totalMin ? totalMax : null) : null;
+            return (
+              <div style={{ marginTop: 14, marginBottom: 8, padding: '8px 12px', background: C.bg, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {ahorroLabel && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>AHORRÁS</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.green }}>{ahorroLabel}<InfoTooltip /></span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ACTIVALO CON</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+                      {/* Número tachado diagonal: número negro, línea roja */}
+                      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        <CoinSVG size={12} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensNormal}</span>
+                        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <line x1="5" y1="95" x2="95" y2="5" stroke="#cc2020" strokeWidth="9" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <CoinSVG size={12} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensMitad} crédito{totalTokensMitad !== 1 ? 's' : ''}</span>
+                        <CreditTooltip />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 10, color: C.muted }}>(${(totalTokensMitad * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          <button
+            onClick={() => cuponeraSectionRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: '100%', padding: '10px',
+              background: C.primary, border: 'none',
+              borderRadius: 10, cursor: 'pointer', color: '#fff',
+              fontSize: 13, fontWeight: 700,
+            }}
+          >
+            <Ticket size={14} />
+            Agregar {total} cupón{total !== 1 ? 'es' : ''} al 50%
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MiniPromoCard — minificha para fila horizontal
+// ═══════════════════════════════════════════════════════════
+function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
+  const { addCupon } = useCuponera();
+  return (
+    <div
+      style={{ width: 264, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 18, overflow: 'hidden', flexShrink: 0, display: 'flex', flexDirection: 'column', cursor: 'pointer', boxShadow: '0 2px 12px -4px rgba(11,16,32,0.08)' }}
+      onClick={() => onOpenOferta?.(p)}
+    >
+      {/* Imagen */}
+      <div style={{ position: 'relative', height: 148, background: '#1a2a35', flexShrink: 0 }}>
+        {(p.image || p.imagen_url) && (
+          <img src={p.image || p.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.68) 0%, transparent 58%)' }} />
+        {p.badge && (
+          <div style={{ position: 'absolute', bottom: 10, left: 13, fontSize: 34, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>
+        )}
+      </div>
+      {/* Banner verde ahorro — pegado a la foto */}
+      {(p.ahorroEstimado || p.ahorro_estimado) > 0 && (
+        <div style={{ background: '#EDFAF4', padding: '8px 13px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2H4a2 2 0 0 0-2 2v4l9.29 9.29a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L9 2Z"/><circle cx="6.5" cy="6.5" r="0.5" fill="#10A36B"/></svg>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#10A36B' }}>Ahorrás</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#10A36B', letterSpacing: '-0.02em' }}>{formatAhorro(p.ahorroEstimado || p.ahorro_estimado, p.ahorroMax || p.ahorro_max)}</span>
+        </div>
+      )}
+      {/* Body */}
+      <div style={{ padding: '10px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: C.ink, margin: 0, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.title || p.titulo}</p>
+        <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>{p.proveedorNombre}</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingTop: 5, borderTop: `1px solid ${C.line}` }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <CoinSVG size={12} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0)} crédito{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) !== 1 ? 's' : ''}</span>
+              <CreditTooltip />
+            </div>
+            <span style={{ fontSize: 10, color: C.muted }}>(${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2000).toLocaleString('es-AR')} + IVA)</span>
+          </div>
+        </div>
+        <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+          <button
+            onClick={e => { e.stopPropagation(); onAdd ? onAdd(p) : addCupon(p); }}
+            style={{ width: '100%', padding: '8px 0', borderRadius: 9, border: 'none', background: C.primary, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+          >
+            <Plus size={12} /> Agregar a cuponera
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 //  AlojamientoDetail (main two-col + sections below)
 // ═══════════════════════════════════════════════════════════
-function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad }) {
+function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad, session }) {
   const plan = item.plan || 'PLUS';
   const cfg  = PLAN_CFG[plan];
   const { addCupon } = useCuponera();
+  const cuponeraSectionRef = useRef(null);
+  const [solicitudPromo, setSolicitudPromo] = useState(null);
 
   const tags = item.tags?.length
     ? item.tags
     : ['A 80m del mar', 'Piscina climatizada', 'Spa y circuito termal', 'Desayuno buffet incluido', 'Check-in 24hs', 'Cancelación flexible'];
 
-  // Normaliza promo desde formato DB (titulo/imagen_url) o mock (title/image)
   function normPromo(p) {
     return { ...p, title: p.title || p.titulo || '', image: p.image || p.imagen_url || '' };
   }
-  // Normaliza alianza desde formato Supabase o mock
   function normAlianza(al) {
     if (al.promociones) {
       const p = al.promociones;
@@ -1251,6 +2060,7 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
         proveedorNombre: p.negocios?.nombre || '',
         negocioLocalidad: p.negocios?.localidad || '',
         ahorroEstimado: p.ahorro_estimado || 0,
+        ahorroMax: p.ahorro_max || null,
         tokens_costo: p.tokens_costo,
       };
     }
@@ -1261,89 +2071,119 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
 
   return (
     <>
-      {/* ── Main two-column ────────────────────────────────── */}
-      <div className="max-w-[1328px] mx-auto px-10 py-10">
-        <div className="grid gap-12 items-start" style={{ gridTemplateColumns: '1.65fr 1fr' }}>
+      <div className="max-w-[1328px] mx-auto px-10">
+
+        {/* ── Título + acciones ────────────────────────────── */}
+        <div style={{ paddingTop: 20 }}>
+          <div className="flex justify-between items-start gap-6">
+            <div>
+              <div className="flex items-baseline gap-4 flex-wrap mb-1">
+                <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-tight m-0" style={{ color: C.ink }}>{item.name}</h1>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 15, flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                    <path fill="#ffffff" stroke="#415ce8" strokeWidth="1" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
+                    <path d="M9 12l2 2 4-4" stroke="#415ce8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span style={{ fontSize: 13, fontWeight: 400, color: '#415ce8', fontStyle: 'italic' }}>Socio verificado</span>
+                </span>
+                {plan === 'BLACK' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shrink-0" style={{ background: C.ink }}>
+                    ★ Socio Black
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                <Heart size={15} /> Guardar
+              </button>
+              <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                <Share2 size={15} /> Compartir
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Grid dos columnas ────────────────────────────── */}
+        <div className="grid gap-12 items-start py-6" style={{ gridTemplateColumns: '1.65fr 1fr' }}>
 
           {/* LEFT */}
           <div>
-            {/* Sobre el lugar */}
-            <h2 className="text-lg font-bold mb-2.5" style={{ color: C.ink }}>Sobre el lugar</h2>
-            <p className="text-[15px] leading-relaxed" style={{ color: C.ink2, lineHeight: 1.65 }}>
-              {item.description || item.desc || 'Disfrutá del mar y la naturaleza en este increíble lugar de la Costa Atlántica. Un espacio diseñado para el descanso, con todos los servicios que necesitás para una estadía perfecta.'}
-            </p>
+            <AlojamientoGallery item={item} plan={plan} />
 
-            {/* Amenities */}
-            <h2 className="text-lg font-bold mt-8 mb-3" style={{ color: C.ink }}>¿Qué destaca este alojamiento?</h2>
-            <div className="grid grid-cols-2 gap-2.5">
-              {tags.slice(0, plan === 'BASE' ? 2 : 6).map(tag => (
-                <AmenityChip key={tag} tag={tag} />
-              ))}
-              {plan === 'BASE' && (
-                <div className="col-span-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium" style={{ background: '#FFFBEB', border: '1px dashed #FDE68A', color: '#92400E' }}>
-                  <Lock size={13} /> Más amenities visibles en plan Plus
-                </div>
-              )}
+            <div style={{ marginTop: 36 }}>
+              <h2 className="text-lg font-bold mb-2.5" style={{ color: C.ink }}>Sobre el lugar</h2>
+              <p className="text-[15px] leading-relaxed" style={{ color: C.ink2, lineHeight: 1.65 }}>
+                {item.description || item.desc || 'Disfrutá del mar y la naturaleza en este increíble lugar de la Costa Atlántica. Un espacio diseñado para el descanso, con todos los servicios que necesitás para una estadía perfecta.'}
+              </p>
+
+              <h2 className="text-lg font-bold mt-8 mb-3" style={{ color: C.ink }}>¿Qué destaca este alojamiento?</h2>
+              <div className="grid grid-cols-2 gap-2.5">
+                {tags.slice(0, plan === 'BASE' ? 2 : 6).map(tag => (
+                  <AmenityChip key={tag} tag={tag} />
+                ))}
+                {plan === 'BASE' && (
+                  <div className="col-span-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium" style={{ background: '#FFFBEB', border: '1px dashed #FDE68A', color: '#92400E' }}>
+                    <Lock size={13} /> Más amenities visibles en plan Plus
+                  </div>
+                )}
+              </div>
+
             </div>
-
-            {/* ── Ofertas y beneficios exclusivos ──────────── */}
-            {!loading && (promos.length > 0 || alianzasNorm.length > 0) && (
-              <div style={{ marginTop: 40, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <img src="/ico-regalo.svg" alt="" style={{ width: 30, height: 30, filter: 'invert(36%) sepia(97%) saturate(600%) hue-rotate(205deg) brightness(90%)' }} />
-                <span style={{ fontSize: 24, fontWeight: 700, color: C.ink }}>Ofertas y beneficios exclusivos</span>
-              </div>
-            )}
-            {!loading && promos.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {promos.map((p, idx) => {
-                    const np = normPromo(p);
-                    const fotos = (item.fotos?.length ? item.fotos : [item.image]).filter(Boolean);
-                    return (
-                      <PropiaOfferCard
-                        key={p.id}
-                        promo={np}
-                        fotos={fotos}
-                        seed={idx}
-                        onAdd={() => addCupon(np)}
-                        onOpenOferta={onOpenOferta}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {!loading && alianzasNorm.length > 0 && (
-              <div style={{ marginTop: promos.length > 0 ? 24 : 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {alianzasNorm.map((p, i) => (
-                    <OfferCard
-                      key={p.id || i}
-                      promo={p}
-                      onAdd={() => addCupon(p)}
-                      onOpenOferta={onOpenOferta}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* RIGHT — sticky card */}
-          <div className="sticky" style={{ top: 84 }}>
-            <BookingCard
+          {/* RIGHT — sticky desde arriba */}
+          <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
+            <OfertasPropiasCard
+              promos={promos.map(p => ({ ...p, title: p.title || p.titulo, image: p.image || p.imagen_url }))}
               item={item}
-              plan={plan}
-              cfg={cfg}
-              promos={promos}
-              alianzas={alianzas}
-              onOpenDrawer={onOpenDrawer}
+              session={session}
+              onOpenOferta={onOpenOferta}
+              onSolicitar={p => setSolicitudPromo(p)}
             />
+            <MiCuponeraPanel />
           </div>
         </div>
       </div>
 
+      {/* ── Más cupones ───────────────────────────────────────── */}
+      {!loading && (alianzasNorm.length > 0 || promosLocalidad.length > 0) && (() => {
+        // Combinar alianzas + promos de localidad (no-alojamiento), sin duplicados
+        const seen = new Set();
+        const miniPromos = [...alianzasNorm, ...promosLocalidad].filter(p => {
+          const key = String(p.id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return p.categoria !== 'alojamiento';
+        });
+        if (!miniPromos.length) return null;
+        return (
+          <section ref={cuponeraSectionRef} style={{ background: C.bg, borderTop: `1px solid ${C.line}`, paddingTop: 48, paddingBottom: 48 }}>
+            <div className="max-w-[1328px] mx-auto">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, paddingLeft: 40, paddingRight: 40 }}>
+                <img src="/ico-disc.svg" alt="" style={{ width: 30, height: 30 }} />
+                <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: 0 }}>
+                  ¡Más cupones agregás, más beneficios para vos!
+                </h2>
+              </div>
+              {/* Fila horizontal scrolleable con fade derecho */}
+              <div style={{ position: 'relative' }}>
+                <div style={{ overflowX: 'auto', paddingLeft: 40, paddingBottom: 8 }} className="no-scrollbar">
+                  <div style={{ display: 'flex', gap: 14, width: 'max-content', paddingRight: 40 }}>
+                    {miniPromos.map((p, i) => (
+                      <MiniPromoCard key={p.id || i} promo={p} onAdd={() => addCupon(p)} onOpenOferta={onOpenOferta} />
+                    ))}
+                  </div>
+                </div>
+                {/* Fade derecho */}
+                <div style={{ position: 'absolute', top: 0, right: 0, bottom: 8, width: 120, background: `linear-gradient(to right, transparent, ${C.bg})`, pointerEvents: 'none', zIndex: 2 }} />
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ── Más descuentos en la zona — mapa interactivo ─────── */}
       {promosLocalidad.length > 0 && (
@@ -1373,6 +2213,16 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
         </section>
       )}
 
+      {/* Modal de solicitud de reserva */}
+      {solicitudPromo && (
+        <SolicitudModal
+          promo={solicitudPromo}
+          negocio={item}
+          session={session}
+          onClose={() => setSolicitudPromo(null)}
+          onConfirmado={() => {}}
+        />
+      )}
     </>
   );
 }
@@ -1383,7 +2233,7 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
 function GastroExperienciaDetail({ item, tipo }) {
   const category = item.category || item.type || '';
   const pinColor  = TIPO_COLORS[category] || C.muted;
-  const isGastro  = tipo === 'gastronomia';
+  const isGastro  = tipo === 'salidas';
   const priceLabel = { '$': 'Económico (hasta $3.000)', '$$': 'Moderado ($3.000 – $7.000)', '$$$': 'Gourmet ($7.000+)' }[item.priceRange] || item.priceRange;
 
   return (
@@ -1456,7 +2306,7 @@ function GastroExperienciaDetail({ item, tipo }) {
                 <div className="text-[12px] leading-relaxed mb-3" style={{ color: C.muted }}>
                   {isGastro
                     ? 'En general este tipo de lugares no requieren reserva. Si tiene sistema de reservas, aparece en su sitio web o redes.'
-                    : 'Contactate directamente con el proveedor. Los alojamientos gesell.ar pueden incluir estas experiencias en sus packs.'}
+                    : 'Contactate directamente con el proveedor. Los alojamientos Cuponear pueden incluir estas experiencias en sus packs.'}
                 </div>
                 {item.menuUrl && (
                   <a href={item.menuUrl} target="_blank" rel="noopener noreferrer"
@@ -1500,7 +2350,13 @@ function GastroExperienciaDetail({ item, tipo }) {
 // ═══════════════════════════════════════════════════════════
 //  MAIN — DetailView
 // ═══════════════════════════════════════════════════════════
-export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion }) {
+const CLASE_PLURAL = {
+  'Hotel': 'Hoteles', 'Cabaña': 'Cabañas', 'Departamento': 'Departamentos',
+  'Casa': 'Casas', 'Hostel': 'Hostels', 'Dormi': 'Dormis', 'Apart': 'Aparts',
+  'Camping': 'Campings', 'Glamping': 'Glamping',
+};
+
+export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session }) {
   if (!item) return null;
 
   const { addCupon } = useCuponera();
@@ -1514,47 +2370,46 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
   const [loading,         setLoading]         = useState(true);
   const [drawerOpen,      setDrawerOpen]      = useState(false);
 
-  const backLabel = { alojamiento: 'Alojamientos', gastronomia: 'Gastronomía', experiencia: 'Aventura & Relax' }[tipo] || 'Inicio';
+  const backLabel = { alojamiento: 'Alojamientos', salidas: 'Salidas', aventura_relax: 'Aventura & Relax' }[tipo] || 'Inicio';
 
   useEffect(() => {
     async function cargar() {
       setLoading(true);
-
-      // Promos de la localidad (siempre desde mock, funciona para real y mock)
-      setPromosLocalidad(getPromosLocalidad(item.localidad || '', item.id));
-
-      if (!item.esReal) {
-        // Datos mock para los ejemplos
-        setPromos(getPromosDeNegocio(item.id));
-        setAlianzas(getAlianzasPorNegocio(item.id));
-        setLoading(false);
-        return;
-      }
-
       if (!item.id) { setLoading(false); return; }
 
-      // Datos reales desde Supabase
-      const [{ data: propias }, { data: alianzasData }] = await Promise.all([
-        supabase.from('promociones').select('*, negocios(nombre,localidad,foto_perfil,imagen_url)')
-          .eq('negocio_id', item.id).eq('aprobada', true).eq('activa', true),
-        supabase.from('alianzas').select('*, promociones(*, negocios(nombre,localidad,foto_perfil,imagen_url))')
-          .eq('negocio_id', item.id).eq('aprobada', true),
+      const [propiasResult, alianzasResult, localidadResult] = await Promise.all([
+        getPromosDeNegocio(item.id),
+        getAlianzasPorNegocio(item.id),
+        getPromosLocalidad(item.localidad || '', item.id),
       ]);
-      setPromos(propias || []);
-      setAlianzas(alianzasData || []);
+
+      setPromos(propiasResult.filter(p => p.tokens_costo !== 0));
+      setAlianzas(alianzasResult);
+      setPromosLocalidad(localidadResult);
       setLoading(false);
     }
     cargar();
   }, [item.id]);
 
   return (
-    <div className="min-h-screen bg-white" style={{ paddingTop: 70, fontFamily: "'Geist', system-ui, sans-serif", color: C.ink }}>
+    <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Geist', system-ui, sans-serif", color: C.ink }}>
 
       {/* ── Wrapper único alineado con el nav ─────────────── */}
       <div className="max-w-[1328px] mx-auto px-10">
 
         {/* Breadcrumbs */}
-        <nav className="flex items-center gap-1.5 text-[13px] pt-4 pb-0 flex-wrap" style={{ color: C.muted }}>
+        <nav className="flex items-center gap-3 text-[13px] pt-4 pb-0 flex-wrap" style={{ color: C.muted }}>
+
+          {/* Home */}
+          <button
+            onClick={() => onBack()}
+            className="bg-transparent border-0 cursor-pointer p-0 flex items-center"
+            style={{ color: C.primary }}
+          >
+            <Home size={16} strokeWidth={2.2} color={C.primary} />
+          </button>
+
+          <ChevronRight size={12} className="shrink-0" />
 
           {/* 1 — Sección */}
           <button
@@ -1567,8 +2422,8 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
             {backLabel}
           </button>
 
-          {/* 2 — Localidad (solo para alojamiento y gastronomía, nunca para experiencias) */}
-          {tipo !== 'experiencia' && item.localidad && (
+          {/* 2 — Localidad */}
+          {tipo !== 'aventura_relax' && item.localidad && (
             <>
               <ChevronRight size={12} className="shrink-0" />
               <button
@@ -1583,62 +2438,70 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
             </>
           )}
 
-          {/* 3 — Nombre del socio (página actual, no clickeable) */}
-          <ChevronRight size={12} className="shrink-0" />
-          <span className="font-medium truncate max-w-[220px]" style={{ color: C.ink }}>{item.name}</span>
+          {/* 3 — Clase de alojamiento (plural + clickeable) */}
+          {(item.type || item.category) && (() => {
+            const clase = item.type || item.category;
+            const claseLabel = CLASE_PLURAL[clase] || (clase + 's');
+            return (
+              <>
+                <ChevronRight size={12} className="shrink-0" />
+                <button
+                  onClick={() => onOpenClase?.({ localidad: item.localidad, clase })}
+                  className="bg-transparent border-0 cursor-pointer p-0 text-[13px]"
+                  style={{ color: C.muted }}
+                  onMouseEnter={e => { e.currentTarget.style.color = C.ink; e.currentTarget.style.textDecoration = 'underline'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.textDecoration = 'none'; }}
+                >{claseLabel}</button>
+              </>
+            );
+          })()}
+
+          {/* 4 — Zona (página actual) */}
+          {item.zona && (
+            <>
+              <ChevronRight size={12} className="shrink-0" />
+              <span className="font-bold flex items-center gap-1" style={{ color: C.ink }}>
+                <MapPin size={12} style={{ color: C.muted, flexShrink: 0 }} />{item.zona}
+              </span>
+            </>
+          )}
         </nav>
 
-        {/* Title + actions */}
-        <div className="pt-3">
-        <div className="flex justify-between items-start gap-6">
-          <div>
-            {/* Tipo badge */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider mb-2"
-              style={{ background: `${pinColor}18`, color: pinColor }}>
-              {item.type || item.category}
+        {/* Title + Gallery — solo para gastronomía y experiencia */}
+        {tipo !== 'alojamiento' && (
+          <div style={{ paddingTop: 20 }}>
+            <div className="flex justify-between items-start gap-6">
+              <div>
+                <div className="flex items-baseline gap-4 flex-wrap mb-1">
+                  <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-tight m-0" style={{ color: C.ink }}>{item.name}</h1>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 15, flexShrink: 0 }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                      <path fill="#ffffff" stroke="#415ce8" strokeWidth="1" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
+                      <path d="M9 12l2 2 4-4" stroke="#415ce8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span style={{ fontSize: 13, fontWeight: 400, color: '#415ce8', fontStyle: 'italic' }}>Socio verificado</span>
+                  </span>
+                  {plan === 'BLACK' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shrink-0" style={{ background: C.ink }}>
+                      ★ Socio Black
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                  style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                  <Heart size={15} /> Guardar
+                </button>
+                <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                  style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                  <Share2 size={15} /> Compartir
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3 flex-wrap mb-1">
-              <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-tight m-0" style={{ color: C.ink }}>{item.name}</h1>
-              {plan === 'BLACK' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shrink-0" style={{ background: C.ink }}>
-                  ★ Socio Black
-                </span>
-              )}
-            </div>
-            <div className="mt-2 flex items-center flex-wrap gap-4 text-[13px]" style={{ color: C.muted }}>
-              {item.rating && (
-                <span className="flex items-center gap-1.5 font-semibold" style={{ color: C.ink }}>
-                  <Star size={14} fill={C.yellow} color={C.yellow} />
-                  {item.rating}
-                  <span className="font-normal" style={{ color: C.muted }}>({item.reviewCount || '214'} reseñas)</span>
-                </span>
-              )}
-              <span className="flex items-center gap-1.5">
-                <MapPin size={13} />
-                {[item.localidad, item.zona].filter(Boolean).join(' · ') || 'Villa Gesell'}
-              </span>
-              <span className="flex items-center gap-1.5 font-semibold" style={{ color: C.green }}>
-                <Check size={13} strokeWidth={2.5} /> Socio verificado
-              </span>
-            </div>
+            <Gallery item={item} plan={plan} />
           </div>
-
-          {/* Guardar + Compartir */}
-          <div className="flex gap-2 shrink-0">
-            <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
-              style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
-              <Heart size={15} /> Guardar
-            </button>
-            <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
-              style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
-              <Share2 size={15} /> Compartir
-            </button>
-          </div>
-        </div>
-
-        {/* Gallery */}
-        <Gallery item={item} plan={plan} />
-        </div>{/* end Title+Gallery wrapper */}
+        )}
 
       </div>{/* end max-w wrapper */}
 
@@ -1653,6 +2516,7 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
           onOpenDrawer={() => setDrawerOpen(true)}
           onOpenOferta={onOpenOferta}
           onOpenLocalidad={onOpenLocalidad}
+          session={session}
         />
       ) : (
         <GastroExperienciaDetail item={item} tipo={tipo} />

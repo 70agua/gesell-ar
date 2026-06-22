@@ -59,7 +59,7 @@ function Sidebar({ tab, setTab, stats, perfil, onLogout, onGoHome }) {
       <button onClick={onGoHome} style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 8px 18px', background:'transparent', border:'none', cursor:'pointer', color:'#fff' }}>
         <div style={{ width:32, height:32, borderRadius:8, background:A.primary, display:'grid', placeItems:'center', fontFamily:A.font, fontWeight:900, fontSize:16 }}>G</div>
         <div style={{ textAlign:'left' }}>
-          <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700 }}>gesell.ar</div>
+          <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700 }}>Cuponear</div>
           <div style={{ fontFamily:A.font, fontSize:11, color:'rgba(255,255,255,0.55)' }}>Superadmin</div>
         </div>
       </button>
@@ -198,7 +198,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
               {TABS.find(t => t.id === tab)?.label}
             </h1>
             <div style={{ fontFamily:A.font, fontSize:13, color:A.muted, marginTop:4 }}>
-              Panel de administración · gesell.ar
+              Panel de administración · Cuponear
             </div>
           </div>
           <ABtn onClick={cargarTodo}>↻ Actualizar</ABtn>
@@ -363,8 +363,8 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio }) {
     const matchCategoria =
       filtroCategoria === 'todas'        ? true :
       filtroCategoria === 'alojamiento'  ? tiposAloj.includes(n.tipo) :
-      filtroCategoria === 'gastronomia'  ? tiposGastro.includes(n.tipo) :
-      filtroCategoria === 'experiencia'  ? tiposExp.includes(n.tipo) : true;
+      filtroCategoria === 'salidas'  ? tiposGastro.includes(n.tipo) :
+      filtroCategoria === 'aventura_relax'  ? tiposExp.includes(n.tipo) : true;
     const matchBusqueda = busqueda === '' || n.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (n.localidad || '').toLowerCase().includes(busqueda.toLowerCase());
     return matchEstado && matchCategoria && matchBusqueda;
   });
@@ -396,8 +396,8 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio }) {
         <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)} style={inputStyle}>
           <option value="todas">Todas las categorías</option>
           <option value="alojamiento">Alojamientos</option>
-          <option value="gastronomia">Gastronómicos</option>
-          <option value="experiencia">Aventura & Relax</option>
+          <option value="salidas">Salidas</option>
+          <option value="aventura_relax">Aventura & Relax</option>
         </select>
         <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={inputStyle}>
           <option value="todos">Todos los estados</option>

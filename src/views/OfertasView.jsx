@@ -8,6 +8,7 @@ import { getPromos }    from '../lib/datos';
 import { ALL_PROMOS }   from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
 import HeartButton     from '../components/HeartButton';
+import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const A = {
@@ -57,6 +58,8 @@ function CheckRow({ label, checked, onChange }) {
 }
 
 
+const IcoPin = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>;
+
 // ─── Oferta Card (misma estética que Home) ───────────────────
 function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
   const esFlash = promo.offerType === 'Flash';
@@ -80,104 +83,110 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
       onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
     >
-      {/* Imagen */}
-      <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
+      {/* Imagen 4:3 */}
+      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
         <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.65) 0%, rgba(11,16,32,0.1) 50%, transparent 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }} />
 
-        {/* Fila top: pill flash + timer */}
+        {/* Pill FLASH + timer — top */}
         {esFlash && secs > 0 && (
-          <div style={{ position: 'absolute', top: 12, left: 12, right: 12, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ height: '100%', display: 'inline-flex', alignItems: 'center', gap: 5, background: '#EF4444', borderRadius: 999, padding: '0 13px 0 11px' }}>
-              <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
-              <span style={{ fontSize: 11, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
+          <div style={{ position: 'absolute', top: 10, left: 10, right: 10, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ height: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', borderRadius: 999, padding: '0 10px 0 9px' }}>
+              <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
+              <span style={{ fontSize: 10, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
               <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, height: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: '100%' }}>
               {[th, tm, ts].map((v, i) => (
                 <React.Fragment key={i}>
-                  <div style={{ background: '#fff', color: A.ink, borderRadius: 7, fontSize: 14, fontWeight: 800, height: '100%', minWidth: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
+                  <div style={{ background: '#fff', color: A.ink, borderRadius: 6, fontSize: 13, fontWeight: 800, height: '100%', minWidth: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
                     {i === 0 ? v : pad(v)}
                   </div>
-                  {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 15 }}>:</span>}
+                  {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 14 }}>:</span>}
                 </React.Fragment>
               ))}
             </div>
           </div>
         )}
 
-        {/* Badge "Exclusivo para huéspedes" — top */}
+        {/* Exclusivo huéspedes — top (sin flash) */}
         {promo.exclusivoHuespedes && (
           <>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 64, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
               </svg>
-              <span style={{ fontSize: 12, fontWeight: 400, color: '#fff', lineHeight: 1.35 }}>
-                Exclusivo huéspedes {promo.exclusivoHuespedes}
-              </span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>Exclusivo huéspedes {promo.exclusivoHuespedes}</span>
             </div>
           </>
         )}
 
-        {/* Heart — abajo derecha imagen */}
-        <div style={{ position: 'absolute', bottom: 12, right: 12 }}>
+        {/* Heart — top right */}
+        <div style={{ position: 'absolute', top: 10, right: 10 }}>
           <HeartButton id={promo.id} />
         </div>
 
-        {/* Badge descuento — abajo izquierda */}
-        <div style={{ position: 'absolute', bottom: 14, left: 14, color: '#fff' }}>
-          <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 29 : 42, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
+        {/* Badge + título — abajo */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 14px 13px' }}>
+          <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 28 : 38, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
         </div>
       </div>
 
       {/* Body */}
-      <div style={{ padding: '14px 16px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {promo.categoria !== 'experiencia' && promo.negocioLocalidad ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 400, marginBottom: 4 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
-            {(promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()) && (
-              <span style={{ color: A.muted }}> · {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}</span>
+      <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Proveedor */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: A.bg, border: `1px solid ${A.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {promo.proveedorImage
+              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 12, fontWeight: 700, color: A.muted }}>{(promo.proveedorNombre || '?')[0]}</span>
+            }
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+              {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
+            </div>
+            {promo.negocioLocalidad && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: A.primary, marginTop: 2 }}>
+                <IcoPin /> {promo.negocioLocalidad}
+              </div>
             )}
           </div>
-        ) : (
-          <div style={{ fontSize: 13, color: A.muted, fontWeight: 400, marginBottom: 4 }}>
-            {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-          </div>
-        )}
-        <div style={{ fontSize: 15, fontWeight: 700, color: A.green, lineHeight: 1.3, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
+        </div>
+
+        {/* Botón */}
         <button
           onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ marginTop: 10, background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
+          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 11, padding: '10px 0', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s', flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
           onMouseLeave={e => e.currentTarget.style.background = A.primary}
         >
           <IcoTicket /> Agregar a cuponera
         </button>
+
+        {/* Info rows */}
         {promo.tokens_costo != null && (
           promo.tokens_costo === 0
-            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 10, padding: '8px 12px', border: '1px solid #BBF7D0', marginTop: 10, flexShrink: 0 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
+            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 9, padding: '8px 11px', border: '1px solid #BBF7D0', flexShrink: 0 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
               </div>
-            : <div style={{ border: `1px solid ${A.line}`, borderRadius: 10, overflow: 'hidden', marginTop: 10, flexShrink: 0 }}>
-                {promo.ahorroEstimado > 0 && <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted }}>Ahorro estimado</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+            : <div style={{ borderTop: `1px solid ${A.line}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                {promo.ahorroEstimado > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Ahorrás</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
                   </div>
-                  <div style={{ height: 1, background: A.line }} />
-                </>}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 12px' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: A.muted, paddingTop: 2 }}>Lo activás con</span>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                      <CoinSVG size={14} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: A.muted, marginTop: 1 }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <CoinSVG size={13} />
+                    <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
+                    <CreditTooltip />
+                    <span style={{ fontSize: 10, fontWeight: 600, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
                   </div>
                 </div>
               </div>
@@ -223,8 +232,8 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
 
   // Filtros — pre-activados si viene con initialCategoria
   const [tipoAloj,    setTipoAloj]    = useState(initialCategoria === 'alojamiento');
-  const [tipoGastro,  setTipoGastro]  = useState(initialCategoria === 'gastronomia');
-  const [tipoExp,     setTipoExp]     = useState(initialCategoria === 'experiencia');
+  const [tipoSalidas,  setTipoGastro]  = useState(initialCategoria === 'salidas');
+  const [tipoExp,     setTipoExp]     = useState(initialCategoria === 'aventura_relax');
   const [soloFlash,   setSoloFlash]   = useState(false);
   const [localidades, setLocalidades] = useState(initialLocalidades);
   const [creditosMin, setCreditosMin] = useState(''); // '' | 'bajo' | 'alto'
@@ -262,10 +271,10 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
       const TIPOS_GASTRO = new Set(['Restaurante', 'Bar', 'Café', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Bodegón', 'Café & Dulces']);
       const catDe = (tipo, nid) => {
         if (!tipo && nid)        return 'alojamiento';
-        if (!tipo)               return 'experiencia';
+        if (!tipo)               return 'aventura_relax';
         if (TIPOS_ALOJ.has(tipo))   return 'alojamiento';
-        if (TIPOS_GASTRO.has(tipo)) return 'gastronomia';
-        return nid ? 'alojamiento' : 'experiencia';
+        if (TIPOS_GASTRO.has(tipo)) return 'salidas';
+        return nid ? 'alojamiento' : 'aventura_relax';
       };
 
       const reales = (data || [])
@@ -287,13 +296,16 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
           esReal:           true,
         }))
         // Flash solo si tiene fecha futura válida; sin fecha = se descarta igual
-        .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash) > new Date()));
+        .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash) > new Date()))
+        // Ocultar ofertas de regalo (tokens_costo = 0) de las vistas regulares
+        .filter(p => p.tokens_costo !== 0);
 
       const { PROMO_META } = await import('../data/mockData');
       const idsReales = new Set(reales.map(p => String(p.id)));
       const mockExtra = ALL_PROMOS
         .filter(p => !idsReales.has(String(p.id)))
         .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash) > new Date()))
+        .filter(p => p.tokens_costo !== 0)
         .map(p => ({ ...p, ...(PROMO_META[p.id] || {}) }));
 
       setPromos([...reales, ...mockExtra]);
@@ -303,14 +315,14 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   }, []);
 
   // ── Aplicar filtros ─────────────────────────────────────────
-  const hayTipo  = tipoAloj || tipoGastro || tipoExp;
+  const hayTipo  = tipoAloj || tipoSalidas || tipoExp;
   const visibles = promos.filter(p => {
     if (busqueda && !p.title.toLowerCase().includes(busqueda.toLowerCase()) &&
         !(p.proveedorNombre || p.subtitle || '').toLowerCase().includes(busqueda.toLowerCase())) return false;
     if (hayTipo) {
       const ok = (tipoAloj && p.categoria === 'alojamiento') ||
-                 (tipoGastro && p.categoria === 'gastronomia') ||
-                 (tipoExp && p.categoria === 'experiencia');
+                 (tipoSalidas && p.categoria === 'salidas') ||
+                 (tipoExp && p.categoria === 'aventura_relax');
       if (!ok) return false;
     }
     if (soloFlash && p.offerType !== 'Flash') return false;
@@ -325,10 +337,10 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
     setSoloFlash(false); setLocalidades([]); setCreditosMin('');
     setBusqueda('');
   };
-  const hayFiltros = tipoAloj || tipoGastro || tipoExp || soloFlash || localidades.length > 0 || creditosMin || busqueda;
+  const hayFiltros = tipoAloj || tipoSalidas || tipoExp || soloFlash || localidades.length > 0 || creditosMin || busqueda;
 
   // Infinite scroll
-  const filterKey = `${busqueda}|${tipoAloj}|${tipoGastro}|${tipoExp}|${soloFlash}|${localidades.join()}|${creditosMin}`;
+  const filterKey = `${busqueda}|${tipoAloj}|${tipoSalidas}|${tipoExp}|${soloFlash}|${localidades.join()}|${creditosMin}`;
   useEffect(() => { setShownCount(10); }, [filterKey]);
   useEffect(() => {
     if (!sentinelRef.current) return;
@@ -356,9 +368,9 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
       </div>
       <div style={{ padding: '12px 20px 8px' }}>
         <SideSection title="Tipo de oferta">
-          <CheckRow label="Todo" checked={tipoAloj && tipoGastro && tipoExp} onChange={() => { const t = tipoAloj && tipoGastro && tipoExp; setTipoAloj(!t); setTipoGastro(!t); setTipoExp(!t); }} />
+          <CheckRow label="Todo" checked={tipoAloj && tipoSalidas && tipoExp} onChange={() => { const t = tipoAloj && tipoSalidas && tipoExp; setTipoAloj(!t); setTipoGastro(!t); setTipoExp(!t); }} />
           <CheckRow label="Alojamientos"     checked={tipoAloj}   onChange={() => setTipoAloj(v => !v)} />
-          <CheckRow label="Gastronomía"      checked={tipoGastro} onChange={() => setTipoGastro(v => !v)} />
+          <CheckRow label="Salidas"      checked={tipoSalidas} onChange={() => setTipoGastro(v => !v)} />
           <CheckRow label="Aventura & Relax" checked={tipoExp}    onChange={() => setTipoExp(v => !v)} />
         </SideSection>
         <SideSection title="Flash Sale">
@@ -412,7 +424,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
           {/* Header: título + [filtros mobile] + search */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Ofertas imperdibles</h1>
+              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>¡Alquilá por menos!</h1>
               <p style={{ fontSize: 13, color: A.muted, margin: '4px 0 0' }}>
                 {loading ? 'Cargando...' : `${visibles.length} oferta${visibles.length !== 1 ? 's' : ''} disponible${visibles.length !== 1 ? 's' : ''} en Villa Gesell y alrededores`}
               </p>
@@ -421,7 +433,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
               {isMobile && (
                 <button onClick={() => setDrawerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: hayFiltros ? A.primary : '#fff', color: hayFiltros ? '#fff' : A.ink, border: `1.5px solid ${hayFiltros ? A.primary : A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-                  Filtros{hayFiltros ? ` (${[tipoAloj,tipoGastro,tipoExp,soloFlash].filter(Boolean).length + localidades.length + (creditosMin ? 1 : 0)})` : ''}
+                  Filtros{hayFiltros ? ` (${[tipoAloj,tipoSalidas,tipoExp,soloFlash].filter(Boolean).length + localidades.length + (creditosMin ? 1 : 0)})` : ''}
                 </button>
               )}
               <div style={{ position: 'relative' }}>

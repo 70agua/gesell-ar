@@ -9,6 +9,7 @@ import {
   Clock, Star, Trash2, Upload, Image, AlertCircle, CheckCircle2, Zap, Crown,
   Store, Coins, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar, Gift,
   MessageCircle, ChevronDown, Edit2, RefreshCw, Package, BarChart2, Home, Search,
+  Inbox, CalendarDays, Minus,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getOrdenesPendientes, getSaldo, debeUsarTokens } from '../lib/cobros';
@@ -38,15 +39,17 @@ function CreditCoin({ size = 22 }) {
 }
 
 // ─── Tabs config ─────────────────────────────────────────────
-const TABS = [
-  { id: 'cuenta',     label: 'Cuenta',         Icon: CreditCard      },
-  { id: 'ofertas',    label: 'Ofertas',        Icon: Tag             },
-  { id: 'inbox',      label: 'Consultas',      Icon: MessageSquare   },
-  { id: 'notif',      label: 'Notificaciones', Icon: Bell            },
-  { id: 'stats',      label: 'Estadísticas',   Icon: BarChart2       },
-  { id: 'empresa',    label: 'Mi Empresa',     Icon: Building2       },
-  { id: 'addons',     label: 'Add-ons',        Icon: Puzzle, separator: true },
+const TABS_BASE = [
+  { id: 'cuenta',       label: 'Cuenta',         Icon: CreditCard      },
+  { id: 'solicitudes',  label: 'Solicitudes',    Icon: Inbox, alojOnly: true },
+  { id: 'ofertas',      label: 'Ofertas',        Icon: Tag             },
+  { id: 'inbox',        label: 'Consultas',      Icon: MessageSquare   },
+  { id: 'notif',        label: 'Notificaciones', Icon: Bell            },
+  { id: 'stats',        label: 'Estadísticas',   Icon: BarChart2       },
+  { id: 'empresa',      label: 'Mi Empresa',     Icon: Building2       },
+  { id: 'addons',       label: 'Add-ons',        Icon: Puzzle, separator: true },
 ];
+const TIPOS_ALOJ_ADMIN = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi']);
 
 // ─── Mock data ───────────────────────────────────────────────
 const MOCK_CHATS = [
@@ -671,7 +674,7 @@ function TabNotificaciones({ credits, setCredits }) {
 //  TAB 4 — MIS OFERTAS
 // ════════════════════════════════════════════════════════════
 const MOCK_OFERTAS_ASOCIADAS = [
-  { id: 'as1', titulo: 'Cena para dos en La Parrilla del Puerto', tipo: 'Gastronomía', descuento: 20, socio: 'La Parrilla del Puerto', img: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=220&fit=crop' },
+  { id: 'as1', titulo: 'Cena para dos en La Parrilla del Puerto', tipo: 'Salidas', descuento: 20, socio: 'La Parrilla del Puerto', img: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=220&fit=crop' },
   { id: 'as2', titulo: 'Alquiler de bicicletas — día completo', tipo: 'Actividades', descuento: 15, socio: 'BiciAventura', img: 'https://images.unsplash.com/photo-1558981033-0f0309284409?w=400&h=220&fit=crop' },
 ];
 
@@ -750,7 +753,7 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
           {ahorro > 0 && (
             <div style={{ border:`1px solid ${LINE}`, borderRadius:10, overflow:'hidden' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px' }}>
-                <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorro estimado</span>
+                <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorrás</span>
                 <span style={{ fontSize:13, fontWeight:700, color:GREEN }}>~${ahorro.toLocaleString('es-AR')} aprox.</span>
               </div>
             </div>
@@ -946,7 +949,7 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
                   {ahorro > 0 && (
                     <div style={{ border:`1px solid ${LINE}`, borderRadius:10, marginTop:10 }}>
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px' }}>
-                        <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorro estimado</span>
+                        <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorrás</span>
                         <span style={{ fontSize:13, fontWeight:700, color:GREEN }}>~${ahorro.toLocaleString('es-AR')} aprox.</span>
                       </div>
                     </div>
@@ -1185,6 +1188,7 @@ function PackFicha({ badge, off, cred, popular, darkIdx = 0 }) {
             <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED, whiteSpace:'nowrap' }}>Lo activás con</span>
             <span style={{ display:'inline-flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
               <CreditCoin size={15}/><span style={{ fontSize:13, fontWeight:800, color:INK }}>{cred} créditos</span>
+              <span style={{ fontSize:10, fontWeight:600, color:MUTED }}>(${(cred * 2000).toLocaleString('es-AR')} + IVA)</span>
             </span>
           </div>
         </div>
@@ -1516,6 +1520,8 @@ function TabAddons({ addonTotal, setAddonTotal, showToast }) {
 //  SIDEBAR
 // ════════════════════════════════════════════════════════════
 function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, setShowComprar, onVolver, onGoHome, onLogout }) {
+  const esAloj = TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
+  const TABS = TABS_BASE.filter(t => !t.alojOnly || esAloj);
   return (
     <aside style={{ background:NAVY, color:'#fff', width:230, minWidth:230, display:'flex', flexDirection:'column', minHeight:'100vh', position:'sticky', top:0, alignSelf:'flex-start' }}>
       <button onClick={onGoHome} style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'20px 0 16px', background:'transparent', border:'none', cursor:'pointer', color:'#fff', borderBottom:'1px solid rgba(255,255,255,0.08)', width:'100%', boxSizing:'border-box' }}>
@@ -1569,6 +1575,163 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, setSho
         </button>
       </div>
     </aside>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  TabSolicitudes — panel de solicitudes de reserva
+// ════════════════════════════════════════════════════════════
+function TabSolicitudes({ negocioId, showToast }) {
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [contraofertaId, setContraofertaId] = useState(null);
+  const [contraCheckin, setContraCheckin] = useState('');
+  const [contraCheckout, setContraCheckout] = useState('');
+
+  useEffect(() => { cargar(); }, [negocioId]);
+
+  async function cargar() {
+    setLoading(true);
+    const { data } = await supabase
+      .from('cuponera_items')
+      .select(`
+        id, estado_solicitud, fecha_checkin, fecha_checkout, num_huespedes,
+        vence_en, contraoferta_fecha_checkin, contraoferta_fecha_checkout,
+        promociones(titulo, badge, imagen_url),
+        cuponeras(usuario_id, perfiles(nombre_completo))
+      `)
+      .in('estado_solicitud', ['pendiente_confirmacion', 'contraoferta'])
+      .eq('promociones.negocio_id', negocioId)
+      .order('vence_en', { ascending: true });
+    setSolicitudes(data || []);
+    setLoading(false);
+  }
+
+  async function accion(id, nuevoEstado, extra = {}) {
+    const { error } = await supabase
+      .from('cuponera_items')
+      .update({ estado_solicitud: nuevoEstado, respondido_en: new Date().toISOString(), ...extra })
+      .eq('id', id);
+    if (error) { showToast('Error al actualizar la solicitud', 'error'); return; }
+    showToast(nuevoEstado === 'confirmado' ? '¡Solicitud confirmada!' : nuevoEstado === 'rechazado' ? 'Solicitud rechazada. Los créditos serán devueltos.' : 'Contraoferta enviada al turista.', 'ok');
+    cargar();
+  }
+
+  const inputStyle = { padding: '8px 10px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 13, color: INK, background: '#fff', outline: 'none' };
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: MUTED }}>Cargando solicitudes...</div>;
+
+  return (
+    <div style={{ padding: '32px 36px' }}>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: INK, margin: '0 0 6px' }}>Solicitudes de reserva</h2>
+      <p style={{ fontSize: 14, color: MUTED, margin: '0 0 28px' }}>Confirmá o rechazá las solicitudes en menos de 48hs. Si no respondés, los créditos se devuelven al turista automáticamente.</p>
+
+      {solicitudes.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: MUTED }}>
+          <CalendarDays size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+          <p style={{ fontSize: 15, fontWeight: 600 }}>No hay solicitudes pendientes</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {solicitudes.map(s => {
+            const turista = s.cuponeras?.perfiles?.nombre_completo || 'Turista';
+            const titulo = s.promociones?.titulo || 'Cupón';
+            const venceEn = s.vence_en ? new Date(s.vence_en) : null;
+            const horasRestantes = venceEn ? Math.max(0, Math.round((venceEn - Date.now()) / 3600000)) : null;
+            const esContraoferta = s.estado_solicitud === 'contraoferta';
+
+            return (
+              <div key={s.id} style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden' }}>
+                {/* Header */}
+                <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: `1px solid ${LINE}` }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: P, flexShrink: 0 }}>
+                    {turista[0]?.toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>{turista}</p>
+                    <p style={{ fontSize: 12, color: MUTED, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{titulo}</p>
+                  </div>
+                  {horasRestantes !== null && (
+                    <div style={{ fontSize: 11, fontWeight: 700, color: horasRestantes < 6 ? '#EF4444' : MUTED, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <Clock size={12} /> {horasRestantes}hs restantes
+                    </div>
+                  )}
+                </div>
+
+                {/* Detalles */}
+                <div style={{ padding: '12px 18px', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                  <div>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>Check-in</p>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>{s.fecha_checkin ? new Date(s.fecha_checkin + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—'}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>Check-out</p>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>{s.fecha_checkout ? new Date(s.fecha_checkout + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—'}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>Huéspedes</p>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>{s.num_huespedes}</p>
+                  </div>
+                  {esContraoferta && (
+                    <div style={{ padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, fontSize: 12, color: '#D97706', fontWeight: 600 }}>
+                      Contraoferta enviada — esperando respuesta del turista
+                    </div>
+                  )}
+                </div>
+
+                {/* Acciones */}
+                {!esContraoferta && (
+                  <div style={{ padding: '0 18px 16px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => accion(s.id, 'confirmado')}
+                      style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: GREEN, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Check size={14} /> Aceptar
+                    </button>
+                    <button
+                      onClick={() => accion(s.id, 'rechazado')}
+                      style={{ padding: '8px 18px', borderRadius: 10, border: `1px solid #FCA5A5`, background: '#FEF2F2', color: '#EF4444', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <X size={14} /> Rechazar
+                    </button>
+                    <button
+                      onClick={() => setContraofertaId(contraofertaId === s.id ? null : s.id)}
+                      style={{ padding: '8px 18px', borderRadius: 10, border: `1px solid ${LINE}`, background: '#fff', color: INK2, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <CalendarDays size={14} /> Proponer otra fecha
+                    </button>
+                  </div>
+                )}
+
+                {/* Panel contraoferta */}
+                {contraofertaId === s.id && (
+                  <div style={{ padding: '0 18px 16px', display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', borderTop: `1px solid ${LINE}` }}>
+                    <div style={{ paddingTop: 12 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: MUTED, display: 'block', marginBottom: 4, textTransform: 'uppercase' }}>Nueva fecha check-in</label>
+                      <input type="date" value={contraCheckin} onChange={e => setContraCheckin(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: MUTED, display: 'block', marginBottom: 4, textTransform: 'uppercase' }}>Nueva fecha check-out</label>
+                      <input type="date" value={contraCheckout} onChange={e => setContraCheckout(e.target.value)} min={contraCheckin} style={inputStyle} />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!contraCheckin || !contraCheckout) return;
+                        accion(s.id, 'contraoferta', { contraoferta_fecha_checkin: contraCheckin, contraoferta_fecha_checkout: contraCheckout });
+                        setContraofertaId(null);
+                      }}
+                      style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: P, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Enviar contraoferta
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1636,6 +1799,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
         {tab === 'notif'     && <TabNotificaciones credits={credits} setCredits={setCredits}/>}
         {tab === 'ofertas'   && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast}/>}
         {tab === 'stats'     && <TabEstadisticas/>}
+        {tab === 'solicitudes' && <TabSolicitudes negocioId={perfil?.negocio_id} showToast={showToast}/>}
         {tab === 'empresa'   && <TabEmpresa negocio={negocio} showToast={showToast}/>}
         {tab === 'addons'    && <TabAddons addonTotal={addonTotal} setAddonTotal={setAddonTotal} showToast={showToast}/>}
       </main>

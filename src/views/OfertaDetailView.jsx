@@ -5,10 +5,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ChevronRight, Zap, Ticket, Check, Clock, ShieldCheck,
   MessageCircle, Star, Heart, Share2, Flag,
-  MapPin, Users, Gift, X, Send,
+  MapPin, Users, Gift, X, Send, Home,
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { useCuponera } from '../lib/cuponera';
+import InfoTooltip from '../components/InfoTooltip';
 
 // ─── Design tokens ───────────────────────────────────────────
 const C = {
@@ -131,7 +132,7 @@ function ConsultarModal({ socio, onClose }) {
         <div style={{ padding: '20px 24px 18px', borderBottom: `1px solid ${C.line}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: C.ink }}>Consultar con el socio</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{socio || 'Socio gesell.ar'}</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{socio || 'Socio Cuponear'}</div>
           </div>
           <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.line}`, background: '#fff', color: C.muted, display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
             <X size={16} />
@@ -289,28 +290,29 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   const categoryLabel = 'Ofertas';
 
   return (
-    <div className="min-h-screen bg-white" style={{ paddingTop: 70, fontFamily: "'Geist', system-ui, sans-serif", color: C.ink }}>
+    <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Geist', system-ui, sans-serif", color: C.ink }}>
 
       {/* ── Breadcrumb + tipo de oferta ─────────────────────── */}
       <div className="max-w-[1328px] mx-auto px-10">
-        <div className="pt-6 pb-1">
 
-          {/* Tipo de oferta — ocupa ahora la posición del breadcrumb */}
-          <div className="flex items-center gap-2 mb-2"
-            style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: isFlash ? C.red : C.primary }}>
-            {isFlash
-              ? <><Zap size={12} strokeWidth={2.5} /> Oferta Flash</>
-              : <><Ticket size={12} strokeWidth={2} /> Cupón de descuento</>}
-          </div>
+          {/* Breadcrumb: Home › Ofertas (gris) › Localidad › Proveedor (bold, púrpura) */}
+          <nav className="flex items-center gap-3 text-[13px] pt-4 pb-0 flex-wrap" style={{ color: C.muted }}>
 
-          {/* Breadcrumb: Ofertas (gris) › Localidad › Proveedor (bold, púrpura) */}
-          <nav className="flex items-center gap-2 flex-wrap" style={{ fontSize: 15 }}>
+            {/* 0 — Home */}
+            <button
+              onClick={() => onBack?.()}
+              className="bg-transparent border-0 cursor-pointer p-0 flex items-center"
+              style={{ color: C.primary }}
+            >
+              <Home size={16} strokeWidth={2.2} color={C.primary} />
+            </button>
+            <ChevronRight size={12} className="shrink-0" />
 
-            {/* 1 — Ofertas: gris, sin bold */}
+            {/* 1 — Ofertas */}
             <button
               onClick={() => onOpenSeccion ? onOpenSeccion('ofertas') : onBack()}
-              className="bg-transparent border-0 cursor-pointer p-0"
-              style={{ color: C.muted, fontWeight: 400, fontSize: 15 }}
+              className="bg-transparent border-0 cursor-pointer p-0 text-[13px] font-semibold"
+              style={{ color: C.primary }}
               onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
               onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
             >
@@ -318,14 +320,14 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
             </button>
 
             {/* 2 — Localidad ó Categoría */}
-            {categoria !== 'experiencia'
+            {categoria !== 'aventura_relax'
               ? (oferta.negocioLocalidad || oferta.negocios?.localidad) && (
                 <>
-                  <ChevronRight size={13} className="shrink-0" style={{ color: C.muted }} />
+                  <ChevronRight size={12} className="shrink-0" />
                   <button
                     onClick={() => onOpenLocalidad?.((oferta.negocioLocalidad || oferta.negocios?.localidad))}
-                    className="bg-transparent border-0 cursor-pointer p-0"
-                    style={{ color: C.muted, fontWeight: 400, fontSize: 15 }}
+                    className="bg-transparent border-0 cursor-pointer p-0 text-[13px]"
+                    style={{ color: C.muted }}
                     onMouseEnter={e => { e.currentTarget.style.color = C.ink; e.currentTarget.style.textDecoration = 'underline'; }}
                     onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.textDecoration = 'none'; }}
                   >
@@ -333,37 +335,36 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                   </button>
                 </>
               )
-              : (oferta.categoriaExperiencia || oferta.subcategoria) && (
+              : (oferta.categoriaSalida || oferta.subcategoria) && (
                 <>
-                  <ChevronRight size={13} className="shrink-0" style={{ color: C.muted }} />
-                  <span style={{ color: C.muted, fontWeight: 400, fontSize: 15 }}>
-                    {oferta.categoriaExperiencia || oferta.subcategoria}
+                  <ChevronRight size={12} className="shrink-0" />
+                  <span className="text-[13px]" style={{ color: C.muted }}>
+                    {oferta.categoriaSalida || oferta.subcategoria}
                   </span>
                 </>
               )
             }
 
-            {/* 3 — Nombre del socio: bold + púrpura */}
+            {/* 3 — Nombre del socio */}
             {(oferta.proveedorNombre || oferta.negocios?.nombre) && (
               <>
-                <ChevronRight size={13} className="shrink-0" style={{ color: C.muted }} />
+                <ChevronRight size={12} className="shrink-0" />
                 <button
                   onClick={() => oferta.negocioId && onOpenNegocio?.(oferta.negocioId)}
-                  className="bg-transparent border-0 p-0"
-                  style={{ color: C.primary, fontWeight: 700, fontSize: 15, cursor: oferta.negocioId ? 'pointer' : 'default' }}
-                  onMouseEnter={e => { if (oferta.negocioId) e.currentTarget.style.textDecoration = 'underline'; }}
-                  onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                  className="bg-transparent border-0 p-0 text-[13px]"
+                  style={{ color: C.muted, cursor: oferta.negocioId ? 'pointer' : 'default' }}
+                  onMouseEnter={e => { if (oferta.negocioId) { e.currentTarget.style.color = C.ink; e.currentTarget.style.textDecoration = 'underline'; } }}
+                  onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.textDecoration = 'none'; }}
                 >
                   {oferta.proveedorNombre || oferta.negocios?.nombre}
                 </button>
               </>
             )}
           </nav>
-        </div>
       </div>
 
       {/* ── Main two-column ──────────────────────────────────── */}
-      <div className="max-w-[1328px] mx-auto px-10 py-10">
+      <div className="max-w-[1328px] mx-auto px-10" style={{ paddingTop: 20 }}>
         <div className="grid gap-12 items-start" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
 
           {/* ═══ LEFT ══════════════════════════════════════════ */}
@@ -371,58 +372,52 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
 
             {/* Flash countdown */}
             {isFlash && oferta.fechaFinFlash && (
-              <div className="mb-5">
+              <div className="mb-3">
                 <FlashCountdown fechaFin={oferta.fechaFinFlash} />
               </div>
             )}
 
-            {/* Título */}
-            <h1 className="text-[38px] font-extrabold leading-[1.08] tracking-tight" style={{ color: C.ink }}>
-              {oferta.title || oferta.titulo}
-            </h1>
-
-            {/* 3 — Acciones: Compartir + Guardar */}
-            <div className="flex items-center gap-6 mt-5">
-              <button
-                className="flex items-center gap-2 bg-transparent border-0 cursor-pointer p-0 text-[14px] font-semibold"
-                style={{ color: C.ink2 }}
-                onMouseEnter={e => e.currentTarget.style.color = C.ink}
-                onMouseLeave={e => e.currentTarget.style.color = C.ink2}
-              >
-                <Share2 size={15} strokeWidth={1.8} /> Compartir
-              </button>
-              <button
-                className="flex items-center gap-2 bg-transparent border-0 cursor-pointer p-0 text-[14px] font-semibold"
-                style={{ color: C.ink2 }}
-                onMouseEnter={e => e.currentTarget.style.color = C.ink}
-                onMouseLeave={e => e.currentTarget.style.color = C.ink2}
-              >
-                <Heart size={15} strokeWidth={1.8} /> Guardar
-              </button>
-            </div>
-
-            {/* 4 — Hero image */}
-            <div className="relative w-full rounded-2xl overflow-hidden mt-6" style={{ height: 400 }}>
+            {/* 4 — Hero image con badge + título overlay */}
+            <div className="relative w-full rounded-2xl overflow-hidden" style={{ height: 420 }}>
               <img
                 src={oferta.image || oferta.imagen_url}
                 alt={oferta.title || oferta.titulo}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(11,16,32,0.6) 0%,rgba(11,16,32,0.06) 50%,transparent 100%)' }} />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(11,16,32,0.78) 0%,rgba(11,16,32,0.18) 60%,transparent 100%)' }} />
 
-              {/* Descuento grande sobre la imagen */}
-              {oferta.badge && (
-                <div className="absolute bottom-5 left-6 text-white font-extrabold leading-none tracking-tight" style={{ fontSize: 52, textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
-                  {oferta.badge}
-                </div>
-              )}
 
-              {/* Chip Flash sobre imagen */}
-              {isFlash && (
-                <div className="absolute top-4 left-4 flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-bold" style={{ background: C.red, color: '#fff' }}>
-                  <Zap size={11} /> Flash
-                </div>
-              )}
+              {/* Badge + Título en la parte inferior de la imagen */}
+              <div className="absolute bottom-0 left-0 right-0 px-7 pb-7">
+                {oferta.badge && (
+                  <div style={{ fontSize: 52, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: 6 }}>
+                    {oferta.badge}
+                  </div>
+                )}
+                <h1 className="font-extrabold leading-[1.1] tracking-tight" style={{ color: 'rgba(255,255,255,0.85)', fontSize: 22 }}>
+                  {oferta.title || oferta.titulo}
+                </h1>
+              </div>
+            </div>
+
+            {/* Chip tipo + Guardar + Compartir */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.8)', border: `1.5px solid ${isFlash ? C.red : C.primary}`, color: isFlash ? C.red : C.primary, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                {isFlash
+                  ? <><Zap size={15} strokeWidth={2.5} /> Oferta Flash</>
+                  : <><img src="/ico-disc.svg" style={{ width: 16, height: 16 }} /> Cupón de descuento</>}
+              </div>
+              <div className="flex gap-2">
+                <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                  style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                  <Heart size={15} /> Guardar
+                </button>
+                <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                  style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                  <Share2 size={15} /> Compartir
+                </button>
+              </div>
             </div>
 
             {/* 5 — Descripción */}
@@ -505,7 +500,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
               {tokensCosto === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F0FDF4', borderRadius: 14, padding: '14px 16px', border: '1px solid #BBF7D0' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: '#10A36B' }}>Cupón DE REGALO para vos</span>
                 </div>
               ) : (
                 /* Grid 2 columnas: cada fila queda alineada automáticamente entre columnas */
@@ -513,7 +508,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
 
                   {/* Fila 1 — Labels */}
                   <div style={{ padding: '16px 16px 6px', borderRight: `1px solid ${C.line}` }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Ahorro estimado</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Ahorrás</span>
                   </div>
                   <div style={{ padding: '16px 14px 6px' }}>
                     <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: C.muted }}>Lo activás con</span>
@@ -536,6 +531,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                   {/* Fila 3 — Subtextos */}
                   <div style={{ padding: '4px 16px 16px', borderRight: `1px solid ${C.line}` }}>
                     <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.green }}>Aproximadamente</span>
+                    <InfoTooltip />
                   </div>
                   <div style={{ padding: '4px 14px 16px' }}>
                     <span style={{ fontSize: 11, color: C.muted }}>(${precioCreditosARS.toLocaleString('es-AR')} + IVA)</span>
@@ -558,17 +554,6 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                 }
               </button>
 
-              {/* CTA secundario */}
-              <button
-                onClick={() => setConsultarOpen(true)}
-                className="w-full py-3 rounded-2xl font-semibold text-[14px] cursor-pointer flex items-center justify-center gap-2 transition-colors"
-                style={{ border: `1px solid ${C.line}`, background: '#fff', color: C.ink2 }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = C.primary}
-                onMouseLeave={e => e.currentTarget.style.borderColor = C.line}
-              >
-                <MessageCircle size={15} /> Consultar con el socio
-              </button>
-
               {/* Info del socio */}
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: C.muted }}>Ofrecido por</div>
@@ -585,7 +570,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                   )}
                   <div>
                     <div className="text-[14px] font-bold leading-snug" style={{ color: C.ink }}>
-                      {oferta.proveedorNombre || 'Socio gesell.ar'}
+                      {oferta.proveedorNombre || 'Socio Cuponear'}
                     </div>
                     <div className="flex items-center gap-1 text-[11px] mt-0.5" style={{ color: C.muted }}>
                       <Clock size={10} /> Responde en menos de 2hs
@@ -595,6 +580,15 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                     <Star size={13} fill={C.yellow} color={C.yellow} /> 4.8
                   </div>
                 </div>
+                <button
+                  onClick={() => setConsultarOpen(true)}
+                  className="w-full py-3 rounded-2xl font-semibold text-[14px] cursor-pointer flex items-center justify-center gap-2 transition-colors mt-3"
+                  style={{ border: `1px solid ${C.line}`, background: '#fff', color: C.ink2 }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = C.primary}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = C.line}
+                >
+                  <MessageCircle size={15} /> Consultar con el socio
+                </button>
               </div>
 
               {/* Garantía */}
@@ -620,7 +614,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
       {/* Modal consultar */}
       {consultarOpen && (
         <ConsultarModal
-          socio={oferta.proveedorNombre || oferta.negocios?.nombre || 'Socio gesell.ar'}
+          socio={oferta.proveedorNombre || oferta.negocios?.nombre || 'Socio Cuponear'}
           onClose={() => setConsultarOpen(false)}
         />
       )}

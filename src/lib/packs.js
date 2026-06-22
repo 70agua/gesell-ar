@@ -178,7 +178,7 @@ export async function canjearToken(tokenCanje, negocioId) {
 
   // Emitir orden de cobro al proveedor
   const config = await getConfiguracion();
-  const tipo   = item.tipo_negocio || 'experiencia';
+  const tipo   = item.tipo_negocio || 'aventura_relax';
   const tokens = parseInt(config[`tokens_canje_${tipo.toLowerCase()}`] || 1);
   const monto  = tokens * precioToken(config);
 

@@ -171,7 +171,7 @@ function GuestsSelectorField({ adultos, setAdultos, ninos, setNinos, bebes, setB
 const PACK_DATA = {
   includes: [
     {icon:'🏨', label:'Alojamiento',   detail:'2 noches en hotel o cabaña seleccionada'},
-    {icon:'🍽️', label:'Cena para 2',   detail:'En restaurante afiliado a gesell.ar'},
+    {icon:'🍽️', label:'Cena para 2',   detail:'En restaurante afiliado a Cuponear'},
     {icon:'💆', label:'Circuito Spa',  detail:'2hs de termas e hidromasaje'},
     {icon:'🥂', label:'Bienvenida',    detail:'Espumante en la habitación'},
     {icon:'🚗', label:'Estacionamiento',detail:'Sin cargo toda la estadía'},
@@ -204,7 +204,7 @@ const PACK_DATA = {
 };
 
 // ─── Bonus cupones (gastronomía) ─────────────────────────────
-const BONUS = ALL_PROMOS.filter(p => p.categoria === 'gastronomia').slice(0, 3);
+const BONUS = ALL_PROMOS.filter(p => p.categoria === 'salidas').slice(0, 3);
 
 // ═══════════════════════════════════════════════════════════
 //  MAIN — PackDetailView

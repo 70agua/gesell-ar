@@ -1,6 +1,6 @@
 // ============================================================
 //  src/data/mockData.js
-//  Todos los datos de prueba de la aplicación gesell.ar
+//  Todos los datos de prueba de Cuponear
 //  Para agregar un nuevo alojamiento, copiá un objeto del
 //  array mockAccommodations y cambiá sus valores.
 // ============================================================
@@ -574,9 +574,9 @@ export const ALL_PROMOS = [
     proveedorNombre: 'Boutique Pinar', negocioLocalidad: 'Mar de las Pampas', negocioZone: 'Bosque',
   },
 
-  // ── GASTRONOMÍA ───────────────────────────────────────────
+  // ── SALIDAS ───────────────────────────────────────────
   {
-    id: 9, negocioId: null, offerType: 'Normal', categoria: 'gastronomia',
+    id: 9, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: '2x1 en la mítica tarde de churros.',
     subtitle: 'Churros El Topo · Villa Gesell',
     badge: '2x1', tokens_costo: 1, ahorroEstimado: 4000,
@@ -587,7 +587,7 @@ export const ALL_PROMOS = [
     stock: 20, stockUsado: 17,
   },
   {
-    id: 10, negocioId: null, offerType: 'Flash', categoria: 'gastronomia',
+    id: 10, negocioId: null, offerType: 'Flash', categoria: 'salidas',
     title: 'Venta nocturna: Cená frente al mar con -20%.',
     subtitle: 'Parador Windy · Playa Norte',
     badge: '-20%', tokens_costo: 1, ahorroEstimado: 6000,
@@ -598,7 +598,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 11, negocioId: null, offerType: 'Normal', categoria: 'gastronomia',
+    id: 11, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: 'Regalo de bienvenida: Picada artesanal y cerveza.',
     subtitle: 'Cervecería Dublin · Centro',
     badge: 'Regalo', tokens_costo: 1, ahorroEstimado: 5000,
@@ -610,7 +610,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 12, negocioId: null, offerType: 'Normal', categoria: 'gastronomia',
+    id: 12, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: 'Ruta de la cerveza: 2x1 en pintas artesanales.',
     subtitle: 'Cervecería Dublin · Centro',
     badge: '2x1', tokens_costo: 1, ahorroEstimado: 6000,
@@ -620,7 +620,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 13, negocioId: null, offerType: 'Normal', categoria: 'gastronomia',
+    id: 13, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: 'Cena romántica: Postre y brindis de cortesía.',
     subtitle: 'Restaurante Amarena · Mar de las Pampas',
     badge: 'Cortesía', tokens_costo: 1, ahorroEstimado: 7000,
@@ -632,7 +632,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Mar de las Pampas',
   },
   {
-    id: 14, negocioId: null, offerType: 'Normal', categoria: 'gastronomia',
+    id: 14, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: 'Merienda frente al mar: 2x1 en tortas.',
     subtitle: 'La Holandesa · Villa Gesell',
     badge: '2x1', tokens_costo: 1, ahorroEstimado: 4500,
@@ -643,7 +643,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 15, negocioId: null, offerType: 'Normal', categoria: 'gastronomia',
+    id: 15, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: 'Hora feliz: Tragos de autor al 2x1.',
     subtitle: 'Cervecería Dublin · Centro',
     badge: '2x1', tokens_costo: 1, ahorroEstimado: 5500,
@@ -653,9 +653,9 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
 
-  // ── EXPERIENCIAS ──────────────────────────────────────────
+  // ── AVENTURA & RELAX ──────────────────────────────────────────
   {
-    id: 16, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 16, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Aventura 4x4 al Faro con picnic incluido.',
     subtitle: 'Excursiones Gesell · Villa Gesell',
     badge: 'Picnic', tokens_costo: 1, ahorroEstimado: 8000,
@@ -667,7 +667,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 17, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 17, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Cabalgata entre los pinos al atardecer.',
     subtitle: 'Rancho Gesell · Barrio Norte',
     badge: '-15%', tokens_costo: 1, ahorroEstimado: 6000,
@@ -678,7 +678,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 18, negocioId: null, offerType: 'Flash', categoria: 'experiencia',
+    id: 18, negocioId: null, offerType: 'Flash', categoria: 'aventura_relax',
     title: 'Travesía nocturna por las dunas en descuento.',
     subtitle: 'Médanos Aventura · Las Gaviotas',
     badge: '-30%', tokens_costo: 2, ahorroEstimado: 12000,
@@ -690,7 +690,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Las Gaviotas',
   },
   {
-    id: 19, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 19, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Clase de surf gratis con tu estadía.',
     subtitle: 'Surf School Gesell · Playa',
     badge: 'Gratis', tokens_costo: 1, ahorroEstimado: 9000,
@@ -702,7 +702,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 20, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 20, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Día de spa relax con beneficio exclusivo.',
     subtitle: 'Spa Pinar · Mar de las Pampas',
     badge: '-25%', tokens_costo: 1, ahorroEstimado: 7000,
@@ -713,7 +713,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Mar de las Pampas',
   },
   {
-    id: 21, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 21, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Yoga al amanecer frente al mar gratis.',
     subtitle: 'Playa Norte · Villa Gesell',
     badge: 'Gratis', tokens_costo: 2, ahorroEstimado: 11000,
@@ -724,7 +724,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 22, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 22, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Experiencia astronómica: Noche de estrellas.',
     subtitle: 'Observatorio Gesell · Mar Azul',
     badge: 'Especial', tokens_costo: 1, ahorroEstimado: 8500,
@@ -735,7 +735,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Mar Azul',
   },
   {
-    id: 23, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 23, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Pesca embarcada: Salida grupal con tarifa promocional.',
     subtitle: 'Mar Abierto Gesell · Puerto',
     badge: 'Grupal', tokens_costo: 2, ahorroEstimado: 15000,
@@ -746,7 +746,7 @@ export const ALL_PROMOS = [
     negocioZone: 'Villa Gesell',
   },
   {
-    id: 24, negocioId: null, offerType: 'Normal', categoria: 'experiencia',
+    id: 24, negocioId: null, offerType: 'Normal', categoria: 'aventura_relax',
     title: 'Sandboard en los médanos: Diversión familiar.',
     subtitle: 'Médanos Aventura · Villa Gesell',
     badge: 'Familia', tokens_costo: 1, ahorroEstimado: 9500,
@@ -853,12 +853,12 @@ export const PROMO_META = {
         badgeDesc: 'cena gourmet incluida en tu estadía',
         description: 'Dos noches de escapada con cena de bienvenida preparada por nuestro chef. Menú de temporada con productos locales y copa de vino.' },
 
-  // ── Gastronomía ───────────────────────────────────────────
+  // ── Salidas ───────────────────────────────────────────
   9:  { tokens_costo: 2 }, 10: { tokens_costo: 2 }, 11: { tokens_costo: 1 },
   12: { tokens_costo: 1 }, 13: { tokens_costo: 3 }, 14: { tokens_costo: 1 },
   15: { tokens_costo: 1 },
 
-  // ── Experiencias ──────────────────────────────────────────
+  // ── Aventura & Relax ──────────────────────────────────────────
   16: { tokens_costo: 3 }, 17: { tokens_costo: 2 }, 18: { tokens_costo: 2 },
   19: { tokens_costo: 2 }, 20: { tokens_costo: 3 }, 21: { tokens_costo: 1 },
   22: { tokens_costo: 2 }, 23: { tokens_costo: 3 }, 24: { tokens_costo: 2 },

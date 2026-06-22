@@ -9,7 +9,7 @@ import { supabase } from './supabase';
 // Estas son fijas en el código por ahora (según decisión de diseño)
 export const ACCIONES = {
   registro: {
-    label:       'Registro en gesell.ar',
+    label:       'Registro en Cuponear',
     descripcion: 'Bonus por crear tu cuenta',
     tokens:      2,
     unica_vez:   true,
@@ -132,13 +132,13 @@ export async function gastarTokens(userId, cantidad, cuponeraId) {
 export function calcularDesbloqueos(items) {
   const tipos = items.map(i => {
     if (['Hotel', 'Cabaña', 'Departamento'].includes(i.type)) return 'alojamiento';
-    if (['Restaurante', 'Bar', 'Café', 'Balneario', 'Pastelería', 'Gourmet'].includes(i.type)) return 'gastronomia';
-    return 'experiencia';
+    if (['Restaurante', 'Bar', 'Café', 'Balneario', 'Pastelería', 'Gourmet'].includes(i.type)) return 'salidas';
+    return 'aventura_relax';
   });
 
   const tieneAloj  = tipos.includes('alojamiento');
-  const tieneGastro = tipos.includes('gastronomia');
-  const tieneExp   = tipos.includes('experiencia');
+  const tieneGastro = tipos.includes('salidas');
+  const tieneExp   = tipos.includes('aventura_relax');
   const total      = items.length;
 
   const desbloqueos = [];
@@ -147,7 +147,7 @@ export function calcularDesbloqueos(items) {
     desbloqueos.push({ emoji: '🔓', texto: '¡Pack doble activado! Verificación prioritaria incluida.' });
 
   if (tieneAloj && tieneGastro)
-    desbloqueos.push({ emoji: '🍽️', texto: 'Combo Alojamiento + Gastronomía: los proveedores pueden ofrecerte extras.' });
+    desbloqueos.push({ emoji: '🍽️', texto: 'Combo Alojamiento + Salidas: los proveedores pueden ofrecerte extras.' });
 
   if (tieneAloj && tieneExp)
     desbloqueos.push({ emoji: '🏄', texto: 'Combo Alojamiento + Experiencia: consultá por early check-in.' });
@@ -156,7 +156,7 @@ export function calcularDesbloqueos(items) {
     desbloqueos.push({ emoji: '⭐', texto: '¡Pack completo desbloqueado! Máximos beneficios disponibles.' });
 
   if (total >= 4)
-    desbloqueos.push({ emoji: '🎁', texto: '4 servicios o más: accedés al beneficio sorpresa de gesell.ar.' });
+    desbloqueos.push({ emoji: '🎁', texto: '4 servicios o más: accedés al beneficio sorpresa de Cuponear.' });
 
   return desbloqueos;
 }

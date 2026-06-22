@@ -199,10 +199,10 @@ export default function PacksListView({ onBack, onOpenPack }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'end' }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
-                Experiencias curadas
+                Aventura & Relax curadas
               </div>
               <h1 style={{ fontSize: 'clamp(36px,5vw,60px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.0, margin: 0, color: '#fff' }}>
-                Packs gesell.ar
+                Packs Cuponear
               </h1>
             </div>
             <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.6)', lineHeight: 1.65, margin: 0 }}>

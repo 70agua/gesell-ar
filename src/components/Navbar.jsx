@@ -93,7 +93,7 @@ function MiniOfertaCard({ img, badge, badgeColor = A.primary, lugar, titulo, sub
 function DropCol({ title, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 170, flexShrink: 0 }}>
-      <span style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, fontFamily: A.font, paddingLeft: 4 }}>{title}</span>
+      <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, fontFamily: A.font, paddingLeft: 4 }}>{title}</span>
       {children}
     </div>
   );
@@ -133,14 +133,16 @@ const ALOJ_TIPOS_LIST = [
   { label: 'Dormis / Camping', val: 'Dormi' },
 ];
 
+const EXT_LINK_STYLE = { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12, fontWeight: 400, color: A.muted, textDecoration: 'none', borderRadius: 8, transition: 'background .12s, color .12s' };
+const EXT_ICON = <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>;
+
 function AlojDrop({ onNavigate }) {
   return (
-    <div style={{ display: 'flex', gap: 0, padding: '24px 24px 20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', gap: 0, padding: '24px 24px 20px' }}>
 
       {/* Col 1 */}
       <DropCol title="Por ubicación">
-        <DropLink label="Todos los destinos" bold onClick={() => onNavigate('marketplace', { localidad: '' })} />
-        <DropDivider />
         {ALOJ_UBICACIONES.map(u => (
           <DropLink
             key={u.label}
@@ -151,6 +153,8 @@ function AlojDrop({ onNavigate }) {
             }
           />
         ))}
+        <DropDivider />
+        <DropLink label="Todos los destinos" onClick={() => onNavigate('marketplace', { localidad: '' })} />
       </DropCol>
 
       {/* Separador vertical */}
@@ -158,11 +162,11 @@ function AlojDrop({ onNavigate }) {
 
       {/* Col 2 */}
       <DropCol title="Por tipo de alojamiento">
-        <DropLink label="Todos los tipos" bold onClick={() => onNavigate('marketplace', {})} />
-        <DropDivider />
         {ALOJ_TIPOS_LIST.map(t => (
           <DropLink key={t.val} label={t.label} onClick={() => onNavigate('marketplace', { tipo: t.val })} />
         ))}
+        <DropDivider />
+        <DropLink label="Todos los tipos" onClick={() => onNavigate('marketplace', {})} />
       </DropCol>
 
       {/* Separador vertical */}
@@ -186,6 +190,24 @@ function AlojDrop({ onNavigate }) {
           onNavigate={onNavigate}
           destino="marketplace"
         />
+      </div>
+    </div>
+
+      {/* Footer con links a otros dominios */}
+      <div style={{ borderTop: `1px solid ${A.line}`, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ fontSize: 11, color: A.muted, marginRight: 8 }}>También en:</span>
+        {[
+          { href: 'https://madariaga.ar', label: 'madariaga.ar' },
+          { href: 'https://costaatlantica.ar', label: 'costaatlantica.ar' },
+          { href: 'https://alquileresmardelplata.ar', label: 'alquileresmardelplata.ar' },
+        ].map(({ href, label }) => (
+          <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+            style={EXT_LINK_STYLE}
+            onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.muted; }}>
+            {EXT_ICON} {label}
+          </a>
+        ))}
       </div>
     </div>
   );
@@ -220,30 +242,33 @@ function GastroDrop({ onNavigate }) {
 
       {/* Col 1: Categoría */}
       <DropCol title="Categoría">
-        <DropLink label="Todas las categorías" bold onClick={() => onNavigate('gastronomia', { gastroCategoria: '' })} />
-        <DropDivider />
         {[
-          { label: 'Restaurantes',   val: 'Restaurante' },
-          { label: 'Bares',          val: 'Bar' },
-          { label: 'Cafés & Dulces', val: 'Café & Dulces' },
-          { label: 'Balnearios',     val: 'Balneario' },
-          { label: 'Gourmet',        val: 'Gourmet' },
-          { label: 'Pastelerías',    val: 'Pastelería' },
-          { label: 'Parrillas',      val: 'Parrilla' },
+          { label: 'Restaurantes',        val: 'Restaurante' },
+          { label: 'Bares',               val: 'Bar' },
+          { label: 'Cafés & Dulces',      val: 'Café & Dulces' },
+          { label: 'Heladerías',          val: 'Heladería' },
+          { label: 'Panaderías',          val: 'Panadería' },
+          { label: 'Discotecas',          val: 'Discoteca' },
+          { label: 'Cines y Teatros',     val: 'Cine y Teatro' },
+          { label: 'Shows y Recitales',   val: 'Show y Recital' },
+          { label: 'Centros Culturales',  val: 'Centro Cultural' },
+          { label: 'Otros',               val: 'Otro' },
         ].map(({ label, val }) => (
-          <DropLink key={val} label={label} onClick={() => onNavigate('gastronomia', { gastroCategoria: val })} />
+          <DropLink key={val} label={label} onClick={() => onNavigate('salidas', { gastroCategoria: val })} />
         ))}
+        <DropDivider />
+        <DropLink label="Todas las categorías" onClick={() => onNavigate('salidas', { gastroCategoria: '' })} />
       </DropCol>
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
       {/* Col 2: Tipo de experiencia */}
       <DropCol title="Tipo de experiencia">
-        <DropLink label="Todos los tipos" bold onClick={() => onNavigate('gastronomia', { gastroExperiencia: '' })} />
-        <DropDivider />
         {GASTRO_EXPERIENCIA.map(l => (
-          <DropLink key={l} label={l} onClick={() => onNavigate('gastronomia', { gastroExperiencia: l })} />
+          <DropLink key={l} label={l} onClick={() => onNavigate('salidas', { gastroExperiencia: l })} />
         ))}
+        <DropDivider />
+        <DropLink label="Todos los tipos" onClick={() => onNavigate('salidas', { gastroExperiencia: '' })} />
       </DropCol>
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
@@ -253,7 +278,7 @@ function GastroDrop({ onNavigate }) {
         <div style={{ borderRadius: 12, overflow: 'hidden', height: 100 }}>
           <img
             src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=440&q=80"
-            alt="Gastronomía"
+            alt="Salidas"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         </div>
@@ -264,7 +289,7 @@ function GastroDrop({ onNavigate }) {
           lugar="Villa Gesell"
           titulo="Cena romántica frente al bosque con menú degustación"
           onNavigate={onNavigate}
-          destino="gastronomia"
+          destino="salidas"
         />
       </div>
     </div>
@@ -275,7 +300,7 @@ function GastroDrop({ onNavigate }) {
 // ─── DROPDOWN AVENTURA & RELAX ──────────────────────────────
 // ═══════════════════════════════════════════════════════════
 const AVENT_CATS_LIST = [
-  'Todas las experiencias',
+  'Todas las salidas y aventura & relax',
   'Excursiones & Paseos',
   'Deportes acuáticos',
   'Senderismo & Naturaleza',
@@ -291,11 +316,11 @@ function AventDrop({ onNavigate }) {
 
       {/* Col única */}
       <DropCol title="Categorías">
-        <DropLink label={AVENT_CATS_LIST[0]} bold onClick={() => onNavigate('ofertas')} />
-        <DropDivider />
         {AVENT_CATS_LIST.slice(1).map(l => (
           <DropLink key={l} label={l} onClick={() => onNavigate('ofertas')} />
         ))}
+        <DropDivider />
+        <DropLink label={AVENT_CATS_LIST[0]} onClick={() => onNavigate('ofertas')} />
       </DropCol>
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
@@ -326,8 +351,8 @@ function AventDrop({ onNavigate }) {
 // ─── Logo dinámico según dominio ─────────────────────────────
 function SiteName() {
   const host = typeof window !== 'undefined'
-    ? window.location.hostname.replace('www.', '').replace('localhost', 'gesell.ar')
-    : 'gesell.ar';
+    ? window.location.hostname.replace('www.', '').replace('localhost', 'Cuponear')
+    : 'Cuponear';
   return (
     <span style={{ fontWeight: 500, fontSize: 14, color: A.primary, fontFamily: A.font }}>
       {host}
@@ -364,17 +389,19 @@ const PACKS_ICONS = {
       <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12"/><path d="M12 6v6l4 2"/>
     </svg>
   ),
-  'Gastronomía + alojamiento': (
+  'Salidas + alojamiento': (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 11l19-9-9 19-2-8-8-2z"/>
     </svg>
   ),
 };
-const PACKS_TIPOS = ['Todos los packs', 'Románticos', 'Familias', 'Aventura', 'Relax & Bienestar', 'Gastronomía + alojamiento'];
+const PACKS_TIPOS = ['Todos los packs', 'Románticos', 'Familias', 'Aventura', 'Relax & Bienestar', 'Salidas + alojamiento'];
 
 // ═══════════════════════════════════════════════════════════
 export default function Navbar({ scrolled, view, setView, session, perfil, onLoginClick, onRegisterClick, onLogout, onPublicarOferta, onNavbarNav }) {
   const [openMenu,    setOpenMenu]    = useState(null);
+  const [closingMenu, setClosingMenu] = useState(null);
+  const animTimer = useRef(null);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
   const { openDrawer } = useCuponera();
@@ -394,16 +421,25 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
 
   const hoverOpen = (name) => {
     clearTimeout(closeTimer.current);
+    clearTimeout(animTimer.current);
+    setClosingMenu(null);
     setOpenMenu(name);
   };
 
   const hoverLeave = () => {
     clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpenMenu(null), 1500);
+    closeTimer.current = setTimeout(() => {
+      setClosingMenu(openMenu);
+      clearTimeout(animTimer.current);
+      animTimer.current = setTimeout(() => {
+        setOpenMenu(null);
+        setClosingMenu(null);
+      }, 180);
+    }, 1000);
   };
 
-  // Limpiar timer al desmontar
-  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  // Limpiar timers al desmontar
+  useEffect(() => () => { clearTimeout(closeTimer.current); clearTimeout(animTimer.current); }, []);
 
   const closeAll = () => { clearTimeout(closeTimer.current); setOpenMenu(null); setMobileOpen(false); };
 
@@ -444,7 +480,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
 
           {/* ── Logo ── */}
           <div onClick={() => nav('home')} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
-            <img src="/logo-cuponera.svg" alt="gesell.ar" style={{ height: 40, width: 'auto', display: 'block' }} />
+            <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 40, width: 'auto', display: 'block' }} />
             <SiteName />
           </div>
 
@@ -459,23 +495,23 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <button style={{ ...navBtnSt, color: openMenu === 'aloj' ? A.primary : A.ink2 }}>
                 alojamientos <ChevD />
               </button>
-              {openMenu === 'aloj' && (
-                <div style={{ ...DROP_BASE, left: 0, animation: 'dropFade .15s ease-out' }}>
+              {(openMenu === 'aloj' || closingMenu === 'aloj') && (
+                <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'aloj' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
                   <AlojDrop onNavigate={(v, opts) => nav(v, opts)} onVerOferta={navVerOferta} />
                 </div>
               )}
             </div>
 
-            {/* Gastronomía */}
+            {/* Salidas */}
             <div style={{ position: 'relative' }} ref={gastroRef}
               onMouseEnter={() => hoverOpen('gastro')}
               onMouseLeave={hoverLeave}
             >
               <button style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
-                gastronomía <ChevD />
+                salidas <ChevD />
               </button>
-              {openMenu === 'gastro' && (
-                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: 'dropFadeCenter .15s ease-out' }}>
+              {(openMenu === 'gastro' || closingMenu === 'gastro') && (
+                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'gastro' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
                   <GastroDrop onNavigate={(v, opts) => nav(v, opts)} />
                 </div>
               )}
@@ -489,8 +525,8 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <button style={{ ...navBtnSt, color: openMenu === 'aventura' ? A.primary : A.ink2 }}>
                 aventura & relax <ChevD />
               </button>
-              {openMenu === 'aventura' && (
-                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: 'dropFadeCenter .15s ease-out' }}>
+              {(openMenu === 'aventura' || closingMenu === 'aventura') && (
+                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'aventura' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
                   <AventDrop onNavigate={(v) => nav(v)} />
                 </div>
               )}
@@ -507,20 +543,29 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <button style={{ ...navBtnSt, fontWeight: 600, color: openMenu === 'packs' ? A.primary : A.ink }}>
                 packs exclusivos <ChevD />
               </button>
-              {openMenu === 'packs' && (
-                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', minWidth: 220, animation: 'dropFadeCenter .15s ease-out' }}>
+              {(openMenu === 'packs' || closingMenu === 'packs') && (
+                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', minWidth: 220, animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
                   <div style={{ padding: '8px 0' }}>
                     <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Packs</p>
-                    {PACKS_TIPOS.map(tipo => (
+                    {PACKS_TIPOS.filter(t => t !== 'Todos los packs').map(tipo => (
                       <button key={tipo} onClick={() => nav('packs')}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: tipo === 'Todos los packs' ? 600 : 400, color: tipo === 'Todos los packs' ? A.primary : A.ink2, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 400, color: A.ink2, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
                         onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = tipo === 'Todos los packs' ? A.primary : A.ink2; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
                       >
                         <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>{PACKS_ICONS[tipo]}</span>
                         {tipo}
                       </button>
                     ))}
+                    <div style={{ height: 1, background: A.line, margin: '4px 16px' }} />
+                    <button onClick={() => nav('packs')}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: A.primary, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
+                      onMouseEnter={e => { e.currentTarget.style.background = A.bg; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>{PACKS_ICONS['Todos los packs']}</span>
+                      Todos los packs
+                    </button>
                   </div>
                 </div>
               )}
@@ -531,15 +576,17 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           {/* ── Derecha ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
 
-            <button
-              onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
-              className="navbar-publicar-btn"
-              style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 999, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: A.font, boxShadow: '0 2px 10px rgba(37,69,230,0.28)', transition: 'background .15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#1a35cc'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = A.primary; }}
-            >
-              Publicar oferta
-            </button>
+            {esSocioOAdmin && (
+              <button
+                onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
+                className="navbar-publicar-btn"
+                style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 999, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: A.font, boxShadow: '0 2px 10px rgba(37,69,230,0.28)', transition: 'background .15s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#1a35cc'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = A.primary; }}
+              >
+                Publicar oferta
+              </button>
+            )}
 
             {session ? (
               <div style={{ position: 'relative' }} ref={userRef}>
@@ -620,7 +667,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           <div style={{ padding: '20px 24px 48px' }}>
             {[
               { label: 'alojamientos',  action: () => nav('marketplace') },
-              { label: 'gastronomía',   action: () => nav('gastronomia') },
+              { label: 'salidas',        action: () => nav('salidas') },
               { label: 'aventura & relax', action: () => nav('ofertas') },
               { label: 'packs exclusivos', action: () => nav('packs') },
             ].map(item => (
@@ -630,10 +677,12 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               </button>
             ))}
             <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <button onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
-                style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 14, background: A.primary, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: A.font }}>
-                Publicar oferta
-              </button>
+              {esSocioOAdmin && (
+                <button onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
+                  style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 14, background: A.primary, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: A.font }}>
+                  Publicar oferta
+                </button>
+              )}
               {session ? (
                 <>
                   <button onClick={() => { setView(perfil?.es_superadmin ? 'superadmin' : 'admin'); closeAll(); }} style={mobileBtnSt()}>Mi cuenta</button>
@@ -662,6 +711,14 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         @keyframes dropFadeRight {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dropFadeOut {
+          from { opacity: 1; transform: translateY(0); }
+          to   { opacity: 0; transform: translateY(-6px); }
+        }
+        @keyframes dropFadeCenterOut {
+          from { opacity: 1; transform: translateX(-50%) translateY(0); }
+          to   { opacity: 0; transform: translateX(-50%) translateY(-6px); }
         }
         @media (max-width: 900px) {
           .navbar-links       { display: none !important; }

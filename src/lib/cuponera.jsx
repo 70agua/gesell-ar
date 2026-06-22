@@ -8,7 +8,7 @@ const CuponeraContext = createContext(null);
 // Color de acento por categoría de oferta
 const ACCENT_BY_CAT = {
   alojamiento: '#2545E6',   // primary
-  gastronomia: '#0B1020',   // ink
+  salidas: '#0B1020',   // ink
   experiencia: '#10A36B',   // green
 };
 
@@ -26,7 +26,7 @@ function ofertaToCupon(oferta) {
     id:     oferta.id ? `oferta-${oferta.id}` : `tmp-${Date.now()}`,
     d:      oferta.badge || '-',
     t:      oferta.title || oferta.titulo || 'Oferta',
-    p:      oferta.proveedorNombre || oferta.negocios?.nombre || 'Socio gesell.ar',
+    p:      oferta.proveedorNombre || oferta.negocios?.nombre || 'Socio Cuponear',
     price:  precio,
     was:    beneficio,
     exp,

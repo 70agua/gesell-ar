@@ -6,6 +6,7 @@
 //  de marca y contexto claro de que son beneficios exclusivos.
 // ============================================================
 import React, { useState } from 'react';
+import InfoTooltip from '../components/InfoTooltip';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const P     = '#475be1';
@@ -35,7 +36,7 @@ const MOCK_OFERTAS = [
   {
     id: 'b1',
     titulo: 'Cena para dos en La Parrilla del Puerto',
-    tipo: 'Gastronomía',
+    tipo: 'Salidas',
     socio: 'La Parrilla del Puerto',
     descuento: 20,
     creditos: 6,
@@ -87,12 +88,13 @@ function CoinSVG({ size = 14 }) {
 }
 
 // ─── Chip de categoría ────────────────────────────────────────
-const CATEGORIAS = ['Todas', 'Gastronomía', 'Actividades', 'Bienestar'];
+const CATEGORIAS = ['Todas', 'Salidas', 'Actividades', 'Bienestar'];
 
 // ─── Tarjeta de oferta ────────────────────────────────────────
 function OfertaCard({ o, onActivar }) {
   const [hover, setHover] = useState(false);
   const ahorro = Math.round(o.descuento * 800);
+  const badge = `−${o.descuento}%`;
   return (
     <div
       onMouseEnter={() => setHover(true)}
@@ -110,46 +112,56 @@ function OfertaCard({ o, onActivar }) {
         transition: 'box-shadow 0.2s, transform 0.2s',
       }}
     >
-      {/* Imagen */}
-      <div style={{ position: 'relative', height: 160, overflow: 'hidden' }}>
+      {/* Imagen 4:3 */}
+      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
         <img src={o.img} alt={o.titulo} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-        <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.65) 0%, rgba(11,16,32,0.1) 50%, transparent 100%)' }}/>
-        <div style={{ position:'absolute', bottom:12, left:14, color:'#fff', fontSize:38, fontWeight:800, letterSpacing:'-0.025em', lineHeight:1 }}>
-          −{o.descuento}%
-        </div>
-        <div style={{ position:'absolute', top:10, left:10, background:'rgba(11,16,32,0.55)', backdropFilter:'blur(4px)', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:999 }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }}/>
+        {/* Tipo badge — top left */}
+        <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(11,16,32,0.55)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999 }}>
           {o.tipo}
+        </div>
+        {/* Badge + título — abajo */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 13px 12px' }}>
+          <div style={{ fontSize: badge.length > 5 ? 28 : 36, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{badge}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{o.titulo}</div>
         </div>
       </div>
 
       {/* Body */}
-      <div style={{ padding:'13px 14px 14px', flex:1, display:'flex', flexDirection:'column', gap:4 }}>
-        <div style={{ fontSize:11, color:MUTED, fontWeight:600 }}>{o.socio}</div>
-        <div style={{ fontSize:14, fontWeight:700, color:GREEN, lineHeight:1.3, flex:1 }}>{o.titulo}</div>
-
-        {/* Cajita precios */}
-        <div style={{ border:`1px solid ${LINE}`, borderRadius:10, overflow:'hidden', marginTop:10 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 11px' }}>
-            <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Ahorro estimado</span>
-            <span style={{ fontSize:13, fontWeight:700, color:GREEN }}>~${ahorro.toLocaleString('es-AR')}</span>
+      <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Proveedor / socio */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 7, background: '#F7F7F8', border: `1px solid ${LINE}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: MUTED }}>{(o.socio || '?')[0]}</span>
           </div>
-          <div style={{ height:1, background:LINE }}/>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 11px' }}>
-            <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED }}>Lo activás con</span>
-            <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:13, fontWeight:700, color:INK }}>
-              <CoinSVG size={15}/> {o.creditos} créditos
-            </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: INK, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{o.socio}</div>
           </div>
         </div>
 
         {/* CTA */}
         <button
           onClick={() => onActivar(o)}
-          style={{ marginTop:10, padding:'10px 0', borderRadius:12, border:'none', background:P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}
+          style={{ width: '100%', padding: '10px 0', borderRadius: 11, border: 'none', background: P, color: '#fff', fontFamily: FONT, fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>
           Agregar a mi cuponera
         </button>
+
+        {/* Info rows */}
+        <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: MUTED }}>Ahorrás</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: GREEN }}>~${ahorro.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: MUTED }}>Lo activás con</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <CoinSVG size={13}/> <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>{o.creditos} créditos</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>(${(o.creditos * 2000).toLocaleString('es-AR')} + IVA)</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

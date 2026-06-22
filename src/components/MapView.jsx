@@ -3,6 +3,7 @@
 //  Mapa urbano interactivo con Leaflet nativo + galería sincronizada
 // ============================================================
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import InfoTooltip, { CreditTooltip } from './InfoTooltip';
 
 const C = {
   primary:  '#2545E6',
@@ -18,10 +19,8 @@ const C = {
 // ─── Marcador divIcon ────────────────────────────────────────
 function makeMarkerHtml(promo, active) {
   const badge  = promo.badge || '';
-  const ahorro = promo.ahorroEstimado > 0
-    ? `Ahorrás ~$${promo.ahorroEstimado.toLocaleString('es-AR')}`
-    : '';
-  const label  = [badge, ahorro].filter(Boolean).join(' · ') || 'Promo';
+  const socio  = promo.proveedorNombre || '';
+  const label  = [badge, socio].filter(Boolean).join(' · ') || 'Promo';
   const bg     = active ? C.primary : '#fff';
   const color  = active ? '#fff' : C.ink;
   const border = active ? C.primary : C.line;
@@ -29,104 +28,138 @@ function makeMarkerHtml(promo, active) {
   const shadow = active
     ? '0 4px 16px rgba(37,69,230,0.45)'
     : '0 2px 8px rgba(11,16,32,0.18)';
-  const iconColor = active ? '#fff' : C.primary;
+
+  const iconFill  = active ? '#fff' : C.primary;
+  const badgeCol  = active ? '#fff' : C.primary;
+  const socioCol  = active ? 'rgba(255,255,255,0.82)' : '#3D4255';
+  const sepCol    = active ? 'rgba(255,255,255,0.45)' : '#9CA3AF';
+  const badgeHtml = badge ? `<span style="color:${badgeCol};font-weight:800;">${badge}</span>` : '';
+  const socioHtml = socio ? `<span style="color:${socioCol};font-weight:600;">${socio}</span>` : '';
+  const sep       = badge && socio ? `<span style="color:${sepCol}"> · </span>` : '';
+  const innerHtml = (badgeHtml + sep + socioHtml) || '<span>Promo</span>';
 
   return `
     <div style="
-      display:inline-flex; align-items:center; gap:5px;
-      background:${bg}; color:${color};
+      display:inline-flex; align-items:center; gap:6px;
+      background:${bg};
       border:2px solid ${border};
-      border-radius:999px; padding:5px 10px 5px 8px;
-      font-size:11px; font-weight:700; white-space:nowrap;
+      border-radius:999px; padding:5px 11px 5px 8px;
+      font-size:11px; white-space:nowrap;
       font-family:system-ui,sans-serif;
       box-shadow:${shadow};
       transform:${scale};
       transition:all .2s;
     ">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="${iconColor}" style="transform:rotate(-45deg);flex-shrink:0;">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="${iconFill}" style="flex-shrink:0;transform:rotate(-45deg);">
         <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/>
       </svg>
-      ${label}
+      ${innerHtml}
     </div>`;
 }
 
-// ─── Minificha (card en panel lateral / bottom-sheet) ────────
+// ─── Minificha mapa — mínima expresión ──────────────────────
 function PromoCard({ promo, active, onClick, onAdd, innerRef }) {
+  const titulo = promo.title || promo.titulo;
+  const ahorro = promo.ahorroEstimado > 0
+    ? `~$${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.`
+    : null;
+  const precioCreditos = promo.tokens_precio != null
+    ? `$${promo.tokens_precio.toLocaleString('es-AR')} + IVA`
+    : promo.tokens_costo != null
+    ? `$${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA`
+    : null;
+
   return (
     <div
       ref={innerRef}
       onClick={onClick}
       style={{
-        borderRadius: 14, overflow: 'hidden', cursor: 'pointer', background: '#fff',
+        borderRadius: 14, cursor: 'pointer', background: '#fff',
         border: `2px solid ${active ? C.primary : C.line}`,
         boxShadow: active ? '0 4px 16px rgba(37,69,230,0.14)' : 'none',
         transition: 'border-color .2s, box-shadow .2s',
-        flexShrink: 0,
+        flexShrink: 0, width: 260,
+        display: 'flex', flexDirection: 'column',
+        padding: '13px 14px 12px',
+        gap: 10,
       }}
     >
-      {/* Foto */}
-      <div style={{ position: 'relative', height: 120 }}>
-        <img
-          src={promo.image || promo.imagen_url}
-          alt={promo.title || promo.titulo}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(11,16,32,0.6) 0%,transparent 55%)' }} />
+      {/* Badge + título */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
         {promo.badge && (
-          <div style={{ position: 'absolute', bottom: 8, left: 12, color: '#fff', fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em' }}>
-            {promo.badge}
+          <div style={{ display: 'inline-flex' }}>
+            <div style={{
+              background: C.green, color: '#fff', borderRadius: 10,
+              padding: '6px 10px', fontSize: 15, fontWeight: 900,
+              letterSpacing: '-0.03em', lineHeight: 1,
+              whiteSpace: 'nowrap',
+            }}>{promo.badge}</div>
           </div>
         )}
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>
+          {titulo}
+        </div>
       </div>
-      {/* Body */}
-      <div style={{ padding: '10px 12px 12px' }}>
-        {promo.negocioLocalidad && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, marginBottom: 3 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>
-            </svg>
-            <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
-            {promo.proveedorNombre && <span style={{ color: C.muted }}> · {promo.proveedorNombre}</span>}
-          </div>
-        )}
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.green, lineHeight: 1.3, marginBottom: 8 }}>
-          {promo.title || promo.titulo}
+
+      {/* Socio — solo nombre + avatar */}
+      {promo.proveedorNombre && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: -4 }}>
+          {promo.proveedorImage
+            ? <img src={promo.proveedorImage} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            : <div style={{ width: 22, height: 22, borderRadius: '50%', background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{promo.proveedorNombre[0]}</span>
+              </div>
+          }
+          <span style={{ fontSize: 11, fontWeight: 600, color: C.ink2 }}>{promo.proveedorNombre}</span>
         </div>
-        {/* Cajita */}
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, overflow: 'hidden', fontSize: 10, marginBottom: 8 }}>
-          {promo.ahorroEstimado > 0 && <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 8px' }}>
-              <span style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Ahorro est.</span>
-              <span style={{ fontWeight: 700, color: C.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
-            </div>
-            <div style={{ height: 1, background: C.line }} />
-          </>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 8px' }}>
-            <span style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted }}>Lo activás con</span>
-            {promo.tokens_costo != null
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700, color: C.ink }}>
-                  <CoinSVGSmall /> {promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}
-                </span>
-              : <span style={{ color: C.primary, fontWeight: 600 }}>Consultá</span>
-            }
-          </div>
-        </div>
-        <button
-          onClick={e => { e.stopPropagation(); onAdd(promo); }}
-          style={{
-            width: '100%', background: C.primary, color: '#fff',
-            border: 'none', borderRadius: 8, padding: '7px 0',
-            fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          }}
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/>
-            <path d="M13 6v12" strokeDasharray="2 3"/>
+      )}
+
+      {/* Ahorro — banda verde estilo minificha */}
+      {ahorro && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#EDFAF4', borderRadius: 8, padding: '6px 10px' }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill={C.green} style={{ flexShrink: 0 }}>
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+            <circle cx="7" cy="7" r="1.5"/>
           </svg>
-          Agregar a cuponera
-        </button>
-      </div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: C.green, flex: 1 }}>Ahorrás {ahorro}</span>
+          <InfoTooltip />
+        </div>
+      )}
+
+      {/* Botón */}
+      <button
+        onClick={e => { e.stopPropagation(); onAdd(promo); }}
+        style={{
+          width: '100%', background: C.primary, color: '#fff',
+          border: 'none', borderRadius: 10, padding: '9px 0',
+          fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/>
+          <path d="M13 6v12" strokeDasharray="2 3"/>
+        </svg>
+        Agregar a cuponera
+      </button>
+
+      {/* Activalo con — debajo del CTA */}
+      {promo.tokens_costo != null && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Activalo con</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: C.ink }}>
+              <CoinSVGSmall />
+              {promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}
+            </span>
+            {precioCreditos && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 400, color: C.muted }}>
+                ({precioCreditos})<CreditTooltip />
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

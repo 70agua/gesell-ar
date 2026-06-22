@@ -35,9 +35,9 @@ const A = {
 
 // ─── Datos estáticos ────────────────────────────────────────
 const CATS = {
-  alojamiento: ['Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
-  gastronomia: ['Restaurante', 'Bar', 'Café', 'Panadería / Pastelería', 'Heladería', 'Gourmet', 'Balneario / Resto'],
-  experiencia: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
+  alojamiento:   ['Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
+  salidas:       ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
+  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
 };
 
 const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
@@ -49,14 +49,14 @@ const CONDICIONES_BASE = [
   { id: 'acumulable', label: 'No acumulable con otras promociones', sub: 'No se puede combinar con otros descuentos activos' },
 ];
 
-const CONDICIONES_GASTRO = [
+const CONDICIONES_SALIDAS = [
   { id: 'menu', label: 'Aplica solo al menú regular', sub: 'No válido para menús especiales ni fechas festivas' },
   { id: 'preventa', label: 'Con reserva previa obligatoria', sub: 'Debe reservarse mesa con al menos 2 hs de anticipación' },
 ];
 
-const CONDICIONES_EXP = [
+const CONDICIONES_AVENTURA = [
   { id: 'clima', label: 'Sujeto a condiciones climáticas', sub: 'Puede reprogramarse por mal tiempo' },
-  { id: 'grupo', label: 'Mínimo de participantes requerido', sub: 'La experiencia requiere un mínimo de personas para realizarse' },
+  { id: 'grupo', label: 'Mínimo de participantes requerido', sub: 'La actividad requiere un mínimo de personas para realizarse' },
 ];
 
 // ─── Centro de Villa Gesell ─────────────────────────────────
@@ -354,10 +354,10 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
     : ahorroDesde ? `Desde ${ahorroDesde}`
     : ahorroHasta ? `Hasta ${ahorroHasta}` : '';
 
-  const condicionesActivas = tipo === 'gastronomia'
-    ? [...CONDICIONES_BASE, ...CONDICIONES_GASTRO]
-    : tipo === 'experiencia'
-    ? [...CONDICIONES_BASE, ...CONDICIONES_EXP]
+  const condicionesActivas = tipo === 'salidas'
+    ? [...CONDICIONES_BASE, ...CONDICIONES_SALIDAS]
+    : tipo === 'aventura_relax'
+    ? [...CONDICIONES_BASE, ...CONDICIONES_AVENTURA]
     : CONDICIONES_BASE;
 
   function handleTituloChange(v) {
@@ -421,16 +421,16 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
         aprobado:  false,
         activo:    false,
       };
-      if ((tipo !== 'experiencia') || sedeFija === 'fija') {
+      if ((tipo !== 'aventura_relax') || sedeFija === 'fija') {
         negocioPayload.direccion = direccion;
       }
       if (tipo === 'alojamiento') {
         negocioPayload.cant_unidades = cantUnidades ? parseInt(cantUnidades) : null;
         negocioPayload.servicios     = servicios;
-      } else if (tipo === 'gastronomia') {
+      } else if (tipo === 'salidas') {
         negocioPayload.capacidad   = capacidad ? parseInt(capacidad) : null;
         negocioPayload.tipo_cocina = tipoCocina;
-      } else if (tipo === 'experiencia') {
+      } else if (tipo === 'aventura_relax') {
         negocioPayload.duracion    = duracion;
         negocioPayload.max_pax     = maxPax ? parseInt(maxPax) : null;
         negocioPayload.sede_fija   = sedeFija;
@@ -702,8 +702,8 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                     {[
                       { id: 'alojamiento', icon: '🏨', label: 'Alojamiento', sub: 'Hotel, cabaña, dpto, domo...' },
-                      { id: 'gastronomia', icon: '🍽️', label: 'Gastronomía', sub: 'Restó, bar, café, panadería...' },
-                      { id: 'experiencia', icon: '🎯', label: 'Experiencia', sub: 'Tours, deportes, spa, cultura...' },
+                      { id: 'salidas', icon: '🍽️', label: 'Salidas', sub: 'Restó, bar, café, panadería...' },
+                      { id: 'aventura_relax', icon: '🎯', label: 'Aventura & Relax', sub: 'Tours, deportes, spa, cultura...' },
                     ].map(t => (
                       <div
                         key={t.id}
@@ -747,8 +747,8 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                   </>
                 )}
 
-                {/* Campos específicos Gastronomía */}
-                {tipo === 'gastronomia' && (
+                {/* Campos específicos Salidas */}
+                {tipo === 'salidas' && (
                   <>
                     <FieldWrap label="Capacidad aproximada" optional>
                       <Input type="number" min="1" placeholder="Cantidad de cubiertos o personas" value={capacidad} onChange={e => setCapacidad(e.target.value)} />
@@ -760,7 +760,7 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                 )}
 
                 {/* Campos específicos Experiencia */}
-                {tipo === 'experiencia' && (
+                {tipo === 'aventura_relax' && (
                   <>
                     <FieldWrap label="Duración aproximada" optional>
                       <Input placeholder="Ej: 2 horas, medio día, jornada completa" value={duracion} onChange={e => setDuracion(e.target.value)} />
@@ -788,7 +788,7 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                 </FieldWrap>
 
                 {/* Domicilio — solo si no es experiencia sin sede */}
-                {(tipo !== 'experiencia' || sedeFija === 'fija') && (
+                {(tipo !== 'aventura_relax' || sedeFija === 'fija') && (
                   <FieldWrap label="Domicilio">
                     <Input placeholder="Calle y número" value={direccion} onChange={e => setDireccion(e.target.value)} />
                   </FieldWrap>
@@ -814,7 +814,7 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                     )}
                   </div>
                 )}
-                {(tipo === 'gastronomia' || tipo === 'experiencia') && (
+                {(tipo === 'salidas' || tipo === 'aventura_relax') && (
                   <div style={{ background: A.greenBg, borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: A.ink }}>
                     <strong style={{ display: 'block', marginBottom: 6 }}>Publicar es gratis para vos</strong>
                     Los restaurantes y experiencias no pagan plan. Podés pagar un extra para tener más visibilidad o ser parte de ofertas exclusivas para huéspedes de hoteles adheridos.
@@ -854,7 +854,7 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                   ¡Oferta publicada!
                 </div>
                 <div style={{ fontSize: 14, color: A.muted, marginBottom: 24, lineHeight: 1.6 }}>
-                  Tu oferta está siendo revisada por el equipo de gesell.ar.<br />
+                  Tu oferta está siendo revisada por el equipo de Cuponear.<br />
                   Te avisamos por email cuando esté activa — generalmente en menos de 48 hs.
                 </div>
 

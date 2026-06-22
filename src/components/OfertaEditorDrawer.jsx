@@ -140,7 +140,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
           <div>
             <h2 className="font-black text-slate-900 text-lg">{esNueva ? 'Nueva oferta' : 'Editar oferta'}</h2>
             <p className="text-slate-400 text-xs font-medium mt-0.5">
-              {esNueva ? 'Se enviará para aprobación del equipo gesell.ar' : 'Los cambios requieren re-aprobación'}
+              {esNueva ? 'Se enviará para aprobación del equipo Cuponear' : 'Los cambios requieren re-aprobación'}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 cursor-pointer p-2"><X size={20} /></button>

@@ -159,7 +159,7 @@ export default function ComprarTokensScreen({ negocioId, saldoActual, onVolver, 
         <h1 className="text-2xl font-black text-slate-900">Comprá créditos para publicar</h1>
       </div>
       <p className="text-slate-500 font-medium mb-2">Saldo actual: <span className="font-black text-slate-800">{saldoActual} tokens</span></p>
-      <p className="text-slate-400 text-sm font-medium mb-8">Cada token te permite publicar 1 oferta. Tu oferta quedará publicada apenas sea aprobada por el equipo de gesell.ar.</p>
+      <p className="text-slate-400 text-sm font-medium mb-8">Cada token te permite publicar 1 oferta. Tu oferta quedará publicada apenas sea aprobada por el equipo de Cuponear.</p>
 
       {/* Packs */}
       <div className="space-y-3 mb-8">

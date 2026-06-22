@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { MapPin } from 'lucide-react';
 import { secondsUntil } from '../lib/ofertas';
 import CuponIcon from './CuponIcon';
+import InfoTooltip, { CreditTooltip } from './InfoTooltip';
 
 // ─── Monedita SVG dorada ──────────────────────────────────────
 function CoinIcon({ size = 14 }) {
@@ -43,7 +44,7 @@ function FlashTimer({ fechaFin }) {
 
 // ═══════════════════════════════════════════════════════════
 export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLocalidad }) {
-  const esFlash   = promo.offerType === 'Flash';
+  const esFlash    = promo.offerType === 'Flash';
   const esSinCargo = promo.tokens_costo === 0;
 
   return (
@@ -51,75 +52,56 @@ export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLo
       onClick={() => onClick && onClick(promo)}
       className="group bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col"
     >
-      {/* ── Imagen cuadrada ── */}
-      <div className="relative aspect-square overflow-hidden shrink-0">
+      {/* ── Imagen 4:3 ── */}
+      <div className="relative overflow-hidden shrink-0" style={{ aspectRatio: '4/3' }}>
         <img
           src={promo.image}
           alt={promo.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
 
         {/* Badge Flash — arriba izquierda */}
         {esFlash && (
-          <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black italic px-2.5 py-1 rounded-lg shadow-md">
-            ⚡ FLASH Sale!
+          <div className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[10px] font-black italic px-2 py-1 rounded-lg flex items-center gap-1">
+            ⚡ FLASH
           </div>
         )}
 
-        {/* Badge tokens — arriba derecha */}
-        <div className="absolute top-3 right-3">
-          {esSinCargo ? (
-            <div className="bg-green-500 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-md">
-              SIN CARGO
-            </div>
-          ) : promo.tokens_costo != null ? (
-            <div className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-md flex items-center gap-1">
-              <CoinIcon size={12} />
-              <span>{promo.tokens_costo}</span>
-            </div>
-          ) : (
-            // Pendiente de aprobación — no muestra tokens aún
-            <div className="bg-amber-400 text-amber-900 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-md">
-              Pendiente
-            </div>
-          )}
+        {/* Heart — arriba derecha */}
+        <div className="absolute top-2.5 right-2.5">
+          <CoinIcon size={12} />
         </div>
 
-        {/* Countdown Flash */}
-        {esFlash && promo.fechaFinFlash && (
-          <div className="absolute top-10 right-3 mt-1">
-            <FlashTimer fechaFin={promo.fechaFinFlash} />
-          </div>
-        )}
-
-        {/* Badge descuento centrado abajo */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 text-center">
-          <p className="text-white text-4xl font-black drop-shadow-lg leading-none mb-1">
+        {/* Badge + título — abajo izquierda */}
+        <div className="absolute bottom-0 left-0 right-0 px-3.5 pb-3 pt-6">
+          <p className="text-white font-black leading-none mb-1.5 drop-shadow-lg"
+             style={{ fontSize: (promo.badge?.length || 0) > 5 ? 28 : 36, letterSpacing: '-0.025em' }}>
             {promo.badge}
           </p>
-          <p className="text-white/85 text-xs font-medium leading-snug drop-shadow">
+          <p className="text-white/88 text-[12px] font-bold leading-snug drop-shadow line-clamp-2">
             {promo.title}
           </p>
         </div>
       </div>
 
       {/* ── Cuerpo ── */}
-      <div className="p-4 flex flex-col flex-1">
+      <div className="flex flex-col flex-1" style={{ padding: '11px 13px 13px', gap: 10 }}>
 
         {/* Fila proveedor */}
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-100 shadow-sm bg-slate-100">
+        <div className="flex items-center gap-2.5">
+          <div className="shrink-0 rounded-full overflow-hidden border border-slate-100 bg-slate-100 flex items-center justify-center"
+               style={{ width: 34, height: 34 }}>
             {promo.proveedorImage ? (
               <img src={promo.proveedorImage} alt={promo.proveedorNombre} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-300 text-lg font-black">
+              <span className="text-slate-400 text-xs font-black">
                 {(promo.proveedorNombre || '?')[0]}
-              </div>
+              </span>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-black text-slate-900 text-sm leading-tight truncate">
+            <p className="text-slate-900 text-[13px] font-extrabold leading-tight truncate">
               {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
             </p>
             {(promo.negocioLocalidad || promo.subtitle?.includes('·')) && (
@@ -129,7 +111,7 @@ export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLo
                   const loc = promo.negocioLocalidad || promo.subtitle?.split('·')[1]?.trim();
                   onFilterLocalidad && onFilterLocalidad(loc);
                 }}
-                className="flex items-center gap-1 text-blue-500 hover:text-blue-700 hover:underline text-xs font-bold mt-0.5 transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-blue-500 hover:text-blue-700 text-[11px] font-semibold mt-0.5 transition-colors cursor-pointer"
               >
                 <MapPin size={9} />
                 {promo.negocioLocalidad || promo.subtitle?.split('·')[1]?.trim()}
@@ -138,29 +120,39 @@ export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLo
           </div>
         </div>
 
-        <div className="flex-1" />
+        {/* Botón */}
+        <button
+          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+          className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-extrabold py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer"
+        >
+          <CuponIcon size={14} />
+          Agregar a cuponera
+        </button>
 
-        {/* CTAs */}
-        <div className="flex items-center gap-2 pt-3 border-t border-slate-50">
-          {/* Créditos del usuario */}
-          {promo.tokens_costo != null && !esSinCargo && (
-            <div className="flex items-center gap-1 shrink-0">
-              <CoinIcon size={14} />
-              <span className="text-slate-600 text-xs font-black">{promo.tokens_costo}</span>
-            </div>
-          )}
-          {esSinCargo && (
-            <span className="text-green-600 text-xs font-black shrink-0">SIN CARGO</span>
-          )}
-          <div className="flex-1" />
-          <button
-            onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-            className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black px-3 py-2.5 rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
-          >
-            <CuponIcon size={14} />
-            Agregar a cuponera
-          </button>
-        </div>
+        {/* Info rows */}
+        {promo.tokens_costo != null && (
+          esSinCargo
+            ? <div className="flex items-center gap-1.5 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
+                <span className="text-green-600 text-xs font-black">Cupón DE REGALO para vos</span>
+              </div>
+            : <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-2.5">
+                {promo.ahorroEstimado > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">Ahorrás</span>
+                    <span className="text-[13px] font-extrabold text-emerald-600">~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">Lo activás con</span>
+                  <div className="flex items-center gap-1">
+                    <CoinIcon size={13} />
+                    <span className="text-[13px] font-extrabold text-slate-800">{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
+                    <CreditTooltip />
+                    <span className="text-[10px] font-semibold text-slate-400">(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
+                  </div>
+                </div>
+              </div>
+        )}
       </div>
     </div>
   );

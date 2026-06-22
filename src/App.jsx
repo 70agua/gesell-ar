@@ -22,7 +22,7 @@ import OfertasRegaloView  from './views/OfertasRegaloView';
 import PublicarOfertaView    from './views/PublicarOfertaView';
 import BeneficiosPortalView  from './views/BeneficiosPortalView';
 
-import { getAlojamientos, getGastronomia } from './lib/datos';
+import { getAlojamientos, getGastronomia, getNegocioById } from './lib/datos';
 import { ALL_PROMOS }                      from './data/mockData';
 import { getSession, getPerfil }           from './lib/auth';
 import { supabase }                        from './lib/supabase';
@@ -30,6 +30,7 @@ import { LoadingProvider, useLoading }     from './lib/loading';
 import { CuponeraProvider }               from './lib/cuponera';
 import CuponeraDrawer                     from './components/CuponeraDrawer';
 import { FavoritosProvider }             from './lib/favoritos';
+import ChatBot                           from './components/ChatBot';
 
 // ─── Contenido de la app (necesita el contexto de loading) ───
 function AppContent() {
@@ -44,14 +45,14 @@ function AppContent() {
   const [ofertasCategoria, setOfertasCategoria] = useState(null);
   const [ofertasLocalidades, setOfertasLocalidades] = useState([]);
   const [gastroCategoria,   setGastroCategoria]   = useState('');
-  const [gastroExperiencia, setGastroExperiencia] = useState('');
+  const [gastroAventura, setGastroAventura] = useState('');
   const [gastroNavKey,      setGastroNavKey]      = useState(0);
   const [scrolled, setScrolled]         = useState(false);
   const [session, setSession]           = useState(null);
   const [perfil, setPerfil]             = useState(null);
   const [authLoading, setAuthLoading]   = useState(true);
   const [alojamientos, setAlojamientos] = useState([]);
-  const [gastronomia, setGastronomia]   = useState([]);
+  const [salidas, setSalidas]   = useState([]);
   const [loginInitialTab, setLoginInitialTab] = useState('ingresar');
 
   useEffect(() => {
@@ -64,7 +65,7 @@ function AppContent() {
     async function cargarDatos() {
       const [aloj, gastro] = await Promise.all([getAlojamientos(), getGastronomia()]);
       setAlojamientos(aloj);
-      setGastronomia(gastro);
+      setSalidas(gastro);
     }
     cargarDatos();
   }, []);
@@ -85,7 +86,12 @@ function AppContent() {
     window.scrollTo(0, 0);
   };
 
-  const handleOpenOferta = (oferta) => {
+  const handleOpenOferta = async (oferta) => {
+    if (oferta?.categoria === 'alojamiento' && oferta?.negocioId) {
+      let neg = alojamientos.find(a => String(a.id) === String(oferta.negocioId));
+      if (!neg) neg = await getNegocioById(oferta.negocioId);
+      if (neg) { handleOpenDetail(neg, 'alojamiento'); return; }
+    }
     setSelectedOferta(oferta);
     setView('oferta-detail');
     window.scrollTo(0, 0);
@@ -107,10 +113,10 @@ function AppContent() {
   const handleOpenNegocio = (negocioId) => {
     const neg =
       alojamientos.find(a => String(a.id) === String(negocioId)) ||
-      gastronomia.find(g => String(g.id) === String(negocioId));
+      salidas.find(g => String(g.id) === String(negocioId));
     if (neg) {
-      const tipo = gastronomia.some(g => String(g.id) === String(negocioId))
-        ? 'gastronomia'
+      const tipo = salidas.some(g => String(g.id) === String(negocioId))
+        ? 'salidas'
         : 'alojamiento';
       handleOpenDetail(neg, tipo);
     }
@@ -118,8 +124,8 @@ function AppContent() {
 
   // Navega a la sección correcta según categoría de oferta
   const handleOpenSeccion = (categoria) => {
-    if (categoria === 'gastronomia') {
-      setView('gastronomia');
+    if (categoria === 'salidas') {
+      setView('salidas');
     } else if (categoria === 'ofertas') {
       // Desde OfertaDetailView — siempre va al listado de ofertas
       setMarketplaceLocalidad('');
@@ -151,9 +157,10 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','gastronomia','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal'];
 
   return (
+    <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
     <CuponeraProvider session={session} onLoginRequired={() => setView('login')}>
       {/* Loading global — se activa con showLoading() desde cualquier vista */}
       {isLoading && <LoadingScreen />}
@@ -180,9 +187,9 @@ function AppContent() {
                 setMarketplaceLocalidad('');
               }
               if (opts.tipo !== undefined) setMarketplaceTipo(opts.tipo || 'todos');
-              if (opts.gastroCategoria !== undefined || opts.gastroExperiencia !== undefined) {
+              if (opts.gastroCategoria !== undefined || opts.gastroAventura !== undefined) {
                 setGastroCategoria(opts.gastroCategoria || '');
-                setGastroExperiencia(opts.gastroExperiencia || '');
+                setGastroAventura(opts.gastroAventura || '');
                 setGastroNavKey(k => k + 1);
               }
               setView(targetView);
@@ -195,7 +202,7 @@ function AppContent() {
           {view === 'home' && (
             <HomeView
               accommodations={alojamientos}
-              dining={gastronomia}
+              dining={salidas}
               onOpenDetail={handleOpenDetail}
               onVerTodas={(cat) => { setOfertasCategoria(cat || null); setView('ofertas'); window.scrollTo(0, 0); }}
               onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
@@ -203,6 +210,7 @@ function AppContent() {
               onOpenPack={handleOpenPack}
               onOpenOferta={handleOpenOferta}
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
+              onNavMarketplaceTipo={(filtro) => { setMarketplaceTipo(filtro || 'todos'); setView('marketplace'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'ofertas' && (
@@ -229,11 +237,18 @@ function AppContent() {
           {view === 'detail' && (
             <DetailView
               item={selectedItem}
+              session={session}
               onBack={() => setView('home')}
               onOpenOferta={handleOpenOferta}
               onOpenPack={handleOpenPack}
               onOpenLocalidad={handleOpenLocalidad}
               onOpenSeccion={handleOpenSeccion}
+              onOpenClase={({ localidad, clase }) => {
+                setMarketplaceLocalidad(localidad || '');
+                setMarketplaceTipo(clase || 'todos');
+                setView('marketplace');
+                window.scrollTo(0, 0);
+              }}
             />
           )}
           {view === 'oferta-detail' && (
@@ -291,16 +306,16 @@ function AppContent() {
           {view === 'socios' && (
             <SociosView onBack={() => setView('home')} />
           )}
-          {view === 'gastronomia' && (
+          {view === 'salidas' && (
             <GastronomyView
               key={gastroNavKey}
-              onBack={() => { setGastroCategoria(''); setGastroExperiencia(''); setView('home'); }}
+              onBack={() => { setGastroCategoria(''); setGastroAventura(''); setView('home'); }}
               session={session}
               onLoginClick={() => setView('login')}
               onOpenDetail={handleOpenDetail}
               onVerOfertas={() => { setOfertasCategoria(null); setView('ofertas'); window.scrollTo(0,0); }}
               initialCategoria={gastroCategoria}
-              initialExperiencia={gastroExperiencia}
+              initialAventura={gastroAventura}
             />
           )}
           {view === 'superadmin' && (
@@ -326,6 +341,7 @@ function AppContent() {
         {PUBLIC_VIEWS.includes(view) && <Footer onNavigate={(v) => { setView(v); window.scrollTo(0,0); }} />}
 
         <CuponeraDrawer />
+        <ChatBot />
 
         <style dangerouslySetInnerHTML={{ __html: `
           .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -337,6 +353,7 @@ function AppContent() {
         `}} />
       </div>
     </CuponeraProvider>
+    </FavoritosProvider>
   );
 }
 
@@ -344,9 +361,7 @@ function AppContent() {
 export default function App() {
   return (
     <LoadingProvider>
-      <FavoritosProvider>
-        <AppContent />
-      </FavoritosProvider>
+      <AppContent />
     </LoadingProvider>
   );
 }

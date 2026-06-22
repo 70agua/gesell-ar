@@ -187,7 +187,7 @@ export default function CuponeraDrawer() {
       <div
         onClick={closeDrawer}
         style={{
-          position: 'fixed', inset: 0, zIndex: 80,
+          position: 'fixed', inset: 0, zIndex: 8000,
           background: 'rgba(11,16,32,0.45)',
           backdropFilter: 'blur(2px)',
           WebkitBackdropFilter: 'blur(2px)',
@@ -199,7 +199,7 @@ export default function CuponeraDrawer() {
       <aside
         style={{
           position: 'fixed', top: 0, right: 0, height: '100vh',
-          width: 444, maxWidth: '92vw', zIndex: 81,
+          width: 444, maxWidth: '92vw', zIndex: 8001,
           background: A.bg,
           boxShadow: '-30px 0 80px -40px rgba(11,16,32,0.5)',
           display: 'flex', flexDirection: 'column',
@@ -345,7 +345,7 @@ export default function CuponeraDrawer() {
           {/* TrustLine */}
           {!empty && (
             <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 11.5, color: A.muted }}>
-              <LockIcon width={13} height={13} /> Pago protegido · Garantía gesell.ar
+              <LockIcon width={13} height={13} /> Pago protegido · Garantía Cuponear
             </div>
           )}
         </div>

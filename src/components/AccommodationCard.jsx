@@ -10,7 +10,7 @@ export default function AccommodationCard({ item, onClick, discountTags = {} }) 
   const [hovered, setHovered] = useState(false);
   const { gastro, exp } = discountTags;
   const tagLabel = gastro && exp
-    ? 'Descuentos en restaurantes y experiencias'
+    ? 'Descuentos en restaurantes y salidas y aventura & relax'
     : gastro ? 'Descuentos en restaurantes'
     : exp    ? 'Descuentos en aventura & relax'
     : null;

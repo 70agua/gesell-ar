@@ -147,7 +147,7 @@ function Terminos({ checked, onChange }) {
         {checked && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
       </div>
       <span style={{ fontSize: 13, color: A.ink2, lineHeight: 1.5, fontFamily: A.font }}>
-        Acepto los <button type="button" onClick={e => e.stopPropagation()} style={{ background: 'none', border: 'none', color: A.primary, fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: A.font }}>términos y condiciones</button> y la política de privacidad de gesell.ar
+        Acepto los <button type="button" onClick={e => e.stopPropagation()} style={{ background: 'none', border: 'none', color: A.primary, fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: A.font }}>términos y condiciones</button> y la política de privacidad de Cuponear
       </span>
     </div>
   );
@@ -428,8 +428,8 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
 
         {/* Logo */}
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', marginBottom: 32 }}>
-          <img src="/logo-cuponera.svg" alt="gesell.ar" style={{ height: 44, width: 'auto' }} />
-          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: A.primary, fontFamily: A.font }}>gesell.ar</span>
+          <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 44, width: 'auto' }} />
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: A.primary, fontFamily: A.font }}>Cuponear</span>
         </button>
 
         <div>
@@ -497,7 +497,7 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
                   {[
                     { id: 'visitante',  icon: <img src="/turista.svg"   alt="" style={{ width: 56, height: 56 }} />, title: 'Visitante',           sub: 'Explorá ofertas y armá tu cuponera' },
                     { id: 'alojamiento',icon: null,                                                                   title: 'Alojamiento',         sub: 'Dar a conocer mi hotel, cabaña, apart, etc' },
-                    { id: 'comercio',   icon: <img src="/anunciar.svg"  alt="" style={{ width: 56, height: 56 }} />, title: 'Comercio o servicio', sub: 'Gastronomía, aventura, relax, experiencias' },
+                    { id: 'comercio',   icon: <img src="/anunciar.svg"  alt="" style={{ width: 56, height: 56 }} />, title: 'Comercio o servicio', sub: 'Salidas, aventura, relax, experiencias' },
                   ].map(opt => (
                     <button key={opt.id} type="button"
                       onClick={() => { setTipoReg(opt.id); setError(''); setRegStep(2); }}
@@ -579,7 +579,7 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
                   <Terminos checked={sTerminos} onChange={setSTerminos} />
                   <BtnSubmit loading={loading} label="Continuar" loadingLabel="Creando cuenta..." />
                   <p style={{ fontSize: 11, color: A.muted, textAlign: 'center', lineHeight: 1.6, fontFamily: A.font }}>
-                    Tu cuenta quedará activa una vez que el equipo de gesell.ar la apruebe.
+                    Tu cuenta quedará activa una vez que el equipo de Cuponear la apruebe.
                   </p>
                 </form>
               )}
@@ -659,7 +659,7 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                     <Check size={28} color={A.green} />
                   </div>
-                  <h2 style={{ fontSize: 20, fontWeight: 700, color: A.ink, margin: '0 0 8px', fontFamily: A.font }}>¡Bienvenido/a a gesell.ar!</h2>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: A.ink, margin: '0 0 8px', fontFamily: A.font }}>¡Bienvenido/a a Cuponear!</h2>
                   <p style={{ fontSize: 14, color: A.muted, lineHeight: 1.6, fontFamily: A.font, margin: '0 0 24px' }}>
                     {tipoReg === 'visitante'
                       ? 'Te enviamos un email de confirmación. Una vez confirmado podés explorar todas las ofertas.'
