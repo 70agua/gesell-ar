@@ -12,7 +12,7 @@ const T = {
   muted:       '#6B7280',
   line:        '#E7E9EE',
   bg:          '#F7F7F8',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 const MESES      = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -147,17 +147,19 @@ export default function DateRangePicker({ value, onChange, variant = 'search' })
       position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 1000,
       background: '#fff', border: `1px solid ${T.line}`, borderRadius: 16,
       boxShadow: '0 16px 48px -16px rgba(11,16,32,0.22)',
-      padding: '16px 20px 14px',
+      padding: '14px 20px 14px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <button
           onClick={() => setBase(b => { const p = prevMo(b.y, b.m); return { y: p.y, m: p.m }; })}
-          style={{ width: 28, height: 28, border: `1px solid ${T.line}`, borderRadius: 8, background: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', color: T.ink, fontSize: 16 }}
+          style={{ width: 28, height: 28, border: `1px solid ${T.line}`, borderRadius: 8, background: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', color: T.ink, fontSize: 16, flexShrink: 0 }}
         >‹</button>
-        <div />
+        <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, color: T.ink }}>
+          {!value?.desde ? 'Elegí tu fecha de entrada' : !value?.hasta ? 'Ahora la fecha de salida' : `${value.desde.toLocaleDateString('es-AR')} → ${value.hasta.toLocaleDateString('es-AR')}`}
+        </div>
         <button
           onClick={() => setBase(b => { const n = nextMo(b.y, b.m); return { y: n.y, m: n.m }; })}
-          style={{ width: 28, height: 28, border: `1px solid ${T.line}`, borderRadius: 8, background: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', color: T.ink, fontSize: 16 }}
+          style={{ width: 28, height: 28, border: `1px solid ${T.line}`, borderRadius: 8, background: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', color: T.ink, fontSize: 16, flexShrink: 0 }}
         >›</button>
       </div>
       <div style={{ display: 'flex', gap: 24 }}>
@@ -165,17 +167,14 @@ export default function DateRangePicker({ value, onChange, variant = 'search' })
         <div style={{ width: 1, background: T.line, alignSelf: 'stretch' }} />
         <MonthGrid y={m2.y} m={m2.m} />
       </div>
-      <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 12, color: T.muted }}>
-          {!value?.desde ? 'Elegí tu fecha de entrada' : !value?.hasta ? 'Ahora la fecha de salida' : `${value.desde.toLocaleDateString('es-AR')} → ${value.hasta.toLocaleDateString('es-AR')}`}
-        </span>
-        {hasValue && (
+      {hasValue && (
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${T.line}`, display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={() => onChange({ desde: null, hasta: null })}
             style={{ background: 'none', border: 'none', color: T.primary, fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, fontFamily: T.font }}
           >Borrar fechas</button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 
@@ -185,11 +184,10 @@ export default function DateRangePicker({ value, onChange, variant = 'search' })
       <div style={{ position: 'relative', borderRight: `1px solid ${T.line}`, flexShrink: 0 }} ref={ref}>
         <button
           onClick={() => setOpen(o => !o)}
-          style={{ padding: '14px 18px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 5, width: 178 }}
+          style={{ padding: '20px 18px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 5, width: 178 }}
         >
-          <div style={{ fontSize: 10, color: T.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Fechas</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: T.primary, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-            <IcoCalendar />
+          <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+            <span style={{ color: T.primary, display: 'flex' }}><IcoCalendar /></span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labelText()}</span>
           </div>
         </button>

@@ -30,7 +30,7 @@ const A = {
   greenBg:     '#eaf4ee',
   red:         '#b82828',
   redBg:       '#fceaea',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 // ─── Datos estáticos ────────────────────────────────────────

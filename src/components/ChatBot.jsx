@@ -2,26 +2,26 @@
 //  src/components/ChatBot.jsx
 //  Asistente flotante con sugerencias de FAQ
 // ============================================================
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, ChevronRight } from 'lucide-react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import emailjs from '@emailjs/browser';
 
-// ─── EmailJS config — completar en https://www.emailjs.com ────
-const EJ_SERVICE_ID  = 'service_qeuvztw';   // ej: 'service_abc123'
-const EJ_TEMPLATE_ID = 'template_hclzgwc';  // ej: 'template_xyz789'
-const EJ_PUBLIC_KEY  = 'Y25bM1g5vQF9_cMi2L_k9';   // ej: 'aBcDeFgHiJkLmNoP'
+// ─── EmailJS config ────────────────────────────────────────
+const EJ_SERVICE_ID  = 'service_qeuvztw';
+const EJ_TEMPLATE_ID = 'template_hclzgwc';
+const EJ_PUBLIC_KEY  = 'Y25bM1g5vQF9_cMi2L_k9';
 
 const C = {
   primary:  '#2545E6',
   ink:      '#0B1020',
+  ink2:     '#3D4255',
   muted:    '#6B7280',
   line:     '#E7E9EE',
   bg:       '#F7F7F8',
   green:    '#10A36B',
 };
 
-// FAQs destacadas para mostrar al abrir por primera vez
 const TOP_FAQS = [1, 2, 14];
 
 const FAQS = [
@@ -62,7 +62,24 @@ function matchFaqs(query) {
     .slice(0, 3);
 }
 
-// ─── Avatar del bot (botface.png) ────────────────────────────
+// ─── Typewriter hook ──────────────────────────────────────────
+function useTypewriter(text, speed = 18) {
+  const [displayed, setDisplayed] = useState('');
+  useEffect(() => {
+    if (!text) { setDisplayed(''); return; }
+    setDisplayed('');
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, speed);
+    return () => clearInterval(id);
+  }, [text, speed]);
+  return displayed;
+}
+
+// ─── Avatar del bot ────────────────────────────────────────────
 function BotAvatar({ size = 36, online = false }) {
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
@@ -79,15 +96,14 @@ function BotAvatar({ size = 36, online = false }) {
           position: 'absolute', bottom: 1, right: 1,
           width: size * 0.28, height: size * 0.28,
           borderRadius: '50%', background: '#22C55E',
-          border: '1px solid #fff',
-          display: 'block',
+          border: '1px solid #fff', display: 'block',
         }} />
       )}
     </div>
   );
 }
 
-// ─── Chip de acción (al pie de respuesta del bot) ─────────────
+// ─── Chip de acción ────────────────────────────────────────────
 function ActionChip({ label, onClick }) {
   return (
     <button
@@ -108,22 +124,37 @@ function ActionChip({ label, onClick }) {
   );
 }
 
-// ─── Burbuja de mensaje ───────────────────────────────────────
-function Bubble({ msg, onShowFaqs }) {
+// ─── Burbuja de mensaje ────────────────────────────────────────
+// instant: el mensaje ya se mostró antes (remount) → sin animación
+function Bubble({ msg, onShowFaqs, instant, onSeen }) {
   const isBot = msg.from === 'bot';
+  const animate = isBot && !instant;          // solo el bot nuevo se "escribe"
+  const typed = useTypewriter(animate ? msg.text : null, 18);
+  const displayText = isBot ? (animate ? typed : msg.text) : msg.text;
+  const fullyTyped = !animate || typed.length >= (msg.text?.length ?? 0);
+
+  // Marca el mensaje como visto al montar: no se re-animará en futuros remounts,
+  // aun si su escritura quedó interrumpida.
+  useEffect(() => { onSeen?.(); }, []);
+
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexDirection: isBot ? 'row' : 'row-reverse' }}>
+    <div style={{
+      display: 'flex', gap: 8, alignItems: 'flex-end',
+      flexDirection: isBot ? 'row' : 'row-reverse',
+      animation: instant ? undefined : 'msgIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both',
+    }}>
       {isBot && <BotAvatar size={28} />}
       <div style={{
-        maxWidth: '82%', padding: '9px 13px', borderRadius: isBot ? '14px 14px 14px 4px' : '14px 14px 4px 14px',
+        maxWidth: '82%', padding: '9px 13px',
+        borderRadius: isBot ? '14px 14px 14px 4px' : '14px 14px 4px 14px',
         background: isBot ? C.bg : C.primary,
         color: isBot ? C.ink : '#fff',
         fontSize: 13, lineHeight: 1.5,
         border: isBot ? `1px solid ${C.line}` : 'none',
       }}>
-        {msg.text}
-        {isBot && msg.showLink && (
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {displayText}
+        {isBot && msg.showLink && fullyTyped && (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6, animation: 'fadeIn 0.2s ease both' }}>
             <ActionChip label="Más sobre este tema" onClick={() => onShowFaqs(msg.cat)} />
             <ActionChip label="Ver todas las preguntas" onClick={() => onShowFaqs(null)} />
           </div>
@@ -133,7 +164,7 @@ function Bubble({ msg, onShowFaqs }) {
   );
 }
 
-// ─── Chip de sugerencia ───────────────────────────────────────
+// ─── Chip de sugerencia ────────────────────────────────────────
 function SuggestionChip({ faq, onClick }) {
   return (
     <button
@@ -154,7 +185,7 @@ function SuggestionChip({ faq, onClick }) {
   );
 }
 
-// ─── Vista de todas las FAQs por categoría ───────────────────
+// ─── Vista de todas las FAQs por categoría ────────────────────
 function FaqFullScreen({ onBack, onSelect, filterCat }) {
   const cats = filterCat ? [filterCat] : FAQ_CATS;
   return (
@@ -201,7 +232,7 @@ function makeCaptcha() {
   return { question: `¿Cuánto es ${a} + ${b}?`, answer: String(a + b) };
 }
 
-// ─── Formulario de contacto ───────────────────────────────────
+// ─── Formulario de contacto ────────────────────────────────────
 function ContactForm({ onBack, onSent }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '', mensaje: '' });
   const [captcha] = useState(makeCaptcha);
@@ -258,27 +289,23 @@ function ContactForm({ onBack, onSent }) {
       <p style={{ fontSize: 13, color: C.ink2, margin: 0, lineHeight: 1.5 }}>
         <b>Queremos ayudarte:</b>
       </p>
-
       <div>
         {label('Nombre y apellido')}
         <input value={form.nombre} onChange={e => set('nombre', e.target.value)}
           placeholder="Ej: María García" style={inputStyle(errors.nombre)} />
         {errors.nombre && <div style={{ fontSize: 11, color: '#E63946', marginTop: 3 }}>{errors.nombre}</div>}
       </div>
-
       <div>
         {label('E-mail')}
         <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
           placeholder="tu@email.com" style={inputStyle(errors.email)} />
         {errors.email && <div style={{ fontSize: 11, color: '#E63946', marginTop: 3 }}>{errors.email}</div>}
       </div>
-
       <div>
         {label('Teléfono (opcional)')}
         <input type="tel" value={form.telefono} onChange={e => set('telefono', e.target.value)}
           placeholder="Cód. de área + número" style={inputStyle(false)} />
       </div>
-
       <div>
         {label('Mensaje')}
         <textarea value={form.mensaje} onChange={e => set('mensaje', e.target.value)}
@@ -287,14 +314,12 @@ function ContactForm({ onBack, onSent }) {
           style={{ ...inputStyle(errors.mensaje), resize: 'none' }} />
         {errors.mensaje && <div style={{ fontSize: 11, color: '#E63946', marginTop: 3 }}>{errors.mensaje}</div>}
       </div>
-
       <div style={{ background: C.bg, borderRadius: 10, padding: '10px 12px', border: `1px solid ${C.line}` }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: C.ink, marginBottom: 6 }}>{captcha.question}</div>
         <input value={captchaInput} onChange={e => setCaptchaInput(e.target.value)}
           placeholder="Pregunta de seguridad" style={{ ...inputStyle(errors.captcha), background: '#fff' }} />
         {errors.captcha && <div style={{ fontSize: 11, color: '#E63946', marginTop: 3 }}>{errors.captcha}</div>}
       </div>
-
       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
         <button onClick={onBack}
           style={{ flex: 1, padding: '10px', borderRadius: 12, border: `1px solid ${C.line}`, background: '#fff', color: C.ink2, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -309,7 +334,7 @@ function ContactForm({ onBack, onSent }) {
   );
 }
 
-// ─── Pantalla de agradecimiento ───────────────────────────────
+// ─── Pantalla de agradecimiento ────────────────────────────────
 function ThanksScreen({ onClose }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', gap: 16, textAlign: 'center' }}>
@@ -330,8 +355,8 @@ function ThanksScreen({ onClose }) {
   );
 }
 
-// ─── Panel de chat ────────────────────────────────────────────
-function ChatPanel({ onMinimize }) {
+// ─── Panel de chat ─────────────────────────────────────────────
+function ChatPanel({ onMinimize, isClosing }) {
   const initialSuggestions = FAQS.filter(f => TOP_FAQS.includes(f.id));
 
   const [messages, setMessages] = useState([
@@ -345,6 +370,7 @@ function ChatPanel({ onMinimize }) {
   const [showContact, setShowContact] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
   const endRef = useRef(null);
+  const typedIdsRef = useRef(new Set());      // ids de mensajes ya "escritos"
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -363,25 +389,26 @@ function ChatPanel({ onMinimize }) {
   const selectFaq = (faq) => {
     setShowAllFaqs(false);
     setShowInitial(false);
-    setMessages(prev => [
-      ...prev,
-      { id: Date.now(), from: 'user', text: faq.q },
-      { id: Date.now() + 1, from: 'bot', text: faq.a, showLink: true, cat: faq.cat, faqId: faq.id },
-    ]);
     setInput('');
     setSuggestions([]);
+    // User message first
+    setMessages(prev => [...prev, { id: Date.now(), from: 'user', text: faq.q }]);
+    // Bot responds after a short delay
+    setTimeout(() => {
+      setMessages(prev => [...prev, { id: Date.now(), from: 'bot', text: faq.a, showLink: true, cat: faq.cat, faqId: faq.id }]);
+    }, 350);
   };
 
   const sendRaw = () => {
     if (!input.trim()) return;
     const matched = matchFaqs(input);
     if (matched.length > 0) return;
-    setMessages(prev => [
-      ...prev,
-      { id: Date.now(), from: 'user', text: input },
-      { id: Date.now() + 1, from: 'bot', text: 'No encontré una respuesta exacta. Intentá reformular o contactanos por WhatsApp.', showLink: true },
-    ]);
+    const userText = input;
+    setMessages(prev => [...prev, { id: Date.now(), from: 'user', text: userText }]);
     setInput('');
+    setTimeout(() => {
+      setMessages(prev => [...prev, { id: Date.now(), from: 'bot', text: 'No encontré una respuesta exacta. Intentá reformular o contactanos por WhatsApp.', showLink: true }]);
+    }, 350);
   };
 
   const activeSuggestions = showInitial ? initialSuggestions : suggestions;
@@ -394,6 +421,10 @@ function ChatPanel({ onMinimize }) {
       boxShadow: '0 16px 60px rgba(11,16,32,0.2)',
       display: 'flex', flexDirection: 'column',
       maxHeight: '72vh',
+      transformOrigin: 'bottom right',
+      animation: isClosing
+        ? 'chatClose 0.32s cubic-bezier(0.55,0,0.45,1) both'
+        : 'chatOpen 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
     }}>
       {/* Header */}
       <div style={{ background: C.primary, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -426,19 +457,24 @@ function ChatPanel({ onMinimize }) {
                 {/* Mensajes */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {messages.map(msg => (
-                    <Bubble key={msg.id} msg={msg} onShowFaqs={(cat) => { setFilterCat(cat || null); setShowAllFaqs(true); }} />
+                    <Bubble
+                      key={msg.id}
+                      msg={msg}
+                      instant={typedIdsRef.current.has(msg.id)}
+                      onSeen={() => typedIdsRef.current.add(msg.id)}
+                      onShowFaqs={(cat) => { setFilterCat(cat || null); setShowAllFaqs(true); }}
+                    />
                   ))}
                   <div ref={endRef} />
                 </div>
 
-                {/* Sugerencias (iniciales o por búsqueda) */}
+                {/* Sugerencias */}
                 {activeSuggestions.length > 0 && (
                   <div style={{ padding: '8px 12px', borderTop: `1px solid ${C.line}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: 2 }}>
                       {showInitial ? 'Preguntas frecuentes' : 'Seleccioná tu consulta'}
                     </span>
                     {activeSuggestions.map(faq => <SuggestionChip key={faq.id} faq={faq} onClick={selectFaq} />)}
-                    {/* Ver más + Contactar */}
                     {showInitial && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 12px 4px' }}>
                         <button
@@ -454,41 +490,43 @@ function ChatPanel({ onMinimize }) {
                     )}
                   </div>
                 )}
-          </>
+              </>
       }
 
-      {/* Input — solo en modo chat */}
-      {!showAllFaqs && !showContact && !showThanks && <div style={{ padding: '10px 12px', borderTop: `1px solid ${C.line}`, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <input
-          value={input}
-          onChange={e => handleInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendRaw()}
-          placeholder="Escribí tu pregunta..."
-          style={{
-            flex: 1, border: `1px solid ${C.line}`, borderRadius: 10,
-            padding: '8px 12px', fontSize: 13, outline: 'none',
-            background: C.bg, color: C.ink,
-          }}
-          onFocus={e => e.target.style.borderColor = C.primary}
-          onBlur={e => e.target.style.borderColor = C.line}
-          autoFocus
-        />
-        <button
-          onClick={sendRaw}
-          style={{
-            background: C.primary, border: 'none', borderRadius: 10,
-            width: 36, height: 36, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}
-        >
-          <Send size={15} color="#fff" />
-        </button>
-      </div>}
+      {/* Input */}
+      {!showAllFaqs && !showContact && !showThanks && (
+        <div style={{ padding: '10px 12px', borderTop: `1px solid ${C.line}`, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            value={input}
+            onChange={e => handleInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && sendRaw()}
+            placeholder="Escribí tu pregunta..."
+            style={{
+              flex: 1, border: `1px solid ${C.line}`, borderRadius: 10,
+              padding: '8px 12px', fontSize: 13, outline: 'none',
+              background: C.bg, color: C.ink,
+            }}
+            onFocus={e => e.target.style.borderColor = C.primary}
+            onBlur={e => e.target.style.borderColor = C.line}
+            autoFocus
+          />
+          <button
+            onClick={sendRaw}
+            style={{
+              background: C.primary, border: 'none', borderRadius: 10,
+              width: 36, height: 36, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
+          >
+            <Send size={15} color="#fff" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Círculo minimizado (cara del bot) ───────────────────────
+// ─── Círculo minimizado ────────────────────────────────────────
 function MinimizedDot({ onClick }) {
   return (
     <button
@@ -501,8 +539,8 @@ function MinimizedDot({ onClick }) {
         boxShadow: '0 4px 18px rgba(37,69,230,0.38)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'bubbleIn .3s cubic-bezier(.34,1.56,.64,1) both',
-        transition: 'transform .2s, box-shadow .2s',
         overflow: 'hidden', padding: 0,
+        transition: 'transform .2s, box-shadow .2s',
       }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
@@ -512,11 +550,14 @@ function MinimizedDot({ onClick }) {
   );
 }
 
-// ─── Globito de texto ─────────────────────────────────────────
+// ─── Globito de texto con typewriter ─────────────────────────
+const BUBBLE_TEXT = '¿Necesitás ayuda? ¡Avisame!';
+
 function SpeechBubble({ onDismiss }) {
+  const typed = useTypewriter(BUBBLE_TEXT, 35);
   return (
     <div style={{
-      position: 'fixed', bottom: 148, right: 24, zIndex: 9003,
+      position: 'fixed', bottom: 158, right: 24, zIndex: 9003,
       background: '#fff', borderRadius: 12,
       border: `1.5px solid ${C.line}`,
       boxShadow: '0 6px 24px rgba(11,16,32,0.12)',
@@ -525,7 +566,10 @@ function SpeechBubble({ onDismiss }) {
       whiteSpace: 'nowrap',
       animation: 'bubbleIn .35s cubic-bezier(.34,1.56,.64,1) both',
     }}>
-      ¿Necesitás ayuda? ¡Avisame!
+      {/* Full text invisible → fixes the bubble to full width from the start */}
+      <span style={{ opacity: 0, userSelect: 'none', pointerEvents: 'none' }}>{BUBBLE_TEXT}</span>
+      <span style={{ position: 'absolute', left: 13, top: 9 }}>{typed}</span>
+      {/* Caret triangular */}
       <span style={{
         position: 'absolute', bottom: -8, right: 28,
         width: 0, height: 0,
@@ -555,8 +599,7 @@ function SpeechBubble({ onDismiss }) {
   );
 }
 
-// ─── Robot (Lottie animado / SVG frenado) ─────────────────────
-// animate: aplica la entrada elástica directamente sobre el fixed div
+// ─── Robot (Lottie / SVG frenado) ────────────────────────────
 function RobotButton({ open, onClick, animate }) {
   return (
     <div
@@ -564,7 +607,7 @@ function RobotButton({ open, onClick, animate }) {
       title={open ? 'Cerrar asistente' : 'Abrir asistente'}
       style={{
         position: 'fixed', bottom: 10, right: 10, zIndex: 9001, cursor: 'pointer',
-        animation: animate ? 'slideUpElastic 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both' : undefined,
+        animation: animate ? 'slideUpElastic 0.55s cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
       }}
     >
       {open
@@ -578,12 +621,13 @@ function RobotButton({ open, onClick, animate }) {
 // ─── Componente principal ─────────────────────────────────────
 export default function ChatBot() {
   const [open, setOpen]                   = useState(false);
+  const [chatClosing, setChatClosing]     = useState(false);
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [minimized, setMinimized]         = useState(false);
   const [scrolledDown, setScrolledDown]   = useState(false);
   const scrolledRef = useRef(false);
+  const closingRef  = useRef(false);
 
-  // Listener registrado una sola vez; usa ref para evitar closures viejos
   useEffect(() => {
     const handler = () => {
       if (window.scrollY > 220 && !scrolledRef.current) {
@@ -595,45 +639,85 @@ export default function ChatBot() {
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  // Globito: aparece 2s después del primer scroll
+  // Globito aparece 1s después del robot
   useEffect(() => {
     if (!scrolledDown) return;
-    const t = setTimeout(() => setBubbleVisible(true), 2000);
+    const t = setTimeout(() => setBubbleVisible(true), 1000);
     return () => clearTimeout(t);
   }, [scrolledDown]);
 
-  const handleMinimize = () => { setOpen(false); setMinimized(true); setBubbleVisible(false); };
+  const handleMinimize = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setChatClosing(true);
+    setTimeout(() => {
+      setOpen(false);
+      setChatClosing(false);
+      setMinimized(true);
+      setBubbleVisible(false);
+      closingRef.current = false;
+    }, 350);
+  }, []);
+
+  const handleOpen = () => {
+    setOpen(true);
+    setChatClosing(false);
+    setBubbleVisible(false);
+  };
 
   const KEYFRAMES = `
-    @keyframes bubbleIn { from { opacity:0; transform:scale(0.8) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
-    @keyframes slideUpElastic { 0% { opacity:0; transform:translateY(160px); } 100% { opacity:1; transform:translateY(0); } }
+    @keyframes bubbleIn {
+      from { opacity:0; transform:scale(0.8) translateY(8px); }
+      to   { opacity:1; transform:scale(1)   translateY(0); }
+    }
+    @keyframes slideUpElastic {
+      0%   { opacity:0; transform:translateY(160px); }
+      100% { opacity:1; transform:translateY(0); }
+    }
+    @keyframes chatOpen {
+      0%   { opacity:0; transform:scale(0.82) translateY(24px); }
+      100% { opacity:1; transform:scale(1)    translateY(0); }
+    }
+    @keyframes chatClose {
+      0%   { opacity:1; transform:scale(1)    translateY(0); }
+      100% { opacity:0; transform:scale(0.82) translateY(24px); }
+    }
+    @keyframes msgIn {
+      from { opacity:0; transform:translateY(6px) scale(0.97); }
+      to   { opacity:1; transform:translateY(0)   scale(1); }
+    }
+    @keyframes fadeIn {
+      from { opacity:0; }
+      to   { opacity:1; }
+    }
   `;
 
-  // Oculto hasta que el usuario haga scroll (ni siquiera el dot)
   if (!scrolledDown && !minimized) return <style>{KEYFRAMES}</style>;
 
   if (minimized) {
     return (
       <>
         <style>{KEYFRAMES}</style>
-        <MinimizedDot onClick={() => { setMinimized(false); setOpen(true); }} />
+        <MinimizedDot onClick={() => { setMinimized(false); handleOpen(); }} />
       </>
     );
   }
 
+  const showChat = open || chatClosing;
+
   return (
     <>
       <style>{KEYFRAMES}</style>
-      {open && <ChatPanel onMinimize={handleMinimize} />}
-      {bubbleVisible && !open && (
+      {showChat && <ChatPanel isClosing={chatClosing} onMinimize={handleMinimize} />}
+      {bubbleVisible && !open && !chatClosing && (
         <SpeechBubble onDismiss={() => { setBubbleVisible(false); setMinimized(true); }} />
       )}
       <RobotButton
         open={open}
         animate={true}
         onClick={() => {
-          if (open) { handleMinimize(); }
-          else { setOpen(true); setBubbleVisible(false); }
+          if (open || chatClosing) { handleMinimize(); }
+          else { handleOpen(); }
         }}
       />
     </>

@@ -41,12 +41,12 @@ function CreditCoin({ size = 22 }) {
 // ─── Tabs config ─────────────────────────────────────────────
 const TABS_BASE = [
   { id: 'cuenta',       label: 'Cuenta',         Icon: CreditCard      },
+  { id: 'empresa',      label: 'Mi Empresa',     Icon: Building2       },
   { id: 'solicitudes',  label: 'Solicitudes',    Icon: Inbox, alojOnly: true },
   { id: 'ofertas',      label: 'Ofertas',        Icon: Tag             },
   { id: 'inbox',        label: 'Consultas',      Icon: MessageSquare   },
   { id: 'notif',        label: 'Notificaciones', Icon: Bell            },
   { id: 'stats',        label: 'Estadísticas',   Icon: BarChart2       },
-  { id: 'empresa',      label: 'Mi Empresa',     Icon: Building2       },
   { id: 'addons',       label: 'Add-ons',        Icon: Puzzle, separator: true },
 ];
 const TIPOS_ALOJ_ADMIN = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi']);
@@ -1032,82 +1032,529 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  TAB 5 — MI EMPRESA
+//  TAB — MI EMPRESA  (constantes + helpers)
 // ════════════════════════════════════════════════════════════
-function TabEmpresa({ negocio, showToast }) {
-  const [form, setForm] = useState({
-    nombre: negocio?.nombre || 'Hotel Gesell Mar',
-    direccion: negocio?.direccion || 'Av. 3 nº 784',
-    telefono: negocio?.telefono || '+54 9 2255 000000',
-    zona: negocio?.zona || 'Centro',
-    tipo: negocio?.tipo || 'Hotel',
-    descripcion: negocio?.descripcion || 'Hotel a media cuadra del mar, con pileta, desayuno incluido y cochera privada.',
-  });
-  const [fotos, setFotos] = useState(MOCK_FOTOS);
-  const fileRef = useRef();
+const LOCALIDADES_ADM = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
 
-  function save() { showToast('Perfil guardado correctamente', 'ok'); }
+const PROVINCIAS_AR = [
+  'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut',
+  'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy',
+  'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén',
+  'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz',
+  'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
+];
 
-  function addFoto(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setFotos(prev => [...prev, { id: Date.now(), src: url, alt: file.name }]);
-  }
+const SERVICIOS_ALOJ = [
+  'WiFi', 'Estacionamiento', 'Pileta', 'Desayuno incluido',
+  'Aire acondicionado', 'Calefacción', 'Cocina equipada', 'Parrilla',
+  'Lavarropas', 'Secador de cabello', 'TV Smart', 'Ropa de cama',
+  'Toallas incluidas', 'Caja fuerte', 'Recepción 24 hs', 'Terraza / Balcón',
+  'Vista al mar', 'Bicicletas', 'Jardín / Patio', 'Servicio de limpieza',
+];
 
+// Estilos base de campo heredados del panel
+const INP = {
+  width: '100%', boxSizing: 'border-box', padding: '10px 14px',
+  borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT,
+  fontSize: 13, color: INK, outline: 'none', background: '#fff',
+  transition: 'border-color .15s',
+};
+const LBL = {
+  fontFamily: FONT, fontSize: 11, fontWeight: 700, color: INK2,
+  display: 'block', marginBottom: 6,
+  textTransform: 'uppercase', letterSpacing: '0.05em',
+};
+
+function SecTitulo({ label, Icon: Ico }) {
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Mi Empresa</h2>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${LINE}` }}>
+      {Ico && <div style={{ width: 26, height: 26, borderRadius: 7, background: PS, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Ico size={14} color={P} /></div>}
+      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK }}>{label}</span>
+    </div>
+  );
+}
 
-      <Card>
-        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:16 }}>Datos de la propiedad</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-          {[
-            { key:'nombre', label:'Nombre comercial' },
-            { key:'tipo',   label:'Tipo de establecimiento' },
-            { key:'direccion', label:'Dirección' },
-            { key:'telefono',  label:'Teléfono' },
-            { key:'zona',      label:'Zona de la costa' },
-          ].map(f => (
-            <div key={f.key}>
-              <label style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:INK2, display:'block', marginBottom:6 }}>{f.label}</label>
-              <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]:e.target.value }))}
-                style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none', boxSizing:'border-box' }}/>
+function ToggleRow({ label, on, onChange }) {
+  return (
+    <div onClick={() => onChange(!on)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: `1px solid ${on ? P : LINE}`, borderRadius: 10, background: on ? PS : '#fff', cursor: 'pointer', userSelect: 'none', transition: 'all .15s' }}>
+      <span style={{ fontFamily: FONT, fontSize: 13, color: on ? P : INK2, fontWeight: 500 }}>{label}</span>
+      <Toggle on={on} onChange={() => {}} />
+    </div>
+  );
+}
+
+function ServiciosMulti({ selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [custom, setCustom] = useState('');
+  const toggle = (s) => onChange(selected.includes(s) ? selected.filter(x => x !== s) : [...selected, s]);
+  const addCustom = () => { const t = custom.trim(); if (t && !selected.includes(t)) onChange([...selected, t]); setCustom(''); };
+  const extras = selected.filter(s => !SERVICIOS_ALOJ.includes(s));
+  return (
+    <div>
+      <label style={LBL}>Servicios incluidos</label>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ ...INP, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderRadius: open ? '10px 10px 0 0' : 10, borderColor: open ? P : LINE, color: selected.length ? INK : MUTED }}>
+        <span style={{ fontFamily: FONT, fontSize: 13 }}>
+          {selected.length === 0 ? 'Seleccionar servicios...' : `${selected.length} servicio${selected.length !== 1 ? 's' : ''} seleccionado${selected.length !== 1 ? 's' : ''}`}
+        </span>
+        <ChevronDown size={14} color={MUTED} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }} />
+      </button>
+      {open && (
+        <div style={{ border: `1px solid ${P}`, borderTop: 'none', borderRadius: '0 0 10px 10px', padding: '12px 12px 10px', background: '#fff' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            {SERVICIOS_ALOJ.map(s => {
+              const sel = selected.includes(s);
+              return (
+                <div key={s} onClick={() => toggle(s)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: sel ? PS : 'transparent', cursor: 'pointer', userSelect: 'none', transition: 'background .1s' }}>
+                  <div style={{ width: 15, height: 15, borderRadius: 4, border: `1.5px solid ${sel ? P : LINE}`, background: sel ? P : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, transition: 'all .1s' }}>
+                    {sel && <svg width="8" height="8" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span style={{ fontSize: 12.5, color: sel ? P : INK2, fontFamily: FONT, fontWeight: sel ? 600 : 400 }}>{s}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 10, paddingTop: 10, display: 'flex', gap: 8 }}>
+            <input value={custom} onChange={e => setCustom(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
+              placeholder="Agregar otro servicio..." style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 8, padding: '7px 12px', fontSize: 12, fontFamily: FONT, color: INK, outline: 'none' }} />
+            <button type="button" onClick={addCustom} style={{ padding: '7px 14px', background: P, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>+</button>
+          </div>
+          {extras.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+              {extras.map(s => (
+                <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', background: PS, borderRadius: 999, fontSize: 12, color: P, fontFamily: FONT }}>
+                  {s} <button type="button" onClick={() => toggle(s)} style={{ background: 'none', border: 'none', color: P, cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                </span>
+              ))}
             </div>
-          ))}
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabEmpresa({ negocio, showToast }) {
+  const tipo = negocio?.tipo || '';
+  const esAloj    = tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(tipo);
+  const esSalidas = tipo === 'salidas';
+  const esAvent   = tipo === 'aventura_relax';
+
+  const parsedServicios = negocio?.servicios
+    ? negocio.servicios.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  // ── Estado del formulario ──────────────────────────────────
+  const [nombre,       setNombre]       = useState(negocio?.nombre      || '');
+  const [pais,         setPais]         = useState(negocio?.pais        || 'Argentina');
+  const [provincia,    setProvincia]    = useState(negocio?.provincia   || '');
+  const [localidad,    setLocalidad]    = useState(negocio?.localidad   || '');
+  const [codPostal,    setCodPostal]    = useState(negocio?.cod_postal  || '');
+  const [direccion,    setDireccion]    = useState(negocio?.direccion   || '');
+  const [telefCodPais, setTelefCodPais] = useState('+54');
+  const [telefCodArea, setTelefCodArea] = useState('');
+  const [telefNumero,  setTelefNumero]  = useState(negocio?.telefono   || '');
+  const [sitioWeb,     setSitioWeb]     = useState(negocio?.sitio_web  || '');
+  const [instagram,    setInstagram]    = useState(negocio?.instagram  || '');
+  const [descripcion,  setDescripcion]  = useState(negocio?.descripcion || '');
+
+  // Alojamiento
+  const [tamMinM2,          setTamMinM2]          = useState(negocio?.tam_min_m2?.toString()    || '');
+  const [tamMaxM2,          setTamMaxM2]           = useState(negocio?.tam_max_m2?.toString()    || '');
+  const [minHues,           setMinHues]            = useState(negocio?.min_huespedes?.toString() || '');
+  const [maxHues,           setMaxHues]            = useState(negocio?.max_huespedes?.toString() || '');
+  const [serviciosSelected, setServiciosSelected]  = useState(parsedServicios);
+  const [aceptaMascotas,    setAceptaMascotas]     = useState(negocio?.acepta_mascotas || false);
+  const [aceptaNinos,       setAceptaNinos]        = useState(negocio?.acepta_ninos    ?? true);
+
+  // Salidas
+  const [capacidad,  setCapacidad]  = useState(negocio?.capacidad?.toString() || '');
+  const [tipoCocina, setTipoCocina] = useState(negocio?.tipo_cocina           || '');
+
+  // Aventura & Relax
+  const [duracion,  setDuracion]  = useState(negocio?.duracion             || '');
+  const [maxPax,    setMaxPax]    = useState(negocio?.max_pax?.toString()   || '');
+  const [sedeFija,  setSedeFija]  = useState(negocio?.sede_fija             || '');
+
+  // Logo + galería
+  const [logoPreview, setLogoPreview] = useState(negocio?.imagen_url || null);
+  const [logoFile,    setLogoFile]    = useState(null);
+  const logoRef = useRef();
+  const [fotos,   setFotos]   = useState(MOCK_FOTOS);
+  const [dragIdx, setDragIdx] = useState(null);
+  const fotoRef = useRef();
+  const [saving, setSaving] = useState(false);
+
+  // ── Drag & drop para reordenar galería ──────────────────────
+  const onDragStart = (idx) => setDragIdx(idx);
+  const onDragOver  = (e, idx) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    setFotos(prev => {
+      const arr  = [...prev];
+      const [moved] = arr.splice(dragIdx, 1);
+      arr.splice(idx, 0, moved);
+      return arr;
+    });
+    setDragIdx(idx);
+  };
+  const onDragEnd = () => setDragIdx(null);
+
+  // ── Layout adaptivo según cantidad de fotos ──────────────────
+  const galleryStyle = (n) => {
+    if (n === 0) return {};
+    if (n === 1) return { gridTemplateColumns:'1fr' };
+    if (n === 2) return { gridTemplateColumns:'1fr 1fr' };
+    if (n === 3) return { gridTemplateColumns:'2fr 1fr', gridTemplateRows:'160px 160px' };
+    if (n === 4) return { gridTemplateColumns:'1fr 1fr', gridTemplateRows:'160px 160px' };
+    return { gridTemplateColumns:'repeat(auto-fill, minmax(130px, 1fr))' };
+  };
+  const photoStyle = (n, idx) => {
+    const base = { position:'relative', borderRadius:12, overflow:'hidden', cursor:'grab' };
+    if (n === 1)   return { ...base, aspectRatio:'16/7' };
+    if (n === 2)   return { ...base, aspectRatio:'4/3' };
+    if (n === 3)   return { ...base, gridRow: idx === 0 ? 'span 2' : 'span 1', aspectRatio: idx === 0 ? 'auto' : '1' };
+    if (n === 4)   return { ...base, aspectRatio:'1' };
+    return { ...base, aspectRatio:'4/3' };
+  };
+
+  const DESC_MIN = 40;
+  const DESC_MAX = 450;
+
+  const handleLogoChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setLogoFile(f);
+    const reader = new FileReader();
+    reader.onload = ev => setLogoPreview(ev.target.result);
+    reader.readAsDataURL(f);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const payload = {
+        nombre, pais, provincia, localidad,
+        cod_postal: codPostal, direccion,
+        telefono: [telefCodPais, telefCodArea, telefNumero].filter(Boolean).join(' '),
+        sitio_web: sitioWeb, instagram, descripcion,
+      };
+      if (esAloj) {
+        Object.assign(payload, {
+          tam_min_m2: tamMinM2 ? parseFloat(tamMinM2) : null,
+          tam_max_m2: tamMaxM2 ? parseFloat(tamMaxM2) : null,
+          min_huespedes: minHues ? parseInt(minHues) : null,
+          max_huespedes: maxHues ? parseInt(maxHues) : null,
+          servicios: serviciosSelected.join(', '),
+          acepta_mascotas: aceptaMascotas,
+          acepta_ninos:    aceptaNinos,
+        });
+      } else if (esSalidas) {
+        payload.capacidad   = capacidad ? parseInt(capacidad) : null;
+        payload.tipo_cocina = tipoCocina;
+      } else if (esAvent) {
+        payload.duracion  = duracion;
+        payload.max_pax   = maxPax ? parseInt(maxPax) : null;
+        payload.sede_fija = sedeFija;
+      }
+
+      if (logoFile && negocio?.id) {
+        try {
+          const ext = logoFile.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage
+            .from('negocios').upload(`logos/${negocio.id}.${ext}`, logoFile, { upsert: true });
+          if (up) {
+            const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path);
+            payload.imagen_url = ud.publicUrl;
+          }
+        } catch { /* logo se puede subir más tarde */ }
+      }
+
+      if (negocio?.id) {
+        const { error } = await supabase.from('negocios').update(payload).eq('id', negocio.id);
+        if (error) throw error;
+      }
+      showToast('Perfil guardado correctamente', 'ok');
+    } catch (err) {
+      showToast(err?.message || 'Error al guardar', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 740 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: INK, margin: 0, flex: 1 }}>Mi Empresa</h2>
+        {negocio?.categoria && negocio.categoria.split(' / ').map(c => <Pill key={c} label={c} />)}
+      </div>
+
+      {/* ── Identidad ── */}
+      <Card>
+        <SecTitulo label="Identidad" Icon={Building2} />
+        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+
+          {/* Logo circular */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div onClick={() => logoRef.current?.click()} style={{ width: 96, height: 96, borderRadius: '50%', border: `2px dashed ${logoPreview ? P : LINE}`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: logoPreview ? 'transparent' : BG, transition: 'border-color .15s', position: 'relative' }}>
+              {logoPreview
+                ? <img src={logoPreview} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : (
+                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="18" r="10" fill={LINE} />
+                    <path d="M4 46c0-11.046 8.954-20 20-20s20 8.954 20 20" fill={LINE} />
+                  </svg>
+                )
+              }
+            </div>
+            <button type="button" onClick={() => logoRef.current?.click()} style={{ fontSize: 11, fontWeight: 700, color: P, background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT }}>
+              {logoPreview ? 'Cambiar logo' : 'Subir logo'}
+            </button>
+            <span style={{ fontSize: 10, color: MUTED, fontFamily: FONT, textAlign: 'center', maxWidth: 80 }}>PNG, JPG · hasta 5 MB</span>
+            <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoChange} style={{ display: 'none' }} />
+          </div>
+
+          {/* Nombre + tipo */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={LBL}>Nombre del negocio</label>
+              <input value={nombre} onChange={e => setNombre(e.target.value)} style={INP} placeholder="Ej: Hotel La Costa" />
+            </div>
+            <div>
+              <label style={LBL}>Tipo</label>
+              <div style={{ padding: '10px 14px', borderRadius: 10, border: `1px solid ${LINE}`, background: BG, fontFamily: FONT, fontSize: 13, color: INK2 }}>
+                {tipo || '—'} {negocio?.categoria ? `· ${negocio.categoria}` : ''}
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
 
+      {/* ── Ubicación ── */}
       <Card>
-        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:12 }}>Descripción pública</div>
-        <textarea value={form.descripcion} onChange={e => setForm(p => ({ ...p, descripcion:e.target.value }))} rows={4}
-          style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none', resize:'vertical', boxSizing:'border-box' }}/>
+        <SecTitulo label="Ubicación" Icon={Map} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={LBL}>País</label>
+              <select value={pais} onChange={e => setPais(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
+                {['Argentina', 'Uruguay', 'Brasil', 'Chile', 'Paraguay', 'Bolivia', 'España', 'Otro'].map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={LBL}>Provincia</label>
+              <select value={provincia} onChange={e => setProvincia(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
+                <option value="">Seleccioná</option>
+                {PROVINCIAS_AR.map(pr => <option key={pr} value={pr}>{pr}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={LBL}>Localidad</label>
+              <select value={localidad} onChange={e => setLocalidad(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
+                <option value="">Seleccioná</option>
+                {LOCALIDADES_ADM.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={LBL}>Código postal</label>
+              <input value={codPostal} onChange={e => setCodPostal(e.target.value)} style={INP} placeholder="7165" maxLength={8} />
+            </div>
+          </div>
+          <div>
+            <label style={LBL}>Domicilio</label>
+            <input value={direccion} onChange={e => setDireccion(e.target.value)} style={INP} placeholder="Av. 3 nº 784" />
+          </div>
+        </div>
       </Card>
 
+      {/* ── Contacto ── */}
       <Card>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-          <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>Galería de imágenes</div>
-          <button onClick={() => fileRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, border:`1px dashed ${P}`, background:PS, color:P, fontFamily:FONT, fontSize:12, fontWeight:600, cursor:'pointer' }}>
-            <Upload size={14}/> Subir foto
+        <SecTitulo label="Contacto" Icon={Smartphone} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={LBL}>Teléfono</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select value={telefCodPais} onChange={e => setTelefCodPais(e.target.value)} style={{ ...INP, width: 90, flexShrink: 0, cursor: 'pointer' }}>
+                {['+54', '+598', '+56', '+55', '+595', '+591', '+1'].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input value={telefCodArea} onChange={e => setTelefCodArea(e.target.value.replace(/\D/g, ''))} style={{ ...INP, width: 100, flexShrink: 0 }} placeholder="02255" maxLength={6} />
+              <input value={telefNumero} onChange={e => setTelefNumero(e.target.value.replace(/\D/g, ''))} style={{ ...INP, flex: 1 }} placeholder="432100" maxLength={10} />
+            </div>
+            <span style={{ fontSize: 11, color: MUTED, fontFamily: FONT, marginTop: 5, display: 'block' }}>Cód. país · Cód. área · Número</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={LBL}>Sitio web</label>
+              <input value={sitioWeb} onChange={e => setSitioWeb(e.target.value)} style={INP} placeholder="https://mihotel.com.ar" />
+            </div>
+            <div>
+              <label style={LBL}>Instagram</label>
+              <input value={instagram} onChange={e => setInstagram(e.target.value)} style={INP} placeholder="@mi.negocio" />
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Características (condicional por tipo) ── */}
+      {(esAloj || esSalidas || esAvent) && (
+        <Card>
+          <SecTitulo label="Características" Icon={Store} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {esAloj && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={LBL}>Unidad más chica (m²)</label>
+                    <input type="number" value={tamMinM2} onChange={e => setTamMinM2(e.target.value)} style={INP} placeholder="Ej: 22" />
+                  </div>
+                  <div>
+                    <label style={LBL}>Unidad más grande (m²)</label>
+                    <input type="number" value={tamMaxM2} onChange={e => setTamMaxM2(e.target.value)} style={INP} placeholder="Ej: 65" />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={LBL}>Mín. huéspedes por unidad</label>
+                    <input type="number" value={minHues} onChange={e => setMinHues(e.target.value)} style={INP} placeholder="Ej: 2" />
+                  </div>
+                  <div>
+                    <label style={LBL}>Máx. huéspedes (unidad amplia)</label>
+                    <input type="number" value={maxHues} onChange={e => setMaxHues(e.target.value)} style={INP} placeholder="Ej: 6" />
+                  </div>
+                </div>
+                <ServiciosMulti selected={serviciosSelected} onChange={setServiciosSelected} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <ToggleRow label="Acepta mascotas" on={aceptaMascotas} onChange={setAceptaMascotas} />
+                  <ToggleRow label="Acepta niños"    on={aceptaNinos}    onChange={setAceptaNinos}    />
+                </div>
+              </>
+            )}
+
+            {esSalidas && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={LBL}>Capacidad (cubiertos / personas)</label>
+                  <input type="number" value={capacidad} onChange={e => setCapacidad(e.target.value)} style={INP} placeholder="Ej: 80" />
+                </div>
+                <div>
+                  <label style={LBL}>Tipo de cocina / propuesta</label>
+                  <input value={tipoCocina} onChange={e => setTipoCocina(e.target.value)} style={INP} placeholder="Parrilla, cocina de mar..." />
+                </div>
+              </div>
+            )}
+
+            {esAvent && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={LBL}>Duración aproximada</label>
+                    <input value={duracion} onChange={e => setDuracion(e.target.value)} style={INP} placeholder="Ej: 2 horas, jornada completa" />
+                  </div>
+                  <div>
+                    <label style={LBL}>Participantes máximos</label>
+                    <input type="number" value={maxPax} onChange={e => setMaxPax(e.target.value)} style={INP} placeholder="Ej: 12" />
+                  </div>
+                </div>
+                <div>
+                  <label style={LBL}>¿La experiencia tiene sede fija?</label>
+                  <select value={sedeFija} onChange={e => setSedeFija(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
+                    <option value="">Seleccioná</option>
+                    <option value="fija">Sí, tiene dirección fija</option>
+                    <option value="domicilio">No, voy al domicilio del cliente</option>
+                    <option value="variable">Tiene punto de encuentro variable</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Descripción ── */}
+      <Card>
+        <SecTitulo label="Descripción pública" Icon={MessageSquare} />
+        <div>
+          <label style={LBL}>
+            {esAloj
+              ? 'Contale a tus huéspedes brevemente sobre tu alojamiento'
+              : 'Contale a tus visitantes brevemente sobre tu negocio'}
+          </label>
+          <textarea value={descripcion} onChange={e => setDescripcion(e.target.value.slice(0, DESC_MAX))} rows={5}
+            placeholder="Somos un hotel familiar a media cuadra del mar, con pileta, desayuno incluido y estacionamiento privado..."
+            style={{ ...INP, resize: 'vertical', minHeight: 110 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+            <span style={{ fontSize: 11, fontFamily: FONT, color: descripcion.length > 0 && descripcion.length < DESC_MIN ? '#ef4444' : 'transparent' }}>
+              Mínimo {DESC_MIN} caracteres
+            </span>
+            <span style={{ fontSize: 11, fontFamily: FONT, color: descripcion.length > DESC_MAX * 0.9 ? '#ef4444' : MUTED }}>
+              {descripcion.length} / {DESC_MAX}
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Galería ── */}
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK }}>Galería de imágenes</span>
+          <button onClick={() => fotoRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${P}`, background: PS, color: P, fontFamily: FONT, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <Upload size={14} /> Subir foto
           </button>
-          <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={addFoto}/>
+          <input ref={fotoRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => {
+            const files = [...(e.target.files || [])];
+            files.forEach(f => setFotos(prev => [...prev, { id: Date.now() + Math.random(), src: URL.createObjectURL(f), alt: f.name }]));
+          }} />
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }}>
-          {fotos.map(f => (
-            <div key={f.id} style={{ position:'relative', borderRadius:12, overflow:'hidden', aspectRatio:'4/3' }}>
-              <img src={f.src} alt={f.alt} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-              <button onClick={() => setFotos(prev => prev.filter(x => x.id !== f.id))}
-                style={{ position:'absolute', top:6, right:6, width:26, height:26, borderRadius:'50%', background:'rgba(0,0,0,0.6)', border:'none', cursor:'pointer', display:'grid', placeItems:'center' }}>
-                <Trash2 size={12} color="#fff"/>
-              </button>
-            </div>
-          ))}
+
+        {/* Aviso de imágenes */}
+        <div style={{ display: 'flex', gap: 8, padding: '8px 12px', background: '#fffbeb', border: `1px solid #fcd34d`, borderRadius: 10, marginBottom: 14, alignItems: 'flex-start' }}>
+          <AlertCircle size={14} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontSize: 11.5, color: '#92400e', fontFamily: FONT, lineHeight: 1.5 }}>
+            Las fotos deben mostrar exclusivamente el lugar o servicio — sin textos, logos ni gráficas superpuestas. Podés arrastrar las fotos para reordenarlas.
+          </span>
         </div>
+
+        {fotos.length === 0 ? (
+          <div style={{ height: 140, border: `2px dashed ${LINE}`, borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: MUTED, cursor: 'pointer' }} onClick={() => fotoRef.current?.click()}>
+            <Image size={28} color={LINE} />
+            <span style={{ fontSize: 13, fontFamily: FONT }}>Subí tus fotos aquí</span>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 10, ...galleryStyle(fotos.length) }}>
+            {fotos.map((f, idx) => (
+              <div key={f.id}
+                draggable
+                onDragStart={() => onDragStart(idx)}
+                onDragOver={e => onDragOver(e, idx)}
+                onDragEnd={onDragEnd}
+                style={{ ...photoStyle(fotos.length, idx), opacity: dragIdx === idx ? 0.5 : 1, transition: 'opacity .15s' }}>
+                <img src={f.src} alt={f.alt} style={{ width: '100%', height: '100%', objectFit: 'cover', userSelect: 'none', pointerEvents: 'none' }} />
+                {/* Orden badge */}
+                <div style={{ position: 'absolute', top: 6, left: 6, width: 20, height: 20, borderRadius: 6, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: FONT }}>{idx + 1}</span>
+                </div>
+                <button onClick={() => setFotos(prev => prev.filter(x => x.id !== f.id))}
+                  style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                  <Trash2 size={11} color="#fff" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
-      <div style={{ display:'flex', justifyContent:'flex-end' }}>
-        <button onClick={save} style={{ display:'flex', alignItems:'center', gap:8, background:P, color:'#fff', border:'none', borderRadius:12, padding:'12px 24px', fontFamily:FONT, fontSize:14, fontWeight:700, cursor:'pointer' }}>
-          <Save size={16}/> Guardar cambios
+      {/* Guardar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 40 }}>
+        <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8, background: saving ? MUTED : P, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontFamily: FONT, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(71,91,225,0.3)', transition: 'background .15s' }}>
+          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
     </div>
@@ -1812,7 +2259,6 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       )}
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
         input:focus, textarea:focus, select:focus { border-color: ${P} !important; box-shadow: 0 0 0 3px ${PS}; }
       `}</style>

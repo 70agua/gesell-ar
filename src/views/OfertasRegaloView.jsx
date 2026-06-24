@@ -19,7 +19,7 @@ const C = {
   bg:          '#F7F7F8',
   green:       '#10A36B',
   red:         '#EF4444',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 // ─── OfertaCard compacta (reutiliza la de OfertaDetailView / Home) ────

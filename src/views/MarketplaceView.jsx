@@ -21,7 +21,7 @@ const A = {
   bg:          '#F7F7F8',
   yellow:      '#FFC93C',
   green:       '#10A36B',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 // label (display) → val (coincide con item.type en BD)
@@ -853,7 +853,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
           {/* Fila: título + [filtros mobile] + search */}
           <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Encontrá tu alojamiento ideal</h1>
+              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: A.ink, letterSpacing: '-0.02em', margin: 0 }}>Alojamiento, experiencias y más</h1>
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                 {loading ? (
                   <span style={{ fontSize: 13, color: A.muted }}>Cargando...</span>

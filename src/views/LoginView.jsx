@@ -1,10 +1,42 @@
 // ============================================================
 //  src/views/LoginView.jsx
 // ============================================================
-import React, { useState } from 'react';
-import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Zap, Crown, Store } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Zap, Crown, Store, Hotel, UtensilsCrossed, Sparkles, ChevronRight } from 'lucide-react';
 import { login, registrarTurista, loginConGoogle } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+
+// ─── Helpers ─────────────────────────────────────────────────
+function getSiteName() {
+  if (typeof window === 'undefined') return 'gesell.ar';
+  const h = window.location.hostname.replace('www.', '');
+  return h === 'localhost' ? 'gesell.ar' : h;
+}
+
+// ─── Taxonomía de cuentas comerciales ───────────────────────
+const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
+
+const SERVICIOS_ALOJ = [
+  'WiFi', 'Estacionamiento', 'Pileta', 'Desayuno incluido',
+  'Aire acondicionado', 'Calefacción', 'Cocina equipada', 'Parrilla',
+  'Lavarropas', 'Secador de cabello', 'TV Smart', 'Ropa de cama',
+  'Toallas incluidas', 'Caja fuerte', 'Recepción 24 hs', 'Terraza / Balcón',
+  'Vista al mar', 'Bicicletas', 'Jardín / Patio', 'Servicio de limpieza',
+];
+
+// Tipos de cuenta comercial — alineados con los 3 pilares del sitio
+const TIPOS_COMERCIO = [
+  { id: 'alojamiento',    label: 'Alojamiento',      sub: 'Hotel, cabaña, dpto\ndomo, glamping, carpa...', Icon: Hotel },
+  { id: 'salidas',        label: 'Salidas',           sub: 'Gastronomía, bar, café\nheladería, disco, teatro...', Icon: UtensilsCrossed },
+  { id: 'aventura_relax', label: 'Aventura & Relax',  sub: 'Tours, deportes, yoga\nspa, masajes, cultura...', Icon: Sparkles },
+];
+
+// Categorías / industrias por tipo
+const CATS = {
+  alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
+  salidas:        ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
+  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
+};
 
 const A = {
   primary:     '#2545E6',
@@ -17,7 +49,7 @@ const A = {
   bg:          '#F7F7F8',
   green:       '#10A36B',
   red:         '#EF4444',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 // ─── SVGs sin emojis ─────────────────────────────────────────
@@ -186,6 +218,117 @@ function TipoCard({ selected, onClick, icon, title, sub }) {
   );
 }
 
+// ─── Toggle switch ────────────────────────────────────────────
+function Toggle({ label, checked, onChange }) {
+  return (
+    <div onClick={() => onChange(!checked)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', border: `1.5px solid ${checked ? A.primary : A.line}`, borderRadius: 13, background: checked ? A.primarySoft : '#fff', cursor: 'pointer', userSelect: 'none', transition: 'all .15s' }}>
+      <span style={{ fontSize: 13, fontWeight: 500, color: checked ? A.primary : A.ink2, fontFamily: A.font }}>{label}</span>
+      <div style={{ width: 42, height: 24, borderRadius: 12, background: checked ? A.primary : A.line, position: 'relative', transition: 'background .15s', flexShrink: 0 }}>
+        <div style={{ position: 'absolute', top: 3, left: checked ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.18)', transition: 'left .15s' }} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Servicios collapsible multi-checkbox ─────────────────────
+function ServiciosField({ selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [custom, setCustom] = useState('');
+
+  const toggle = (s) => onChange(selected.includes(s) ? selected.filter(x => x !== s) : [...selected, s]);
+  const addCustom = () => {
+    const t = custom.trim();
+    if (t && !selected.includes(t)) onChange([...selected, t]);
+    setCustom('');
+  };
+  const customOnes = selected.filter(s => !SERVICIOS_ALOJ.includes(s));
+
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 6, fontFamily: A.font }}>Servicios incluidos</label>
+      {/* Trigger */}
+      <button type="button" onClick={() => setOpen(o => !o)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', border: `1.5px solid ${open ? A.primary : A.line}`, borderRadius: open ? '13px 13px 0 0' : 13, fontSize: 14, fontWeight: 500, fontFamily: A.font, color: selected.length ? A.ink : A.muted, background: '#fff', cursor: 'pointer', transition: 'border-color .15s' }}>
+        <span>{selected.length === 0 ? 'Seleccionar servicios...' : `${selected.length} servicio${selected.length !== 1 ? 's' : ''} seleccionado${selected.length !== 1 ? 's' : ''}`}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s', color: A.muted, flexShrink: 0 }}><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      {/* Panel */}
+      {open && (
+        <div style={{ border: `1.5px solid ${A.primary}`, borderTop: 'none', borderRadius: '0 0 13px 13px', padding: '14px 14px 12px', background: '#fff' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            {SERVICIOS_ALOJ.map(s => {
+              const sel = selected.includes(s);
+              return (
+                <div key={s} onClick={() => toggle(s)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 9, background: sel ? A.primarySoft : 'transparent', cursor: 'pointer', userSelect: 'none', transition: 'background .12s' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${sel ? A.primary : A.line}`, background: sel ? A.primary : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, transition: 'all .12s' }}>
+                    {sel && <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span style={{ fontSize: 12.5, color: sel ? A.primary : A.ink2, fontFamily: A.font, fontWeight: sel ? 600 : 400 }}>{s}</span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Custom */}
+          <div style={{ borderTop: `1px solid ${A.line}`, marginTop: 10, paddingTop: 10, display: 'flex', gap: 8 }}>
+            <input value={custom} onChange={e => setCustom(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }} placeholder="Agregar otro servicio..." style={{ flex: 1, border: `1px solid ${A.line}`, borderRadius: 9, padding: '8px 12px', fontSize: 13, fontFamily: A.font, color: A.ink, outline: 'none' }} />
+            <button type="button" onClick={addCustom} style={{ padding: '8px 16px', background: A.primary, color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>+</button>
+          </div>
+          {customOnes.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+              {customOnes.map(s => (
+                <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px 4px 10px', background: A.primarySoft, border: `1px solid ${A.primary}33`, borderRadius: 100, fontSize: 12, color: A.primary, fontFamily: A.font }}>
+                  {s}
+                  <button type="button" onClick={() => toggle(s)} style={{ background: 'none', border: 'none', color: A.primary, cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Upload de logo / imagen de perfil ────────────────────────
+function ImageUpload({ file, onChange }) {
+  const ref = useRef(null);
+  const [preview, setPreview] = useState(null);
+
+  const handleChange = (f) => {
+    onChange(f);
+    if (f) {
+      const reader = new FileReader();
+      reader.onload = e => setPreview(e.target.result);
+      reader.readAsDataURL(f);
+    } else {
+      setPreview(null);
+    }
+  };
+
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 6, fontFamily: A.font }}>
+        Logo o imagen del negocio <span style={{ fontWeight: 400, color: A.muted }}>(opcional)</span>
+      </label>
+      <div onClick={() => ref.current?.click()} style={{ border: `2px dashed ${preview ? A.primary : A.line}`, borderRadius: 14, padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', background: preview ? A.primarySoft : '#fafafa', transition: 'all .15s' }}>
+        {preview
+          ? <img src={preview} alt="preview" style={{ height: 80, width: 80, objectFit: 'cover', borderRadius: 12, border: `2px solid ${A.primary}33` }} />
+          : <>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={A.muted} strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <span style={{ fontSize: 13, color: A.muted, fontFamily: A.font }}>Subir logo o foto del local</span>
+              <span style={{ fontSize: 11, color: A.muted, fontFamily: A.font }}>PNG, JPG — hasta 5 MB</span>
+            </>
+        }
+        {preview && (
+          <button type="button" onClick={e => { e.stopPropagation(); handleChange(null); }} style={{ fontSize: 12, color: A.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: A.font }}>
+            Cambiar imagen
+          </button>
+        )}
+      </div>
+      <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" onChange={e => handleChange(e.target.files[0] || null)} style={{ display: 'none' }} />
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  SELECTOR DE PLANES ALOJAMIENTO
 // ═══════════════════════════════════════════════════════════════
@@ -306,9 +449,382 @@ function PlanSelectorAloj({ planAloj, setPlanAloj }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  ONBOARDING COMERCIAL — wizard de 3 pasos estilo panel admin
+// ═══════════════════════════════════════════════════════════════
+const OBP    = '#475be1';
+const OBPS   = '#eef0fd';
+const OBINK  = '#0f172a';
+const OBINK2 = '#475569';
+const OBMUTED= '#94a3b8';
+const OBLINE = '#e2e8f0';
+const OBBG   = '#f8fafc';
+const OBCARD = '#ffffff';
+const OBNAVY = '#0f172a';
+const OBFONT = "'Inter', system-ui, sans-serif";
+const OBGRN  = '#10b981';
+
+const OB_PROVINCIAS = [
+  'Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes',
+  'Entre Ríos','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones',
+  'Neuquén','Río Negro','Salta','San Juan','San Luis','Santa Cruz','Santa Fe',
+  'Santiago del Estero','Tierra del Fuego','Tucumán',
+];
+
+const OB_PLANES = [
+  { id:'free',  label:'Gratuito', price:'Gratis',
+    features:['1 oferta activa','Perfil básico','Sin posicionamiento destacado'] },
+  { id:'plus',  label:'Plus',     price:'$18.333/mes', badge:'⚡ Recomendado',
+    features:['Ofertas ilimitadas','Estadísticas completas','Posicionamiento Plus','Cupones personalizados'] },
+  { id:'black', label:'Black',    price:'$29.000/mes', badge:'👑 Premium',
+    features:['Todo de Plus','Cuponera destacada','Prioridad en búsquedas','Account manager'] },
+];
+
+function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApellido, rEmail, onComplete }) {
+  const [obStep,    setObStep]    = useState(1);
+  const [doneSteps, setDoneSteps] = useState(new Set());
+  // Empresa
+  const [nombre,      setNombre]      = useState('');
+  const [provincia,   setProvincia]   = useState('');
+  const [localidad,   setLocalidad]   = useState('');
+  const [telefono,    setTelefono]    = useState('');
+  const [instagram,   setInstagram]   = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile,    setLogoFile]    = useState(null);
+  const logoRef = useRef();
+  // Cuenta
+  const [plan, setPlan] = useState('free');
+  // Oferta
+  const [ofTitulo, setOfTitulo] = useState('');
+  const [ofPct,    setOfPct]    = useState('');
+  const [ofDesc,   setOfDesc]   = useState('');
+  // Misc
+  const [negocioId, setNegocioId] = useState(null);
+  const [saving,    setSaving]    = useState(false);
+  const [errors,    setErrors]    = useState({});
+
+  const DESC_MIN = 40, DESC_MAX = 450;
+
+  const inp  = { width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:10, border:`1px solid ${OBLINE}`, fontFamily:OBFONT, fontSize:13, color:OBINK, outline:'none', background:'#fff', transition:'border-color .15s' };
+  const inpE = (f) => ({ ...inp, borderColor: errors[f] ? '#ef4444' : OBLINE });
+  const lbl  = { fontFamily:OBFONT, fontSize:11, fontWeight:700, color:OBINK2, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
+  const ErrMsg = ({ f }) => errors[f] ? <span style={{ fontSize:11, color:'#ef4444', marginTop:3, display:'block', fontFamily:OBFONT }}>{errors[f]}</span> : null;
+
+  const OBCard = ({ children, style }) => (
+    <div style={{ background:OBCARD, borderRadius:16, border:`1px solid ${OBLINE}`, padding:20, ...style }}>{children}</div>
+  );
+  const OBCardTitle = ({ label }) => (
+    <div style={{ fontSize:13, fontWeight:700, color:OBINK, marginBottom:14, paddingBottom:10, borderBottom:`1px solid ${OBLINE}` }}>{label}</div>
+  );
+  const BtnNext = ({ onClick, disabled, label }) => (
+    <button onClick={onClick} disabled={disabled || saving}
+      style={{ display:'flex', alignItems:'center', gap:8, background:(disabled||saving)?OBMUTED:OBP, color:'#fff', border:'none', borderRadius:12, padding:'13px 28px', fontFamily:OBFONT, fontSize:14, fontWeight:700, cursor:(disabled||saving)?'not-allowed':'pointer', boxShadow:'0 4px 14px rgba(71,91,225,0.25)', transition:'background .15s' }}>
+      {saving ? 'Guardando...' : label}
+    </button>
+  );
+
+  const handleLogoChange = (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setLogoFile(f);
+    const reader = new FileReader();
+    reader.onload = ev => setLogoPreview(ev.target.result);
+    reader.readAsDataURL(f);
+  };
+
+  const validate1 = () => {
+    const e = {};
+    if (!nombre.trim())           e.nombre      = 'Campo requerido';
+    if (!provincia)               e.provincia   = 'Campo requerido';
+    if (!localidad)               e.localidad   = 'Campo requerido';
+    if (!descripcion.trim())      e.descripcion = 'Campo requerido';
+    else if (descripcion.length < DESC_MIN) e.descripcion = `Mínimo ${DESC_MIN} caracteres (${descripcion.length} escritos)`;
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const step1Save = async () => {
+    if (!validate1() || saving) return;
+    setSaving(true);
+    try {
+      let imagenUrl = null;
+      if (logoFile && regUserId) {
+        try {
+          const ext = logoFile.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage.from('negocios').upload(`logos/${regUserId}.${ext}`, logoFile, { upsert: true });
+          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); imagenUrl = ud.publicUrl; }
+        } catch {}
+      }
+      const { data: neg, error: negErr } = await supabase.from('negocios').insert({
+        nombre: nombre.trim(), tipo: comTipo, categoria: comCategorias.join(' / '),
+        localidad, provincia, telefono: telefono.trim() || null,
+        instagram: instagram.trim() || null, descripcion: descripcion.trim(),
+        imagen_url: imagenUrl, plan:'free', aprobado:false, activo:false,
+      }).select().single();
+      if (negErr) throw negErr;
+      await supabase.from('perfiles').insert({
+        id: regUserId, nombre:`${rNombre} ${rApellido}`.trim(), email: rEmail,
+        negocio_id: neg.id, rol:'socio', es_superadmin:false,
+      });
+      setNegocioId(neg.id);
+      setDoneSteps(s => new Set([...s, 1]));
+      setObStep(2);
+      window.scrollTo(0, 0);
+    } catch (err) { setErrors({ _: err?.message || 'Error al guardar, intentá de nuevo.' }); }
+    finally { setSaving(false); }
+  };
+
+  const step2Save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (negocioId) await supabase.from('negocios').update({ plan }).eq('id', negocioId);
+      setDoneSteps(s => new Set([...s, 2]));
+      setObStep(3);
+      window.scrollTo(0, 0);
+    } catch {}
+    finally { setSaving(false); }
+  };
+
+  const step3Save = async () => {
+    if (saving || !ofTitulo.trim() || !ofPct) return;
+    setSaving(true);
+    try {
+      if (negocioId) await supabase.from('ofertas').insert({
+        negocio_id: negocioId, titulo: ofTitulo.trim(),
+        descripcion: ofDesc.trim() || null, descuento_pct: parseInt(ofPct),
+        tipo: comTipo, activo: false,
+      });
+      onComplete();
+    } catch { onComplete(); }
+    finally { setSaving(false); }
+  };
+
+  const NAV_STEPS = [
+    { n:1, label:'Mi Empresa',     sub:'Perfil del negocio' },
+    { n:2, label:'Cuenta',         sub:'Plan y facturación' },
+    { n:3, label:'Primera oferta', sub:'Captá clientes desde el día 1' },
+  ];
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', background:OBBG, fontFamily:OBFONT }}>
+
+      {/* ── Sidebar ── */}
+      <div style={{ width:240, background:OBNAVY, display:'flex', flexDirection:'column', flexShrink:0 }}>
+        <div style={{ padding:'24px 20px 18px', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ fontSize:14, fontWeight:800, color:'#fff', letterSpacing:'-0.01em' }}>gesell.ar</div>
+          <div style={{ fontSize:11, color:OBMUTED, marginTop:3 }}>Registro de socio comercial</div>
+        </div>
+        <nav style={{ padding:'16px 10px', display:'flex', flexDirection:'column', gap:2, flex:1 }}>
+          {NAV_STEPS.map(s => {
+            const active = obStep === s.n;
+            const done   = doneSteps.has(s.n);
+            const locked = !done && !active;
+            return (
+              <div key={s.n} onClick={() => done && setObStep(s.n)}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, background: active ? 'rgba(71,91,225,0.2)' : 'transparent', opacity: locked ? 0.38 : 1, cursor: done ? 'pointer' : 'default', transition:'all .15s' }}>
+                <div style={{ width:26, height:26, borderRadius:'50%', background: done ? OBGRN : active ? OBP : 'rgba(255,255,255,0.1)', display:'grid', placeItems:'center', flexShrink:0 }}>
+                  {done
+                    ? <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    : <span style={{ fontSize:11, fontWeight:700, color: active ? '#fff' : OBMUTED }}>{s.n}</span>
+                  }
+                </div>
+                <div>
+                  <div style={{ fontSize:12.5, fontWeight: active?700:500, color: active?'#fff': done?OBGRN:OBMUTED }}>{s.label}</div>
+                  <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.28)', marginTop:1 }}>{s.sub}</div>
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+        <div style={{ padding:'14px 20px', borderTop:'1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ fontSize:11, color:OBMUTED, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{rEmail}</div>
+          {comTipo && <div style={{ fontSize:10, color:'rgba(255,255,255,0.25)', marginTop:2 }}>{comTipo} · {comCategorias[0] || ''}</div>}
+        </div>
+      </div>
+
+      {/* ── Contenido ── */}
+      <div style={{ flex:1, overflow:'auto', padding:'36px 48px' }}>
+        <div style={{ maxWidth:660, margin:'0 auto' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:OBMUTED, letterSpacing:'0.08em', marginBottom:8 }}>PASO {obStep} DE 3</div>
+
+          {/* ── Paso 1: Mi Empresa ── */}
+          {obStep === 1 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+              <div>
+                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Tu perfil de negocio</h1>
+                <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Esta info aparece en tu ficha pública. Los campos con <span style={{ color:'#ef4444' }}>*</span> son obligatorios.</p>
+              </div>
+
+              <OBCard>
+                <OBCardTitle label="Identidad" />
+                <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, flexShrink:0 }}>
+                    <div onClick={() => logoRef.current?.click()} style={{ width:84, height:84, borderRadius:'50%', border:`2px dashed ${logoPreview?OBP:OBLINE}`, cursor:'pointer', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:OBBG }}>
+                      {logoPreview
+                        ? <img src={logoPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        : <svg width="38" height="38" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="14" r="8" fill={OBLINE}/><path d="M4 38c0-8.837 7.163-16 16-16s16 7.163 16 16" fill={OBLINE}/></svg>
+                      }
+                    </div>
+                    <button type="button" onClick={() => logoRef.current?.click()} style={{ fontSize:11, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>{logoPreview?'Cambiar logo':'Subir logo'}</button>
+                    <span style={{ fontSize:10, color:OBMUTED, textAlign:'center', maxWidth:78, lineHeight:1.4 }}>PNG/JPG · sin texto ni gráficas</span>
+                    <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoChange} style={{ display:'none' }} />
+                  </div>
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12 }}>
+                    <div>
+                      <label style={lbl}>Nombre del negocio <span style={{ color:'#ef4444' }}>*</span></label>
+                      <input value={nombre} onChange={e => { setNombre(e.target.value); setErrors(p => ({...p, nombre:null})); }} style={inpE('nombre')} placeholder="Ej: Hotel La Costa" />
+                      <ErrMsg f="nombre" />
+                    </div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                      {comTipo && <span style={{ padding:'3px 10px', background:OBPS, borderRadius:999, fontSize:11, fontWeight:700, color:OBP }}>{comTipo}</span>}
+                      {comCategorias.map(c => <span key={c} style={{ padding:'3px 10px', background:OBPS, borderRadius:999, fontSize:11, fontWeight:700, color:OBP }}>{c}</span>)}
+                    </div>
+                  </div>
+                </div>
+              </OBCard>
+
+              <OBCard>
+                <OBCardTitle label="Ubicación" />
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                  <div>
+                    <label style={lbl}>Provincia <span style={{ color:'#ef4444' }}>*</span></label>
+                    <select value={provincia} onChange={e => { setProvincia(e.target.value); setErrors(p => ({...p, provincia:null})); }} style={{ ...inpE('provincia'), cursor:'pointer' }}>
+                      <option value="">Seleccioná</option>
+                      {OB_PROVINCIAS.map(pr => <option key={pr} value={pr}>{pr}</option>)}
+                    </select>
+                    <ErrMsg f="provincia" />
+                  </div>
+                  <div>
+                    <label style={lbl}>Localidad <span style={{ color:'#ef4444' }}>*</span></label>
+                    <select value={localidad} onChange={e => { setLocalidad(e.target.value); setErrors(p => ({...p, localidad:null})); }} style={{ ...inpE('localidad'), cursor:'pointer' }}>
+                      <option value="">Seleccioná</option>
+                      {LOCALIDADES.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                    <ErrMsg f="localidad" />
+                  </div>
+                </div>
+              </OBCard>
+
+              <OBCard>
+                <OBCardTitle label="Contacto (opcional)" />
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                  <div>
+                    <label style={lbl}>Teléfono</label>
+                    <input value={telefono} onChange={e => setTelefono(e.target.value)} style={inp} placeholder="+54 2255 000000" />
+                  </div>
+                  <div>
+                    <label style={lbl}>Instagram</label>
+                    <input value={instagram} onChange={e => setInstagram(e.target.value)} style={inp} placeholder="@mi.negocio" />
+                  </div>
+                </div>
+              </OBCard>
+
+              <OBCard>
+                <OBCardTitle label="Descripción pública *" />
+                <label style={lbl}>Contale a tus visitantes brevemente sobre tu negocio</label>
+                <textarea value={descripcion} onChange={e => { setDescripcion(e.target.value.slice(0, DESC_MAX)); setErrors(p => ({...p, descripcion:null})); }} rows={4}
+                  placeholder="Somos un hotel familiar a media cuadra del mar, con pileta, desayuno y estacionamiento..."
+                  style={{ ...inpE('descripcion'), resize:'vertical', minHeight:90 }} />
+                <ErrMsg f="descripcion" />
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:5 }}>
+                  <span style={{ fontSize:11, color:OBMUTED }}>Mín. {DESC_MIN} · máx. {DESC_MAX} caracteres</span>
+                  <span style={{ fontSize:11, color: descripcion.length > DESC_MAX*0.9 ? '#ef4444' : OBMUTED }}>{descripcion.length} / {DESC_MAX}</span>
+                </div>
+              </OBCard>
+
+              {errors._ && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{errors._}</div>}
+
+              <div style={{ display:'flex', justifyContent:'flex-end', paddingBottom:40 }}>
+                <BtnNext onClick={step1Save} label="Siguiente →" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Paso 2: Cuenta ── */}
+          {obStep === 2 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+              <div>
+                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Elegí tu plan</h1>
+                <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Podés empezar gratis y actualizar cuando quieras. El cobro se activa cuando tu ficha sea aprobada.</p>
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:14 }}>
+                {OB_PLANES.map(pl => (
+                  <div key={pl.id} onClick={() => setPlan(pl.id)}
+                    style={{ background: plan===pl.id ? OBPS : OBCARD, border:`2px solid ${plan===pl.id ? OBP : OBLINE}`, borderRadius:16, padding:'18px 16px', cursor:'pointer', transition:'all .15s', position:'relative' }}>
+                    {pl.badge && <div style={{ position:'absolute', top:-11, left:'50%', transform:'translateX(-50%)', background:OBP, color:'#fff', borderRadius:999, padding:'2px 12px', fontSize:10, fontWeight:700, whiteSpace:'nowrap' }}>{pl.badge}</div>}
+                    {plan===pl.id && <div style={{ position:'absolute', top:12, right:12, width:18, height:18, borderRadius:'50%', background:OBP, display:'grid', placeItems:'center' }}><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg></div>}
+                    <div style={{ fontWeight:800, fontSize:15, color: plan===pl.id ? OBP : OBINK, marginBottom:4 }}>{pl.label}</div>
+                    <div style={{ fontWeight:700, fontSize:17, color: plan===pl.id ? OBP : OBINK, marginBottom:14 }}>{pl.price}</div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                      {pl.features.map(f => (
+                        <div key={f} style={{ display:'flex', alignItems:'flex-start', gap:7, fontSize:12, color:OBINK2 }}>
+                          <div style={{ width:14, height:14, borderRadius:4, background: plan===pl.id ? OBP : OBLINE, display:'grid', placeItems:'center', flexShrink:0, marginTop:1 }}>
+                            <svg width="7" height="7" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </div>
+                          {f}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display:'flex', justifyContent:'flex-end', paddingBottom:40 }}>
+                <BtnNext onClick={step2Save} label="Siguiente →" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Paso 3: Primera Oferta ── */}
+          {obStep === 3 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+              <div>
+                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Cargá tu primera oferta</h1>
+                <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Las ofertas aparecen en tu ficha y en el marketplace cuando tu cuenta sea aprobada. Podés editarlas en cualquier momento.</p>
+              </div>
+
+              <OBCard>
+                <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                  <div>
+                    <label style={lbl}>Título de la oferta <span style={{ color:'#ef4444' }}>*</span></label>
+                    <input value={ofTitulo} onChange={e => setOfTitulo(e.target.value)} style={inp} placeholder="Ej: Noche + desayuno para 2 personas" />
+                  </div>
+                  <div>
+                    <label style={lbl}>Descuento <span style={{ color:'#ef4444' }}>*</span></label>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <input type="number" min={1} max={99} value={ofPct} onChange={e => setOfPct(e.target.value)} style={{ ...inp, width:110 }} placeholder="20" />
+                      <span style={{ fontSize:22, fontWeight:700, color:OBINK2 }}>%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={lbl}>Descripción breve <span style={{ textTransform:'none', fontWeight:400, color:OBMUTED }}>— opcional</span></label>
+                    <textarea value={ofDesc} onChange={e => setOfDesc(e.target.value)} rows={3}
+                      placeholder="Qué incluye, condiciones, vigencia..."
+                      style={{ ...inp, resize:'vertical', minHeight:70 }} />
+                  </div>
+                </div>
+              </OBCard>
+
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingBottom:40 }}>
+                <button onClick={onComplete} style={{ fontSize:13, color:OBMUTED, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT, fontWeight:600 }}>
+                  Lo haré más tarde →
+                </button>
+                <BtnNext onClick={step3Save} disabled={!ofTitulo.trim() || !ofPct} label="Guardar y terminar" />
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  PANTALLA LOGIN
 // ═══════════════════════════════════════════════════════════════
-export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingresar' }) {
+export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete, initialTab = 'ingresar' }) {
   const [tab,       setTab]       = useState(initialTab);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
@@ -320,12 +836,11 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
   const [showPass,   setShowPass]   = useState(false);
   const [recordarme, setRecordarme] = useState(false);
 
-  // ── Registro: pasos y tipo ──
-  const [regStep,    setRegStep]    = useState(1);       // 1 | 2 | 3
-  const [tipoReg,    setTipoReg]    = useState(null);    // 'visitante' | 'alojamiento' | 'comercio'
-  const [planElegido,setPlanElegido]= useState(null);    // 'free' | 'plus' | 'black'
+  // ── Registro: paso (1 = cuenta · 2 = ficha comercial) ──
+  const [regStep,   setRegStep]   = useState(1);
+  const [exitoTipo, setExitoTipo] = useState(null);     // 'visitante' | 'comercial'
 
-  // ── Registro visitante ──
+  // ── Datos de cuenta (común a visitante y comercial) ──
   const [rNombre,   setRNombre]   = useState('');
   const [rApellido, setRApellido] = useState('');
   const [rEmail,    setREmail]    = useState('');
@@ -334,19 +849,36 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
   const [rShowPass, setRShowPass] = useState(false);
   const [terminos,  setTerminos]  = useState(false);
 
-  // ── Registro negocio ──
-  const [sNombre,      setSNombre]      = useState('');
-  const [sEmail,       setSEmail]       = useState('');
-  const [sPass,        setSPass]        = useState('');
-  const [sShowPass,    setSShowPass]    = useState(false);
-  const [sLocalidad,   setSLocalidad]   = useState('');
-  const [sTipo,        setSTipo]        = useState('');
-  const [sTerminos,    setSTerminos]    = useState(false);
+  // ── Cuenta comercial (checkbox al final del paso 1) ──
+  const [esComercial,   setEsComercial]   = useState(false);
+  const [comTipo,       setComTipo]       = useState('');   // 'alojamiento' | 'salidas' | 'aventura_relax'
+  const [comCategorias, setComCategorias] = useState([]);   // hasta 2 seleccionadas
+  const [regUserId,     setRegUserId]     = useState(null); // userId creado en paso 1
 
-  const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
+  // ── Ficha del negocio (paso 2) ──
+  const [negNombre,      setNegNombre]      = useState('');
+  const [negLocalidad,   setNegLocalidad]   = useState('');
+  const [negDireccion,   setNegDireccion]   = useState('');
+  const [negDescripcion, setNegDescripcion] = useState('');
+  const [imagenFile,     setImagenFile]     = useState(null);
 
-  const TIPOS_ALOJAMIENTO = ['Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa'];
-  const TIPOS_COMERCIO    = ['Restaurante', 'Bar', 'Café', 'Balneario', 'Pastelería', 'Gourmet', 'Experiencia'];
+  // Alojamiento
+  const [tamMinM2,       setTamMinM2]       = useState('');
+  const [tamMaxM2,       setTamMaxM2]       = useState('');
+  const [minHues,        setMinHues]        = useState('');
+  const [maxHues,        setMaxHues]        = useState('');
+  const [serviciosSelected, setServiciosSelected] = useState([]);
+  const [aceptaMascotas, setAceptaMascotas] = useState(false);
+  const [aceptaNinos,    setAceptaNinos]    = useState(false);
+
+  // Gastronomía / Salidas
+  const [capacidad,      setCapacidad]      = useState('');
+  const [tipoCocina,     setTipoCocina]     = useState('');
+
+  // Aventura & Relax
+  const [duracion,       setDuracion]       = useState('');
+  const [maxPax,         setMaxPax]         = useState('');
+  const [sedeFija,       setSedeFija]       = useState('');
 
   // ── Handlers ─────────────────────────────────────────────────
   const handleIngresar = async (e) => {
@@ -362,17 +894,42 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
     }
   };
 
-  const handleRegistrarTurista = async (e) => {
+  // Paso 1 — datos de cuenta (común). Si es comercial avanza al paso 2;
+  // si es visitante, crea la cuenta directamente.
+  const handleAccountSubmit = async (e) => {
     e.preventDefault();
     if (loading) return;
     setError('');
-    if (rPass !== rPass2) { setError('Las contraseñas no coinciden.'); return; }
-    if (rPass.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
-    if (!terminos)         { setError('Debés aceptar los términos y condiciones.'); return; }
+    if (!rNombre.trim())   { setError('Ingresá tu nombre.'); return; }
+    if (!rApellido.trim()) { setError('Ingresá tu apellido.'); return; }
+    if (rPass.length < 6)  { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (rPass !== rPass2)  { setError('Las contraseñas no coinciden.'); return; }
+    if (esComercial) {
+      if (!comTipo)                { setError('Seleccioná el tipo de tu cuenta comercial.'); return; }
+      if (comCategorias.length === 0) { setError('Elegí al menos una categoría de tu negocio.'); return; }
+    }
+    if (!terminos) { setError('Debés aceptar los términos y condiciones.'); return; }
+
     setLoading(true);
     try {
-      await registrarTurista({ nombre: rNombre, apellido: rApellido, email: rEmail, password: rPass });
-      setExito('¡Cuenta creada! Revisá tu email para confirmar tu registro.');
+      if (esComercial) {
+        // Crear cuenta ahora — Supabase envía el mail de verificación automáticamente
+        // Si ya creamos la cuenta (volvió del paso 2), reutilizamos el userId
+        let uid = regUserId;
+        if (!uid) {
+          const { data: authData, error: authError } = await supabase.auth.signUp({ email: rEmail, password: rPass });
+          if (authError) throw authError;
+          uid = authData.user?.id;
+          if (!uid) throw new Error('No se pudo crear el usuario');
+          setRegUserId(uid);
+        }
+        setRegStep(2);
+        window.scrollTo(0, 0);
+      } else {
+        // Visitante: crear cuenta
+        await registrarTurista({ nombre: rNombre, apellido: rApellido, email: rEmail, password: rPass });
+        setExitoTipo('visitante');
+      }
     } catch (err) {
       const msg = err?.message || '';
       if (msg.includes('already')) setError('Ese email ya está registrado. Probá ingresando.');
@@ -383,31 +940,47 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
     }
   };
 
-  const handleRegistrarNegocio = async (e) => {
+  // Paso 2 — ficha del negocio (solo comercial). Crea usuario + negocio + perfil.
+  const handleNegocioSubmit = async (e) => {
     e.preventDefault();
     if (loading) return;
     setError('');
-    if (!sNombre)     { setError('Ingresá el nombre de tu negocio.'); return; }
-    if (!sTipo)       { setError('Seleccioná el tipo de negocio.'); return; }
-    if (!sLocalidad)  { setError('Seleccioná la localidad.'); return; }
-    if (sPass.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
-    if (!sTerminos)   { setError('Debés aceptar los términos y condiciones.'); return; }
+    if (!negNombre.trim()) { setError('Ingresá el nombre de tu negocio.'); return; }
+    if (!negLocalidad)     { setError('Seleccioná la localidad.'); return; }
     setLoading(true);
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email: sEmail, password: sPass });
-      if (authError) throw authError;
-      const userId = authData.user?.id;
-      if (!userId) throw new Error('No se pudo crear el usuario');
-      const { error: fnError } = await supabase.rpc('registrar_negocio', {
-        p_nombre: sNombre,
-        p_tipo: sTipo,
-        p_localidad: sLocalidad,
-        p_user_id: userId,
+      // La cuenta ya fue creada en paso 1 — solo necesitamos el userId
+      const userId = regUserId;
+      if (!userId) throw new Error('Sesión expirada, volvé al paso anterior.');
+
+      const payload = {
+        nombre:    negNombre,
+        tipo:      comTipo,
+        categoria: comCategorias.join(' / '),
+        localidad: negLocalidad,
+        plan:      'free',
+        aprobado:  false,
+        activo:    false,
+      };
+
+      const { data: negocio, error: negError } = await supabase
+        .from('negocios').insert(payload).select().single();
+      if (negError) throw negError;
+
+      await supabase.from('perfiles').insert({
+        id:          userId,
+        nombre:      `${rNombre} ${rApellido}`.trim(),
+        email:       rEmail,
+        negocio_id:  negocio.id,
+        rol:         'socio',
+        es_superadmin: false,
       });
-      if (fnError) throw fnError;
-      setRegStep(3);
+
+      setExitoTipo('comercial');
     } catch (err) {
-      setError(err?.message?.includes('already') ? 'Ese email ya está registrado. Probá ingresando.' : (err.message || 'Hubo un error. Intentá de nuevo.'));
+      const msg = err?.message || '';
+      if (msg.includes('already')) setError('Ese email ya está registrado. Probá ingresando.');
+      else setError(msg || 'Hubo un error. Intentá de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -419,17 +992,38 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
     catch { setError('No se pudo conectar con Google. Intentá de nuevo.'); setLoading(false); }
   };
 
-  const switchTab = (t) => { setTab(t); setError(''); setExito(''); setRegStep(1); setTipoReg(null); setPlanElegido(null); setSTipo(''); };
+  const switchTab = (t) => {
+    setTab(t); setError(''); setExito(''); setExitoTipo(null); setRegStep(1);
+    setEsComercial(false); setComTipo(''); setComCategorias([]); setRegUserId(null);
+  };
 
   // ─── Render ──────────────────────────────────────────────────
+  // Onboarding comercial — paso 2 → wizard de 3 pasos en pantalla completa
+  if (tab === 'registrarse' && regStep === 2 && esComercial && !exitoTipo) {
+    return (
+      <OnboardingComercial
+        regUserId={regUserId}
+        comTipo={comTipo}
+        comCategorias={comCategorias}
+        rNombre={rNombre}
+        rApellido={rApellido}
+        rEmail={rEmail}
+        onComplete={() => {
+          localStorage.setItem('gesell_onboarding_tip', '1');
+          onOnboardingComplete?.();
+        }}
+      />
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: A.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 64, paddingBottom: 48, paddingLeft: 20, paddingRight: 20, fontFamily: A.font }}>
-      <div style={{ width: '100%', maxWidth: regStep === 3 ? 960 : 500, transition: 'max-width .3s' }}>
+      <div style={{ width: '100%', maxWidth: 520, transition: 'max-width .3s' }}>
 
         {/* Logo */}
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', marginBottom: 32 }}>
           <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 44, width: 'auto' }} />
-          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: A.primary, fontFamily: A.font }}>Cuponear</span>
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: A.primary, fontFamily: A.font }}>{getSiteName()}</span>
         </button>
 
         <div>
@@ -490,44 +1084,9 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
           {tab === 'registrarse' && (
             <div>
 
-              {/* PASOS — solo cuando no hay éxito */}
-              {/* PASO 1 — elegir tipo */}
-              {!exito && regStep === 1 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {[
-                    { id: 'visitante',  icon: <img src="/turista.svg"   alt="" style={{ width: 56, height: 56 }} />, title: 'Visitante',           sub: 'Explorá ofertas y armá tu cuponera' },
-                    { id: 'alojamiento',icon: null,                                                                   title: 'Alojamiento',         sub: 'Dar a conocer mi hotel, cabaña, apart, etc' },
-                    { id: 'comercio',   icon: <img src="/anunciar.svg"  alt="" style={{ width: 56, height: 56 }} />, title: 'Comercio o servicio', sub: 'Salidas, aventura, relax, experiencias' },
-                  ].map(opt => (
-                    <button key={opt.id} type="button"
-                      onClick={() => { setTipoReg(opt.id); setError(''); setRegStep(2); }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 16,
-                        padding: '16px 20px', border: `1.5px solid ${A.line}`,
-                        borderRadius: 16, cursor: 'pointer', background: '#fff',
-                        textAlign: 'left', fontFamily: A.font, transition: 'all .15s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.background = A.primarySoft; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.background = '#fff'; }}
-                    >
-                      {opt.icon && <div style={{ flexShrink: 0, width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{opt.icon}</div>}
-                      {!opt.icon && <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 12, background: A.primarySoft, display: 'grid', placeItems: 'center' }}><Store size={22} color={A.primary} /></div>}
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>{opt.title}</div>
-                        <div style={{ fontSize: 13, color: A.muted, marginTop: 2 }}>{opt.sub}</div>
-                      </div>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.muted} strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto', flexShrink: 0 }}><path d="m9 6 6 6-6 6"/></svg>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* PASO 2 — formulario */}
-              {!exito && regStep === 2 && tipoReg === 'visitante' && (
-                <form onSubmit={handleRegistrarTurista} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <button type="button" onClick={() => setRegStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: A.muted, cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: '0 0 8px', fontFamily: A.font }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg> Volver
-                  </button>
+              {/* ── PASO 1 — Datos de cuenta (común a todos) ── */}
+              {!exitoTipo && regStep === 1 && (
+                <form onSubmit={handleAccountSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <Campo label="Nombre" value={rNombre} onChange={setRNombre} placeholder="Sofía" icon={<User size={15} />} required />
                     <Campo label="Apellido" value={rApellido} onChange={setRApellido} placeholder="García" required />
@@ -538,136 +1097,111 @@ export default function LoginView({ onLoginSuccess, onBack, initialTab = 'ingres
                     rightEl={<button type="button" onClick={() => setRShowPass(s => !s)} style={{ background: 'none', border: 'none', color: A.muted, cursor: 'pointer', display: 'flex' }}>{rShowPass ? <EyeOff size={17} /> : <Eye size={17} />}</button>}
                   />
                   <Campo label="Repetir contraseña" type={rShowPass ? 'text' : 'password'} value={rPass2} onChange={setRPass2} placeholder="Repetí tu contraseña" icon={<Lock size={15} />} required />
-                  <Terminos checked={terminos} onChange={setTerminos} />
-                  <BtnSubmit loading={loading} label="Crear mi cuenta" loadingLabel="Creando cuenta..." />
-                  <Divisor />
-                  <BtnGoogle onClick={handleGoogle} loading={loading} label="Registrarse con Google" />
-                </form>
-              )}
 
-              {!exito && regStep === 2 && (tipoReg === 'alojamiento' || tipoReg === 'comercio') && (
-                <form onSubmit={handleRegistrarNegocio} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <button type="button" onClick={() => setRegStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: A.muted, cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: '0 0 4px', fontFamily: A.font }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg> Volver
-                  </button>
-                  <Campo label="Nombre del negocio" value={sNombre} onChange={setSNombre} placeholder="Ej: Hostel La Paloma" required />
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 6, fontFamily: A.font }}>
-                      Tipo de negocio <span style={{ color: A.red, marginLeft: 2 }}>*</span>
-                    </label>
-                    <select value={sTipo} onChange={e => setSTipo(e.target.value)} required
-                      style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px', border: `1.5px solid ${A.line}`, borderRadius: 13, fontSize: 14, fontFamily: A.font, color: sTipo ? A.ink : A.muted, background: '#fff', outline: 'none' }}>
-                      <option value="">Seleccioná el tipo</option>
-                      {(tipoReg === 'alojamiento' ? TIPOS_ALOJAMIENTO : TIPOS_COMERCIO).map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <Campo label="Email de contacto" type="email" value={sEmail} onChange={setSEmail} placeholder="tu@email.com" icon={<Mail size={15} />} required />
-                  <Campo label="Contraseña" type={sShowPass ? 'text' : 'password'} value={sPass} onChange={setSPass} placeholder="Mínimo 6 caracteres"
-                    icon={<Lock size={15} />} required
-                    rightEl={<button type="button" onClick={() => setSShowPass(s => !s)} style={{ background: 'none', border: 'none', color: A.muted, cursor: 'pointer', display: 'flex' }}>{sShowPass ? <EyeOff size={17} /> : <Eye size={17} />}</button>}
-                  />
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 6, fontFamily: A.font }}>Localidad *</label>
-                    <select value={sLocalidad} onChange={e => setSLocalidad(e.target.value)} required
-                      style={{ width: '100%', boxSizing: 'border-box', padding: '13px 16px', border: `1.5px solid ${A.line}`, borderRadius: 13, fontSize: 14, fontFamily: A.font, color: sLocalidad ? A.ink : A.muted, background: '#fff', outline: 'none' }}>
-                      <option value="">Seleccioná la localidad</option>
-                      {LOCALIDADES.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                  </div>
-                  <Terminos checked={sTerminos} onChange={setSTerminos} />
-                  <BtnSubmit loading={loading} label="Continuar" loadingLabel="Creando cuenta..." />
-                  <p style={{ fontSize: 11, color: A.muted, textAlign: 'center', lineHeight: 1.6, fontFamily: A.font }}>
-                    Tu cuenta quedará activa una vez que el equipo de Cuponear la apruebe.
-                  </p>
-                </form>
-              )}
-
-              {/* PASO 3 — pricing upgrade */}
-              {!exito && regStep === 3 && (
-                <div>
-                  <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                      <Check size={26} color={A.green} />
-                    </div>
-                    <h2 style={{ fontSize: 22, fontWeight: 800, color: A.ink, margin: '0 0 6px', fontFamily: A.font }}>¡Cuenta creada!</h2>
-                    <p style={{ fontSize: 14, color: A.muted, margin: 0, fontFamily: A.font }}>Ya estás en FREEMIUM. ¿Querés más visibilidad? Elegí un plan mejor.</p>
-                  </div>
-
-                  {/* Cards de planes — estilo wide */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 24 }}>
-                    {PLANES_ALOJ.map(plan => {
-                      const sel = planElegido === plan.id;
-                      const icons = { free: <Store size={28} color={sel ? A.primary : A.muted} />, plus: <Zap size={28} color={sel ? A.primary : '#2545E6'} />, black: <Crown size={28} color={sel ? '#fff' : '#F59E0B'} /> };
-                      const isBlack = plan.id === 'black';
-                      return (
-                        <div key={plan.id} style={{ position: 'relative', border: `2px solid ${sel ? A.primary : isBlack ? '#0B1020' : A.line}`, borderRadius: 20, padding: '24px 20px', background: sel ? A.primarySoft : isBlack ? '#0B1020' : '#fff', display: 'flex', flexDirection: 'column', transition: 'all .2s' }}>
-                          {plan.badge && (
-                            <span style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: isBlack ? '#0B1020' : A.primary, color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 999, whiteSpace: 'nowrap', border: '2px solid #fff' }}>
-                              {plan.badge}
-                            </span>
-                          )}
-                          <div style={{ marginBottom: 4 }}>{icons[plan.id]}</div>
-                          <div style={{ fontSize: 20, fontWeight: 900, color: isBlack ? '#fff' : A.ink, letterSpacing: '-0.02em', marginBottom: 2 }}>{plan.nombre}</div>
-                          {plan.precio
-                            ? <div style={{ fontSize: 26, fontWeight: 800, color: isBlack ? '#fff' : A.ink, letterSpacing: '-0.03em', marginBottom: 4 }}>{plan.precio}</div>
-                            : <div style={{ fontSize: 13, color: isBlack ? 'rgba(255,255,255,0.6)' : A.muted, marginBottom: 12 }}>Sin cargo de membresía</div>
-                          }
-                          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                            {plan.items.map((item, i) => (
-                              <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: isBlack ? 'rgba(255,255,255,0.85)' : A.ink2, lineHeight: 1.4 }}>
-                                <Check size={13} color={isBlack ? '#F59E0B' : A.green} style={{ flexShrink: 0, marginTop: 1 }} />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                          <div style={{ borderTop: `1px solid ${isBlack ? 'rgba(255,255,255,0.1)' : A.line}`, paddingTop: 12, marginBottom: 16 }}>
-                            <div style={{ fontSize: 9, fontWeight: 700, color: isBlack ? 'rgba(255,255,255,0.5)' : A.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Publicación de ofertas</div>
-                            <p style={{ fontSize: 11, lineHeight: 1.55, margin: 0 }}>
-                              {plan.paymentSegments.map((seg, i) => (
-                                <span key={i} style={{ fontWeight: seg.bold ? 700 : 400, color: seg.green ? A.green : isBlack ? 'rgba(255,255,255,0.8)' : A.ink }}>{seg.text}</span>
-                              ))}
-                            </p>
-                          </div>
-                          <button type="button"
-                            onClick={() => setPlanElegido(plan.id)}
-                            style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: A.font, transition: 'all .15s',
-                              background: sel ? A.primary : isBlack ? 'rgba(255,255,255,0.12)' : A.bg,
-                              color: sel ? '#fff' : isBlack ? '#fff' : A.ink,
-                            }}
-                          >
-                            {sel ? '✓ Seleccionado' : plan.id === 'free' ? 'Continuar gratis' : `Elegir ${plan.nombre}`}
-                          </button>
+                  {/* ── Cuenta comercial (checkbox) ── */}
+                  <div style={{ border: `1.5px solid ${esComercial ? A.primary : A.line}`, borderRadius: 14, background: esComercial ? A.primarySoft : '#fff', padding: esComercial ? '16px 16px 18px' : '14px 16px', transition: 'all .18s' }}>
+                    <div onClick={() => { setEsComercial(v => !v); setError(''); }} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${esComercial ? A.primary : A.line}`, background: esComercial ? A.primary : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 1, transition: 'all .15s' }}>
+                        {esComercial && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Store size={16} color={esComercial ? A.primary : A.ink2} />
+                          <span style={{ fontSize: 14, fontWeight: 700, color: esComercial ? A.primary : A.ink, fontFamily: A.font }}>Es una cuenta comercial</span>
                         </div>
-                      );
-                    })}
+                        <div style={{ fontSize: 12.5, color: A.muted, marginTop: 4, lineHeight: 1.5, fontFamily: A.font }}>
+                          Activala si tenés un negocio. Así vas a poder <strong style={{ color: A.ink2 }}>publicar promociones</strong> y crear tu ficha en Cuponear.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tipo + categoría — solo si es comercial */}
+                    {esComercial && (
+                      <div style={{ marginTop: 16 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 8, fontFamily: A.font }}>¿Qué tipo de negocio? <span style={{ color: A.red }}>*</span></div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                          {TIPOS_COMERCIO.map(t => {
+                            const sel = comTipo === t.id;
+                            return (
+                              <button key={t.id} type="button"
+                                onClick={() => { setComTipo(t.id); setComCategorias([]); setError(''); }}
+                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 6px', border: `1.5px solid ${sel ? A.primary : A.line}`, borderRadius: 12, cursor: 'pointer', background: sel ? '#fff' : A.bg, transition: 'all .15s', fontFamily: A.font, textAlign: 'center' }}
+                              >
+                                <t.Icon size={22} color={sel ? A.primary : A.ink2} />
+                                <div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: sel ? A.primary : A.ink }}>{t.label}</div>
+                                  <div style={{ fontSize: 9.5, color: A.muted, marginTop: 2, lineHeight: 1.3, whiteSpace: 'pre-line' }}>{t.sub}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Categoría / industria */}
+                        {comTipo && (
+                          <div style={{ marginTop: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: A.ink2, fontFamily: A.font }}>Categoría / industria <span style={{ color: A.red }}>*</span></div>
+                              <div style={{ fontSize: 11, color: A.muted, fontFamily: A.font }}>Elegí hasta 2</div>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {CATS[comTipo].map(c => {
+                                const sel = comCategorias.includes(c);
+                                const maxed = !sel && comCategorias.length >= 2;
+                                return (
+                                  <button key={c} type="button"
+                                    onClick={() => {
+                                      if (maxed) return;
+                                      setComCategorias(prev => sel ? prev.filter(x => x !== c) : [...prev, c]);
+                                      setError('');
+                                    }}
+                                    style={{ padding: '6px 12px', border: `1px solid ${sel ? A.primary : A.line}`, borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: maxed ? 'not-allowed' : 'pointer', background: sel ? A.primary : '#fff', color: sel ? '#fff' : maxed ? A.muted : A.ink2, fontFamily: A.font, transition: 'all .15s', opacity: maxed ? 0.5 : 1 }}
+                                  >
+                                    {c}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-                    <button type="button" onClick={() => { setExito('¡Cuenta creada! Revisamos tu ficha y te avisamos cuando esté activa.'); setRegStep(1); }}
-                      style={{ background: 'none', border: 'none', color: A.muted, fontSize: 13, cursor: 'pointer', fontFamily: A.font, textDecoration: 'underline' }}>
-                      Omitir por ahora, continuar con FREEMIUM
-                    </button>
-                  </div>
-                </div>
+                  <Terminos checked={terminos} onChange={setTerminos} />
+                  <BtnSubmit loading={loading} label={esComercial ? 'Continuar' : 'Crear mi cuenta'} loadingLabel={esComercial ? 'Continuando...' : 'Creando cuenta...'} />
+                  {!esComercial && (
+                    <>
+                      <Divisor />
+                      <BtnGoogle onClick={handleGoogle} loading={loading} label="Registrarse con Google" />
+                    </>
+                  )}
+                </form>
               )}
 
-              {/* Éxito */}
-              {exito && (
+              {/* ── PASO 2 — Ficha del negocio (comercial) ── */}
+              {/* paso 2 → se renderiza como OnboardingComercial antes del return */}
+
+              {/* ── Éxito ── */}
+              {exitoTipo && (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                     <Check size={28} color={A.green} />
                   </div>
                   <h2 style={{ fontSize: 20, fontWeight: 700, color: A.ink, margin: '0 0 8px', fontFamily: A.font }}>¡Bienvenido/a a Cuponear!</h2>
                   <p style={{ fontSize: 14, color: A.muted, lineHeight: 1.6, fontFamily: A.font, margin: '0 0 24px' }}>
-                    {tipoReg === 'visitante'
-                      ? 'Te enviamos un email de confirmación. Una vez confirmado podés explorar todas las ofertas.'
+                    {exitoTipo === 'visitante'
+                      ? 'Te enviamos un email de confirmación. Una vez confirmado vas a poder explorar todas las ofertas.'
                       : 'Revisamos tu ficha y te avisamos por email cuando esté activa — generalmente en menos de 48 hs.'}
                   </p>
-                  <button onClick={() => switchTab('ingresar')} style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>
-                    Ingresar
-                  </button>
+                  {exitoTipo === 'visitante'
+                    ? <button onClick={() => onBack && onBack()} style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>
+                        Empezar a explorar
+                      </button>
+                    : <button onClick={() => switchTab('ingresar')} style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>
+                        Ingresar
+                      </button>
+                  }
                 </div>
               )}
 

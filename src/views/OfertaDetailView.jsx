@@ -125,7 +125,7 @@ function ConsultarModal({ socio, onClose }) {
         zIndex: 201, width: '100%', maxWidth: 520,
         background: '#fff', borderRadius: 20,
         boxShadow: '0 30px 80px rgba(11,16,32,0.28)',
-        fontFamily: "'Geist', system-ui, sans-serif",
+        fontFamily: "'Inter', system-ui, sans-serif",
         overflow: 'hidden',
       }}>
         {/* Header */}
@@ -204,7 +204,7 @@ function ConsultarModal({ socio, onClose }) {
                 width: '100%', marginTop: 12, padding: '11px 14px',
                 borderRadius: 12, border: `1.5px solid ${C.line}`,
                 fontSize: 13.5, color: C.ink, resize: 'none',
-                fontFamily: "'Geist', system-ui, sans-serif",
+                fontFamily: "'Inter', system-ui, sans-serif",
                 boxSizing: 'border-box', outline: 'none',
               }}
               onFocus={e => e.target.style.borderColor = C.primary}
@@ -290,7 +290,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   const categoryLabel = 'Ofertas';
 
   return (
-    <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Geist', system-ui, sans-serif", color: C.ink }}>
+    <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Inter', system-ui, sans-serif", color: C.ink }}>
 
       {/* ── Breadcrumb + tipo de oferta ─────────────────────── */}
       <div className="max-w-[1328px] mx-auto px-10">

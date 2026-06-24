@@ -13,7 +13,7 @@ const A = {
   primary:     '#2545E6',
   primarySoft: '#EEF1FF',
   bg:          '#F7F7F8',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 // ─── Chevrons ────────────────────────────────────────────────
@@ -351,8 +351,8 @@ function AventDrop({ onNavigate }) {
 // ─── Logo dinámico según dominio ─────────────────────────────
 function SiteName() {
   const host = typeof window !== 'undefined'
-    ? window.location.hostname.replace('www.', '').replace('localhost', 'Cuponear')
-    : 'Cuponear';
+    ? window.location.hostname.replace('www.', '').replace('localhost', 'gesell.ar')
+    : 'gesell.ar';
   return (
     <span style={{ fontWeight: 500, fontSize: 14, color: A.primary, fontFamily: A.font }}>
       {host}
@@ -633,17 +633,16 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                 )}
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 0, fontFamily: A.font }} className="navbar-auth">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: A.font }} className="navbar-auth">
                 <button onClick={() => onLoginClick && onLoginClick('ingresar')}
                   style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 500, color: A.ink2, cursor: 'pointer', padding: '6px 6px', fontFamily: A.font, whiteSpace: 'nowrap' }}
                   onMouseEnter={e => e.currentTarget.style.color = A.primary}
                   onMouseLeave={e => e.currentTarget.style.color = A.ink2}
                 >Ingresar</button>
-                <span style={{ color: A.line, fontSize: 14, userSelect: 'none' }}>/</span>
                 <button onClick={() => onRegisterClick && onRegisterClick('registrarse')}
-                  style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 500, color: A.ink2, cursor: 'pointer', padding: '6px 6px', fontFamily: A.font, whiteSpace: 'nowrap' }}
-                  onMouseEnter={e => e.currentTarget.style.color = A.primary}
-                  onMouseLeave={e => e.currentTarget.style.color = A.ink2}
+                  style={{ background: A.ink, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', padding: '8px 16px', fontFamily: A.font, whiteSpace: 'nowrap', transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
+                  onMouseLeave={e => e.currentTarget.style.background = A.ink}
                 >Registrarse gratis</button>
               </div>
             )}
@@ -741,13 +740,13 @@ const menuItemSt = (primary = false, muted = false) => ({
   padding: '10px 18px', fontSize: 14, fontWeight: primary ? 600 : 500,
   color: primary ? '#2545E6' : muted ? '#6B7280' : '#0B1020',
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-  fontFamily: "'Geist', system-ui, sans-serif",
+  fontFamily: "'Inter', system-ui, sans-serif",
 });
 
 const mobileBtnSt = () => ({
   width: '100%', padding: '14px', border: 'none', borderRadius: 14,
   background: '#0B1020', fontSize: 15, fontWeight: 600, color: '#fff',
-  cursor: 'pointer', fontFamily: "'Geist', system-ui, sans-serif",
+  cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif",
 });
 
 function UserMenuItem({ icon: Icon, label, onClick }) {

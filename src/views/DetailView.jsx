@@ -1668,8 +1668,11 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
   const touchStartX = useRef(null);
   if (!promos.length) return null;
 
-  const p       = promos[idx];
-  const total   = promos.length;
+  // Hasta 5 ofertas ACTIVAS visibles (puede tener ilimitadas publicadas)
+  const activos = promos.slice(0, 5);
+  const safeIdx = Math.min(idx, activos.length - 1);
+  const p       = activos[safeIdx];
+  const total   = activos.length;
   const isFlash = p.offerType === 'Flash';
   const creditos = calcTokensCosto(p.ahorroEstimado);
 
@@ -1721,14 +1724,34 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 18px 0' }}>
         <img src="/ico-disc.svg" style={{ width: 32, height: 42, objectFit: 'contain' }} alt="" />
-        <span style={{ fontSize: 18, fontWeight: 800, color: C.ink, flex: 1 }}>Armá tu cuponera</span>
-        {total > 1 && (
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={prev} style={{ width: 26, height: 26, borderRadius: '50%', border: 'none', background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><ChevronLeft size={13} /></button>
-            <button onClick={next} style={{ width: 26, height: 26, borderRadius: '50%', border: 'none', background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}><ChevronRight size={13} /></button>
-          </div>
-        )}
+        <span style={{ fontSize: 18, fontWeight: 800, color: C.ink, flex: 1 }}>Promociones</span>
       </div>
+
+      {/* Botonera de promos — los badges del socio (hasta 5 activas) */}
+      {total > 1 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '12px 18px 0' }}>
+          {activos.map((promo, i) => {
+            const on = i === safeIdx;
+            return (
+              <button
+                key={promo.id ?? i}
+                onClick={() => setIdx(i)}
+                title={promo.title || promo.titulo}
+                style={{
+                  border: `1.5px solid ${on ? C.primary : C.line}`,
+                  background: on ? C.primary : '#fff',
+                  color: on ? '#fff' : C.ink2,
+                  borderRadius: 999, padding: '6px 13px', fontSize: 12, fontWeight: 800,
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {promo.badge || promo.title || promo.titulo}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Imagen */}
       <div
@@ -1769,14 +1792,6 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
 
       {/* Contenido */}
       <div style={{ padding: '14px 16px' }}>
-        {total > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginBottom: 12 }}>
-            {promos.map((_, i) => (
-              <button key={i} onClick={() => setIdx(i)} style={{ width: i === idx ? 16 : 6, height: 6, borderRadius: 3, border: 'none', cursor: 'pointer', padding: 0, background: i === idx ? C.primary : C.line, transition: 'width 0.2s, background 0.2s' }} />
-            ))}
-          </div>
-        )}
-
         {exito ? (
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#EDFAF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
@@ -2392,7 +2407,7 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
   }, [item.id]);
 
   return (
-    <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Geist', system-ui, sans-serif", color: C.ink }}>
+    <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Inter', system-ui, sans-serif", color: C.ink }}>
 
       {/* ── Wrapper único alineado con el nav ─────────────── */}
       <div className="max-w-[1328px] mx-auto px-10">

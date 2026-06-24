@@ -151,7 +151,7 @@ Identificar en el codebase actual o crear:
 - **Hero** (`padding: 64px 56px 80px`): grid `1.05fr / 1fr`.
   - Izquierda: eyebrow "TEMPORADA 2026" → `<h1>` 76px ("Tu descanso en **Villa Gesell**." con la 2ª línea en `--aire-primary`) → subtítulo → **search card** (grid 4 columnas: Destino · Check-in · Huéspedes · botón Buscar) → chips de filtros (5 pills con icon) → **stats** (3 números grandes con label).
   - Derecha: collage de 3 fotos con bordes blancos + sombras + 1 review card flotante.
-- **Ofertas imperdibles** (`padding: 72px 56px`, `bg: --aire-bg`): header con eyebrow + h2 + link "Ver todas →". Grid 4 columnas de `<OfertaCard>` (foto 200px alto + tile descuento grande blanco + partner + CTA "Añadir a cuponera").
+- **¡Alquilá por menos!** (`padding: 72px 56px`, `bg: --aire-bg`): header con eyebrow + h2 + link "Ver todas →". Grid 4 columnas de `<OfertaCard>` (foto 200px alto + tile descuento grande blanco + partner + CTA "Añadir a cuponera").
 - **Alojamientos destacados** (`padding: 72px 56px`, `bg: #fff`): header + tab pills (Todos/Hotel/Cabaña/Departamento) + grid 4 columnas de `<AlojCard>` (foto 320px alto + heart icon + type pill + título + rating + ubicación + precio).
 - **Packs exclusivos** (`padding: 80px 56px`, `bg: --aire-navy`, `color: #fff`): header con eyebrow amarillo + h2 + descripción. Layout `2fr / 1fr`:
   - Featured pack card (foto a la izquierda, contenido a la derecha con título, descripción, 3 items con check, precio en verde, CTA).

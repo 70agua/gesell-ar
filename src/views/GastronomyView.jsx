@@ -29,7 +29,7 @@ const A = {
   bg:          '#F7F7F8',
   yellow:      '#FFC93C',
   green:       '#10A36B',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 const TIPOS_GASTRO = [
@@ -75,7 +75,7 @@ function makePinIcon(color, label, active = true) {
       display:flex;align-items:center;justify-content:center;
       font-size:11px;font-weight:800;color:#fff;
       opacity:${opacity};
-      font-family:Geist,system-ui,sans-serif;
+      font-family:Inter,system-ui,sans-serif;
     ">${label.charAt(0)}</div>`;
   return L.divIcon({ html, className: '', iconSize: [28,28], iconAnchor: [14,14] });
 }

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gesell.ar research</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --negro:#0e0e13;
+  --azul:#1847d4;
+  --azul-mid:#2d5ce8;
+  --azul-pale:#eef1fd;
+  --gris:#52526a;
+  --gris-claro:#f4f4f8;
+  --borde:#e0e0ea;
+  --verde:#116b3c;
+  --verde-bg:#eaf4ee;
+  --rojo:#b82828;
+  --rojo-bg:#fceaea;
+  --amarillo:#7a4f00;
+  --amarillo-bg:#fdf3e3;
+  --blanco:#ffffff;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--blanco);color:var(--negro);font-size:19px;line-height:1.7}
+h1{font-family:'Syne',sans-serif;font-size:68px;font-weight:800;line-height:1.0}
+h2{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;line-height:1.1;margin-bottom:10px}
+h3{font-family:'Syne',sans-serif;font-size:21px;font-weight:700;line-height:1.2;margin-bottom:6px}
+p{font-size:19px;line-height:1.7;color:var(--gris);margin-bottom:12px}
+p:last-child{margin-bottom:0}
+a{color:var(--azul);text-decoration:none;border-bottom:1px solid #b0bfee}
+a:hover{border-color:var(--azul)}
+strong{color:var(--negro);font-weight:600}
+.wrap{max-width:1080px;margin:0 auto;padding:0 52px}
+section{padding:80px 0;border-bottom:1px solid var(--borde)}
+
+/* HEADER */
+.header{background:var(--negro);min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:80px 52px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--azul-mid);margin-bottom:28px}
+.header h1{color:var(--blanco);margin-bottom:36px}
+.header h1 em{color:var(--azul-mid);font-style:normal}
+.header-desc{font-size:21px;color:#8888aa;max-width:580px;line-height:1.6;font-weight:300}
+
+/* ÍNDICE */
+.indice{background:var(--negro);border-bottom:3px solid var(--azul);padding:48px 52px}
+.ind-label{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#6668aa;margin-bottom:24px}
+.ind-lista{display:flex;flex-direction:column;gap:0}
+.ind-row{display:flex;align-items:center;gap:24px;padding:16px 0;border-bottom:1px solid #1e1e2e}
+.ind-row:last-child{border-bottom:none}
+.ind-n{font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--azul-mid);min-width:28px}
+.ind-row span{color:var(--blanco);font-weight:500;font-size:20px}
+.ind-row:hover span{color:var(--azul-mid)}
+
+/* SEC LABEL */
+.slabel{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--azul);margin-bottom:14px;display:block}
+
+/* CASOS */
+.casos-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:44px}
+.caso{border:1px solid var(--borde);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.caso-top{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 22px 14px;background:var(--gris-claro);border-bottom:1px solid var(--borde);gap:12px}
+.caso-top h3{font-size:20px;margin-bottom:2px}
+.caso-top .orig{font-size:13px;color:var(--gris);margin-bottom:6px}
+.caso-top a{font-size:12px;font-weight:600}
+.badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:100px;white-space:nowrap;flex-shrink:0}
+.badge-r{background:var(--rojo-bg);color:var(--rojo)}
+.badge-v{background:var(--verde-bg);color:var(--verde)}
+.badge-a{background:var(--amarillo-bg);color:var(--amarillo)}
+.caso-body{padding:18px 22px;flex:1}
+.caso-body p{font-size:17px;margin-bottom:0}
+.caso-lesson{padding:14px 22px;background:var(--azul-pale);border-top:1px solid #d0d8f5}
+.caso-lesson .ll{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--azul);margin-bottom:5px}
+.caso-lesson p{font-size:16px;color:var(--negro);font-weight:500;margin:0}
+
+/* COMPARATIVO — cards en lugar de tabla */
+.comp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:40px}
+.comp-dim{background:var(--negro);border-radius:12px;padding:24px;color:var(--blanco)}
+.comp-dim-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--azul-mid);margin-bottom:20px}
+.comp-item{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid #1e1e2e;gap:12px}
+.comp-item:last-child{border-bottom:none;padding-bottom:0}
+.comp-plat{font-size:14px;color:#8888aa;font-weight:500;min-width:90px;flex-shrink:0}
+.comp-val{font-size:14px;color:var(--blanco);text-align:right;line-height:1.4}
+.comp-val.gesell{color:var(--azul-mid);font-weight:600}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px;white-space:nowrap}
+.chip-v{background:var(--verde-bg);color:var(--verde)}
+.chip-r{background:var(--rojo-bg);color:var(--rojo)}
+.chip-a{background:var(--amarillo-bg);color:var(--amarillo)}
+
+/* DIAGNÓSTICO — 3 columnas de cards */
+.diag-intro{font-size:19px;color:var(--gris);max-width:580px;margin-bottom:48px}
+.diag-fila{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-bottom:16px;border:1px solid var(--borde);border-radius:12px;overflow:hidden}
+.diag-cell{padding:24px 26px}
+.diag-cell-o{background:#f5fbf7;border-right:1px solid var(--borde)}
+.diag-cell-r{background:#fdf6f6;border-right:1px solid var(--borde)}
+.diag-cell-a{background:var(--azul-pale)}
+.diag-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 9px;border-radius:4px;margin-bottom:10px}
+.dtag-v{background:var(--verde-bg);color:var(--verde)}
+.dtag-r{background:var(--rojo-bg);color:var(--rojo)}
+.dtag-a{background:var(--amarillo-bg);color:var(--amarillo)}
+.diag-cell p{font-size:17px;line-height:1.65;margin:0}
+.diag-cell-o p{color:#1a5c35}
+.diag-cell-r p{color:#8a2020}
+.diag-cell-a p{color:var(--negro)}
+.diag-header{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-bottom:8px}
+.diag-header-cell{padding:12px 26px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.dh-o{color:var(--verde)}
+.dh-r{color:var(--rojo)}
+.dh-a{color:var(--azul)}
+
+/* FIRMA */
+.firma{background:var(--negro);padding:52px 52px 48px;border-top:3px solid var(--azul)}
+.firma-inner{display:flex;justify-content:space-between;align-items:flex-end}
+.firma-nombre{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--blanco);margin-bottom:4px}
+.firma-rol{font-size:16px;color:#8888aa}
+.firma-meta{text-align:right;font-size:14px;color:#6666aa;line-height:1.9}
+
+@media(max-width:900px){
+  h1{font-size:40px}
+  .wrap,.header,.indice,.firma{padding-left:24px;padding-right:24px}
+  .casos-grid,.comp-grid{grid-template-columns:1fr}
+  .diag-fila,.diag-header{grid-template-columns:1fr}
+  .diag-cell-o,.diag-cell-r{border-right:none;border-bottom:1px solid var(--borde)}
+  .firma-inner{flex-direction:column;gap:16px}
+  .firma-meta{text-align:left}
+  .header{padding:60px 24px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="eyebrow">gesell.ar · Research estratégico · Junio 2026</div>
+  <h1>Plataformas de<br>descuentos y<br><em>membresías</em><br>en turismo</h1>
+  <p class="header-desc" style="margin-top:40px">
+    Casos globales y de nicho.<br>
+    Modelos que ganaron, modelos que fracasaron<br>
+    y lo que significa para gesell.ar.
+  </p>
+</div>
+
+<!-- ÍNDICE -->
+<div class="indice">
+  <div class="ind-label">Contenido</div>
+  <div class="ind-lista">
+    <div class="ind-row"><span class="ind-n">01</span><span>Casos analizados — referentes globales y de nicho</span></div>
+    <div class="ind-row"><span class="ind-n">02</span><span>Comparativo de plataformas por dimensión clave</span></div>
+    <div class="ind-row"><span class="ind-n">03</span><span>Diagnóstico de gesell.ar — oportunidad, riesgo y acción</span></div>
+  </div>
+</div>
+
+<!-- 01 CASOS -->
+<section>
+  <div class="wrap">
+    <span class="slabel">01 — Casos analizados</span>
+    <h2>Referentes globales y de nicho</h2>
+    <p style="max-width:600px;margin-bottom:8px">Lo que funcionó, lo que no y la lección directa para gesell.ar.</p>
+
+    <div class="casos-grid">
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>Groupon</h3><p class="orig">2008 · Chicago · Global</p><a href="https://www.groupon.com" target="_blank">groupon.com ↗</a></div>
+          <div class="badge badge-r">Fracaso relativo</div>
+        </div>
+        <div class="caso-body">
+          <p>Inventó los cupones colectivos. Google ofreció USD 6.000M en 2010 — rechazaron. Hoy vale el 5%. El comercio llenaba una noche al 50% de margen sin ver retorno, dejaba de renovar y la plataforma se vació. En Argentina generó 50+ competidoras locales — todas cerraron antes de 2016. <strong>Hoy no hay ningún jugador masivo de cupones B2C activo en el país.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>El descuento sin recurrencia destruye al prestador. El sistema de créditos invierte esa lógica desde la base.</p>
+        </div>
+      </div>
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>Cuponstar → Bonda</h3><p class="orig">2010 · Buenos Aires · LATAM</p><a href="https://www.bonda.com.ar" target="_blank">bonda.com.ar ↗</a></div>
+          <div class="badge badge-v">Pivot exitoso</div>
+        </div>
+        <div class="caso-body">
+          <p>Cuponera B2C argentina que sobrevivió pivotando a beneficios corporativos B2B en 2014. Dejaron de hablarle al consumidor y empezaron a hablarle al gerente de RRHH. Hoy: 6 países, 850 empresas clientes — IBM, JP Morgan, Coca-Cola. En 2023 borraron la marca cuponera: rebranding a Bonda. <strong>USD 2M de facturación en 2021, duplicando en pandemia.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>El B2B sostuvo lo que el B2C no pudo. gesell.ar arranca con suscripción de prestadores desde el día uno.</p>
+        </div>
+      </div>
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>TheFork</h3><p class="orig">2007 · Europa · 22 países</p><a href="https://www.thefork.com.ar" target="_blank">thefork.com.ar ↗</a></div>
+          <div class="badge badge-a">Éxito con tensión</div>
+        </div>
+        <div class="caso-body">
+          <p>Reservas gastronómicas con descuentos. Activo en Argentina. Funciona porque resuelve visibilidad para restós sin canal propio. Tensión estructural: TheFork es dueño de la relación con el cliente — el restó paga más de €5.000 al año por clientes que ya lo conocen, sin poder contactarlos directamente. <strong>Planes desde €49/mes + €1.5–€4 por cubierto.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>El prestador rehén de la plataforma es el problema que gesell.ar resuelve. Ese argumento de venta B2B es potente y verificable.</p>
+        </div>
+      </div>
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>TravellerPass</h3><p class="orig">2003 · Dubai · Medio Oriente</p><a href="https://www.travellerpass.com" target="_blank">travellerpass.com ↗</a></div>
+          <div class="badge badge-v">Modelo sostenido</div>
+        </div>
+        <div class="caso-body">
+          <p>Membresía anual con 2x1 y hasta 50% off en +3.000 locales en UAE. 23 años operando. Clave de su longevidad: entrega a cada comercio un panel de analytics con tendencias de consumo y ciclos de cliente — convierte la plataforma en herramienta de negocio, no solo directorio. <strong>Opera en 6 países del Medio Oriente e India.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>Analytics al prestador es la capa que sostiene la renovación de suscripción con evidencia, no con percepción.</p>
+        </div>
+      </div>
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>Bandwango</h3><p class="orig">2015 · Utah, EEUU · Norteamérica</p><a href="https://www.bandwango.com" target="_blank">bandwango.com ↗</a></div>
+          <div class="badge badge-v">Referente de nicho</div>
+        </div>
+        <div class="caso-body">
+          <p>Pases digitales para destinos turísticos chicos, sin app. Caso Springfield (Missouri): check-in en 3 atracciones + 3 restós = segunda noche de hotel gratis. Resultado: 486 check-ins y 39 estadías adicionales. Demuestra que el triángulo hotel–gastronomía–experiencias funciona en destinos chicos. <strong>USD 9.4M recaudados.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>Validación directa del modelo en escala chica. gesell.ar lo supera con el loop de créditos y sin necesitar al municipio como intermediario.</p>
+        </div>
+      </div>
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>Routemotion</h3><p class="orig">2021 · Berlín · Europa</p><a href="https://www.routemotion.com" target="_blank">routemotion.com ↗</a></div>
+          <div class="badge badge-a">Infraestructura de nicho</div>
+        </div>
+        <div class="caso-body">
+          <p>Plataforma berlinesa que construye apps de descuentos customizadas para ciudades y pueblos turísticos. No es una plataforma de usuario final — vende la infraestructura para que municipios, entes de turismo y asociaciones de comerciantes construyan la suya. Foco en turismo sostenible. <strong>Incluye membresía digital, audio guías e itinerarios.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>Referencia de arquitectura para cuando gesell.ar escale: una plataforma base que cada destino personaliza.</p>
+        </div>
+      </div>
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>Toledo Savings Pass</h3><p class="orig">2023 · Ohio, EEUU · Local</p><a href="https://www.visittoledo.org" target="_blank">visittoledo.org ↗</a></div>
+          <div class="badge badge-v">Escala chica validada</div>
+        </div>
+        <div class="caso-body">
+          <p>Pase municipal de USD 15 con acceso a más de USD 150 en descuentos locales. Todo digital, válido un año. Gestionado por la DMO de una ciudad industrial del Medio Oeste sin glamour turístico. Demuestra que el modelo funciona incluso en destinos sin aspiracionalidad evidente. <strong>Precio bajo = fricción mínima de entrada.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>El precio de acceso al turista todavía no está definido. Toledo muestra que un pago bajo con beneficio claro funciona. Decisión pendiente antes del lanzamiento.</p>
+        </div>
+      </div>
+
+      <div class="caso">
+        <div class="caso-top">
+          <div><h3>Go City</h3><p class="orig">2002 · Londres · +30 ciudades</p><a href="https://gocity.com" target="_blank">gocity.com ↗</a></div>
+          <div class="badge badge-v">Modelo global probado</div>
+        </div>
+        <div class="caso-body">
+          <p>El pase turístico por destino más grande del mundo. Resuelve la fricción de comprar múltiples entradas: un pase, ecosistema curado, turista decide. Las atracciones se adhieren porque reciben tráfico de turistas decididos a consumir. Límite: solo escala en ciudades grandes con atracciones de alto valor. <strong>Sin alojamiento, sin gastronomía, sin loop de fidelización.</strong></p>
+        </div>
+        <div class="caso-lesson">
+          <div class="ll">Para gesell.ar</div>
+          <p>Valida que el turista paga por ecosistema curado. gesell.ar agrega las capas que Go City nunca tuvo, en el segmento donde Go City no llega.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- 02 COMPARATIVO -->
+<section>
+  <div class="wrap">
+    <span class="slabel">02 — Comparativo de plataformas</span>
+    <h2>Las dimensiones que diferencian</h2>
+    <p style="max-width:600px;margin-bottom:8px">Seis variables que revelan dónde gesell.ar ocupa un lugar propio.</p>
+
+    <div class="comp-grid">
+
+      <div class="comp-dim">
+        <div class="comp-dim-title">Modelo de ingreso</div>
+        <div class="comp-item"><span class="comp-plat">Groupon</span><span class="comp-val">Comisión 40–50% por cupón</span></div>
+        <div class="comp-item"><span class="comp-plat">Bonda</span><span class="comp-val">Suscripción B2B corporativa</span></div>
+        <div class="comp-item"><span class="comp-plat">TheFork</span><span class="comp-val">Suscripción + fee por cubierto</span></div>
+        <div class="comp-item"><span class="comp-plat">TravellerPass</span><span class="comp-val">Membresía anual B2C</span></div>
+        <div class="comp-item"><span class="comp-plat">Bandwango</span><span class="comp-val">Suscripción al municipio</span></div>
+        <div class="comp-item"><span class="comp-plat">Go City</span><span class="comp-val">Venta de pase al turista</span></div>
+        <div class="comp-item"><span class="comp-plat">gesell.ar</span><span class="comp-val gesell">Suscripción al prestador + créditos + packs</span></div>
+      </div>
+
+      <div class="comp-dim">
+        <div class="comp-dim-title">Fidelización del usuario</div>
+        <div class="comp-item"><span class="comp-plat">Groupon</span><span class="comp-val"><span class="chip chip-r">Uso único</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bonda</span><span class="comp-val"><span class="chip chip-r">No aplica</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TheFork</span><span class="comp-val"><span class="chip chip-a">Yums (débil)</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TravellerPass</span><span class="comp-val"><span class="chip chip-v">Membresía 365 días</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bandwango</span><span class="comp-val"><span class="chip chip-a">Gamificación</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Go City</span><span class="comp-val"><span class="chip chip-r">Compra única</span></span></div>
+        <div class="comp-item"><span class="comp-plat">gesell.ar</span><span class="comp-val gesell"><span class="chip chip-v">Créditos + recurrencia</span></span></div>
+      </div>
+
+      <div class="comp-dim">
+        <div class="comp-dim-title">Medición de impacto al prestador</div>
+        <div class="comp-item"><span class="comp-plat">Groupon</span><span class="comp-val"><span class="chip chip-r">No mide</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bonda</span><span class="comp-val"><span class="chip chip-a">Parcial</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TheFork</span><span class="comp-val"><span class="chip chip-a">Solo reservas</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TravellerPass</span><span class="comp-val"><span class="chip chip-v">Dashboard completo</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bandwango</span><span class="comp-val"><span class="chip chip-v">Tráfico medido</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Go City</span><span class="comp-val"><span class="chip chip-r">No mide</span></span></div>
+        <div class="comp-item"><span class="comp-plat">gesell.ar</span><span class="comp-val gesell"><span class="chip chip-a">A desarrollar — deuda clave</span></span></div>
+      </div>
+
+      <div class="comp-dim">
+        <div class="comp-dim-title">Precio al prestador B2B</div>
+        <div class="comp-item"><span class="comp-plat">Groupon</span><span class="comp-val">Cede 40–50% de margen</span></div>
+        <div class="comp-item"><span class="comp-plat">Bonda</span><span class="comp-val">Suscripción empresa (variable)</span></div>
+        <div class="comp-item"><span class="comp-plat">TheFork</span><span class="comp-val">€49–€89/mes + fee/cubierto</span></div>
+        <div class="comp-item"><span class="comp-plat">TravellerPass</span><span class="comp-val">Sin costo al comercio</span></div>
+        <div class="comp-item"><span class="comp-plat">Bandwango</span><span class="comp-val">Sin costo (paga el municipio)</span></div>
+        <div class="comp-item"><span class="comp-plat">Go City</span><span class="comp-val">Comisión por visita</span></div>
+        <div class="comp-item"><span class="comp-plat">gesell.ar</span><span class="comp-val gesell">3 planes: Básico / PLUS / BLACK</span></div>
+      </div>
+
+      <div class="comp-dim">
+        <div class="comp-dim-title">El prestador retiene su cliente</div>
+        <div class="comp-item"><span class="comp-plat">Groupon</span><span class="comp-val"><span class="chip chip-r">No</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bonda</span><span class="comp-val"><span class="chip chip-r">No aplica</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TheFork</span><span class="comp-val"><span class="chip chip-r">No — TheFork lo retiene</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TravellerPass</span><span class="comp-val"><span class="chip chip-a">Parcial</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bandwango</span><span class="comp-val"><span class="chip chip-v">Sí</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Go City</span><span class="comp-val"><span class="chip chip-a">Parcial</span></span></div>
+        <div class="comp-item"><span class="comp-plat">gesell.ar</span><span class="comp-val gesell"><span class="chip chip-v">Sí — diferencial central</span></span></div>
+      </div>
+
+      <div class="comp-dim">
+        <div class="comp-dim-title">Competidor directo en LATAM</div>
+        <div class="comp-item"><span class="comp-plat">Groupon</span><span class="comp-val"><span class="chip chip-a">Devaluado</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bonda</span><span class="comp-val"><span class="chip chip-r">Sin competidor</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TheFork</span><span class="comp-val"><span class="chip chip-v">Activo en Argentina</span></span></div>
+        <div class="comp-item"><span class="comp-plat">TravellerPass</span><span class="comp-val"><span class="chip chip-r">Sin presencia</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Bandwango</span><span class="comp-val"><span class="chip chip-r">Sin presencia</span></span></div>
+        <div class="comp-item"><span class="comp-plat">Go City</span><span class="comp-val"><span class="chip chip-r">Sin presencia</span></span></div>
+        <div class="comp-item"><span class="comp-plat">gesell.ar</span><span class="comp-val gesell"><span class="chip chip-v">Sin competidor directo</span></span></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- 03 DIAGNÓSTICO -->
+<section>
+  <div class="wrap">
+    <span class="slabel">03 — Diagnóstico de gesell.ar</span>
+    <h2>Oportunidad / Riesgo / Acción</h2>
+    <p class="diag-intro">Cada oportunidad tiene su riesgo espejo y una acción concreta que los conecta.</p>
+
+    <div class="diag-header">
+      <div class="diag-header-cell dh-o">Oportunidad</div>
+      <div class="diag-header-cell dh-r">Riesgo</div>
+      <div class="diag-header-cell dh-a">Acción concreta</div>
+    </div>
+
+    <div class="diag-fila">
+      <div class="diag-cell diag-cell-o">
+        <div class="diag-tag dtag-v">Diferencial único</div>
+        <p>Ningún competidor integra hotel + gastronomía + experiencias en un producto con lógica de destino chico. Go City no tiene alojamiento. TheFork no tiene experiencias. Bandwango no tiene créditos. gesell.ar tiene las tres capas.</p>
+      </div>
+      <div class="diag-cell diag-cell-r">
+        <div class="diag-tag dtag-r">Urgente</div>
+        <p>Con pocos prestadores el ecosistema no tiene peso. El turista entra, ve inventario escaso y no vuelve. La percepción de valor se construye con masa crítica, no con tecnología.</p>
+      </div>
+      <div class="diag-cell diag-cell-a">
+        <p>Construir la red antes de activar comunicación al turista. Mínimo 25–30 prestadores con contrato firmado antes del lanzamiento. Sin red, no hay producto.</p>
+      </div>
+    </div>
+
+    <div class="diag-fila">
+      <div class="diag-cell diag-cell-o">
+        <div class="diag-tag dtag-v">Diferencial único</div>
+        <p>La economía circular de créditos no existe en ninguna plataforma analizada. Requiere cultura de uso instalada entre prestadores y turistas — eso la hace muy difícil de copiar una vez en marcha.</p>
+      </div>
+      <div class="diag-cell diag-cell-r">
+        <div class="diag-tag dtag-r">Urgente</div>
+        <p>El loop es complejo de comunicar. Si el prestador no lo entiende en 30 segundos, no lo adopta. Y sin adopción del prestador, el turista nunca lo activa.</p>
+      </div>
+      <div class="diag-cell diag-cell-a">
+        <p>Documentar el primer ciclo completo con datos reales. Un caso concreto — turista X, hotel Y, restó Z, N cubiertos — vale más que cualquier presentación comercial.</p>
+      </div>
+    </div>
+
+    <div class="diag-fila">
+      <div class="diag-cell diag-cell-o">
+        <div class="diag-tag dtag-v">Ventana abierta</div>
+        <p>Primer jugador en el segmento en LATAM. Bandwango, Routemotion y TravellerPass no operan en la región. No hay referente local de destino turístico chico con este modelo.</p>
+      </div>
+      <div class="diag-cell diag-cell-r">
+        <div class="diag-tag dtag-r">Urgente</div>
+        <p>Si la primera temporada funciona, un actor con capital puede replicar el modelo en 6 meses. La tecnología no es la barrera — la red de prestadores fidelizados sí lo es.</p>
+      </div>
+      <div class="diag-cell diag-cell-a">
+        <p>Firmar contratos con prestadores antes de que el éxito sea visible. La red firmada es el único moat real contra la copia con capital.</p>
+      </div>
+    </div>
+
+    <div class="diag-fila">
+      <div class="diag-cell diag-cell-o">
+        <div class="diag-tag dtag-v">Posicionamiento</div>
+        <p>El B2C de cupones en Argentina fracasó y dejó el espacio vacío. El lugar de "plataforma de experiencias curadas con beneficios reales" no tiene dueño ni asociación negativa.</p>
+      </div>
+      <div class="diag-cell diag-cell-r">
+        <div class="diag-tag dtag-r">Urgente</div>
+        <p>Si la comunicación habla de porcentajes en primer plano, gesell.ar cae en la categoría devaluada de las cuponeras. Ese daño de percepción es difícil y caro de revertir.</p>
+      </div>
+      <div class="diag-cell diag-cell-a">
+        <p>Definir el tono de marca antes del lanzamiento: experiencia curada, conocimiento local, viaje inteligente. El "%" es la mecánica interna — nunca el titular de la comunicación.</p>
+      </div>
+    </div>
+
+    <div class="diag-fila">
+      <div class="diag-cell diag-cell-o">
+        <div class="diag-tag dtag-v">Capa de valor</div>
+        <p>TravellerPass y Bandwango cobran en parte porque entregan datos al prestador. gesell.ar puede hacer lo mismo y subir el valor percibido de cada plan de suscripción.</p>
+      </div>
+      <div class="diag-cell diag-cell-r">
+        <div class="diag-tag dtag-a">Mediano plazo</div>
+        <p>Sin analytics, el argumento de renovación es cualitativo. Con datos es irrefutable: "te mandamos 47 turistas en enero, consumo promedio $X, 38% del hotel Y".</p>
+      </div>
+      <div class="diag-cell diag-cell-a">
+        <p>Diseñar la capa de medición desde el MVP: check-ins por prestador, hotel de origen, tasa de conversión de créditos. Cuesta una fracción si se diseña ahora.</p>
+      </div>
+    </div>
+
+    <div class="diag-fila">
+      <div class="diag-cell diag-cell-o">
+        <div class="diag-tag dtag-v">Escalabilidad</div>
+        <p>Mar de las Pampas ya está en el sitio. El modelo es replicable en Pinamar, Cariló y Miramar con la misma lógica de negocio.</p>
+      </div>
+      <div class="diag-cell diag-cell-r">
+        <div class="diag-tag dtag-a">Mediano plazo</div>
+        <p>El nombre gesell.ar está anclado geográficamente. Expandir con esta marca genera confusión en el usuario y debilita la identidad construida.</p>
+      </div>
+      <div class="diag-cell diag-cell-a">
+        <p>Decidir la arquitectura de marca antes de que la expansión lo vuelva urgente: ¿marca paraguas? ¿franquicia de nombre por destino? La decisión hoy es gratuita. Después es cara.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FIRMA -->
+<div class="firma">
+  <div class="wrap">
+    <div class="firma-inner">
+      <div>
+        <div class="firma-nombre">Mauricio Torres</div>
+        <div class="firma-rol">Estrategia de marca</div>
+      </div>
+      <div class="firma-meta">gesell.ar research · Junio 2026</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

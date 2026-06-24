@@ -24,7 +24,7 @@ const A = {
   yellow:      '#FFC93C',
   green:       '#10A36B',
   navy:        '#0B1733',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 // ─── Photos — Mar de las Pampas aesthetic ────────────────────
@@ -106,11 +106,10 @@ function DestDropdown({ value, onChange }) {
     <div className="hero-search-dest" style={{ flex: 1, borderRight: `1px solid ${A.line}`, position: 'relative' }} ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', padding: '14px 20px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
+        style={{ width: '100%', padding: '20px 20px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
       >
-        <div style={{ fontSize: 10, color: A.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Elegí tu destino</div>
         <div style={{ fontSize: 14, fontWeight: 600, color: A.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ color: A.primary }}><IcoPin /></span>
+          <span style={{ color: A.primary, display: 'flex' }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
           {value}
         </div>
       </button>
@@ -286,7 +285,7 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
 
               {/* H1 rotating — tamaño fijo calibrado para la localidad más larga */}
               <h1 style={{ fontSize: 'clamp(40px, 4.6vw, 70px)', lineHeight: 1.05, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
-                <span style={{ fontWeight: 500, letterSpacing: '-0.03em' }}>Tu cuponera de<br />descuentos en</span><br />
+                <span style={{ fontWeight: 500, letterSpacing: '-0.03em' }}>Tu cuponera viajera<br />de beneficios en</span><br />
                 <span style={{
                   fontFamily: "'NauryzRedkeds', cursive",
                   fontSize: 'clamp(30px, 3.6vw, 54px)',

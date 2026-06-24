@@ -16,7 +16,7 @@ const A = {
   bg:          '#F7F7F8',
   yellow:      '#FFC93C',
   green:       '#10A36B',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 const fmt = (n) => '$' + n.toLocaleString('es-AR');

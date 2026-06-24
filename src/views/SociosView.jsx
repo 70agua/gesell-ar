@@ -415,7 +415,7 @@ export default function SociosView({ onBack }) {
               onClick={() => setCategoriaSocios(id)}
               style={{
                 padding: '10px 24px', border: 'none', borderRadius: 11, cursor: 'pointer',
-                fontSize: 14, fontWeight: 700, fontFamily: "'Geist', system-ui, sans-serif",
+                fontSize: 14, fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif",
                 transition: 'all .2s',
                 background: categoriaSocios === id ? '#0B1020' : 'transparent',
                 color: categoriaSocios === id ? '#fff' : '#6B7280',

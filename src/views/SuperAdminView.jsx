@@ -21,7 +21,7 @@ const A = {
   navy:        '#0B1733',
   yellow:      '#FFC93C',
   green:       '#10A36B',
-  font:        "'Geist', system-ui, sans-serif",
+  font:        "'Inter', system-ui, sans-serif",
 };
 
 const TABS = [

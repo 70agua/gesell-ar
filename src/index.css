@@ -10,6 +10,22 @@
   padding-bottom: 0;
 }
 
+/* Inter — self-hosted variable font (weights 100–900 en un solo archivo) */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Italic-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 @font-face {
   font-family: 'NauryzRedkeds';
   src: url('/nauryzredkeds.ttf') format('truetype');
@@ -19,7 +35,7 @@
 }
 
 * {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 /* ── Hero: padding-left alineado con la nav (max-width 1328 + 40px inner) ── */

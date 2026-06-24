@@ -11,7 +11,7 @@ export default function LoadingScreen() {
       background: '#fff',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Geist', system-ui, sans-serif",
+      fontFamily: "'Inter', system-ui, sans-serif",
     }}>
       <video
         autoPlay

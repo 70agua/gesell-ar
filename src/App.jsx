@@ -137,11 +137,21 @@ function AppContent() {
     window.scrollTo(0, 0);
   };
 
+  const [wizardTip, setWizardTip] = useState(null); // null | 1 | 2
+
   const handleLoginSuccess = async () => {
     const s = await getSession();
     const p = await getPerfil();
     setSession(s); setPerfil(p);
     setView(p?.es_superadmin ? 'superadmin' : 'admin');
+  };
+
+  const handleOnboardingComplete = async () => {
+    const s = await getSession();
+    const p = await getPerfil();
+    setSession(s); setPerfil(p);
+    setView('home');
+    setTimeout(() => setWizardTip(1), 900);
   };
 
   const handleLogout = async () => {
@@ -301,7 +311,12 @@ function AppContent() {
             />
           )}
           {view === 'login' && (
-            <LoginView onLoginSuccess={handleLoginSuccess} onBack={() => setView('home')} initialTab={loginInitialTab} />
+            <LoginView
+              onLoginSuccess={handleLoginSuccess}
+              onBack={() => setView('home')}
+              onOnboardingComplete={handleOnboardingComplete}
+              initialTab={loginInitialTab}
+            />
           )}
           {view === 'socios' && (
             <SociosView onBack={() => setView('home')} />
@@ -343,6 +358,62 @@ function AppContent() {
         <CuponeraDrawer />
         <ChatBot />
 
+        {/* ── Wizard tip post-onboarding ── */}
+        {wizardTip && (() => {
+          const userEmail = session?.user?.email || '';
+          const closeAll  = () => setWizardTip(null);
+          const W = {
+            font:  "'Inter', system-ui, sans-serif",
+            ink:   '#0f172a',
+            ink2:  '#475569',
+            p:     '#475be1',
+            green: '#10b981',
+          };
+          return (
+            <>
+              {/* Backdrop */}
+              <div onClick={closeAll} style={{ position:'fixed', inset:0, zIndex:9980, background:'rgba(8,12,26,0.65)', backdropFilter:'blur(3px)' }} />
+              {/* Card posicionada apuntando al avatar del usuario (top-right) */}
+              <div style={{ position:'fixed', top:68, right:22, zIndex:9981, width:310, background:'#fff', borderRadius:20, boxShadow:'0 24px 64px rgba(0,0,0,0.22)', overflow:'hidden', animation:'wizard-in 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
+                {/* Triangulito */}
+                <div style={{ position:'absolute', top:-7, right:56, width:14, height:14, background:'#fff', transform:'rotate(45deg)', borderRadius:3, boxShadow:'-2px -2px 4px rgba(0,0,0,0.06)' }} />
+
+                {wizardTip === 1 && (
+                  <>
+                    <div style={{ background:'linear-gradient(135deg, #475be1 0%, #6d28d9 100%)', padding:'28px 20px 20px', display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+                      <img src="/botface.png" alt="" style={{ height:96, objectFit:'contain', filter:'drop-shadow(0 8px 20px rgba(0,0,0,0.3))' }} />
+                    </div>
+                    <div style={{ padding:'20px 20px 22px' }}>
+                      <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:800, color:W.ink, fontFamily:W.font }}>¡Tu panel de socio está listo!</h3>
+                      <p style={{ margin:'0 0 18px', fontSize:13, color:W.ink2, lineHeight:1.6, fontFamily:W.font }}>
+                        Desde tu nombre arriba a la derecha podés ingresar al panel en cualquier momento — cargás ofertas, ves estadísticas y administrás tu cuenta.
+                      </p>
+                      <button onClick={() => setWizardTip(2)} style={{ width:'100%', background:W.p, color:'#fff', border:'none', borderRadius:11, padding:'12px 0', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:W.font }}>
+                        Entendido →
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {wizardTip === 2 && (
+                  <div style={{ padding:'28px 22px 24px' }}>
+                    <div style={{ width:52, height:52, borderRadius:14, background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={W.green} strokeWidth="1.8" strokeLinecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </div>
+                    <h3 style={{ margin:'0 0 8px', fontSize:16, fontWeight:800, color:W.ink, textAlign:'center', fontFamily:W.font }}>Confirmá tu email</h3>
+                    <p style={{ margin:'0 0 18px', fontSize:13, color:W.ink2, lineHeight:1.6, textAlign:'center', fontFamily:W.font }}>
+                      Te enviamos un link de verificación a<br/><strong style={{ color:W.ink }}>{userEmail}</strong>.<br/>Hacé click en ese link para activar tu cuenta completamente.
+                    </p>
+                    <button onClick={closeAll} style={{ width:'100%', background:W.green, color:'#fff', border:'none', borderRadius:11, padding:'12px 0', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:W.font }}>
+                      ¡Listo, voy a revisar mi mail!
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
+
         <style dangerouslySetInnerHTML={{ __html: `
           .no-scrollbar::-webkit-scrollbar { display: none; }
           .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -350,6 +421,7 @@ function AppContent() {
           .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
           @keyframes dropdown-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
           .animate-dropdown { animation: dropdown-in 0.2s ease-out forwards; }
+          @keyframes wizard-in { from { opacity: 0; transform: translateY(-12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         `}} />
       </div>
     </CuponeraProvider>

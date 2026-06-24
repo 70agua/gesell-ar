@@ -173,10 +173,10 @@ function AOfertas() {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom: 36 }}>
         <div>
           <div style={{ display:'inline-flex', alignItems:'center', gap: 6, fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing:'0.06em', textTransform:'uppercase' }}>
-            <Icon.bolt width={12} height={12}/> Cuponera local
+            <Icon.bolt width={12} height={12}/> OFERTAS EN ALOJAMIENTOS
           </div>
-          <h2 style={{ fontFamily: A.font, fontSize: 44, color: A.ink, margin: '12px 0 0', fontWeight: 700, letterSpacing:'-0.025em' }}>Ofertas imperdibles</h2>
-          <p style={{ fontFamily: A.font, fontSize: 16, color: A.muted, marginTop: 6 }}>Descuentos reales en socios verificados. Canjeás con QR desde tu celular.</p>
+          <h2 style={{ fontFamily: A.font, fontSize: 44, color: A.ink, margin: '12px 0 0', fontWeight: 700, letterSpacing:'-0.025em' }}>¡Alquilá por menos!</h2>
+          <p style={{ fontFamily: A.font, fontSize: 16, color: A.muted, marginTop: 6 }}>Cuponeá y conseguí los mejores precios en alojamiento. Sumale cupones en gastronomía y experiencias.</p>
         </div>
         <button style={{ background:'transparent', border:'none', fontFamily: A.font, fontSize: 14, fontWeight: 600, color: A.primary, display:'inline-flex', alignItems:'center', gap: 6 }}>
           Ver todas las ofertas <Icon.arrowR width={16} height={16}/>

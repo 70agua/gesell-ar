@@ -183,7 +183,7 @@ function ImageSide({ mainImg, sideImg, palette, pack }) {
 // ═══════════════════════════════════════════════════════════
 export default function PacksListView({ onBack, onOpenPack }) {
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Geist', system-ui, sans-serif", paddingTop: 70 }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Inter', system-ui, sans-serif", paddingTop: 70 }}>
 
       {/* ── Header ── */}
       <div style={{ background: C.ink, color: '#fff' }}>

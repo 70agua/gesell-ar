@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import HeartButton from './HeartButton';
 
-const A = { ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE', primary: '#2545E6', bg: '#F7F7F8', font: "'Geist', system-ui, sans-serif" };
+const A = { ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE', primary: '#2545E6', bg: '#F7F7F8', font: "'Inter', system-ui, sans-serif" };
 
 export default function AccommodationCard({ item, onClick, discountTags = {} }) {
   const [hovered, setHovered] = useState(false);

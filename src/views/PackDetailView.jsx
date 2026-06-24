@@ -231,7 +231,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
   const [bebes,    setBebes]    = useState(0);
 
   return (
-    <div style={{ minHeight:'100vh', background:'#fff', fontFamily:"'Geist', system-ui, sans-serif", color:C.ink, paddingTop:70 }}>
+    <div style={{ minHeight:'100vh', background:'#fff', fontFamily:"'Inter', system-ui, sans-serif", color:C.ink, paddingTop:70 }}>
 
       {/* ══════════════════════════════════════════════════════
           HERO — editorial, imagen + titular
