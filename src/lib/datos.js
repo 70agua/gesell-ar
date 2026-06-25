@@ -15,9 +15,9 @@ const LOCALIDADES_CERCANAS = {
   'El Salvaje':        ['Villa Gesell'],
 };
 
-const TIPOS_ALOJ   = new Set(['Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Casa', 'Hostel', 'Glamping']);
-const TIPOS_GASTRO = new Set(['Restaurante', 'Restaurantes', 'Bar', 'Bares', 'Café', 'Cafés & Dulces', 'Cafés y Dulces', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Heladerías', 'Bodegón', 'Panadería', 'Panaderías', 'Discoteca', 'Discotecas', 'Cine y Teatro', 'Cines y Teatros', 'Show y Recital', 'Shows y Recitales', 'Centro Cultural', 'Centros Culturales', 'Otro', 'Otros']);
-const TIPOS_EXP    = new Set(['Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos']);
+const TIPOS_ALOJ   = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Casa', 'Hostel', 'Glamping']);
+const TIPOS_GASTRO = new Set(['salidas', 'Restaurante', 'Restaurantes', 'Bar', 'Bares', 'Café', 'Cafés & Dulces', 'Cafés y Dulces', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Heladerías', 'Bodegón', 'Panadería', 'Panaderías', 'Discoteca', 'Discotecas', 'Cine y Teatro', 'Cines y Teatros', 'Show y Recital', 'Shows y Recitales', 'Centro Cultural', 'Centros Culturales', 'Otro', 'Otros']);
+const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos']);
 
 function categoriaDeNegocio(tipo, negocioId) {
   if (!tipo && negocioId)  return 'alojamiento';
@@ -88,7 +88,7 @@ export async function getAlojamientos() {
     .select('*')
     .eq('aprobado', true)
     .eq('activo', true)
-    .in('tipo', ['Hotel', 'Cabaña', 'Departamento', 'Casa', 'Hostel', 'Dormi'])
+    .in('tipo', ['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Casa', 'Hostel', 'Dormi', 'Domo', 'Carpa', 'Glamping'])
     .order('creado_en', { ascending: false });
 
   return (data || []).map(normalizeNegocio);
@@ -101,7 +101,7 @@ export async function getGastronomia() {
     .select('*')
     .eq('aprobado', true)
     .eq('activo', true)
-    .in('tipo', ['Restaurante', 'Bar', 'Café', 'Balneario', 'Pastelería', 'Gourmet', 'Parrilla', 'Heladería', 'Bodegón'])
+    .in('tipo', ['salidas', 'Restaurante', 'Bar', 'Café', 'Balneario', 'Pastelería', 'Gourmet', 'Parrilla', 'Heladería', 'Bodegón'])
     .order('creado_en', { ascending: false });
 
   return (data || []).map(normalizeNegocio);

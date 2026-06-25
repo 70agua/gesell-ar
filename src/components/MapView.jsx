@@ -4,6 +4,7 @@
 // ============================================================
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import InfoTooltip, { CreditTooltip } from './InfoTooltip';
+import HeartButton from './HeartButton';
 
 const C = {
   primary:  '#2545E6',
@@ -81,11 +82,16 @@ function PromoCard({ promo, active, onClick, onAdd, innerRef }) {
         flexShrink: 0, width: 260,
         display: 'flex', flexDirection: 'column',
         padding: '13px 14px 12px',
-        gap: 10,
+        gap: 10, position: 'relative',
       }}
     >
+      {/* Favorito */}
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2 }}>
+        <HeartButton id={promo.id} size={28} light />
+      </div>
+
       {/* Badge + título */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingRight: 32 }}>
         {promo.badge && (
           <div style={{ display: 'inline-flex' }}>
             <div style={{

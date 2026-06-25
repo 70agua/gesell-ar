@@ -10,6 +10,7 @@ import HeartButton      from '../components/HeartButton';
 import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
 import { busqueda } from '../lib/busqueda';
 import DateRangePicker from '../components/DateRangePicker';
+import { socialProof } from '../lib/socialProof';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -358,6 +359,9 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
       {/* ── ¡Alquilá por menos! ───────────────────────────────── */}
       <PromosSection onOpenDetail={onOpenDetail} accommodations={accommodations} onVerTodas={onVerTodas} onOpenOferta={onOpenOferta} onNavMarketplaceTipo={onNavMarketplaceTipo} />
 
+      {/* ── Socios locales que son tendencia ──────────────────── */}
+      <SociosTendenciaSection accommodations={accommodations} dining={dining} onOpenDetail={onOpenDetail} />
+
       {/* ── FEED "Descubrí experiencias reales" ────────────────────── */}
       <FeedSection onOpenOferta={onOpenOferta} onAddCupon={undefined} />
 
@@ -367,6 +371,90 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
       {/* ── SALIDAS ───────────────────────────────────────── */}
       <GastronomySection dining={dining} onOpenDetail={onOpenDetail} onVerTodas={() => {}} />
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Socios locales que son tendencia — avatares redondos
+// ═══════════════════════════════════════════════════════════
+const IcoStarFill = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>;
+const IcoFlame    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-1 4.5-2.5 6C8 9.5 7 11 7 13a5 5 0 0 0 10 0c0-1.7-.7-3.2-1.7-4.4-.3 1-1 1.7-1.9 1.9.6-2-.3-4.4-1.4-6.5-.3 1.2-1 2-2 2.6.2-1.8-.2-3.6-1-5.6 1.6.4 3.4 1.3 4.9 0z"/></svg>;
+
+function SociosTendenciaSection({ accommodations = [], dining = [], onOpenDetail }) {
+  // Mezcla socios de alojamiento + salidas; prioriza plan (BLACK > PLUS > resto) y rating
+  const planRank = { BLACK: 3, PLUS: 2, BASE: 1 };
+  const socios = [
+    ...accommodations.map(a => ({ ...a, _tipo: 'alojamiento' })),
+    ...dining.map(d => ({ ...d, _tipo: 'salidas' })),
+  ]
+    .filter(s => s.image && s.name)
+    .map(s => ({ ...s, _reservas: socialProof(`${s._tipo}-${s.id}`).reservasSemana }))
+    // Tendencia real: más reservas primero; plan premium y rating como desempate
+    .sort((a, b) => b._reservas - a._reservas || (planRank[b.plan] || 0) - (planRank[a.plan] || 0) || (b.rating || 0) - (a.rating || 0))
+    .slice(0, 12);
+
+  if (!socios.length) return null;
+
+  return (
+    <section style={{ background: 'linear-gradient(30deg, #fff1f6 0%, #d2e9f3 55%, #fff1f6 100%)', padding: '72px 0', borderTop: `1px solid ${A.line}`, borderBottom: `1px solid ${A.line}` }}>
+      {/* Header */}
+      <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 32 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
+          <span style={{ color: '#FF5A8A', display: 'flex' }}><IcoFlame /></span> Tendencia en la costa
+        </div>
+        <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>Socios locales que son tendencia</h2>
+        <p style={{ fontSize: 16, color: A.ink2, margin: '10px 0 0', maxWidth: 560, lineHeight: 1.5 }}>
+          Los lugares más elegidos de la temporada. Tocá uno y descubrí sus promociones.
+        </p>
+      </div>
+
+      {/* Scroll horizontal de avatares redondos */}
+      <div style={{ position: 'relative' }}>
+        <div style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingTop: 6, paddingBottom: 12 }} className="no-scrollbar">
+          <div style={{ display: 'flex', gap: 26, width: 'max-content', paddingRight: 56 }}>
+            {socios.map(s => (
+              <button
+                key={`${s._tipo}-${s.id}`}
+                onClick={() => onOpenDetail?.(s, s._tipo)}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: 150, flexShrink: 0, fontFamily: A.font }}
+                onMouseEnter={e => { const img = e.currentTarget.querySelector('.socio-ring'); if (img) { img.style.transform = 'scale(1.05)'; img.style.boxShadow = '0 16px 36px -12px rgba(37,69,230,0.45)'; } }}
+                onMouseLeave={e => { const img = e.currentTarget.querySelector('.socio-ring'); if (img) { img.style.transform = 'scale(1)'; img.style.boxShadow = '0 10px 28px -14px rgba(11,16,32,0.35)'; } }}
+              >
+                {/* Foto redonda */}
+                <div className="socio-ring" style={{ position: 'relative', width: 128, height: 128, borderRadius: '50%', padding: 4, background: '#fff', boxShadow: '0 10px 28px -14px rgba(11,16,32,0.35)', transition: 'transform 0.2s, box-shadow 0.2s' }}>
+                  <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: A.line }}>
+                    <img src={s.image} alt={s.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  {/* Badge plan BLACK */}
+                  {s.plan === 'BLACK' && (
+                    <div style={{ position: 'absolute', top: 2, right: 2, background: A.ink, color: '#fff', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', padding: '3px 7px', borderRadius: 999, border: '2px solid #fff' }}>BLACK</div>
+                  )}
+                  {/* Rating */}
+                  {s.rating != null && (
+                    <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'center', gap: 3, background: '#fff', color: A.ink, fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 999, boxShadow: '0 4px 12px -4px rgba(11,16,32,0.3)' }}>
+                      <span style={{ color: A.yellow, display: 'flex' }}><IcoStarFill /></span>{Number(s.rating).toFixed(1)}
+                    </div>
+                  )}
+                </div>
+                {/* Nombre + localidad */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.25, marginBottom: 3 }}>{s.name}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, color: A.muted }}>
+                    <span style={{ display: 'flex' }}><IcoPin /></span>{s.localidad}
+                  </div>
+                  {/* Prueba social — reservas de la semana */}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 7, padding: '3px 9px', borderRadius: 999, background: 'rgba(255,90,138,0.1)', color: '#E03A6D', fontSize: 11, fontWeight: 700 }}>
+                    <span style={{ display: 'flex' }}><IcoFlame /></span>
+                    {s._reservas} reservas esta semana
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 12, width: 120, background: 'linear-gradient(to right, transparent, #fff1f6)', pointerEvents: 'none', zIndex: 2 }} />
+      </div>
+    </section>
   );
 }
 

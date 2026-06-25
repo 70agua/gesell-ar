@@ -470,24 +470,67 @@ const OB_PROVINCIAS = [
   'Santiago del Estero','Tierra del Fuego','Tucumán',
 ];
 
+const OB_PAISES = ['Argentina','Uruguay','Chile','Brasil','Paraguay','Bolivia','Otro'];
+const COD_PAISES = ['+54','+598','+56','+55','+595','+591','+1','+34','+39','+44'];
+
 const OB_PLANES = [
-  { id:'free',  label:'Gratuito', price:'Gratis',
-    features:['1 oferta activa','Perfil básico','Sin posicionamiento destacado'] },
-  { id:'plus',  label:'Plus',     price:'$18.333/mes', badge:'⚡ Recomendado',
-    features:['Ofertas ilimitadas','Estadísticas completas','Posicionamiento Plus','Cupones personalizados'] },
-  { id:'black', label:'Black',    price:'$29.000/mes', badge:'👑 Premium',
-    features:['Todo de Plus','Cuponera destacada','Prioridad en búsquedas','Account manager'] },
+  { id:'free',  label:'Freemium', price:'$0',      priceSub:'para siempre',
+    desc:'Empezá a mostrarte sin costo.',
+    features:['1 oferta activa','Perfil en el directorio','Estadísticas esenciales'] },
+  { id:'plus',  label:'Plus',     price:'$18.333', priceSub:'/mes', badge:'Recomendado',
+    desc:'Para vender más y destacarte.',
+    features:['Ofertas ilimitadas','Estadísticas completas','Posicionamiento destacado','Cupones personalizados'] },
+  { id:'black', label:'Black',    price:'$29.000', priceSub:'/mes', badge:'Premium', dark:true,
+    desc:'Máxima visibilidad y soporte.',
+    features:['Todo lo de Plus','Cuponera destacada','Prioridad en búsquedas','Account manager dedicado'] },
 ];
+
+// Componentes a nivel de módulo — NO definir dentro del componente
+// (si se recrean en cada render, React remonta los inputs y se pierde el foco al tipear)
+const ErrMsg = ({ msg }) => msg ? <span style={{ fontSize:11, color:'#ef4444', marginTop:3, display:'block', fontFamily:OBFONT }}>{msg}</span> : null;
+const OBCard = ({ children, style }) => (
+  <div style={{ background:OBCARD, borderRadius:16, border:`1px solid ${OBLINE}`, padding:20, ...style }}>{children}</div>
+);
+const OBCardTitle = ({ label }) => (
+  <div style={{ fontSize:13, fontWeight:700, color:OBINK, marginBottom:14, paddingBottom:10, borderBottom:`1px solid ${OBLINE}` }}>{label}</div>
+);
+const BtnNext = ({ onClick, disabled, label, saving }) => (
+  <button onClick={onClick} disabled={disabled || saving}
+    style={{ display:'flex', alignItems:'center', gap:8, background:(disabled||saving)?OBMUTED:OBP, color:'#fff', border:'none', borderRadius:12, padding:'13px 28px', fontFamily:OBFONT, fontSize:14, fontWeight:700, cursor:(disabled||saving)?'not-allowed':'pointer', boxShadow:'0 4px 14px rgba(71,91,225,0.25)', transition:'background .15s' }}>
+    {saving ? 'Guardando...' : label}
+  </button>
+);
 
 function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApellido, rEmail, onComplete }) {
   const [obStep,    setObStep]    = useState(1);
   const [doneSteps, setDoneSteps] = useState(new Set());
+  // Tipo + categorías (editables — vienen del registro pero se pueden modificar acá)
+  const [tipoNeg, setTipoNeg] = useState(comTipo || '');
+  const [catsNeg, setCatsNeg] = useState(comCategorias || []);
+  const toggleCat = (c) => setCatsNeg(prev =>
+    prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= 2 ? prev : [...prev, c])
+  );
   // Empresa
   const [nombre,      setNombre]      = useState('');
+  // Contacto
+  const [email,       setEmail]       = useState(rEmail || '');
+  const [telFijoCod,  setTelFijoCod]  = useState('+54');
+  const [telFijoNum,  setTelFijoNum]  = useState('');
+  const [telMovilCod, setTelMovilCod] = useState('+54');
+  const [telMovilNum, setTelMovilNum] = useState('');
+  const [instagram,   setInstagram]   = useState('');
+  const [facebook,    setFacebook]    = useState('');
+  const [tiktok,      setTiktok]      = useState('');
+  // Ubicación
+  const [pais,        setPais]        = useState('Argentina');
   const [provincia,   setProvincia]   = useState('');
   const [localidad,   setLocalidad]   = useState('');
-  const [telefono,    setTelefono]    = useState('');
-  const [instagram,   setInstagram]   = useState('');
+  const [codPostal,   setCodPostal]   = useState('');
+  const [calle,       setCalle]       = useState('');
+  const [numero,      setNumero]      = useState('');
+  const [piso,        setPiso]        = useState('');
+  const [depto,       setDepto]       = useState('');
+  const [entreCalles, setEntreCalles] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoFile,    setLogoFile]    = useState(null);
@@ -508,20 +551,6 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
   const inp  = { width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:10, border:`1px solid ${OBLINE}`, fontFamily:OBFONT, fontSize:13, color:OBINK, outline:'none', background:'#fff', transition:'border-color .15s' };
   const inpE = (f) => ({ ...inp, borderColor: errors[f] ? '#ef4444' : OBLINE });
   const lbl  = { fontFamily:OBFONT, fontSize:11, fontWeight:700, color:OBINK2, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
-  const ErrMsg = ({ f }) => errors[f] ? <span style={{ fontSize:11, color:'#ef4444', marginTop:3, display:'block', fontFamily:OBFONT }}>{errors[f]}</span> : null;
-
-  const OBCard = ({ children, style }) => (
-    <div style={{ background:OBCARD, borderRadius:16, border:`1px solid ${OBLINE}`, padding:20, ...style }}>{children}</div>
-  );
-  const OBCardTitle = ({ label }) => (
-    <div style={{ fontSize:13, fontWeight:700, color:OBINK, marginBottom:14, paddingBottom:10, borderBottom:`1px solid ${OBLINE}` }}>{label}</div>
-  );
-  const BtnNext = ({ onClick, disabled, label }) => (
-    <button onClick={onClick} disabled={disabled || saving}
-      style={{ display:'flex', alignItems:'center', gap:8, background:(disabled||saving)?OBMUTED:OBP, color:'#fff', border:'none', borderRadius:12, padding:'13px 28px', fontFamily:OBFONT, fontSize:14, fontWeight:700, cursor:(disabled||saving)?'not-allowed':'pointer', boxShadow:'0 4px 14px rgba(71,91,225,0.25)', transition:'background .15s' }}>
-      {saving ? 'Guardando...' : label}
-    </button>
-  );
 
   const handleLogoChange = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -536,6 +565,10 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
     if (!nombre.trim())           e.nombre      = 'Campo requerido';
     if (!provincia)               e.provincia   = 'Campo requerido';
     if (!localidad)               e.localidad   = 'Campo requerido';
+    if (!tipoNeg)                 e.tipo        = 'Elegí el tipo de negocio';
+    if (catsNeg.length === 0)     e.categorias  = 'Elegí al menos una categoría';
+    if (!email.trim())            e.email       = 'Campo requerido';
+    else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) e.email = 'Email inválido';
     if (!descripcion.trim())      e.descripcion = 'Campo requerido';
     else if (descripcion.length < DESC_MIN) e.descripcion = `Mínimo ${DESC_MIN} caracteres (${descripcion.length} escritos)`;
     setErrors(e);
@@ -555,9 +588,15 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
         } catch {}
       }
       const { data: neg, error: negErr } = await supabase.from('negocios').insert({
-        nombre: nombre.trim(), tipo: comTipo, categoria: comCategorias.join(' / '),
-        localidad, provincia, telefono: telefono.trim() || null,
-        instagram: instagram.trim() || null, descripcion: descripcion.trim(),
+        nombre: nombre.trim(), tipo: tipoNeg, categoria: catsNeg.join(' / '),
+        email: email.trim() || null,
+        tel_fijo_cod: telFijoNum.trim() ? telFijoCod : null, tel_fijo_num: telFijoNum.trim() || null,
+        tel_movil_cod: telMovilNum.trim() ? telMovilCod : null, tel_movil_num: telMovilNum.trim() || null,
+        instagram: instagram.trim() || null, facebook: facebook.trim() || null, tiktok: tiktok.trim() || null,
+        pais, provincia, localidad, cod_postal: codPostal.trim() || null,
+        calle: calle.trim() || null, numero: numero.trim() || null, piso: piso.trim() || null,
+        depto: depto.trim() || null, entre_calles: entreCalles.trim() || null,
+        descripcion: descripcion.trim(),
         imagen_url: imagenUrl, plan:'free', aprobado:false, activo:false,
       }).select().single();
       if (negErr) throw negErr;
@@ -592,7 +631,7 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
       if (negocioId) await supabase.from('ofertas').insert({
         negocio_id: negocioId, titulo: ofTitulo.trim(),
         descripcion: ofDesc.trim() || null, descuento_pct: parseInt(ofPct),
-        tipo: comTipo, activo: false,
+        tipo: tipoNeg, activo: false,
       });
       onComplete();
     } catch { onComplete(); }
@@ -601,18 +640,18 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
 
   const NAV_STEPS = [
     { n:1, label:'Mi Empresa',     sub:'Perfil del negocio' },
-    { n:2, label:'Cuenta',         sub:'Plan y facturación' },
+    { n:2, label:'Cuenta',         sub:'Planes para socios' },
     { n:3, label:'Primera oferta', sub:'Captá clientes desde el día 1' },
   ];
 
   return (
     <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', background:OBBG, fontFamily:OBFONT }}>
 
-      {/* ── Sidebar ── */}
-      <div style={{ width:240, background:OBNAVY, display:'flex', flexDirection:'column', flexShrink:0 }}>
-        <div style={{ padding:'24px 20px 18px', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
-          <div style={{ fontSize:14, fontWeight:800, color:'#fff', letterSpacing:'-0.01em' }}>gesell.ar</div>
-          <div style={{ fontSize:11, color:OBMUTED, marginTop:3 }}>Registro de socio comercial</div>
+      {/* ── Sidebar (mismo estilo que el panel admin) ── */}
+      <div style={{ width:230, minWidth:230, background:OBNAVY, display:'flex', flexDirection:'column', flexShrink:0 }}>
+        <div style={{ padding:'20px 0 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+          <img src="/logo-cuponera-wh.svg" alt="Cuponera" style={{ width:180, height:'auto', display:'block' }} />
+          <div style={{ fontSize:10.5, color:OBMUTED, fontWeight:600, letterSpacing:'0.04em' }}>Registro de socio</div>
         </div>
         <nav style={{ padding:'16px 10px', display:'flex', flexDirection:'column', gap:2, flex:1 }}>
           {NAV_STEPS.map(s => {
@@ -638,13 +677,13 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
         </nav>
         <div style={{ padding:'14px 20px', borderTop:'1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ fontSize:11, color:OBMUTED, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{rEmail}</div>
-          {comTipo && <div style={{ fontSize:10, color:'rgba(255,255,255,0.25)', marginTop:2 }}>{comTipo} · {comCategorias[0] || ''}</div>}
+          {tipoNeg && <div style={{ fontSize:10, color:'rgba(255,255,255,0.25)', marginTop:2 }}>{tipoNeg}{catsNeg[0] ? ` · ${catsNeg[0]}` : ''}</div>}
         </div>
       </div>
 
-      {/* ── Contenido ── */}
-      <div style={{ flex:1, overflow:'auto', padding:'36px 48px' }}>
-        <div style={{ maxWidth:660, margin:'0 auto' }}>
+      {/* ── Contenido (mismo ancho/padding que el panel) ── */}
+      <div style={{ flex:1, overflow:'auto', padding:28 }}>
+        <div style={{ maxWidth:740 }}>
           <div style={{ fontSize:11, fontWeight:700, color:OBMUTED, letterSpacing:'0.08em', marginBottom:8 }}>PASO {obStep} DE 3</div>
 
           {/* ── Paso 1: Mi Empresa ── */}
@@ -673,26 +712,116 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                     <div>
                       <label style={lbl}>Nombre del negocio <span style={{ color:'#ef4444' }}>*</span></label>
                       <input value={nombre} onChange={e => { setNombre(e.target.value); setErrors(p => ({...p, nombre:null})); }} style={inpE('nombre')} placeholder="Ej: Hotel La Costa" />
-                      <ErrMsg f="nombre" />
+                      <ErrMsg msg={errors.nombre} />
                     </div>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-                      {comTipo && <span style={{ padding:'3px 10px', background:OBPS, borderRadius:999, fontSize:11, fontWeight:700, color:OBP }}>{comTipo}</span>}
-                      {comCategorias.map(c => <span key={c} style={{ padding:'3px 10px', background:OBPS, borderRadius:999, fontSize:11, fontWeight:700, color:OBP }}>{c}</span>)}
+                  </div>
+                </div>
+              </OBCard>
+
+              {/* Rubro — tipo + categorías editables */}
+              <OBCard>
+                <OBCardTitle label="Rubro de tu negocio" />
+                <label style={lbl}>Tipo <span style={{ color:'#ef4444' }}>*</span></label>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:4 }}>
+                  {TIPOS_COMERCIO.map(t => {
+                    const sel = tipoNeg === t.id;
+                    return (
+                      <button key={t.id} type="button"
+                        onClick={() => { setTipoNeg(t.id); setCatsNeg([]); setErrors(p => ({ ...p, tipo:null, categorias:null })); }}
+                        style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:12, cursor:'pointer', fontFamily:OBFONT, fontSize:13, fontWeight:700,
+                          border:`1.5px solid ${sel?OBP:OBLINE}`, background:sel?OBPS:'#fff', color:sel?OBP:OBINK2, transition:'all .15s' }}>
+                        <t.Icon size={16} /> {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <ErrMsg msg={errors.tipo} />
+
+                {tipoNeg && (
+                  <div style={{ marginTop:16 }}>
+                    <label style={lbl}>Categorías — elegí hasta 2 <span style={{ color:'#ef4444' }}>*</span></label>
+                    <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
+                      {CATS[tipoNeg].map(c => {
+                        const sel = catsNeg.includes(c);
+                        const maxed = !sel && catsNeg.length >= 2;
+                        return (
+                          <button key={c} type="button" disabled={maxed}
+                            onClick={() => { toggleCat(c); setErrors(p => ({ ...p, categorias:null })); }}
+                            style={{ padding:'7px 13px', borderRadius:999, fontFamily:OBFONT, fontSize:12, fontWeight:600,
+                              cursor: maxed ? 'not-allowed' : 'pointer', opacity: maxed ? 0.45 : 1,
+                              border:`1.5px solid ${sel?OBP:OBLINE}`, background:sel?OBP:'#fff', color:sel?'#fff':OBINK2, transition:'all .15s' }}>
+                            {c}
+                          </button>
+                        );
+                      })}
                     </div>
+                    <ErrMsg msg={errors.categorias} />
+                  </div>
+                )}
+              </OBCard>
+
+              <OBCard>
+                <OBCardTitle label="Contacto" />
+                {/* Email — pre-cargado, requerido */}
+                <div style={{ marginBottom:14 }}>
+                  <label style={lbl}>Email <span style={{ color:'#ef4444' }}>*</span></label>
+                  <input type="email" value={email} onChange={e => { setEmail(e.target.value); setErrors(p => ({...p, email:null})); }} style={inpE('email')} placeholder="contacto@minegocio.com" />
+                  <ErrMsg msg={errors.email} />
+                </div>
+                {/* Teléfonos */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+                  <div>
+                    <label style={lbl}>Teléfono fijo</label>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <select value={telFijoCod} onChange={e => setTelFijoCod(e.target.value)} style={{ ...inp, width:78, flexShrink:0, cursor:'pointer' }}>
+                        {COD_PAISES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <input value={telFijoNum} onChange={e => setTelFijoNum(e.target.value)} style={inp} placeholder="2255 432100" />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={lbl}>Línea móvil</label>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <select value={telMovilCod} onChange={e => setTelMovilCod(e.target.value)} style={{ ...inp, width:78, flexShrink:0, cursor:'pointer' }}>
+                        {COD_PAISES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <input value={telMovilNum} onChange={e => setTelMovilNum(e.target.value)} style={inp} placeholder="2255 11223344" />
+                    </div>
+                  </div>
+                </div>
+                {/* Redes */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
+                  <div>
+                    <label style={lbl}>Instagram</label>
+                    <input value={instagram} onChange={e => setInstagram(e.target.value)} style={inp} placeholder="@mi.negocio" />
+                  </div>
+                  <div>
+                    <label style={lbl}>Facebook</label>
+                    <input value={facebook} onChange={e => setFacebook(e.target.value)} style={inp} placeholder="/mi.negocio" />
+                  </div>
+                  <div>
+                    <label style={lbl}>TikTok</label>
+                    <input value={tiktok} onChange={e => setTiktok(e.target.value)} style={inp} placeholder="@mi.negocio" />
                   </div>
                 </div>
               </OBCard>
 
               <OBCard>
                 <OBCardTitle label="Ubicación" />
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+                  <div>
+                    <label style={lbl}>País <span style={{ color:'#ef4444' }}>*</span></label>
+                    <select value={pais} onChange={e => setPais(e.target.value)} style={{ ...inp, cursor:'pointer' }}>
+                      {OB_PAISES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
                   <div>
                     <label style={lbl}>Provincia <span style={{ color:'#ef4444' }}>*</span></label>
                     <select value={provincia} onChange={e => { setProvincia(e.target.value); setErrors(p => ({...p, provincia:null})); }} style={{ ...inpE('provincia'), cursor:'pointer' }}>
                       <option value="">Seleccioná</option>
                       {OB_PROVINCIAS.map(pr => <option key={pr} value={pr}>{pr}</option>)}
                     </select>
-                    <ErrMsg f="provincia" />
+                    <ErrMsg msg={errors.provincia} />
                   </div>
                   <div>
                     <label style={lbl}>Localidad <span style={{ color:'#ef4444' }}>*</span></label>
@@ -700,22 +829,23 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                       <option value="">Seleccioná</option>
                       {LOCALIDADES.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
-                    <ErrMsg f="localidad" />
+                    <ErrMsg msg={errors.localidad} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Código postal</label>
+                    <input value={codPostal} onChange={e => setCodPostal(e.target.value)} style={inp} placeholder="7165" />
                   </div>
                 </div>
-              </OBCard>
-
-              <OBCard>
-                <OBCardTitle label="Contacto (opcional)" />
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-                  <div>
-                    <label style={lbl}>Teléfono</label>
-                    <input value={telefono} onChange={e => setTelefono(e.target.value)} style={inp} placeholder="+54 2255 000000" />
-                  </div>
-                  <div>
-                    <label style={lbl}>Instagram</label>
-                    <input value={instagram} onChange={e => setInstagram(e.target.value)} style={inp} placeholder="@mi.negocio" />
-                  </div>
+                {/* Domicilio */}
+                <label style={lbl}>Domicilio</label>
+                <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:10 }}>
+                  <input value={calle} onChange={e => setCalle(e.target.value)} style={inp} placeholder="Calle / Avenida" />
+                  <input value={numero} onChange={e => setNumero(e.target.value)} style={inp} placeholder="Número" />
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 2fr', gap:14 }}>
+                  <input value={piso} onChange={e => setPiso(e.target.value)} style={inp} placeholder="Piso" />
+                  <input value={depto} onChange={e => setDepto(e.target.value)} style={inp} placeholder="Depto" />
+                  <input value={entreCalles} onChange={e => setEntreCalles(e.target.value)} style={inp} placeholder="Entre calles" />
                 </div>
               </OBCard>
 
@@ -725,7 +855,7 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                 <textarea value={descripcion} onChange={e => { setDescripcion(e.target.value.slice(0, DESC_MAX)); setErrors(p => ({...p, descripcion:null})); }} rows={4}
                   placeholder="Somos un hotel familiar a media cuadra del mar, con pileta, desayuno y estacionamiento..."
                   style={{ ...inpE('descripcion'), resize:'vertical', minHeight:90 }} />
-                <ErrMsg f="descripcion" />
+                <ErrMsg msg={errors.descripcion} />
                 <div style={{ display:'flex', justifyContent:'space-between', marginTop:5 }}>
                   <span style={{ fontSize:11, color:OBMUTED }}>Mín. {DESC_MIN} · máx. {DESC_MAX} caracteres</span>
                   <span style={{ fontSize:11, color: descripcion.length > DESC_MAX*0.9 ? '#ef4444' : OBMUTED }}>{descripcion.length} / {DESC_MAX}</span>
@@ -734,8 +864,8 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
 
               {errors._ && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{errors._}</div>}
 
-              <div style={{ display:'flex', justifyContent:'flex-end', paddingBottom:40 }}>
-                <BtnNext onClick={step1Save} label="Siguiente →" />
+              <div style={{ display:'flex', justifyContent:'center', paddingBottom:40 }}>
+                <BtnNext onClick={step1Save} saving={saving} label="Siguiente →" />
               </div>
             </div>
           )}
@@ -748,30 +878,44 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                 <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Podés empezar gratis y actualizar cuando quieras. El cobro se activa cuando tu ficha sea aprobada.</p>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:14 }}>
-                {OB_PLANES.map(pl => (
-                  <div key={pl.id} onClick={() => setPlan(pl.id)}
-                    style={{ background: plan===pl.id ? OBPS : OBCARD, border:`2px solid ${plan===pl.id ? OBP : OBLINE}`, borderRadius:16, padding:'18px 16px', cursor:'pointer', transition:'all .15s', position:'relative' }}>
-                    {pl.badge && <div style={{ position:'absolute', top:-11, left:'50%', transform:'translateX(-50%)', background:OBP, color:'#fff', borderRadius:999, padding:'2px 12px', fontSize:10, fontWeight:700, whiteSpace:'nowrap' }}>{pl.badge}</div>}
-                    {plan===pl.id && <div style={{ position:'absolute', top:12, right:12, width:18, height:18, borderRadius:'50%', background:OBP, display:'grid', placeItems:'center' }}><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg></div>}
-                    <div style={{ fontWeight:800, fontSize:15, color: plan===pl.id ? OBP : OBINK, marginBottom:4 }}>{pl.label}</div>
-                    <div style={{ fontWeight:700, fontSize:17, color: plan===pl.id ? OBP : OBINK, marginBottom:14 }}>{pl.price}</div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                      {pl.features.map(f => (
-                        <div key={f} style={{ display:'flex', alignItems:'flex-start', gap:7, fontSize:12, color:OBINK2 }}>
-                          <div style={{ width:14, height:14, borderRadius:4, background: plan===pl.id ? OBP : OBLINE, display:'grid', placeItems:'center', flexShrink:0, marginTop:1 }}>
-                            <svg width="7" height="7" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16, alignItems:'stretch' }}>
+                {OB_PLANES.map(pl => {
+                  const on = plan === pl.id;
+                  const accent = pl.dark ? OBNAVY : OBP;
+                  return (
+                    <div key={pl.id} onClick={() => setPlan(pl.id)}
+                      style={{ background:OBCARD, border:`2px solid ${on ? accent : OBLINE}`, borderRadius:18, padding:'22px 18px 20px', cursor:'pointer', transition:'all .18s', position:'relative', display:'flex', flexDirection:'column',
+                        boxShadow: on ? `0 10px 30px -12px ${pl.dark ? 'rgba(15,23,42,0.4)' : 'rgba(71,91,225,0.35)'}` : '0 1px 2px rgba(15,23,42,0.04)' }}>
+                      {pl.badge && (
+                        <div style={{ position:'absolute', top:-11, left:'50%', transform:'translateX(-50%)', background:accent, color:'#fff', borderRadius:999, padding:'4px 14px', fontSize:10, fontWeight:800, letterSpacing:'0.06em', textTransform:'uppercase', whiteSpace:'nowrap', fontFamily:OBFONT, boxShadow:`0 4px 10px -2px ${pl.dark ? 'rgba(15,23,42,0.45)' : 'rgba(71,91,225,0.4)'}` }}>{pl.badge}</div>
+                      )}
+                      {on && <div style={{ position:'absolute', top:14, right:14, width:20, height:20, borderRadius:'50%', background:accent, display:'grid', placeItems:'center' }}><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
+
+                      <div style={{ fontFamily:OBFONT, fontWeight:800, fontSize:18, letterSpacing:'-0.01em', color: pl.dark ? OBNAVY : OBINK, marginBottom:2 }}>{pl.label}</div>
+                      <div style={{ fontFamily:OBFONT, fontSize:12, color:OBMUTED, marginBottom:14, minHeight:32, lineHeight:1.4 }}>{pl.desc}</div>
+
+                      <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:16 }}>
+                        <span style={{ fontFamily:OBFONT, fontWeight:800, fontSize:28, letterSpacing:'-0.03em', color: pl.dark ? OBNAVY : OBINK }}>{pl.price}</span>
+                        <span style={{ fontFamily:OBFONT, fontSize:12, fontWeight:500, color:OBMUTED }}>{pl.priceSub}</span>
+                      </div>
+
+                      <div style={{ height:1, background:OBLINE, margin:'0 0 14px' }} />
+
+                      <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+                        {pl.features.map(f => (
+                          <div key={f} style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:12.5, color:OBINK2, fontFamily:OBFONT, lineHeight:1.35 }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, marginTop:1 }}><circle cx="12" cy="12" r="10" fill={pl.dark ? OBNAVY : (on ? OBP : OBPS)}/><path d="M8 12l2.5 2.5L16 9" stroke={pl.dark || on ? '#fff' : OBP} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            {f}
                           </div>
-                          {f}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              <div style={{ display:'flex', justifyContent:'flex-end', paddingBottom:40 }}>
-                <BtnNext onClick={step2Save} label="Siguiente →" />
+              <div style={{ display:'flex', justifyContent:'center', paddingBottom:40 }}>
+                <BtnNext onClick={step2Save} saving={saving} label="Siguiente →" />
               </div>
             </div>
           )}
@@ -806,11 +950,11 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                 </div>
               </OBCard>
 
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingBottom:40 }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, paddingBottom:40 }}>
+                <BtnNext onClick={step3Save} saving={saving} disabled={!ofTitulo.trim() || !ofPct} label="Guardar y terminar" />
                 <button onClick={onComplete} style={{ fontSize:13, color:OBMUTED, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT, fontWeight:600 }}>
                   Lo haré más tarde →
                 </button>
-                <BtnNext onClick={step3Save} disabled={!ofTitulo.trim() || !ofPct} label="Guardar y terminar" />
               </div>
             </div>
           )}
@@ -1017,27 +1161,33 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: A.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 64, paddingBottom: 48, paddingLeft: 20, paddingRight: 20, fontFamily: A.font }}>
-      <div style={{ width: '100%', maxWidth: 520, transition: 'max-width .3s' }}>
+    <div style={{ minHeight: '100vh', background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 56, paddingBottom: 48, paddingLeft: 20, paddingRight: 20, fontFamily: A.font, position: 'relative', overflow: 'hidden' }}>
+
+        {/* Formas abstractas etéreas de fondo */}
+        <div aria-hidden style={{ position: 'absolute', top: '-12%', left: '-8%', width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle at 30% 30%, rgba(71,91,225,0.22), rgba(71,91,225,0) 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
+        <div aria-hidden style={{ position: 'absolute', bottom: '-15%', right: '-10%', width: 540, height: 540, borderRadius: '50%', background: 'radial-gradient(circle at 60% 40%, rgba(255,90,138,0.18), rgba(255,90,138,0) 70%)', filter: 'blur(20px)', pointerEvents: 'none' }} />
+        <div aria-hidden style={{ position: 'absolute', top: '40%', right: '12%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(125,211,252,0.16), rgba(125,211,252,0) 70%)', filter: 'blur(16px)', pointerEvents: 'none' }} />
+
+      <div style={{ width: '100%', maxWidth: 480, transition: 'max-width .3s', position: 'relative', zIndex: 1 }}>
 
         {/* Logo */}
-        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', marginBottom: 32 }}>
-          <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 44, width: 'auto' }} />
+        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', marginBottom: 22 }}>
+          <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 42, width: 'auto' }} />
           <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: A.primary, fontFamily: A.font }}>{getSiteName()}</span>
         </button>
 
-        <div>
+        <div className="login-card" style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 24, padding: '30px 30px 26px', boxShadow: '0 24px 70px -28px rgba(15,23,42,0.28), 0 2px 8px rgba(15,23,42,0.04)' }}>
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', background: A.bg, borderRadius: 14, padding: 4, marginBottom: 28, gap: 4 }}>
-            {[['ingresar', 'Ingresar'], ['registrarse', 'Registrarse gratis']].map(([key, label]) => (
+          {/* Tabs — segmented control (no es CTA) */}
+          <div style={{ display: 'flex', background: '#f1f3f9', borderRadius: 12, padding: 4, marginBottom: 26, gap: 4 }}>
+            {[['ingresar', 'Ingresar'], ['registrarse', 'Registrarse']].map(([key, label]) => (
               <button key={key} onClick={() => switchTab(key)}
                 style={{
-                  flex: 1, padding: '10px 0', border: 'none', borderRadius: 11, cursor: 'pointer',
+                  flex: 1, padding: '10px 0', border: 'none', borderRadius: 9, cursor: 'pointer',
                   fontSize: 14, fontWeight: 700, fontFamily: A.font, transition: 'all .2s',
-                  background: tab === key ? A.primary : 'transparent',
-                  color: tab === key ? '#fff' : A.muted,
-                  boxShadow: tab === key ? '0 2px 10px rgba(37,69,230,0.25)' : 'none',
+                  background: tab === key ? '#fff' : 'transparent',
+                  color: tab === key ? A.primary : A.muted,
+                  boxShadow: tab === key ? '0 1px 3px rgba(15,23,42,0.12)' : 'none',
                 }}
               >
                 {label}

@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import { useFavoritos } from '../lib/favoritos';
 
-export default function HeartButton({ id, size = 32 }) {
+export default function HeartButton({ id, size = 32, light = false }) {
   const ctx = useFavoritos();
   const [pulse, setPulse] = useState(false);
 
@@ -24,20 +24,27 @@ export default function HeartButton({ id, size = 32 }) {
     setTimeout(() => setPulse(false), 350);
   };
 
+  // variante "light": para tarjetas sobre fondo blanco (sin imagen)
+  const bg = light
+    ? (fav ? 'rgba(239,68,68,0.10)' : '#ffffff')
+    : (fav ? 'rgba(239,68,68,0.18)' : 'rgba(0,0,0,0.30)');
+  const strokeColor = fav ? '#EF4444' : (light ? '#94a3b8' : 'rgba(255,255,255,0.92)');
+
   return (
     <button
       onClick={handle}
       style={{
-        background: fav ? 'rgba(239,68,68,0.18)' : 'rgba(0,0,0,0.30)',
-        border: 'none',
+        background: bg,
+        border: light ? `1px solid ${fav ? '#fecaca' : '#e7e9ee'}` : 'none',
         borderRadius: '50%',
         width: size,
         height: size,
         display: 'grid',
         placeItems: 'center',
         cursor: 'pointer',
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
+        backdropFilter: light ? 'none' : 'blur(4px)',
+        WebkitBackdropFilter: light ? 'none' : 'blur(4px)',
+        boxShadow: light ? '0 1px 3px rgba(15,23,42,0.12)' : 'none',
         transform: pulse ? 'scale(1.45)' : 'scale(1)',
         transition: 'transform 0.25s cubic-bezier(.34,1.6,.64,1), background 0.2s',
         flexShrink: 0,
@@ -48,7 +55,7 @@ export default function HeartButton({ id, size = 32 }) {
         height={iconSize}
         viewBox="0 0 24 24"
         fill={fav ? '#EF4444' : 'none'}
-        stroke={fav ? '#EF4444' : 'rgba(255,255,255,0.92)'}
+        stroke={strokeColor}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

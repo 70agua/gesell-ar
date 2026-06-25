@@ -59,29 +59,31 @@ function MiniOfertaCard({ img, badge, badgeColor = A.primary, lugar, titulo, sub
   return (
     <button
       onClick={() => onNavigate(destino || 'marketplace', {})}
-      style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${A.line}`, borderRadius: 14, overflow: 'hidden', background: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: A.font, width: '100%', transition: 'box-shadow .18s, transform .18s' }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(11,16,32,0.12)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+      style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${A.line}`, borderRadius: 16, overflow: 'hidden', background: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: A.font, width: '100%', padding: 0, transition: 'box-shadow .2s, transform .2s' }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 12px 28px -10px rgba(11,16,32,0.22)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
     >
-      {/* Imagen con badge */}
-      <div style={{ position: 'relative', height: 110, overflow: 'hidden', background: '#e0e0ea', flexShrink: 0 }}>
+      {/* Imagen 4:3 con badge + título encima (formato nuevo de oferta) */}
+      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden', background: '#e0e0ea', flexShrink: 0 }}>
         <img src={img} alt={titulo} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.55) 0%, transparent 55%)' }} />
-        <div style={{ position: 'absolute', bottom: 9, left: 10 }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1 }}>{badge}</span>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.82) 0%, rgba(11,16,32,0.15) 50%, transparent 100%)' }} />
+        {subtitulo && (
+          <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, color: badgeColor === A.primary ? A.primary : '#fff', background: badgeColor === A.primary ? '#fff' : badgeColor, padding: '3px 8px', borderRadius: 7, boxShadow: '0 2px 6px rgba(11,16,32,0.15)' }}>{subtitulo}</span>
+        )}
+        <div style={{ position: 'absolute', bottom: 8, left: 11, right: 11 }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1, marginBottom: 3, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{badge}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3, textShadow: '0 1px 4px rgba(0,0,0,0.5)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{titulo}</div>
         </div>
-        <span style={{ position: 'absolute', top: 9, right: 9, fontSize: 10, fontWeight: 700, color: badgeColor === A.primary ? A.primary : '#fff', background: badgeColor === A.primary ? A.primarySoft : badgeColor, padding: '3px 8px', borderRadius: 6 }}>{subtitulo}</span>
       </div>
       {/* Body */}
-      <div style={{ padding: '10px 12px 12px' }}>
+      <div style={{ padding: '9px 11px 11px' }}>
         {lugar && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ fontSize: 11, fontWeight: 600, color: A.primary }}>{lugar}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span style={{ fontSize: 11, fontWeight: 600, color: A.ink2 }}>{lugar}</span>
           </div>
         )}
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#1a6b3c', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{titulo}</div>
-        <div style={{ marginTop: 9, padding: '7px 10px', background: A.primarySoft, borderRadius: 8, fontSize: 12, fontWeight: 600, color: A.primary, textAlign: 'center' }}>
+        <div style={{ marginTop: 8, padding: '8px 10px', background: A.primary, borderRadius: 10, fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
           Ver oferta →
         </div>
       </div>
@@ -172,18 +174,12 @@ function AlojDrop({ onNavigate }) {
       {/* Separador vertical */}
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha: imagen + mini oferta */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 220, flexShrink: 0 }}>
-        <div style={{ borderRadius: 12, overflow: 'hidden', height: 100 }}>
-          <img
-            src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=440&q=80"
-            alt="Villa Gesell"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        </div>
+      {/* Derecha: oferta destacada */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 210, flexShrink: 0 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
           img="https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=440&q=80"
-          badge="30% off"
+          badge="30%"
           subtitulo="Cabaña"
           lugar="Mar de las Pampas"
           titulo="Cabaña frente al mar con acceso directo a la playa"
@@ -273,15 +269,9 @@ function GastroDrop({ onNavigate }) {
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 220, flexShrink: 0 }}>
-        <div style={{ borderRadius: 12, overflow: 'hidden', height: 100 }}>
-          <img
-            src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=440&q=80"
-            alt="Salidas"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        </div>
+      {/* Derecha: oferta destacada */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 210, flexShrink: 0 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
           img="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=440&q=80"
           badge="2×1"
@@ -325,15 +315,9 @@ function AventDrop({ onNavigate }) {
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 220, flexShrink: 0 }}>
-        <div style={{ borderRadius: 12, overflow: 'hidden', height: 100 }}>
-          <img
-            src="https://images.unsplash.com/photo-1455729552865-3658a5d39692?w=440&q=80"
-            alt="Aventura"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        </div>
+      {/* Derecha: oferta destacada */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 210, flexShrink: 0 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
           img="https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=440&q=80"
           badge="-20%"
@@ -608,18 +592,10 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                   <div style={{ ...DROP_BASE, right: 0, transform: 'none', minWidth: 220, padding: '8px 0', animation: 'dropFadeRight .15s ease-out' }}>
                     <UserMenuItem icon={HeartIco}    label="Favoritos"   onClick={() => { setView('favoritos');  setUserMenuOpen(false); }} />
                     <UserMenuItem icon={CuponeraIco} label="Cuponera"    onClick={() => { openDrawer();           setUserMenuOpen(false); }} />
-                    <UserMenuItem icon={PersonIco}   label="Mi cuenta"   onClick={() => { setView('mi-cuenta');  setUserMenuOpen(false); }} />
-                    {esSocioOAdmin && (
-                      <>
-                        <div style={{ height: 1, background: A.line, margin: '6px 0' }} />
-                        <button onClick={() => { setView(perfil?.es_superadmin ? 'superadmin' : 'admin'); setUserMenuOpen(false); }}
-                          style={menuItemSt(true)}
-                          onMouseEnter={e => e.currentTarget.style.background = A.primarySoft}
-                          onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                        >
-                          <DashIco /> Panel de socio
-                        </button>
-                      </>
+                    {esSocioOAdmin ? (
+                      <UserMenuItem icon={DashIco} label="Mi panel" onClick={() => { setView(perfil?.es_superadmin ? 'superadmin' : 'admin'); setUserMenuOpen(false); }} />
+                    ) : (
+                      <UserMenuItem icon={PersonIco} label="Mi cuenta" onClick={() => { setView('home'); setUserMenuOpen(false); }} />
                     )}
                     <div style={{ height: 1, background: A.line, margin: '6px 0' }} />
                     <button onClick={() => { onLogout(); setUserMenuOpen(false); }}

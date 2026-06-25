@@ -8,7 +8,7 @@ import {
   Heart, Share2, Zap, MessageCircle, Flag, ChevronRight, ChevronLeft, Home,
   Wifi, Car, Waves, Coffee, ShieldCheck, KeyRound,
   Utensils, Phone, Clock, Globe, MapPin, Ticket,
-  Star, Minus, Plus, Sunrise, Users,
+  Star, Minus, Plus, Sunrise, Users, Bell,
   Dumbbell, Wind, Flame, PawPrint, Baby, Bike, Tv, ChefHat,
   TreePine, Droplets, Sparkles, BedDouble, AirVent,
 } from 'lucide-react';
@@ -20,6 +20,9 @@ import { useCuponera } from '../lib/cuponera';
 import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
 import { busqueda } from '../lib/busqueda';
 import DateRangePicker from '../components/DateRangePicker';
+import { socialProof } from '../lib/socialProof';
+import HeartButton from '../components/HeartButton';
+import { esSiguiendo, toggleSeguir } from '../lib/seguir';
 
 const toDateStr = d => d instanceof Date ? d.toISOString().split('T')[0] : '';
 
@@ -36,6 +39,62 @@ const C = {
   green:       '#10A36B',
   yellow:      '#FFC93C',
 };
+
+// ─── Prueba social en vivo bajo el título ────────────────────
+function LiveSocialProof({ negocioId, tipo }) {
+  const key = `${tipo}-${negocioId}`;
+  const { viendoBase: viendo, cuponesCanjeados } = socialProof(key);
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, marginTop: 10, flexWrap: 'wrap', fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: C.ink2 }}>
+        <span style={{ position: 'relative', display: 'inline-flex', width: 8, height: 8 }}>
+          <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.green, opacity: 0.45, animation: 'liveping 1.6s cubic-bezier(0,0,0.2,1) infinite' }} />
+          <span style={{ position: 'relative', width: 8, height: 8, borderRadius: '50%', background: C.green }} />
+        </span>
+        <strong style={{ color: C.ink }}>{viendo} personas</strong> viendo ahora
+      </span>
+      <span style={{ color: C.line }}>·</span>
+      <span style={{ fontSize: 13, color: C.muted }}>
+        <strong style={{ color: C.ink2 }}>{cuponesCanjeados}</strong> cupones canjeados
+      </span>
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes liveping { 75%,100% { transform: scale(2.4); opacity: 0; } }` }} />
+    </div>
+  );
+}
+
+// ─── Botón "Seguir ofertas" del socio ────────────────────────
+function SeguirOfertasBtn({ negocioId, session, onLoginRequired }) {
+  const [sig, setSig]   = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    if (session?.user?.id && negocioId) {
+      esSiguiendo(session.user.id, negocioId).then(v => { if (alive) setSig(v); });
+    } else { setSig(false); }
+    return () => { alive = false; };
+  }, [session, negocioId]);
+
+  const toggle = async () => {
+    if (!session) { onLoginRequired?.('registrarse'); return; }
+    if (busy) return;
+    setBusy(true);
+    const next = !sig;
+    setSig(next);
+    const { error } = await toggleSeguir(session.user.id, negocioId, next);
+    if (error) setSig(!next);
+    setBusy(false);
+  };
+
+  return (
+    <button onClick={toggle}
+      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold cursor-pointer"
+      style={{ background: sig ? C.primary : '#fff', border: `1px solid ${sig ? C.primary : C.line}`, color: sig ? '#fff' : C.ink, transition: 'all .15s' }}
+      title={sig ? 'Te avisamos cuando publique una oferta nueva' : 'Recibí un aviso cuando publique una oferta nueva'}>
+      <Bell size={15} fill={sig ? '#fff' : 'none'} /> {sig ? 'Siguiendo ofertas' : 'Seguir ofertas'}
+    </button>
+  );
+}
 
 // ─── Cálculo de créditos: 20%/15%/10% del ahorro, mínimo 1 ─
 const PRECIO_CREDITO = 2000; // pesos sin IVA
@@ -1495,6 +1554,7 @@ function CuponeraItem({ promo, onOpenOferta }) {
           <span style={{ fontSize: 10, color: C.muted }}>(${(tokens * 2000).toLocaleString('es-AR')} + IVA)</span>
         </div>
       </div>
+      <HeartButton id={promo.id} size={28} light />
       <ChevronRight size={14} color={C.muted} style={{ flexShrink: 0 }} />
     </div>
   );
@@ -1521,17 +1581,24 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
     if (new Date(checkout) <= new Date(checkin)) { setError('La salida debe ser posterior a la entrada.'); return; }
     setError(''); setEnviando(true);
     try {
-      const { data: cuponera } = await supabase
+      let { data: cuponera } = await supabase
         .from('cuponeras')
         .select('id')
         .eq('usuario_id', session.user.id)
-        .single();
-
-      const cuponera_id = cuponera?.id;
+        .maybeSingle();
+      if (!cuponera) {
+        const { data: nueva } = await supabase
+          .from('cuponeras')
+          .insert({ usuario_id: session.user.id })
+          .select('id')
+          .single();
+        cuponera = nueva;
+      }
 
       const { error: insertErr } = await supabase.from('cuponera_items').insert({
-        cuponera_id,
+        cuponera_id:      cuponera?.id,
         promocion_id:     promo.id,
+        negocio_id:       negocio?.id || promo.negocioId || null,
         estado_solicitud: 'pendiente_confirmacion',
         fecha_checkin:    toDateStr(fechas.desde),
         fecha_checkout:   toDateStr(fechas.hasta),
@@ -1693,14 +1760,14 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
     if (!fechas.hasta) { setFormError('Elegí la fecha de salida');  return; }
     setEnviando(true);
     try {
-      let { data: cup } = await supabase.from('cuponeras').select('id').eq('usuario_id', session.user.id).single();
+      let { data: cup } = await supabase.from('cuponeras').select('id').eq('usuario_id', session.user.id).maybeSingle();
       if (!cup) {
         const { data: nc } = await supabase.from('cuponeras').insert({ usuario_id: session.user.id }).select('id').single();
         cup = nc;
       }
       const venceEn = new Date(Date.now() + 48 * 3600000).toISOString();
       const { error } = await supabase.from('cuponera_items').insert({
-        cuponera_id: cup.id, promo_id: p.id,
+        cuponera_id: cup.id, promocion_id: p.id, negocio_id: item?.id || p.negocioId || null,
         estado_solicitud: 'pendiente_confirmacion',
         fecha_checkin: toDateStr(fechas.desde), fecha_checkout: toDateStr(fechas.hasta),
         num_huespedes: adultos + ninos + bebes, vence_en: venceEn,
@@ -1764,6 +1831,9 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
           <img src={p.image || p.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)' }} />
+        <div style={{ position: 'absolute', top: 10, right: 12 }} onClick={e => e.stopPropagation()}>
+          <HeartButton id={p.id} size={30} />
+        </div>
         {isFlash && (
           <div style={{ position: 'absolute', top: 10, left: 14, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', borderRadius: 999, padding: '3px 8px 3px 6px' }}>
             <Zap size={10} color="#f5c842" fill="#f5c842" />
@@ -2007,6 +2077,9 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
           <img src={p.image || p.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.68) 0%, transparent 58%)' }} />
+        <div style={{ position: 'absolute', top: 10, right: 10 }} onClick={e => e.stopPropagation()}>
+          <HeartButton id={p.id} size={30} />
+        </div>
         {p.badge && (
           <div style={{ position: 'absolute', bottom: 10, left: 13, fontSize: 34, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>
         )}
@@ -2050,7 +2123,7 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
 // ═══════════════════════════════════════════════════════════
 //  AlojamientoDetail (main two-col + sections below)
 // ═══════════════════════════════════════════════════════════
-function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad, session }) {
+function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad, session, onLoginRequired }) {
   const plan = item.plan || 'PLUS';
   const cfg  = PLAN_CFG[plan];
   const { addCupon } = useCuponera();
@@ -2107,8 +2180,10 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
                   </span>
                 )}
               </div>
+              <LiveSocialProof negocioId={item.id} tipo="alojamiento" />
             </div>
             <div className="flex gap-2 shrink-0">
+              <SeguirOfertasBtn negocioId={item.id} session={session} onLoginRequired={onLoginRequired} />
               <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
                 style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
                 <Heart size={15} /> Guardar
@@ -2371,7 +2446,7 @@ const CLASE_PLURAL = {
   'Camping': 'Campings', 'Glamping': 'Glamping',
 };
 
-export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session }) {
+export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired }) {
   if (!item) return null;
 
   const { addCupon } = useCuponera();
@@ -2502,8 +2577,10 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
                     </span>
                   )}
                 </div>
+                <LiveSocialProof negocioId={item.id} tipo={tipo} />
               </div>
               <div className="flex gap-2 shrink-0">
+                <SeguirOfertasBtn negocioId={item.id} session={session} onLoginRequired={onLoginRequired} />
                 <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
                   style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
                   <Heart size={15} /> Guardar
@@ -2532,9 +2609,10 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
           onOpenOferta={onOpenOferta}
           onOpenLocalidad={onOpenLocalidad}
           session={session}
+          onLoginRequired={onLoginRequired}
         />
       ) : (
-        <GastroExperienciaDetail item={item} tipo={tipo} />
+        <GastroExperienciaDetail item={item} tipo={tipo} session={session} onLoginRequired={onLoginRequired} />
       )}
 
       {/* Drawer */}

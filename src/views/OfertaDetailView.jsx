@@ -10,6 +10,8 @@ import {
 import { CoinSVG } from '../components/Token';
 import { useCuponera } from '../lib/cuponera';
 import InfoTooltip from '../components/InfoTooltip';
+import HeartButton from '../components/HeartButton';
+import { useFavoritos } from '../lib/favoritos';
 
 // ─── Design tokens ───────────────────────────────────────────
 const C = {
@@ -76,6 +78,7 @@ function MiniOfferCard({ promo, onClick }) {
         <div className="text-[13px] font-bold leading-snug truncate" style={{ color: C.ink }}>{promo.title || promo.titulo}</div>
         <div className="text-[11px] mt-0.5" style={{ color: C.muted }}>{promo.badge || promo.proveedorNombre}</div>
       </div>
+      <HeartButton id={promo.id} size={28} light />
       <ChevronRight size={14} color={C.muted} />
     </div>
   );
@@ -259,6 +262,8 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   if (!oferta) return null;
 
   const { addCupon } = useCuponera();
+  const favCtx = useFavoritos();
+  const esFav  = favCtx?.esFavorito(oferta.id);
   const [added, setAdded]           = useState(false);
   const [consultarOpen, setConsultarOpen] = useState(false);
 
@@ -409,9 +414,10 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                   : <><img src="/ico-disc.svg" style={{ width: 16, height: 16 }} /> Cupón de descuento</>}
               </div>
               <div className="flex gap-2">
-                <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
-                  style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
-                  <Heart size={15} /> Guardar
+                <button onClick={() => favCtx?.toggleFavorito(oferta.id)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                  style={{ background: esFav ? '#FEF2F2' : '#fff', border: `1px solid ${esFav ? '#fecaca' : C.line}`, color: esFav ? '#EF4444' : C.ink }}>
+                  <Heart size={15} fill={esFav ? '#EF4444' : 'none'} /> {esFav ? 'Guardado' : 'Guardar'}
                 </button>
                 <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
                   style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getOrdenesPendientes, getSaldo, debeUsarTokens } from '../lib/cobros';
+import { contarSeguidores } from '../lib/seguir';
 import ComprarTokensModal from '../components/ComprarTokensModal';
 import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import LoadingScreen from '../components/LoadingScreen';
@@ -50,6 +51,18 @@ const TABS_BASE = [
   { id: 'addons',       label: 'Add-ons',        Icon: Puzzle, separator: true },
 ];
 const TIPOS_ALOJ_ADMIN = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi']);
+
+// Rubros editables (deben coincidir con los del registro en LoginView)
+const TIPOS_RUBRO = [
+  { id: 'alojamiento',    label: 'Alojamiento' },
+  { id: 'salidas',        label: 'Salidas' },
+  { id: 'aventura_relax', label: 'Aventura & Relax' },
+];
+const CATS_RUBRO = {
+  alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
+  salidas:        ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
+  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
+};
 
 // ─── Mock data ───────────────────────────────────────────────
 const MOCK_CHATS = [
@@ -1135,10 +1148,21 @@ function ServiciosMulti({ selected, onChange }) {
 }
 
 function TabEmpresa({ negocio, showToast }) {
-  const tipo = negocio?.tipo || '';
-  const esAloj    = tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(tipo);
-  const esSalidas = tipo === 'salidas';
-  const esAvent   = tipo === 'aventura_relax';
+  const tipoInit = (() => {
+    const t = negocio?.tipo || '';
+    return TIPOS_ALOJ_ADMIN.has(t) ? 'alojamiento' : t;
+  })();
+  const [tipoSel, setTipoSel] = useState(tipoInit);
+  const [catsSel, setCatsSel] = useState(
+    negocio?.categoria ? negocio.categoria.split(' / ').map(s => s.trim()).filter(Boolean) : []
+  );
+  const toggleCatSel = (c) => setCatsSel(prev =>
+    prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= 2 ? prev : [...prev, c])
+  );
+  const tipo = tipoSel;
+  const esAloj    = tipoSel === 'alojamiento';
+  const esSalidas = tipoSel === 'salidas';
+  const esAvent   = tipoSel === 'aventura_relax';
 
   const parsedServicios = negocio?.servicios
     ? negocio.servicios.split(',').map(s => s.trim()).filter(Boolean)
@@ -1146,16 +1170,26 @@ function TabEmpresa({ negocio, showToast }) {
 
   // ── Estado del formulario ──────────────────────────────────
   const [nombre,       setNombre]       = useState(negocio?.nombre      || '');
+  // Contacto
+  const [email,        setEmail]        = useState(negocio?.email       || '');
+  const [telFijoCod,   setTelFijoCod]   = useState(negocio?.tel_fijo_cod  || '+54');
+  const [telFijoNum,   setTelFijoNum]   = useState(negocio?.tel_fijo_num  || '');
+  const [telMovilCod,  setTelMovilCod]  = useState(negocio?.tel_movil_cod || '+54');
+  const [telMovilNum,  setTelMovilNum]  = useState(negocio?.tel_movil_num || '');
+  const [sitioWeb,     setSitioWeb]     = useState(negocio?.sitio_web  || '');
+  const [instagram,    setInstagram]    = useState(negocio?.instagram  || '');
+  const [facebook,     setFacebook]     = useState(negocio?.facebook   || '');
+  const [tiktok,       setTiktok]       = useState(negocio?.tiktok     || '');
+  // Ubicación
   const [pais,         setPais]         = useState(negocio?.pais        || 'Argentina');
   const [provincia,    setProvincia]    = useState(negocio?.provincia   || '');
   const [localidad,    setLocalidad]    = useState(negocio?.localidad   || '');
   const [codPostal,    setCodPostal]    = useState(negocio?.cod_postal  || '');
-  const [direccion,    setDireccion]    = useState(negocio?.direccion   || '');
-  const [telefCodPais, setTelefCodPais] = useState('+54');
-  const [telefCodArea, setTelefCodArea] = useState('');
-  const [telefNumero,  setTelefNumero]  = useState(negocio?.telefono   || '');
-  const [sitioWeb,     setSitioWeb]     = useState(negocio?.sitio_web  || '');
-  const [instagram,    setInstagram]    = useState(negocio?.instagram  || '');
+  const [calle,        setCalle]        = useState(negocio?.calle        || '');
+  const [numero,       setNumero]       = useState(negocio?.numero       || '');
+  const [piso,         setPiso]         = useState(negocio?.piso         || '');
+  const [depto,        setDepto]        = useState(negocio?.depto        || '');
+  const [entreCalles,  setEntreCalles]  = useState(negocio?.entre_calles || '');
   const [descripcion,  setDescripcion]  = useState(negocio?.descripcion || '');
 
   // Alojamiento
@@ -1234,10 +1268,15 @@ function TabEmpresa({ negocio, showToast }) {
     setSaving(true);
     try {
       const payload = {
-        nombre, pais, provincia, localidad,
-        cod_postal: codPostal, direccion,
-        telefono: [telefCodPais, telefCodArea, telefNumero].filter(Boolean).join(' '),
-        sitio_web: sitioWeb, instagram, descripcion,
+        nombre, tipo: tipoSel, categoria: catsSel.join(' / '),
+        email: email.trim() || null,
+        tel_fijo_cod: telFijoNum.trim() ? telFijoCod : null, tel_fijo_num: telFijoNum.trim() || null,
+        tel_movil_cod: telMovilNum.trim() ? telMovilCod : null, tel_movil_num: telMovilNum.trim() || null,
+        sitio_web: sitioWeb, instagram, facebook: facebook.trim() || null, tiktok: tiktok.trim() || null,
+        pais, provincia, localidad, cod_postal: codPostal,
+        calle: calle.trim() || null, numero: numero.trim() || null, piso: piso.trim() || null,
+        depto: depto.trim() || null, entre_calles: entreCalles.trim() || null,
+        descripcion,
       };
       if (esAloj) {
         Object.assign(payload, {
@@ -1289,7 +1328,7 @@ function TabEmpresa({ negocio, showToast }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: INK, margin: 0, flex: 1 }}>Mi Empresa</h2>
-        {negocio?.categoria && negocio.categoria.split(' / ').map(c => <Pill key={c} label={c} />)}
+        {catsSel.map(c => <Pill key={c} label={c} />)}
       </div>
 
       {/* ── Identidad ── */}
@@ -1324,10 +1363,88 @@ function TabEmpresa({ negocio, showToast }) {
               <input value={nombre} onChange={e => setNombre(e.target.value)} style={INP} placeholder="Ej: Hotel La Costa" />
             </div>
             <div>
-              <label style={LBL}>Tipo</label>
-              <div style={{ padding: '10px 14px', borderRadius: 10, border: `1px solid ${LINE}`, background: BG, fontFamily: FONT, fontSize: 13, color: INK2 }}>
-                {tipo || '—'} {negocio?.categoria ? `· ${negocio.categoria}` : ''}
+              <label style={LBL}>Tipo de negocio</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {TIPOS_RUBRO.map(t => {
+                  const sel = tipoSel === t.id;
+                  return (
+                    <button key={t.id} type="button"
+                      onClick={() => { setTipoSel(t.id); setCatsSel([]); }}
+                      style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700,
+                        border: `1.5px solid ${sel ? P : LINE}`, background: sel ? PS : '#fff', color: sel ? P : INK2, transition: 'all .15s' }}>
+                      {t.label}
+                    </button>
+                  );
+                })}
               </div>
+            </div>
+            {tipoSel && (
+              <div>
+                <label style={LBL}>Categorías — hasta 2</label>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                  {CATS_RUBRO[tipoSel].map(c => {
+                    const sel = catsSel.includes(c);
+                    const maxed = !sel && catsSel.length >= 2;
+                    return (
+                      <button key={c} type="button" disabled={maxed} onClick={() => toggleCatSel(c)}
+                        style={{ padding: '6px 12px', borderRadius: 999, fontFamily: FONT, fontSize: 12, fontWeight: 600,
+                          cursor: maxed ? 'not-allowed' : 'pointer', opacity: maxed ? 0.45 : 1,
+                          border: `1.5px solid ${sel ? P : LINE}`, background: sel ? P : '#fff', color: sel ? '#fff' : INK2, transition: 'all .15s' }}>
+                        {c}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Contacto ── */}
+      <Card>
+        <SecTitulo label="Contacto" Icon={Smartphone} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={LBL}>Email <span style={{ color: '#ef4444' }}>*</span></label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={INP} placeholder="contacto@minegocio.com" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={LBL}>Teléfono fijo</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select value={telFijoCod} onChange={e => setTelFijoCod(e.target.value)} style={{ ...INP, width: 86, flexShrink: 0, cursor: 'pointer' }}>
+                  {['+54', '+598', '+56', '+55', '+595', '+591', '+1'].map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input value={telFijoNum} onChange={e => setTelFijoNum(e.target.value.replace(/\D/g, ''))} style={{ ...INP, flex: 1 }} placeholder="2255 432100" />
+              </div>
+            </div>
+            <div>
+              <label style={LBL}>Línea móvil</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select value={telMovilCod} onChange={e => setTelMovilCod(e.target.value)} style={{ ...INP, width: 86, flexShrink: 0, cursor: 'pointer' }}>
+                  {['+54', '+598', '+56', '+55', '+595', '+591', '+1'].map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input value={telMovilNum} onChange={e => setTelMovilNum(e.target.value.replace(/\D/g, ''))} style={{ ...INP, flex: 1 }} placeholder="2255 11223344" />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={LBL}>Sitio web</label>
+              <input value={sitioWeb} onChange={e => setSitioWeb(e.target.value)} style={INP} placeholder="https://..." />
+            </div>
+            <div>
+              <label style={LBL}>Instagram</label>
+              <input value={instagram} onChange={e => setInstagram(e.target.value)} style={INP} placeholder="@mi.negocio" />
+            </div>
+            <div>
+              <label style={LBL}>Facebook</label>
+              <input value={facebook} onChange={e => setFacebook(e.target.value)} style={INP} placeholder="/mi.negocio" />
+            </div>
+            <div>
+              <label style={LBL}>TikTok</label>
+              <input value={tiktok} onChange={e => setTiktok(e.target.value)} style={INP} placeholder="@mi.negocio" />
             </div>
           </div>
         </div>
@@ -1369,34 +1486,14 @@ function TabEmpresa({ negocio, showToast }) {
           </div>
           <div>
             <label style={LBL}>Domicilio</label>
-            <input value={direccion} onChange={e => setDireccion(e.target.value)} style={INP} placeholder="Av. 3 nº 784" />
-          </div>
-        </div>
-      </Card>
-
-      {/* ── Contacto ── */}
-      <Card>
-        <SecTitulo label="Contacto" Icon={Smartphone} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={LBL}>Teléfono</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <select value={telefCodPais} onChange={e => setTelefCodPais(e.target.value)} style={{ ...INP, width: 90, flexShrink: 0, cursor: 'pointer' }}>
-                {['+54', '+598', '+56', '+55', '+595', '+591', '+1'].map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <input value={telefCodArea} onChange={e => setTelefCodArea(e.target.value.replace(/\D/g, ''))} style={{ ...INP, width: 100, flexShrink: 0 }} placeholder="02255" maxLength={6} />
-              <input value={telefNumero} onChange={e => setTelefNumero(e.target.value.replace(/\D/g, ''))} style={{ ...INP, flex: 1 }} placeholder="432100" maxLength={10} />
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 10 }}>
+              <input value={calle} onChange={e => setCalle(e.target.value)} style={INP} placeholder="Calle / Avenida" />
+              <input value={numero} onChange={e => setNumero(e.target.value)} style={INP} placeholder="Número" />
             </div>
-            <span style={{ fontSize: 11, color: MUTED, fontFamily: FONT, marginTop: 5, display: 'block' }}>Cód. país · Cód. área · Número</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={LBL}>Sitio web</label>
-              <input value={sitioWeb} onChange={e => setSitioWeb(e.target.value)} style={INP} placeholder="https://mihotel.com.ar" />
-            </div>
-            <div>
-              <label style={LBL}>Instagram</label>
-              <input value={instagram} onChange={e => setInstagram(e.target.value)} style={INP} placeholder="@mi.negocio" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 14 }}>
+              <input value={piso} onChange={e => setPiso(e.target.value)} style={INP} placeholder="Piso" />
+              <input value={depto} onChange={e => setDepto(e.target.value)} style={INP} placeholder="Depto" />
+              <input value={entreCalles} onChange={e => setEntreCalles(e.target.value)} style={INP} placeholder="Entre calles" />
             </div>
           </div>
         </div>
@@ -1966,8 +2063,8 @@ function TabAddons({ addonTotal, setAddonTotal, showToast }) {
 // ════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ════════════════════════════════════════════════════════════
-function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, setShowComprar, onVolver, onGoHome, onLogout }) {
-  const esAloj = TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
+function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, seguidores = 0, setShowComprar, onVolver, onGoHome, onLogout }) {
+  const esAloj = negocio?.tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
   const TABS = TABS_BASE.filter(t => !t.alojOnly || esAloj);
   return (
     <aside style={{ background:NAVY, color:'#fff', width:230, minWidth:230, display:'flex', flexDirection:'column', minHeight:'100vh', position:'sticky', top:0, alignSelf:'flex-start' }}>
@@ -1996,6 +2093,17 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, setSho
           );
         })}
       </nav>
+
+      {/* Seguidores de ofertas */}
+      <div style={{ margin:'0 10px 10px', background:'rgba(255,255,255,0.07)', borderRadius:12, padding:'10px 12px', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:30, height:30, borderRadius:9, background:'rgba(71,91,225,0.25)', display:'grid', placeItems:'center', flexShrink:0 }}>
+          <Bell size={15} color="#fff" />
+        </div>
+        <div style={{ lineHeight:1.2 }}>
+          <div style={{ fontFamily:FONT, fontSize:15, fontWeight:800, color:'#fff' }}>{seguidores}</div>
+          <div style={{ fontFamily:FONT, fontSize:10.5, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>siguen tus ofertas</div>
+        </div>
+      </div>
 
       {negocio && debeUsarTokens(negocio.tipo, negocio.plan) && (
         <div style={{ margin:'0 10px 10px', background:'rgba(255,255,255,0.07)', borderRadius:12, padding:12 }}>
@@ -2045,7 +2153,7 @@ function TabSolicitudes({ negocioId, showToast }) {
         id, estado_solicitud, fecha_checkin, fecha_checkout, num_huespedes,
         vence_en, contraoferta_fecha_checkin, contraoferta_fecha_checkout,
         promociones(titulo, badge, imagen_url),
-        cuponeras(usuario_id, perfiles(nombre_completo))
+        cuponeras(usuario_id, perfiles(nombre))
       `)
       .in('estado_solicitud', ['pendiente_confirmacion', 'contraoferta'])
       .eq('promociones.negocio_id', negocioId)
@@ -2081,7 +2189,7 @@ function TabSolicitudes({ negocioId, showToast }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {solicitudes.map(s => {
-            const turista = s.cuponeras?.perfiles?.nombre_completo || 'Turista';
+            const turista = s.cuponeras?.perfiles?.nombre || 'Turista';
             const titulo = s.promociones?.titulo || 'Cupón';
             const venceEn = s.vence_en ? new Date(s.vence_en) : null;
             const horasRestantes = venceEn ? Math.max(0, Math.round((venceEn - Date.now()) / 3600000)) : null;
@@ -2195,6 +2303,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
   const [toast, setToast]         = useState(null);
   const [credits, setCredits]     = useState(7);
   const [addonTotal, setAddonTotal] = useState(0);
+  const [seguidores, setSeguidores] = useState(0);
 
   const notifCount = MOCK_NOTIFS.length;
 
@@ -2207,12 +2316,14 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       const { data } = await supabase.from('negocios').select('*').eq('id', perfil.negocio_id).single();
       if (data) setNegocio(data);
     }
-    const [proRes, saldoRes] = await Promise.all([
+    const [proRes, saldoRes, segRes] = await Promise.all([
       supabase.from('promociones').select('*').eq('negocio_id', perfil.negocio_id).order('creado_en', { ascending: false }),
       getSaldo(perfil.negocio_id),
+      contarSeguidores(perfil.negocio_id),
     ]);
     if (proRes.data) setPromos(proRes.data);
     setSaldoTokens(typeof saldoRes === 'number' ? saldoRes : 0);
+    setSeguidores(typeof segRes === 'number' ? segRes : 0);
     setLoading(false);
   }
 
@@ -2231,11 +2342,30 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
     return <LoadingScreen />;
   }
 
+  // Perfil incompleto (registro trunco): no hay negocio asociado → evitar pantalla en blanco
+  if (!negocio) {
+    return (
+      <div style={{ minHeight:'100vh', background:BG, fontFamily:FONT, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+        <div style={{ maxWidth:440, textAlign:'center', background:CARD, border:`1px solid ${LINE}`, borderRadius:20, padding:'40px 32px' }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>🏗️</div>
+          <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:800, color:INK, margin:'0 0 8px' }}>Tu registro quedó incompleto</h2>
+          <p style={{ fontFamily:FONT, fontSize:14, color:INK2, lineHeight:1.6, margin:'0 0 24px' }}>
+            No encontramos los datos de tu negocio. Es posible que el registro no se haya terminado de guardar. Volvé al inicio y registrate de nuevo, o contactanos si el problema persiste.
+          </p>
+          <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
+            <button onClick={onGoHome} style={{ background:P, color:'#fff', border:'none', borderRadius:12, padding:'12px 22px', fontFamily:FONT, fontSize:14, fontWeight:700, cursor:'pointer' }}>Volver al inicio</button>
+            <button onClick={handleLogout} style={{ background:'#fff', color:INK2, border:`1px solid ${LINE}`, borderRadius:12, padding:'12px 22px', fontFamily:FONT, fontSize:14, fontWeight:600, cursor:'pointer' }}>Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:BG, fontFamily:FONT }}>
       <Sidebar
         tab={tab} setTab={setTab} negocio={negocio} perfil={perfil}
-        notifCount={notifCount} saldoTokens={saldoTokens}
+        notifCount={notifCount} saldoTokens={saldoTokens} seguidores={seguidores}
         setShowComprar={setShowComprar} onVolver={onVolver}
         onGoHome={onGoHome} onLogout={handleLogout}
       />

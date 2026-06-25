@@ -21,6 +21,7 @@ import PacksListView      from './views/PacksListView';
 import OfertasRegaloView  from './views/OfertasRegaloView';
 import PublicarOfertaView    from './views/PublicarOfertaView';
 import BeneficiosPortalView  from './views/BeneficiosPortalView';
+import FavoritosView         from './views/FavoritosView';
 
 import { getAlojamientos, getGastronomia, getNegocioById } from './lib/datos';
 import { ALL_PROMOS }                      from './data/mockData';
@@ -167,7 +168,7 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos'];
 
   return (
     <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
@@ -248,6 +249,7 @@ function AppContent() {
             <DetailView
               item={selectedItem}
               session={session}
+              onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}
               onBack={() => setView('home')}
               onOpenOferta={handleOpenOferta}
               onOpenPack={handleOpenPack}
@@ -308,6 +310,16 @@ function AppContent() {
             <BeneficiosPortalView
               onBack={() => { setView('home'); window.scrollTo(0, 0); }}
               onActivarOferta={handleOpenOferta}
+            />
+          )}
+          {view === 'favoritos' && (
+            <FavoritosView
+              accommodations={alojamientos}
+              dining={salidas}
+              promos={ALL_PROMOS}
+              onOpenDetail={handleOpenDetail}
+              onOpenOferta={handleOpenOferta}
+              onBack={() => { setView('home'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'login' && (
