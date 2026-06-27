@@ -136,12 +136,6 @@ export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLo
                 <span className="text-green-600 text-xs font-black">Cupón DE REGALO para vos</span>
               </div>
             : <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-2.5">
-                {promo.ahorroEstimado > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">Ahorrás</span>
-                    <span className="text-[13px] font-extrabold text-emerald-600">~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
-                  </div>
-                )}
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">Lo activás con</span>
                   <div className="flex items-center gap-1">

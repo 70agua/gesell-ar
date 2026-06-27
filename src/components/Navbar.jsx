@@ -53,38 +53,84 @@ function useOutsideClose(refs, fn) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// ─── MINI OFERTA CARD — usada en los 3 dropdowns ───────────
+// ─── MINI OFERTA CARD — tarjeta destacada en dropdowns ─────
 // ═══════════════════════════════════════════════════════════
-function MiniOfertaCard({ img, badge, badgeColor = A.primary, lugar, titulo, subtitulo, onNavigate, destino }) {
+function NavCoin() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="#F59E0B"/>
+      <text x="12" y="16.5" textAnchor="middle" fontSize="9" fill="#fff" fontWeight="900" fontFamily="sans-serif">₢</text>
+    </svg>
+  );
+}
+
+function MiniOfertaCard({ img, badge, subtitulo, titulo, proveedorNombre = 'Villa Gesell', tokens = 1, onNavigate, destino }) {
   return (
     <button
       onClick={() => onNavigate(destino || 'marketplace', {})}
-      style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${A.line}`, borderRadius: 16, overflow: 'hidden', background: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: A.font, width: '100%', padding: 0, transition: 'box-shadow .2s, transform .2s' }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 12px 28px -10px rgba(11,16,32,0.22)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+      style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${A.line}`, borderRadius: 14, overflow: 'hidden', background: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: A.font, width: '100%', padding: 0, transition: 'box-shadow .18s, transform .18s' }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 10px 28px -8px rgba(11,16,32,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
     >
-      {/* Imagen 4:3 con badge + título encima (formato nuevo de oferta) */}
+      {/* Imagen 4:3 */}
       <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden', background: '#e0e0ea', flexShrink: 0 }}>
         <img src={img} alt={titulo} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.82) 0%, rgba(11,16,32,0.15) 50%, transparent 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.45) 0%, transparent 55%)' }} />
         {subtitulo && (
-          <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, color: badgeColor === A.primary ? A.primary : '#fff', background: badgeColor === A.primary ? '#fff' : badgeColor, padding: '3px 8px', borderRadius: 7, boxShadow: '0 2px 6px rgba(11,16,32,0.15)' }}>{subtitulo}</span>
+          <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(11,16,32,0.52)', padding: '3px 8px', borderRadius: 7, backdropFilter: 'blur(4px)' }}>
+            {subtitulo}
+          </span>
         )}
-        <div style={{ position: 'absolute', bottom: 8, left: 11, right: 11 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1, marginBottom: 3, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{badge}</div>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3, textShadow: '0 1px 4px rgba(0,0,0,0.5)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{titulo}</div>
-        </div>
-      </div>
-      {/* Body */}
-      <div style={{ padding: '9px 11px 11px' }}>
-        {lugar && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span style={{ fontSize: 11, fontWeight: 600, color: A.ink2 }}>{lugar}</span>
+        {badge && (
+          <div style={{ position: 'absolute', bottom: 9, left: 11, fontSize: (badge.length || 0) > 5 ? 20 : 27, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1, textShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>
+            {badge}
           </div>
         )}
-        <div style={{ marginTop: 8, padding: '8px 10px', background: A.primary, borderRadius: 10, fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
-          Ver oferta →
+      </div>
+      {/* Body */}
+      <div style={{ padding: '9px 11px 11px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: A.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+          {titulo}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 22, height: 22, borderRadius: '50%', background: A.primarySoft, border: `1px solid ${A.line}`, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: A.primary }}>{(proveedorNombre)[0]}</span>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 600, color: A.ink2, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{proveedorNombre}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+            <NavCoin />
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: A.ink }}>{tokens}</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── Fila compacta de oferta (columna derecha) ──────────────
+function MiniOfertaRow({ badge, badgeColor = '#10A36B', titulo, proveedorNombre = 'Villa Gesell', tokens = 1, onNavigate, destino }) {
+  return (
+    <button
+      onClick={() => onNavigate(destino || 'marketplace', {})}
+      style={{ width: '100%', textAlign: 'left', border: 'none', background: 'none', padding: '9px 0', cursor: 'pointer', fontFamily: A.font, display: 'flex', flexDirection: 'column', gap: 4, transition: 'opacity .12s' }}
+      onMouseEnter={e => e.currentTarget.style.opacity = '0.72'}
+      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+    >
+      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, color: '#fff', background: badgeColor, padding: '2px 8px', borderRadius: 999 }}>
+        {badge}
+      </span>
+      <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+        {titulo}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <div style={{ width: 18, height: 18, borderRadius: '50%', background: A.primarySoft, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <span style={{ fontSize: 8, fontWeight: 800, color: A.primary }}>{(proveedorNombre)[0]}</span>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 600, color: A.ink2, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{proveedorNombre}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+          <NavCoin />
+          <span style={{ fontSize: 11, fontWeight: 700, color: A.ink }}>{tokens}</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={A.muted} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
       </div>
     </button>
@@ -174,18 +220,46 @@ function AlojDrop({ onNavigate }) {
       {/* Separador vertical */}
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha: oferta destacada */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 210, flexShrink: 0 }}>
+      {/* Derecha: oferta destacada + filas compactas */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 210, flexShrink: 0 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
           img="https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=440&q=80"
-          badge="30%"
           subtitulo="Cabaña"
-          lugar="Mar de las Pampas"
           titulo="Cabaña frente al mar con acceso directo a la playa"
+          proveedorNombre="Las Gaviotas Lodge"
+          tokens={2}
           onNavigate={onNavigate}
           destino="marketplace"
         />
+        <div style={{ height: 1, background: A.line }} />
+        <MiniOfertaRow
+          badge="Cortesía"
+          badgeColor="#10A36B"
+          titulo="Desayuno buffet incluido para 2 personas"
+          proveedorNombre="Hotel del Bosque"
+          tokens={1}
+          onNavigate={onNavigate}
+          destino="marketplace"
+        />
+        <div style={{ height: 1, background: A.line }} />
+        <MiniOfertaRow
+          badge="-15%"
+          badgeColor={A.primary}
+          titulo="Descuento en estadías de más de 3 noches"
+          proveedorNombre="Mar de las Pampas"
+          tokens={2}
+          onNavigate={onNavigate}
+          destino="marketplace"
+        />
+        <button
+          onClick={() => onNavigate('marketplace', {})}
+          style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s', marginTop: 2 }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
+        >
+          Ver más ofertas →
+        </button>
       </div>
     </div>
 
@@ -269,18 +343,47 @@ function GastroDrop({ onNavigate }) {
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha: oferta destacada */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 210, flexShrink: 0 }}>
+      {/* Derecha: oferta destacada + filas compactas */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 210, flexShrink: 0 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
           img="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=440&q=80"
           badge="2×1"
           subtitulo="Resto"
-          lugar="Villa Gesell"
           titulo="Cena romántica frente al bosque con menú degustación"
+          proveedorNombre="Restaurante Amarena"
+          tokens={1}
           onNavigate={onNavigate}
           destino="salidas"
         />
+        <div style={{ height: 1, background: A.line }} />
+        <MiniOfertaRow
+          badge="Cortesía"
+          badgeColor="#10A36B"
+          titulo="Postre y brindis de cortesía para tu mesa"
+          proveedorNombre="Restaurante Amarena"
+          tokens={1}
+          onNavigate={onNavigate}
+          destino="salidas"
+        />
+        <div style={{ height: 1, background: A.line }} />
+        <MiniOfertaRow
+          badge="-20%"
+          badgeColor={A.primary}
+          titulo="Descuento en tragos y cocktails artesanales"
+          proveedorNombre="Bar La Costa"
+          tokens={1}
+          onNavigate={onNavigate}
+          destino="salidas"
+        />
+        <button
+          onClick={() => onNavigate('salidas', {})}
+          style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s', marginTop: 2 }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
+        >
+          Ver más ofertas →
+        </button>
       </div>
     </div>
   );
@@ -304,7 +407,7 @@ function AventDrop({ onNavigate }) {
   return (
     <div style={{ display: 'flex', gap: 0, padding: '24px 24px 20px' }}>
 
-      {/* Col única */}
+      {/* Col categorías */}
       <DropCol title="Categorías">
         {AVENT_CATS_LIST.slice(1).map(l => (
           <DropLink key={l} label={l} onClick={() => onNavigate('ofertas')} />
@@ -315,18 +418,54 @@ function AventDrop({ onNavigate }) {
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha: oferta destacada */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 210, flexShrink: 0 }}>
+      {/* Centro: oferta destacada */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 210, flexShrink: 0 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
           img="https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=440&q=80"
           badge="-20%"
           subtitulo="Experiencia"
-          lugar="Mar de las Pampas"
           titulo="Clase de yoga al amanecer en los médanos costeros"
+          proveedorNombre="Yoga Gesell"
+          tokens={1}
           onNavigate={onNavigate}
           destino="ofertas"
         />
+      </div>
+
+      <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
+
+      {/* Derecha: filas compactas */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 200, flexShrink: 0, justifyContent: 'flex-start' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2, marginBottom: 4 }}>Más ofertas</span>
+        <MiniOfertaRow
+          badge="Cortesía"
+          badgeColor="#10A36B"
+          titulo="Paseo en kayak con guía al atardecer"
+          proveedorNombre="Deportes Acuáticos VG"
+          tokens={1}
+          onNavigate={onNavigate}
+          destino="ofertas"
+        />
+        <div style={{ height: 1, background: A.line }} />
+        <MiniOfertaRow
+          badge="-25%"
+          badgeColor={A.primary}
+          titulo="Cabalgata nocturna por los médanos con fogón"
+          proveedorNombre="Rancho El Viento"
+          tokens={2}
+          onNavigate={onNavigate}
+          destino="ofertas"
+        />
+        <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
+        <button
+          onClick={() => onNavigate('ofertas', {})}
+          style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
+        >
+          Ver más ofertas →
+        </button>
       </div>
     </div>
   );

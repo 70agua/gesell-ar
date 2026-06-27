@@ -59,11 +59,8 @@ function makeMarkerHtml(promo, active) {
 }
 
 // ─── Minificha mapa — mínima expresión ──────────────────────
-function PromoCard({ promo, active, onClick, onAdd, innerRef }) {
+function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
   const titulo = promo.title || promo.titulo;
-  const ahorro = promo.ahorroEstimado > 0
-    ? `~$${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.`
-    : null;
   const precioCreditos = promo.tokens_precio != null
     ? `$${promo.tokens_precio.toLocaleString('es-AR')} + IVA`
     : promo.tokens_costo != null
@@ -120,33 +117,20 @@ function PromoCard({ promo, active, onClick, onAdd, innerRef }) {
         </div>
       )}
 
-      {/* Ahorro — banda verde estilo minificha */}
-      {ahorro && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#EDFAF4', borderRadius: 8, padding: '6px 10px' }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill={C.green} style={{ flexShrink: 0 }}>
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-            <circle cx="7" cy="7" r="1.5"/>
-          </svg>
-          <span style={{ fontSize: 12, fontWeight: 700, color: C.green, flex: 1 }}>Ahorrás {ahorro}</span>
-          <InfoTooltip />
-        </div>
-      )}
 
-      {/* Botón */}
+      {/* Botón Ver oferta */}
       <button
-        onClick={e => { e.stopPropagation(); onAdd(promo); }}
+        onClick={e => { e.stopPropagation(); onOpenOferta ? onOpenOferta(promo) : onClick?.(); }}
         style={{
-          width: '100%', background: C.primary, color: '#fff',
-          border: 'none', borderRadius: 10, padding: '9px 0',
+          width: '100%', background: '#fff', color: C.ink,
+          border: `1px solid ${C.line}`, borderRadius: 10, padding: '9px 0',
           fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          transition: 'border-color .13s, color .13s',
         }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.ink; }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/>
-          <path d="M13 6v12" strokeDasharray="2 3"/>
-        </svg>
-        Agregar a cuponera
+        Ver oferta
       </button>
 
       {/* Activalo con — debajo del CTA */}
@@ -175,7 +159,7 @@ function CoinSVGSmall() {
 }
 
 // ─── Componente principal MapView ────────────────────────────
-export default function MapView({ promos = [], center, hotelName = '', onAddCupon }) {
+export default function MapView({ promos = [], center, hotelName = '', onAddCupon, onOpenOferta }) {
   const mapRef      = useRef(null);   // div DOM
   const leafletRef  = useRef(null);   // instancia L.Map
   const markersRef  = useRef({});     // { id → L.marker }
@@ -310,6 +294,7 @@ export default function MapView({ promos = [], center, hotelName = '', onAddCupo
             active={activeId === p.id}
             onClick={() => handleCardClick(p)}
             onAdd={onAddCupon}
+            onOpenOferta={onOpenOferta}
             innerRef={el => { cardRefs.current[p.id] = el; }}
           />
         ))}
@@ -348,6 +333,7 @@ export default function MapView({ promos = [], center, hotelName = '', onAddCupo
             active={true}
             onClick={() => {}}
             onAdd={p => { onAddCupon(p); setSheetPromo(null); }}
+            onOpenOferta={onOpenOferta}
           />
         </div>
       )}

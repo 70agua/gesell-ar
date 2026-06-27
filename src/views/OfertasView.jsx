@@ -156,15 +156,25 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
           </div>
         </div>
 
-        {/* Botón */}
-        <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 11, padding: '10px 0', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = A.primary}
-        >
-          <IcoTicket /> Agregar a cuponera
-        </button>
+        {/* Botones */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
+          <button
+            onClick={e => { e.stopPropagation(); onOpenOferta && onOpenOferta(promo); }}
+            style={{ width: '100%', background: '#fff', color: A.ink, border: `1px solid ${A.line}`, borderRadius: 11, padding: '9px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'border-color .13s, color .13s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink; }}
+          >
+            Ver oferta
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+            style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 11, padding: '9px 0', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
+            onMouseLeave={e => e.currentTarget.style.background = A.primary}
+          >
+            <IcoTicket /> Agregar a cuponera
+          </button>
+        </div>
 
         {/* Info rows */}
         {promo.tokens_costo != null && (
@@ -174,12 +184,6 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
               </div>
             : <div style={{ borderTop: `1px solid ${A.line}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                {promo.ahorroEstimado > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Ahorrás</span>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
-                  </div>
-                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

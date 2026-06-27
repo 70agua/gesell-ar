@@ -151,10 +151,6 @@ function OfertaCard({ o, onActivar }) {
         {/* Info rows */}
         <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: MUTED }}>Ahorrás</span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: GREEN }}>~${ahorro.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: MUTED }}>Lo activás con</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <CoinSVG size={13}/> <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>{o.creditos} créditos</span>

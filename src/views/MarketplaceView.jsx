@@ -186,12 +186,6 @@ function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false
             </div>
           : tc != null && (
             <div style={{ borderTop: `1px solid ${A.line}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-              {promo.ahorroEstimado > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Ahorrás</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: A.green }}>~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.<InfoTooltip /></span>
-                </div>
-              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

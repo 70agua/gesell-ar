@@ -636,18 +636,6 @@ function OfertaFeedCard({ promo, onOpen, onAdd }) {
         </div>
       </div>
 
-      {/* Ahorro — banner debajo de la imagen, idéntico a OfertaCardAire */}
-      {promo.ahorroEstimado > 0 && (
-        <div style={{ background: '#EDFAF4', padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke={A.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke={A.green} strokeWidth="2.5" strokeLinecap="round"/></svg>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: A.green }}>Ahorrás</span>
-            <span style={{ fontSize: 15, fontWeight: 800, color: A.green, letterSpacing: '-0.02em' }}>${promo.ahorroEstimado.toLocaleString('es-AR')}</span>
-            <span style={{ fontSize: 11, color: A.green }}>aprox.</span>
-            <span onClick={e => e.stopPropagation()}><InfoTooltip /></span>
-          </div>
-        </div>
-      )}
 
       {/* Body */}
       <div style={{ padding: '11px 14px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 9, overflow: 'hidden' }}>
@@ -671,8 +659,22 @@ function OfertaFeedCard({ promo, onOpen, onAdd }) {
           </div>
         </div>
 
+        {/* Ahorro social proof */}
+        {promo.ahorroEstimado > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#EDFAF4', borderRadius: 8, padding: '6px 10px', flexShrink: 0 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill={A.green}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: A.green }}>Se ahorró ~${promo.ahorroEstimado.toLocaleString('es-AR')} aprox.</span>
+          </div>
+        )}
+
         {/* CTA + Activalo con */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={e => { e.stopPropagation(); onOpen?.(promo); }}
+            style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: `1px solid ${A.line}`, background: '#fff', color: A.ink, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            Ver oferta
+          </button>
           <button
             onClick={e => { e.stopPropagation(); onAdd?.(promo); }}
             style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: 'none', background: A.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -880,18 +882,6 @@ function OfertaCardAire({ promo, onClick, onAddToCuponera, showTipo }) {
         </div>
       </div>
 
-      {/* Ahorro — banner verde ancho completo */}
-      {promo.ahorroEstimado > 0 && (
-        <div style={{ background: '#EDFAF4', padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke={A.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke={A.green} strokeWidth="2.5" strokeLinecap="round"/></svg>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: A.green }}>Ahorrás</span>
-            <span style={{ fontSize: 17, fontWeight: 800, color: A.green, letterSpacing: '-0.02em' }}>${promo.ahorroEstimado.toLocaleString('es-AR')}</span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: A.green }}>aprox.</span>
-            <span onClick={e => e.stopPropagation()}><InfoTooltip /></span>
-          </div>
-        </div>
-      )}
       {/* CTA + Activalo con */}
       <div style={{ padding: '10px 13px 13px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button

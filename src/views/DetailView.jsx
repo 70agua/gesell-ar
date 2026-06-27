@@ -322,7 +322,7 @@ L.Icon.Default.mergeOptions({
 });
 
 // ZonaMap ahora usa el componente MapView reutilizable
-function ZonaMap({ item, promos, onAddCupon }) {
+function ZonaMap({ item, promos, onAddCupon, onOpenOferta }) {
   const center = LOCALIDAD_COORDS[item.localidad] || DEFAULT_COORDS;
 
   // Solo salidas + aventura & relax, sin alojamientos
@@ -342,6 +342,7 @@ function ZonaMap({ item, promos, onAddCupon }) {
       center={center}
       hotelName={item.name}
       onAddCupon={onAddCupon}
+      onOpenOferta={onOpenOferta}
     />
   );
 }
@@ -612,15 +613,6 @@ function OfferCard({ promo, onAdd, onOpenOferta }) {
           ) : null}
           <div style={{ fontSize: 15, fontWeight: 700, color: C.green, lineHeight: 1.3 }}>{promo.title || promo.titulo}</div>
         </div>
-        {/* Ahorrás */}
-        {promo.ahorroEstimado > 0 && (
-          <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, overflow: 'hidden', fontSize: 11 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 9px' }}>
-              <span style={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted }}>Ahorrás</span>
-              <span style={{ fontWeight: 700, color: '#10A36B' }}>{formatAhorro(promo.ahorroEstimado, promo.ahorroMax)}<InfoTooltip /></span>
-            </div>
-          </div>
-        )}
         <button
           onClick={e => { e.stopPropagation(); onAdd && onAdd(promo); }}
           style={{ background: C.primary, color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start' }}
@@ -866,16 +858,6 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
           )}
         </div>
 
-        {/* Ahorrás */}
-        {promo.ahorroEstimado > 0 && (
-          <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted }}>Ahorrás</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{formatAhorro(promo.ahorroEstimado, promo.ahorroMax)}<InfoTooltip /></span>
-            </div>
-          </div>
-        )}
-
         {/* Fila inferior: botón grande + compartir */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
@@ -958,20 +940,14 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
           </div>
         </div>
 
-        {/* Ahorrás */}
-        {(() => { const btc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return (
-          btc === 0 ? (
+        {/* Cupón gratis */}
+        {(() => { const btc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return btc === 0 ? (
             <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
               <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>Cupón DE REGALO para vos</span>
             </div>
-          ) : promo.ahorroEstimado > 0 ? (
-            <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ahorrás</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>{formatAhorro(promo.ahorroEstimado, promo.ahorroMax)}<InfoTooltip /></span>
-            </div>
-          ) : null
-        ); })()}
+          ) : null;
+        })()}
 
         <button
           onClick={e => { e.stopPropagation(); onAdd && onAdd(promo); }}
@@ -1847,18 +1823,6 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
         </div>
       </div>
 
-      {/* Banda verde ahorro — debajo de la imagen */}
-      {p.ahorroEstimado > 0 && (
-        <div style={{ background: '#EDFAF4', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke={C.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="7" x2="7.01" y2="7" stroke={C.green} strokeWidth="2.5" strokeLinecap="round"/></svg>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: C.green }}>Ahorrás</span>
-            <span style={{ fontSize: 15, fontWeight: 800, color: C.green, letterSpacing: '-0.02em' }}>{formatAhorro(p.ahorroEstimado, p.ahorroMax)}</span>
-            <span style={{ fontSize: 11, color: C.green }}>aprox.</span>
-            <span onClick={e => e.stopPropagation()}><InfoTooltip /></span>
-          </div>
-        </div>
-      )}
 
       {/* Contenido */}
       <div style={{ padding: '14px 16px' }}>
@@ -2084,14 +2048,6 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
           <div style={{ position: 'absolute', bottom: 10, left: 13, fontSize: 34, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>
         )}
       </div>
-      {/* Banner verde ahorro — pegado a la foto */}
-      {(p.ahorroEstimado || p.ahorro_estimado) > 0 && (
-        <div style={{ background: '#EDFAF4', padding: '8px 13px', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2H4a2 2 0 0 0-2 2v4l9.29 9.29a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82L9 2Z"/><circle cx="6.5" cy="6.5" r="0.5" fill="#10A36B"/></svg>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#10A36B' }}>Ahorrás</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#10A36B', letterSpacing: '-0.02em' }}>{formatAhorro(p.ahorroEstimado || p.ahorro_estimado, p.ahorroMax || p.ahorro_max)}</span>
-        </div>
-      )}
       {/* Body */}
       <div style={{ padding: '10px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <p style={{ fontSize: 13, fontWeight: 700, color: C.ink, margin: 0, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.title || p.titulo}</p>
@@ -2109,10 +2065,12 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
         </div>
         <div style={{ marginTop: 'auto', paddingTop: 10 }}>
           <button
-            onClick={e => { e.stopPropagation(); onAdd ? onAdd(p) : addCupon(p); }}
-            style={{ width: '100%', padding: '8px 0', borderRadius: 9, border: 'none', background: C.primary, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+            onClick={e => { e.stopPropagation(); onOpenOferta ? onOpenOferta(p) : (onAdd ? onAdd(p) : addCupon(p)); }}
+            style={{ width: '100%', padding: '8px 0', borderRadius: 9, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'border-color .13s, color .13s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.ink; }}
           >
-            <Plus size={12} /> Agregar a cuponera
+            Ver oferta
           </button>
         </div>
       </div>
