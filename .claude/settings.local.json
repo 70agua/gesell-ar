@@ -79,7 +79,14 @@
       "Bash(sed -i '' 's/nav\\('\\\\''gastronomia'\\\\''\\)/nav\\('\\\\''salidas'\\\\''\\)/g' 's/\"Gastronomía\"/\"Salidas\"/g' /Users/mariano/gesell-ar/src/components/Footer.jsx)",
       "Bash(perl -i -pe ' *)",
       "Bash(node --input-type=module)",
-      "Bash(npx oxc_parser src/App.jsx)"
+      "Bash(npx oxc_parser src/App.jsx)",
+      "Bash(curl -s -o /dev/null -w \"SociosView.jsx: %{http_code}\\\\n\" http://localhost:5173/src/views/SociosView.jsx)",
+      "Bash(curl -s -o /dev/null -w \"LoginView.jsx: %{http_code}\\\\n\" http://localhost:5173/src/views/LoginView.jsx)",
+      "Bash(curl -s -o /dev/null -w \"PlanPicker.jsx: %{http_code}\\\\n\" http://localhost:5173/src/components/PlanPicker.jsx)",
+      "Bash(curl -s -o /dev/null -w \"planes.js: %{http_code}\\\\n\" http://localhost:5173/src/lib/planes.js)",
+      "Bash(npx eslint *)",
+      "Bash(curl -s -o /dev/null -w \"SuperAdminView.jsx: %{http_code}\\\\n\" http://localhost:5173/src/views/SuperAdminView.jsx)",
+      "mcp__supabase__list_edge_functions"
     ]
   }
 }

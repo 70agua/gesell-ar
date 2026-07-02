@@ -4,7 +4,6 @@
 // ============================================================
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, ChevronRight } from 'lucide-react';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import emailjs from '@emailjs/browser';
 
 // ─── EmailJS config ────────────────────────────────────────
@@ -37,8 +36,8 @@ const FAQS = [
   { id: 7,  cat: 'Alojamientos',  q: '¿Qué zonas de Villa Gesell cubre la plataforma?', keywords: ['zona','zonas','cobertura','dónde','sector','barrio','mapa'],          a: 'Cubrimos Villa Gesell, Mar Azul, Mar de las Pampas, Las Gaviotas y alrededores.' },
   { id: 11, cat: 'Mi cuenta',     q: '¿Cómo me registro?',                              keywords: ['registr','crear cuenta','alta','signup','nuevo usuario'],             a: 'Hacé click en "Registrarse gratis" en el menú. Solo necesitás email y contraseña.' },
   { id: 14, cat: 'Mi cuenta',     q: '¿Es gratis usar Cuponear?',                      keywords: ['gratis','gratuito','costo','cobran','pago','sin cargo'],              a: 'Sí, Registrarse y explorar es gratuito. Los créditos para canjear ofertas tienen un valor.' },
-  { id: 12, cat: 'Socios',        q: '¿Cómo publico mi negocio o alojamiento?',         keywords: ['publicar','socio','negocio','alojamiento','sumarse','publicidad'],    a: 'Entrá en "Publicar oferta" o escribinos. Te explicamos los planes disponibles (BASE, PLUS, BLACK).' },
-  { id: 13, cat: 'Socios',        q: '¿Qué diferencia hay entre los planes de socio?',  keywords: ['plan','planes','base','plus','black','diferencia','socio'],           a: 'BASE es gratis con funciones básicas. PLUS amplía visibilidad y beneficios. BLACK es premium con máxima exposición.' },
+  { id: 12, cat: 'Socios',        q: '¿Cómo publico mi negocio o alojamiento?',         keywords: ['publicar','socio','negocio','alojamiento','sumarse','publicidad'],    a: 'Entrá en "Publicar oferta" o escribinos. Te explicamos los planes disponibles (Gratis y Plus).' },
+  { id: 13, cat: 'Socios',        q: '¿Qué diferencia hay entre los planes de socio?',  keywords: ['plan','planes','gratis','plus','diferencia','socio'],                 a: 'Gratis es sin costo con funciones básicas. Plus amplía visibilidad, beneficios y te permite armar cuponeras regalo para tus huéspedes.' },
   { id: 15, cat: 'Ayuda',         q: '¿Cómo contacto al soporte?',                      keywords: ['soporte','ayuda','contacto','problema','error','escribir'],           a: 'Podés escribirnos por WhatsApp o desde el formulario de contacto en el pie de página.' },
 ];
 
@@ -89,7 +88,7 @@ function BotAvatar({ size = 36, online = false }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden',
       }}>
-        <img src="/botface.png" alt="Cuponix" width={size} height={size} style={{ objectFit: 'cover', borderRadius: '50%' }} />
+        <img src="/cuponix-mini.svg" alt="Cuponix" width={size} height={size} style={{ objectFit: 'cover', borderRadius: '50%' }} />
       </div>
       {online && (
         <span style={{
@@ -545,30 +544,37 @@ function MinimizedDot({ onClick }) {
       onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
     >
-      <img src="/botface.png" alt="Cuponix" style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: '50%' }} />
+      <img src="/cuponix-mini.svg" alt="Cuponix" style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: '50%' }} />
     </button>
   );
 }
 
 // ─── Globito de texto con typewriter ─────────────────────────
-const BUBBLE_TEXT = '¿Necesitás ayuda? ¡Avisame!';
+const BUBBLE_FONT = "'Patrick Hand', 'Comic Neue', cursive";
+const BUBBLE_PREFIX = '¡Hola! Soy ';
+const BUBBLE_NAME   = 'Cuponix';
+const BUBBLE_SUFFIX = '\nAvisame si necesitás ayuda :)';
+const BUBBLE_TEXT   = BUBBLE_PREFIX + BUBBLE_NAME + BUBBLE_SUFFIX;
 
 function SpeechBubble({ onDismiss }) {
   const typed = useTypewriter(BUBBLE_TEXT, 35);
+  const prefixShown = typed.slice(0, BUBBLE_PREFIX.length);
+  const nameShown   = typed.slice(BUBBLE_PREFIX.length, BUBBLE_PREFIX.length + BUBBLE_NAME.length);
+  const suffixShown = typed.slice(BUBBLE_PREFIX.length + BUBBLE_NAME.length);
   return (
     <div style={{
-      position: 'fixed', bottom: 158, right: 24, zIndex: 9003,
+      position: 'fixed', bottom: 170, right: 24, zIndex: 9003, width: 230,
       background: '#fff', borderRadius: 12,
       border: `1.5px solid ${C.line}`,
       boxShadow: '0 6px 24px rgba(11,16,32,0.12)',
-      padding: '9px 13px',
-      fontSize: 13, fontWeight: 500, color: C.ink,
-      whiteSpace: 'nowrap',
+      padding: '10px 14px',
+      fontFamily: BUBBLE_FONT, fontSize: 13, fontWeight: 700, color: C.ink,
+      whiteSpace: 'pre-line', lineHeight: 1.35,
       animation: 'bubbleIn .35s cubic-bezier(.34,1.56,.64,1) both',
     }}>
-      {/* Full text invisible → fixes the bubble to full width from the start */}
-      <span style={{ opacity: 0, userSelect: 'none', pointerEvents: 'none' }}>{BUBBLE_TEXT}</span>
-      <span style={{ position: 'absolute', left: 13, top: 9 }}>{typed}</span>
+      <span>{prefixShown}</span>
+      <span style={{ color: C.primary }}>{nameShown}</span>
+      <span style={{ fontWeight: 400 }}>{suffixShown}</span>
       {/* Caret triangular */}
       <span style={{
         position: 'absolute', bottom: -8, right: 28,
@@ -590,7 +596,7 @@ function SpeechBubble({ onDismiss }) {
         style={{
           position: 'absolute', top: -8, right: -8,
           width: 17, height: 17, borderRadius: '50%',
-          background: C.muted, border: 'none', cursor: 'pointer',
+          background: C.primary, border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#fff', fontSize: 9, lineHeight: 1,
         }}
@@ -599,20 +605,24 @@ function SpeechBubble({ onDismiss }) {
   );
 }
 
-// ─── Robot (Lottie / SVG frenado) ────────────────────────────
-function RobotButton({ open, onClick, animate }) {
+// ─── Robot (SVG animado / estático) ───────────────────────────
+function RobotButton({ open, onClick }) {
   return (
     <div
       onClick={onClick}
       title={open ? 'Cerrar asistente' : 'Abrir asistente'}
-      style={{
-        position: 'fixed', bottom: 10, right: 10, zIndex: 9001, cursor: 'pointer',
-        animation: animate ? 'slideUpElastic 0.55s cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
-      }}
+      style={{ position: 'fixed', bottom: 20, right: 10, zIndex: 9001, cursor: 'pointer' }}
     >
       {open
-        ? <img src="/stopbot.svg" alt="Cuponix" style={{ width: 140, height: 140, display: 'block' }} />
-        : <DotLottieReact src="/faq.lottie" loop autoplay style={{ width: 140, height: 140 }} />
+        ? <img src="/cuponix-work.svg" alt="Cuponix" style={{ width: 140, height: 140, display: 'block' }} />
+        : (
+          <iframe
+            src="/cuponix-base-animated.html"
+            title="Cuponix"
+            scrolling="no"
+            style={{ width: 140, height: 140, border: 'none', background: 'transparent', display: 'block', pointerEvents: 'none' }}
+          />
+        )
       }
     </div>
   );
@@ -670,10 +680,6 @@ export default function ChatBot() {
       from { opacity:0; transform:scale(0.8) translateY(8px); }
       to   { opacity:1; transform:scale(1)   translateY(0); }
     }
-    @keyframes slideUpElastic {
-      0%   { opacity:0; transform:translateY(160px); }
-      100% { opacity:1; transform:translateY(0); }
-    }
     @keyframes chatOpen {
       0%   { opacity:0; transform:scale(0.82) translateY(24px); }
       100% { opacity:1; transform:scale(1)    translateY(0); }
@@ -714,7 +720,6 @@ export default function ChatBot() {
       )}
       <RobotButton
         open={open}
-        animate={true}
         onClick={() => {
           if (open || chatClosing) { handleMinimize(); }
           else { handleOpen(); }

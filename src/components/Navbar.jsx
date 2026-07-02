@@ -220,7 +220,7 @@ function AlojDrop({ onNavigate }) {
       {/* Separador vertical */}
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha: oferta destacada + filas compactas */}
+      {/* Col 3: oferta destacada */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 210, flexShrink: 0 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
@@ -232,7 +232,14 @@ function AlojDrop({ onNavigate }) {
           onNavigate={onNavigate}
           destino="marketplace"
         />
-        <div style={{ height: 1, background: A.line }} />
+      </div>
+
+      {/* Separador vertical */}
+      <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
+
+      {/* Col 4: más ofertas + CTA */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 200, flexShrink: 0, justifyContent: 'flex-start' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2, marginBottom: 4 }}>Más ofertas</span>
         <MiniOfertaRow
           badge="Cortesía"
           badgeColor="#10A36B"
@@ -252,9 +259,10 @@ function AlojDrop({ onNavigate }) {
           onNavigate={onNavigate}
           destino="marketplace"
         />
+        <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
         <button
           onClick={() => onNavigate('marketplace', {})}
-          style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s', marginTop: 2 }}
+          style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
         >
@@ -343,7 +351,7 @@ function GastroDrop({ onNavigate }) {
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Derecha: oferta destacada + filas compactas */}
+      {/* Col 3: oferta destacada */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 210, flexShrink: 0 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2 }}>Oferta destacada</span>
         <MiniOfertaCard
@@ -356,7 +364,13 @@ function GastroDrop({ onNavigate }) {
           onNavigate={onNavigate}
           destino="salidas"
         />
-        <div style={{ height: 1, background: A.line }} />
+      </div>
+
+      <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
+
+      {/* Col 4: más ofertas + CTA */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 200, flexShrink: 0 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2, marginBottom: 4 }}>Más ofertas</span>
         <MiniOfertaRow
           badge="Cortesía"
           badgeColor="#10A36B"
@@ -376,9 +390,10 @@ function GastroDrop({ onNavigate }) {
           onNavigate={onNavigate}
           destino="salidas"
         />
+        <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
         <button
           onClick={() => onNavigate('salidas', {})}
-          style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s', marginTop: 2 }}
+          style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
         >
@@ -393,7 +408,7 @@ function GastroDrop({ onNavigate }) {
 // ─── DROPDOWN AVENTURA & RELAX ──────────────────────────────
 // ═══════════════════════════════════════════════════════════
 const AVENT_CATS_LIST = [
-  'Todas las salidas y aventura & relax',
+  'Todo en Aventura & Relax',
   'Excursiones & Paseos',
   'Deportes acuáticos',
   'Senderismo & Naturaleza',
@@ -410,10 +425,10 @@ function AventDrop({ onNavigate }) {
       {/* Col categorías */}
       <DropCol title="Categorías">
         {AVENT_CATS_LIST.slice(1).map(l => (
-          <DropLink key={l} label={l} onClick={() => onNavigate('ofertas')} />
+          <DropLink key={l} label={l} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax' })} />
         ))}
         <DropDivider />
-        <DropLink label={AVENT_CATS_LIST[0]} onClick={() => onNavigate('ofertas')} />
+        <DropLink label={AVENT_CATS_LIST[0]} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax' })} />
       </DropCol>
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
@@ -459,7 +474,7 @@ function AventDrop({ onNavigate }) {
         />
         <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
         <button
-          onClick={() => onNavigate('ofertas', {})}
+          onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax' })}
           style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
@@ -552,13 +567,15 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const hoverLeave = () => {
     clearTimeout(closeTimer.current);
     closeTimer.current = setTimeout(() => {
-      setClosingMenu(openMenu);
-      clearTimeout(animTimer.current);
-      animTimer.current = setTimeout(() => {
-        setOpenMenu(null);
-        setClosingMenu(null);
-      }, 180);
-    }, 1000);
+      setOpenMenu(prev => {
+        if (prev) {
+          setClosingMenu(prev);
+          clearTimeout(animTimer.current);
+          animTimer.current = setTimeout(() => setClosingMenu(null), 180);
+        }
+        return null;
+      });
+    }, 250);
   };
 
   // Limpiar timers al desmontar
@@ -615,7 +632,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('aloj')}
               onMouseLeave={hoverLeave}
             >
-              <button style={{ ...navBtnSt, color: openMenu === 'aloj' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('marketplace', {})} style={{ ...navBtnSt, color: openMenu === 'aloj' ? A.primary : A.ink2 }}>
                 alojamientos <ChevD />
               </button>
               {(openMenu === 'aloj' || closingMenu === 'aloj') && (
@@ -630,7 +647,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('gastro')}
               onMouseLeave={hoverLeave}
             >
-              <button style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('salidas', {})} style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
                 salidas <ChevD />
               </button>
               {(openMenu === 'gastro' || closingMenu === 'gastro') && (
@@ -645,7 +662,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('aventura')}
               onMouseLeave={hoverLeave}
             >
-              <button style={{ ...navBtnSt, color: openMenu === 'aventura' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('ofertas', { ofertasCategoria: 'aventura_relax' })} style={{ ...navBtnSt, color: openMenu === 'aventura' ? A.primary : A.ink2 }}>
                 aventura & relax <ChevD />
               </button>
               {(openMenu === 'aventura' || closingMenu === 'aventura') && (
@@ -780,9 +797,9 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         <div style={{ position: 'fixed', inset: 0, zIndex: 40, background: '#fff', paddingTop: 64, overflowY: 'auto', fontFamily: A.font }}>
           <div style={{ padding: '20px 24px 48px' }}>
             {[
-              { label: 'alojamientos',  action: () => nav('marketplace') },
-              { label: 'salidas',        action: () => nav('salidas') },
-              { label: 'aventura & relax', action: () => nav('ofertas') },
+              { label: 'alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
+              { label: 'salidas',          action: () => nav('ofertas', { ofertasCategoria: 'salidas' }) },
+              { label: 'aventura & relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
               { label: 'packs exclusivos', action: () => nav('packs') },
             ].map(item => (
               <button key={item.label} onClick={item.action}

@@ -2,25 +2,30 @@
 //  src/lib/cuponera.jsx — Context global de la cuponera
 // ============================================================
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { calcularPrecioCupon, CREDITO_TOTAL } from './cobros';
 
 const CuponeraContext = createContext(null);
 
-// Color de acento por categoría de oferta
 const ACCENT_BY_CAT = {
-  alojamiento: '#2545E6',   // primary
-  salidas: '#0B1020',   // ink
-  experiencia: '#10A36B',   // green
+  alojamiento:   '#2545E6',
+  salidas:       '#0B1020',
+  aventura_relax:'#10A36B',
+  experiencia:   '#10A36B',
 };
 
-// Convierte una oferta del sistema al shape de la cuponera
 function ofertaToCupon(oferta) {
-  const tokensCosto = oferta.tokens_costo ?? 3;
-  const precio      = tokensCosto * 2000;
-  const beneficio   = oferta.beneficioValor || 30000;
-  // Fecha de vencimiento simulada: fin de temporada
-  const exp = oferta.exp || oferta.fechaFinFlash
-    ? new Date(oferta.fechaFinFlash).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-    : 'Vence 30 Ene';
+  const ahorro = oferta.ahorroEstimado || oferta.savings || 0;
+  // Precio por la tabla escalonada; fallback a tokens_costo si no hay ahorro declarado
+  const precio = ahorro > 0
+    ? calcularPrecioCupon(ahorro)
+    : (oferta.tokens_costo ?? 0) * CREDITO_TOTAL;
+
+  let exp = 'Sin vencimiento';
+  if (oferta.fechaVencimiento) {
+    exp = 'Vence ' + new Date(oferta.fechaVencimiento).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  } else if (oferta.fechaFinFlash) {
+    exp = 'Vence ' + new Date(oferta.fechaFinFlash).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  }
 
   return {
     id:     oferta.id ? `oferta-${oferta.id}` : `tmp-${Date.now()}`,
@@ -28,41 +33,40 @@ function ofertaToCupon(oferta) {
     t:      oferta.title || oferta.titulo || 'Oferta',
     p:      oferta.proveedorNombre || oferta.negocios?.nombre || 'Socio Cuponear',
     price:  precio,
-    was:    beneficio,
+    ahorro,
     exp,
     accent: ACCENT_BY_CAT[oferta.categoria] || '#2545E6',
-    // Datos extra para referencia
+    categoria: oferta.categoria || 'alojamiento',
     _oferta: oferta,
   };
 }
 
-export function CuponeraProvider({ children, session, onLoginRequired }) {
+export function CuponeraProvider({ children, session, onLoginRequired, onCheckout }) {
   const [cupones,    setCupones]    = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const addCupon = useCallback((oferta) => {
-    if (!session) {
-      onLoginRequired?.();
-      return;
-    }
+    if (!session) { onLoginRequired?.(); return; }
     const cupon = ofertaToCupon(oferta);
     setCupones(prev => {
-      // Evitar duplicados
       if (prev.some(c => c.id === cupon.id)) return prev;
       return [cupon, ...prev];
     });
     setDrawerOpen(true);
   }, [session, onLoginRequired]);
 
-  const removeCupon = useCallback((id) => {
-    setCupones(prev => prev.filter(c => c.id !== id));
-  }, []);
+  const removeCupon   = useCallback((id) => setCupones(prev => prev.filter(c => c.id !== id)), []);
+  const clearCuponera = useCallback(() => setCupones([]), []);
+  const openDrawer    = useCallback(() => setDrawerOpen(true),  []);
+  const closeDrawer   = useCallback(() => setDrawerOpen(false), []);
 
-  const openDrawer  = useCallback(() => setDrawerOpen(true),  []);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const handleCheckout = useCallback(() => {
+    closeDrawer();
+    onCheckout?.();
+  }, [closeDrawer, onCheckout]);
 
   return (
-    <CuponeraContext.Provider value={{ cupones, drawerOpen, addCupon, removeCupon, openDrawer, closeDrawer }}>
+    <CuponeraContext.Provider value={{ cupones, drawerOpen, addCupon, removeCupon, clearCuponera, openDrawer, closeDrawer, handleCheckout }}>
       {children}
     </CuponeraContext.Provider>
   );

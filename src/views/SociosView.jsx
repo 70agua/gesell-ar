@@ -2,78 +2,19 @@
 //  src/views/SociosView.jsx
 // ============================================================
 
-import React, { useState } from 'react';
-import { Check, Zap, Crown, ArrowRight, X, Store, Mail, Lock, Minus, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, Zap, X, Store, Mail, Lock, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getPlanesConfig, registrarIntentoPagoTarjeta } from '../lib/planes';
+import PlanPicker from '../components/PlanPicker';
 
-const PLANES = [
-  {
-    id: 'free',
-    nombre: 'FREEMIUM',
-    precioMes: null,
-    precioAnio: null,
-    precioSinImpuestos: null,
-    color: 'border-slate-200',
-    badge: null,
-    icon: <Store size={26} className="text-slate-400" />,
-    items: [
-      { text: 'Presencia SIN CARGO en listado de alojamientos' },
-      { text: 'Panel de administración BÁSICO' },
-      { text: 'Ficha: hasta 4 fotos, mapa de ubicación y detalles del alojamiento' },
-      { text: 'Sin formulario de contacto directo', negative: true },
-    ],
-    paymentNote: 'Publicás ofertas SIN CARGO. Cuando un huésped la canjea, pagás 8 créditos. Total: $16.000 + IVA',
-    cta: 'Registrarse gratis',
-    ctaColor: 'bg-slate-900 hover:bg-slate-800 text-white',
-  },
-  {
-    id: 'plus',
-    nombre: 'PLUS',
-    precioMes: 20000,
-    precioAnio: 240000,
-    precioSinImpuestos: '$189.600',
-    color: 'border-blue-500 shadow-xl shadow-blue-100',
-    badge: 'Más elegido',
-    badgeColor: 'bg-blue-600',
-    icon: <Zap size={26} className="text-blue-600" />,
-    items: [
-      { text: 'Presencia y mayor relevancia en el listado' },
-      { text: 'Panel de administración AVANZADO (hasta 20 fotos)' },
-      { text: 'Sello "Socio verificado" visible en el listado' },
-      { text: 'Gestión de precios a la vista (opcional)' },
-      { text: 'Formulario de contacto directo' },
-      { text: 'Estadísticas: vistas, clics y canjes' },
-      { text: 'Reseñas verificadas de huéspedes que canjearon' },
-      { text: 'Aparición rotativa en newsletter mensual' },
-      { text: 'Beneficios exclusivos con socios aliados' },
-    ],
-    paymentNote: 'Publicás ofertas SIN CARGO. Cuando un huésped la canjea, pagás 2 créditos. Total: $4.000 + IVA',
-    cta: 'Comenzar en PLUS',
-    ctaColor: 'bg-blue-600 hover:bg-blue-700 text-white',
-  },
-  {
-    id: 'black',
-    nombre: 'BLACK',
-    precioMes: 29000,
-    precioAnio: 348000,
-    precioSinImpuestos: '$274.920',
-    color: 'border-slate-900 shadow-xl shadow-slate-200',
-    badge: 'Premium',
-    badgeColor: 'bg-slate-900',
-    icon: <Crown size={26} className="text-amber-500" />,
-    items: [
-      { text: 'Todo lo que incluye PLUS, más:', bold: true },
-      { text: 'Presencia estelar en "Alojamientos destacados"' },
-      { text: 'Presencia en Mail Marketing, redes y Google Ads' },
-      { text: 'Onboarding personalizado por el equipo' },
-      { text: 'Informes de rendimiento mensuales' },
-      { text: 'Prioridad en fechas pico (Carnaval, Semana Santa, verano)' },
-    ],
-    paymentNote: 'Publicás ofertas SIN CARGO. Cuando un huésped la canjea, pagás 2 créditos. Total: $4.000 + IVA',
-    cta: 'Comenzar en BLACK',
-    ctaColor: 'bg-slate-900 hover:bg-black text-white',
-  },
-];
+const PLUS_COLOR = '#2563eb'; // blue-600, mismo azul que ya usan los CTA de este archivo
+
+// Estilo visual por plan — el copy/precios/beneficios vienen de la tabla `planes` (editable en Superadmin)
+const PLAN_ESTILOS = {
+  free: { colorBorde: 'border-slate-200', icon: <Store size={26} className="text-slate-400" />, ctaColor: 'bg-slate-900 hover:bg-slate-800 text-white', titleClass: 'text-green-600' },
+  plus: { colorBorde: 'border-blue-500 shadow-xl shadow-blue-100', badge: 'Más elegido', badgeColor: 'bg-blue-600', icon: <Zap size={26} className="text-blue-600" />, ctaColor: 'bg-blue-600 hover:bg-blue-700 text-white', titleClass: 'text-blue-600' },
+};
 
 const OTROS_SERVICIOS = [
   {
@@ -179,13 +120,14 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [sectorGastro, setSectorGastro] = useState(sectorInicial);
+  const [datosTarjetaPlus, setDatosTarjetaPlus] = useState(null);
   const [form, setForm] = useState({
     nombre:    '',
     tipo:      tipoInicial,
     localidad: 'Villa Gesell',
     email:     '',
     password:  '',
-    plan:      esAlojamiento ? (planInicial || 'free') : 'free',
+    plan:      planInicial === 'plus' ? null : 'free', // Plus recién queda confirmado tras cargar los datos de tarjeta
   });
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -196,6 +138,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
   };
 
   async function registrar() {
+    if (!form.plan) return setError('Elegí un plan para continuar');
     if (!form.nombre || !form.email || !form.password) return setError('Completá todos los campos');
     if (form.password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres');
     setLoading(true); setError('');
@@ -207,13 +150,17 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
 
     const { data: negocio, error: negError } = await supabase
       .from('negocios')
-      .insert({ nombre: form.nombre, tipo: form.tipo, localidad: form.localidad, plan: form.plan, aprobado: false, activo: false })
+      .insert({ nombre: form.nombre, tipo: form.tipo, localidad: form.localidad, plan: 'free', aprobado: false, activo: false })
       .select().single();
     if (negError) { setLoading(false); return setError('Error al crear el perfil'); }
 
     await supabase.from('perfiles').insert({
       id: authData.user.id, nombre: form.nombre, negocio_id: negocio.id, es_superadmin: false,
     });
+
+    if (form.plan === 'plus' && datosTarjetaPlus) {
+      await registrarIntentoPagoTarjeta(negocio.id, datosTarjetaPlus);
+    }
 
     setLoading(false);
     onSuccess();
@@ -230,7 +177,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
           <div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Nuevo socio</p>
             <h2 className="text-white font-black text-xl">
-              {esAlojamiento ? `Plan ${form.plan.toUpperCase()}` : 'Plan FREEMIUM'}
+              {form.plan ? `Plan ${form.plan === 'plus' ? 'Plus' : 'Gratis'}` : 'Elegí tu plan'}
             </h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={22} /></button>
@@ -238,19 +185,17 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
 
         <div className="p-8 space-y-4">
 
-          {/* ── ALOJAMIENTO: selector de plan ── */}
-          {esAlojamiento && (
-            <div>
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Plan</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['free','plus','black'].map(p => (
-                  <button key={p} onClick={() => setForm(f => ({...f, plan: p}))}
-                    className={`py-2 rounded-xl font-black text-sm transition-all cursor-pointer ${form.plan === p ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  >{p.toUpperCase()}</button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* ── Selector de plan (todas las categorías) ── */}
+          <div>
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Plan</label>
+            <PlanPicker
+              value={form.plan}
+              primaryColor={PLUS_COLOR}
+              saving={loading}
+              onConfirmFree={() => { setForm(f => ({ ...f, plan: 'free' })); setDatosTarjetaPlus(null); }}
+              onConfirmPlus={datos => { setForm(f => ({ ...f, plan: 'plus' })); setDatosTarjetaPlus(datos); }}
+            />
+          </div>
 
           {/* Nombre */}
           <div>
@@ -341,7 +286,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
 
           {error && <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">{error}</div>}
 
-          <button onClick={registrar} disabled={loading}
+          <button onClick={registrar} disabled={loading || !form.plan}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-4 rounded-2xl font-black text-base transition-all shadow-lg active:scale-[0.98] cursor-pointer"
           >
             {loading ? 'Creando cuenta...' : 'Crear mi cuenta'}
@@ -362,6 +307,11 @@ export default function SociosView({ onBack }) {
   const [modalServicio, setModalServicio] = useState(null);
   const [tipoDefault, setTipoDefault]     = useState('Hotel');
   const [categoriaSocios, setCategoriaSocios] = useState('alojamientos'); // 'alojamientos' | 'comercios'
+  const [planesData, setPlanesData]       = useState([]);
+
+  useEffect(() => { getPlanesConfig().then(setPlanesData); }, []);
+
+  const planes = planesData.map(p => ({ ...p, ...PLAN_ESTILOS[p.id] }));
 
   return (
     <div className="min-h-screen bg-white">
@@ -436,89 +386,54 @@ export default function SociosView({ onBack }) {
           <p className="text-slate-500 font-medium">Elegí el plan que mejor se adapta a tu negocio</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {PLANES.map(plan => (
-            <div key={plan.id} className={`relative border-2 ${plan.color} rounded-3xl p-7 flex flex-col`}>
-              {plan.badge && (
-                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.badgeColor} text-white text-xs font-black px-4 py-1 rounded-full`}>
-                  {plan.badge}
-                </div>
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch max-w-3xl mx-auto">
+          {planes.map(plan => {
+            const esGratis = plan.id === 'free';
+            return (
+              <div key={plan.id} className={`relative border-2 ${plan.colorBorde} rounded-3xl p-7 flex flex-col`}>
+                {plan.badge && (
+                  <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.badgeColor} text-white text-xs font-black px-4 py-1 rounded-full`}>
+                    {plan.badge}
+                  </div>
+                )}
 
-              {/* Nombre e icono */}
-              <div className="mb-5">
                 <div className="mb-2">{plan.icon}</div>
-                <h3 className="text-2xl font-black text-slate-900">{plan.nombre}</h3>
-                {plan.precioMes ? (
-                  <div className="mt-1.5">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-slate-900">
-                        ${plan.precioMes.toLocaleString('es-AR')}
-                      </span>
-                      <span className="text-slate-400 text-sm font-medium">/ mes</span>
-                    </div>
-                    <p className="text-slate-400 text-xs font-medium mt-0.5">
-                      ${plan.precioAnio.toLocaleString('es-AR')} facturado anualmente
-                    </p>
-                  </div>
+                <h3 className={`text-[38px] leading-none font-black ${plan.titleClass}`}>{plan.nombre}</h3>
+
+                {esGratis ? (
+                  <p className="text-[16px] text-slate-900 font-normal leading-snug mt-2.5 mb-4">{plan.descripcion}</p>
                 ) : (
-                  <p className="text-slate-400 text-sm font-medium mt-1">Sin costo de membresía</p>
+                  <>
+                    <div className="flex items-baseline gap-1 mt-2.5">
+                      <span className="text-2xl font-black text-slate-900">${(plan.precioMes || 0).toLocaleString('es-AR')}</span>
+                      <span className="text-slate-400 text-xs font-medium">+ IVA / mes</span>
+                    </div>
+                    {plan.mesesContrato && <p className="text-slate-400 text-xs font-medium mt-0.5">Contratando por {plan.mesesContrato} meses</p>}
+                    {plan.mesesGratisBono && <p className="text-emerald-600 text-xs font-bold mt-0.5">+ {plan.mesesGratisBono} mes extra SIN CARGO (luego del primer año)</p>}
+                    <p className="text-sm text-slate-600 font-normal leading-snug mt-3 mb-4">{plan.descripcion}</p>
+                  </>
                 )}
+
+                <div className="flex-1 flex flex-col mb-6">
+                  <ul className="space-y-1.5">
+                    {plan.beneficios.map((b, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
+                        <Check size={13} className="mt-0.5 shrink-0 text-green-500" />{b}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex-1" />
+                </div>
+
+                <button
+                  onClick={() => { setTipoDefault('Hotel'); setModalPlan(plan.id); }}
+                  className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer ${plan.ctaColor}`}
+                >
+                  Elegir este plan
+                </button>
               </div>
-
-              {/* Beneficios + nota de pago */}
-              <div className="flex-1 flex flex-col mb-6">
-                <ul className="space-y-1.5">
-                  {plan.items.map((item, i) => (
-                    <li
-                      key={i}
-                      className={`flex items-start gap-2 text-[13px] leading-snug ${
-                        item.bold
-                          ? 'font-black text-slate-900 mt-1'
-                          : item.negative
-                          ? 'font-normal text-slate-400'
-                          : 'font-normal text-slate-600'
-                      }`}
-                    >
-                      {!item.bold && (
-                        item.negative
-                          ? <Minus size={13} className="mt-0.5 shrink-0 text-slate-300" />
-                          : <Check size={13} className="mt-0.5 shrink-0 text-green-500" />
-                      )}
-                      {item.text}
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Spacer */}
-                <div className="flex-1" />
-
-                {/* Condiciones de pago — separadas, sin tilde */}
-                {plan.paymentNote && (
-                  <div className="border-t border-slate-100 mt-5 pt-3.5">
-                    <p className="text-xs text-slate-400 font-normal leading-relaxed">
-                      {plan.paymentNote}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* CTA */}
-              <button
-                onClick={() => { setTipoDefault('Hotel'); setModalPlan(plan.id); }}
-                className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer ${plan.ctaColor}`}
-              >
-                {plan.cta}
-              </button>
-
-              {/* Precio sin impuestos */}
-              {plan.precioSinImpuestos && (
-                <p className="text-center text-slate-400 text-xs font-light mt-2">
-                  Precio sin impuestos nacionales: {plan.precioSinImpuestos}
-                </p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -532,50 +447,69 @@ export default function SociosView({ onBack }) {
             <div className="inline-flex items-center gap-2 bg-emerald-800/60 text-emerald-300 text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-4">
               <span>🍽️</span> Restaurantes, cafés y actividades
             </div>
-            <h2 className="text-4xl font-black text-white mb-3">Plan para comercios y salidas y experiencias</h2>
-            <p className="text-emerald-300 font-medium">Publicá tus ofertas sin costo. Solo pagás cuando hay resultado.</p>
+            <h2 className="text-4xl font-black text-white mb-3">Planes para Salidas y Aventura & Relax</h2>
+            <p className="text-emerald-300 font-medium">Los mismos planes Gratis y Plus que Alojamientos, adaptados a tu rubro.</p>
           </div>
 
-          <div className="max-w-lg mx-auto">
-            <div className="bg-white rounded-3xl p-8 flex flex-col shadow-2xl shadow-black/30">
-              <div className="mb-5">
-                <Store size={26} className="text-slate-400 mb-2" />
-                <h3 className="text-2xl font-black text-slate-900">FREEMIUM</h3>
-                <p className="text-slate-400 text-sm font-medium mt-1">Sin costo de membresía</p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch max-w-3xl mx-auto">
+            {planes.map(plan => {
+              const esGratis = plan.id === 'free';
+              return (
+                <div key={plan.id} className={`relative bg-white border-2 ${plan.colorBorde} rounded-3xl p-7 flex flex-col`}>
+                  {plan.badge && (
+                    <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.badgeColor} text-white text-xs font-black px-4 py-1 rounded-full`}>
+                      {plan.badge}
+                    </div>
+                  )}
+                  <div className="mb-2">{plan.icon}</div>
+                  <h3 className={`text-[38px] leading-none font-black ${plan.titleClass}`}>{plan.nombre}</h3>
 
-              <ul className="space-y-1.5 mb-5">
-                {[
-                  { text: 'Ficha del negocio ó emprendimiento, con fotos y descripción' },
-                  { text: 'Publicación y canje de ofertas: SIN CARGO' },
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
-                    <Check size={13} className="mt-0.5 shrink-0 text-emerald-500" />
-                    {item.text}
-                  </li>
-                ))}
-              </ul>
+                  {esGratis ? (
+                    <p className="text-[16px] text-slate-900 font-normal leading-snug mt-2.5 mb-4">{plan.descripcion}</p>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1 mt-2.5">
+                        <span className="text-2xl font-black text-slate-900">${(plan.precioMes || 0).toLocaleString('es-AR')}</span>
+                        <span className="text-slate-400 text-xs font-medium">+ IVA / mes</span>
+                      </div>
+                      {plan.mesesContrato && <p className="text-slate-400 text-xs font-medium mt-0.5">Contratando por {plan.mesesContrato} meses</p>}
+                      {plan.mesesGratisBono && <p className="text-emerald-600 text-xs font-bold mt-0.5">+ {plan.mesesGratisBono} mes extra SIN CARGO (luego del primer año)</p>}
+                      <p className="text-sm text-slate-600 font-normal leading-snug mt-3 mb-4">{plan.descripcion}</p>
+                    </>
+                  )}
 
-              {/* Opción destacada */}
-              <div className="border border-amber-200 bg-amber-50 rounded-2xl p-4 mb-6">
-                <div className="flex items-start gap-2">
-                  <span className="text-lg leading-none mt-0.5">⭐</span>
-                  <div>
-                    <p className="text-sm font-black text-amber-900">¡Destacá tu negocio y hacete ver!</p>
-                    <p className="text-sm text-amber-900 mt-0.5"><span className="font-bold">Opcional:</span> <span className="font-normal">5 créditos/mes ($10.000 + IVA)</span></p>
-                    <p className="text-xs text-amber-700 font-normal mt-0.5 leading-relaxed">
-                      Tu perfil y ofertas aparecen con mucha mayor visibilidad, y podés vincularlas a alojamientos PLUS/BLACK para llegar directo a sus huéspedes. ¡Preparate para recibir clientes!
-                    </p>
+                  <div className="flex-1 flex flex-col mb-6">
+                    <ul className="space-y-1.5">
+                      {plan.beneficios.map((b, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
+                          <Check size={13} className="mt-0.5 shrink-0 text-emerald-500" />{b}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex-1" />
                   </div>
+                  <button
+                    onClick={() => { setTipoDefault('Restaurante'); setModalPlan(plan.id); }}
+                    className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer ${plan.ctaColor}`}
+                  >
+                    Elegir este plan
+                  </button>
                 </div>
-              </div>
+              );
+            })}
+          </div>
 
-              <button
-                onClick={() => { setTipoDefault('Restaurante'); setModalPlan('free'); }}
-                className="w-full py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                Registrarme gratis
-              </button>
+          {/* Opción destacada — servicio independiente de los planes */}
+          <div className="max-w-lg mx-auto mt-8 border border-amber-200 bg-amber-50 rounded-2xl p-4">
+            <div className="flex items-start gap-2">
+              <span className="text-lg leading-none mt-0.5">⭐</span>
+              <div>
+                <p className="text-sm font-black text-amber-900">¡Destacá tu negocio y hacete ver!</p>
+                <p className="text-sm text-amber-900 mt-0.5"><span className="font-bold">Opcional:</span> <span className="font-normal">5 créditos/mes ($10.000 + IVA)</span></p>
+                <p className="text-xs text-amber-700 font-normal mt-0.5 leading-relaxed">
+                  Tu perfil y ofertas aparecen con mucha mayor visibilidad, y podés vincularlas a alojamientos Plus para llegar directo a sus huéspedes. ¡Preparate para recibir clientes!
+                </p>
+              </div>
             </div>
           </div>
         </div>

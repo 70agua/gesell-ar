@@ -107,6 +107,20 @@ export async function getGastronomia() {
   return (data || []).map(normalizeNegocio);
 }
 
+// ─── Aventura & Relax ──────────────────────────────────────────
+export async function getAventura() {
+  const tiposExp = [...TIPOS_EXP].filter(t => t !== 'aventura_relax');
+  const { data } = await supabase
+    .from('negocios')
+    .select('*')
+    .eq('aprobado', true)
+    .eq('activo', true)
+    .in('tipo', tiposExp)
+    .order('creado_en', { ascending: false });
+
+  return (data || []).map(normalizeNegocio);
+}
+
 // ─── Promociones ──────────────────────────────────────────────
 export async function getPromos(limit = 8) {
   const { data } = await supabase

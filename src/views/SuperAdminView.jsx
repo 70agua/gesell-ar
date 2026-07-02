@@ -7,6 +7,7 @@ import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import { CoinSVG } from '../components/Token';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { descontarToken, debeUsarTokens } from '../lib/cobros';
+import { getPlanesConfig, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
 
 // ─── Aire tokens ─────────────────────────────────────────────
@@ -31,6 +32,7 @@ const TABS = [
   { id: 'ventas',    label: 'Ventas'    },
   { id: 'usuarios',  label: 'Usuarios'  },
   { id: 'consultas', label: 'Consultas' },
+  { id: 'ajustes',   label: 'Ajustes'   },
 ];
 
 // ─── Reusable UI atoms ───────────────────────────────────────
@@ -214,6 +216,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
             {tab === 'ventas'    && <TabVentas ventas={ventas} />}
             {tab === 'usuarios'  && <TabUsuarios usuarios={usuarios} />}
             {tab === 'consultas' && <TabConsultas consultas={consultas} onLeer={marcarLeida} />}
+            {tab === 'ajustes'   && <TabAjustes showToast={showToast} />}
           </>
         )}
       </main>
@@ -864,6 +867,129 @@ function TabConsultas({ consultas, onLeer }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB: AJUSTES → PLANES
+// ═══════════════════════════════════════════════════════════
+function PlanForm({ plan, onGuardado, showToast }) {
+  const [form, setForm] = useState({
+    nombre: plan.nombre,
+    descripcion: plan.descripcion,
+    precioMes: plan.precioMes ?? '',
+    mesesContrato: plan.mesesContrato ?? '',
+    mesesGratisBono: plan.mesesGratisBono ?? '',
+    beneficios: plan.beneficios,
+  });
+  const [nuevoBeneficio, setNuevoBeneficio] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  function agregarBeneficio() {
+    if (!nuevoBeneficio.trim()) return;
+    setForm(f => ({ ...f, beneficios: [...f.beneficios, nuevoBeneficio.trim()] }));
+    setNuevoBeneficio('');
+  }
+  function quitarBeneficio(i) {
+    setForm(f => ({ ...f, beneficios: f.beneficios.filter((_, idx) => idx !== i) }));
+  }
+
+  async function guardar() {
+    setSaving(true);
+    const { error } = await actualizarPlanCopy(plan.planId, {
+      nombre: form.nombre,
+      descripcion: form.descripcion,
+      precio_mes: form.precioMes === '' ? null : Number(form.precioMes),
+      meses_contrato: form.mesesContrato === '' ? null : Number(form.mesesContrato),
+      meses_gratis_bono: form.mesesGratisBono === '' ? null : Number(form.mesesGratisBono),
+      beneficios: form.beneficios,
+    });
+    setSaving(false);
+    if (error) { showToast?.('Error al guardar el plan', 'error'); return; }
+    showToast?.(`Plan ${form.nombre} actualizado`, 'success');
+    onGuardado?.();
+  }
+
+  const inputStyle = { width:'100%', padding:'9px 12px', border:`1px solid ${A.line}`, borderRadius:9, fontFamily:A.font, fontSize:13, outline:'none', boxSizing:'border-box' };
+  const labelStyle = { display:'block', fontSize:11, fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 };
+
+  return (
+    <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:22, display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink }}>Plan {plan.nombre} <span style={{ fontSize:12, fontWeight:400, color:A.muted }}>({plan.codigo})</span></div>
+
+      <div>
+        <label style={labelStyle}>Nombre</label>
+        <input value={form.nombre} onChange={set('nombre')} style={inputStyle} />
+      </div>
+
+      <div>
+        <label style={labelStyle}>Descripción corta</label>
+        <textarea value={form.descripcion} onChange={set('descripcion')} rows={3} style={{ ...inputStyle, resize:'vertical' }} />
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:12 }}>
+        <div>
+          <label style={labelStyle}>Precio mensual ($)</label>
+          <input type="number" value={form.precioMes} onChange={set('precioMes')} style={inputStyle} placeholder="Sin costo" />
+        </div>
+        <div>
+          <label style={labelStyle}>Meses de contrato</label>
+          <input type="number" value={form.mesesContrato} onChange={set('mesesContrato')} style={inputStyle} placeholder="—" />
+        </div>
+        <div>
+          <label style={labelStyle}>Meses de bono gratis</label>
+          <input type="number" value={form.mesesGratisBono} onChange={set('mesesGratisBono')} style={inputStyle} placeholder="—" />
+        </div>
+      </div>
+
+      <div>
+        <label style={labelStyle}>Beneficios</label>
+        <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:8 }}>
+          {form.beneficios.map((b, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:8, background:A.bg, borderRadius:8, padding:'7px 10px' }}>
+              <span style={{ flex:1, fontFamily:A.font, fontSize:13, color:A.ink2 }}>{b}</span>
+              <button onClick={() => quitarBeneficio(i)} style={{ background:'none', border:'none', cursor:'pointer', color:A.muted, fontSize:16, lineHeight:1 }}>×</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <input value={nuevoBeneficio} onChange={e => setNuevoBeneficio(e.target.value)} onKeyDown={e => e.key === 'Enter' && agregarBeneficio()}
+            style={{ ...inputStyle, flex:1 }} placeholder="Agregar beneficio…" />
+          <ABtn onClick={agregarBeneficio}>Agregar</ABtn>
+        </div>
+      </div>
+
+      <div>
+        <ABtn onClick={guardar} variant="primary" style={{ opacity: saving ? 0.6 : 1 }}>{saving ? 'Guardando…' : 'Guardar cambios'}</ABtn>
+      </div>
+    </div>
+  );
+}
+
+function TabAjustes({ showToast }) {
+  const [planes, setPlanes]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  async function cargar() {
+    setLoading(true);
+    setPlanes(await getPlanesConfig());
+    setLoading(false);
+  }
+  useEffect(() => { cargar(); }, []);
+
+  if (loading) return <MiniLoader />;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <div style={{ fontFamily:A.font, fontSize:18, fontWeight:700, color:A.ink }}>Planes</div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:16 }}>
+        {planes.map(p => (
+          <PlanForm key={p.planId} plan={p} onGuardado={cargar} showToast={showToast} />
+        ))}
+      </div>
     </div>
   );
 }

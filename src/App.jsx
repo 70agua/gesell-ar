@@ -22,8 +22,9 @@ import OfertasRegaloView  from './views/OfertasRegaloView';
 import PublicarOfertaView    from './views/PublicarOfertaView';
 import BeneficiosPortalView  from './views/BeneficiosPortalView';
 import FavoritosView         from './views/FavoritosView';
+import CheckoutView          from './views/CheckoutView';
 
-import { getAlojamientos, getGastronomia, getNegocioById } from './lib/datos';
+import { getAlojamientos, getGastronomia, getAventura, getNegocioById } from './lib/datos';
 import { ALL_PROMOS }                      from './data/mockData';
 import { getSession, getPerfil }           from './lib/auth';
 import { supabase }                        from './lib/supabase';
@@ -48,12 +49,14 @@ function AppContent() {
   const [gastroCategoria,   setGastroCategoria]   = useState('');
   const [gastroAventura, setGastroAventura] = useState('');
   const [gastroNavKey,      setGastroNavKey]      = useState(0);
+  const [salidasModoRanking, setSalidasModoRanking] = useState(false);
   const [scrolled, setScrolled]         = useState(false);
   const [session, setSession]           = useState(null);
   const [perfil, setPerfil]             = useState(null);
   const [authLoading, setAuthLoading]   = useState(true);
   const [alojamientos, setAlojamientos] = useState([]);
   const [salidas, setSalidas]   = useState([]);
+  const [aventura, setAventura] = useState([]);
   const [loginInitialTab, setLoginInitialTab] = useState('ingresar');
 
   useEffect(() => {
@@ -64,9 +67,10 @@ function AppContent() {
 
   useEffect(() => {
     async function cargarDatos() {
-      const [aloj, gastro] = await Promise.all([getAlojamientos(), getGastronomia()]);
+      const [aloj, gastro, avent] = await Promise.all([getAlojamientos(), getGastronomia(), getAventura()]);
       setAlojamientos(aloj);
       setSalidas(gastro);
+      setAventura(avent);
     }
     cargarDatos();
   }, []);
@@ -168,11 +172,11 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout'];
 
   return (
     <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
-    <CuponeraProvider session={session} onLoginRequired={() => setView('login')}>
+    <CuponeraProvider session={session} onLoginRequired={() => setView('login')} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
       {/* Loading global — se activa con showLoading() desde cualquier vista */}
       {isLoading && <LoadingScreen />}
 
@@ -201,6 +205,12 @@ function AppContent() {
               if (opts.gastroCategoria !== undefined || opts.gastroAventura !== undefined) {
                 setGastroCategoria(opts.gastroCategoria || '');
                 setGastroAventura(opts.gastroAventura || '');
+              }
+              if (opts.ofertasCategoria !== undefined) {
+                setOfertasCategoria(opts.ofertasCategoria || null);
+              }
+              if (targetView === 'salidas') {
+                setSalidasModoRanking(false);
                 setGastroNavKey(k => k + 1);
               }
               setView(targetView);
@@ -214,8 +224,9 @@ function AppContent() {
             <HomeView
               accommodations={alojamientos}
               dining={salidas}
+              aventura={aventura}
               onOpenDetail={handleOpenDetail}
-              onVerTodas={(cat) => { setOfertasCategoria(cat || null); setView('ofertas'); window.scrollTo(0, 0); }}
+              onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setView('ofertas'); } window.scrollTo(0, 0); }}
               onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
               onVerMarketplace={() => { setView('marketplace'); window.scrollTo(0, 0); }}
               onOpenPack={handleOpenPack}
@@ -226,6 +237,7 @@ function AppContent() {
           )}
           {view === 'ofertas' && (
             <OfertasView
+              key={ofertasCategoria + '|' + ofertasLocalidades.join(',')}
               onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setView('home'); }}
               onOpenOferta={handleOpenOferta}
               initialCategoria={ofertasCategoria}
@@ -322,6 +334,13 @@ function AppContent() {
               onBack={() => { setView('home'); window.scrollTo(0, 0); }}
             />
           )}
+          {view === 'checkout' && (
+            <CheckoutView
+              session={session}
+              onBack={() => { setView('home'); window.scrollTo(0, 0); }}
+              onSuccess={() => { setView('home'); window.scrollTo(0, 0); }}
+            />
+          )}
           {view === 'login' && (
             <LoginView
               onLoginSuccess={handleLoginSuccess}
@@ -343,6 +362,7 @@ function AppContent() {
               onVerOfertas={() => { setOfertasCategoria(null); setView('ofertas'); window.scrollTo(0,0); }}
               initialCategoria={gastroCategoria}
               initialAventura={gastroAventura}
+              modoRanking={salidasModoRanking}
             />
           )}
           {view === 'superadmin' && (
@@ -393,7 +413,7 @@ function AppContent() {
                 {wizardTip === 1 && (
                   <>
                     <div style={{ background:'linear-gradient(135deg, #475be1 0%, #6d28d9 100%)', padding:'28px 20px 20px', display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
-                      <img src="/botface.png" alt="" style={{ height:96, objectFit:'contain', filter:'drop-shadow(0 8px 20px rgba(0,0,0,0.3))' }} />
+                      <img src="/cuponix-base.svg" alt="" style={{ height:96, objectFit:'contain', filter:'drop-shadow(0 8px 20px rgba(0,0,0,0.3))' }} />
                     </div>
                     <div style={{ padding:'20px 20px 22px' }}>
                       <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:800, color:W.ink, fontFamily:W.font }}>¡Tu panel de socio está listo!</h3>

@@ -113,9 +113,8 @@ function formatAhorro(estimado, max) {
 
 // ─── Plan config ────────────────────────────────────────────
 const PLAN_CFG = {
-  BASE:  { maxFotos: 3,  showPrice: false, showContact: false, mapDetail: 'approx',  label: 'Base'  },
-  PLUS:  { maxFotos: 8,  showPrice: true,  showContact: true,  mapDetail: 'barrio',  label: 'Plus'  },
-  BLACK: { maxFotos: 15, showPrice: true,  showContact: true,  mapDetail: 'exacto',  label: 'Black' },
+  BASE:  { maxFotos: 3,  showPrice: false, showContact: false, mapDetail: 'approx',  label: 'Gratis' },
+  PLUS:  { maxFotos: 8,  showPrice: true,  showContact: true,  mapDetail: 'barrio',  label: 'Plus'   },
 };
 
 // ─── Tipos ──────────────────────────────────────────────────
@@ -1362,9 +1361,9 @@ function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
       ) : (
         <div className="rounded-2xl p-4 text-center" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
           <Lock size={18} color={C.muted} className="mx-auto mb-2" />
-          <div className="text-[13px] font-bold mb-1" style={{ color: C.ink }}>Solo socios Plus y Black</div>
+          <div className="text-[13px] font-bold mb-1" style={{ color: C.ink }}>Solo socios Plus</div>
           <div className="text-[12px] leading-relaxed mb-3" style={{ color: C.muted }}>
-            Los usuarios solo pueden contactar alojamientos con plan Plus o superior.
+            Los usuarios solo pueden contactar alojamientos con plan Plus.
           </div>
           <button className="w-full py-2.5 rounded-[10px] text-[13px] font-bold text-white cursor-pointer border-0" style={{ background: C.primary }}>
             Conocé los planes
@@ -2132,11 +2131,6 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
                   </svg>
                   <span style={{ fontSize: 13, fontWeight: 400, color: '#415ce8', fontStyle: 'italic' }}>Socio verificado</span>
                 </span>
-                {plan === 'BLACK' && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shrink-0" style={{ background: C.ink }}>
-                    ★ Socio Black
-                  </span>
-                )}
               </div>
               <LiveSocialProof negocioId={item.id} tipo="alojamiento" />
             </div>
@@ -2529,11 +2523,6 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
                     </svg>
                     <span style={{ fontSize: 13, fontWeight: 400, color: '#415ce8', fontStyle: 'italic' }}>Socio verificado</span>
                   </span>
-                  {plan === 'BLACK' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white shrink-0" style={{ background: C.ink }}>
-                      ★ Socio Black
-                    </span>
-                  )}
                 </div>
                 <LiveSocialProof negocioId={item.id} tipo={tipo} />
               </div>

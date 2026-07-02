@@ -249,7 +249,7 @@ function GuestsDropdown() {
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], onOpenDetail, onVerTodas, onArmarPack, onVerMarketplace, onOpenPack, onOpenOferta, onVerOfertasRegalo, onNavMarketplaceTipo }) {
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onVerMarketplace, onOpenPack, onOpenOferta, onVerOfertasRegalo, onNavMarketplaceTipo }) {
   const [destino,        setDestino]        = useState('Todos los destinos');
   const [fechas,         setFechas]         = useState({ desde: null, hasta: null });
   const [activeTypes,    setActiveTypes]    = useState(new Set());
@@ -303,7 +303,7 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
               </h1>
 
               <p style={{ fontSize: 18, lineHeight: 1.55, color: A.muted, margin: '0 0 26px', fontWeight: 400, maxWidth: 600 }}>
-                Buscá ofertas en <b>alojamientos, salidas y relax.</b> Planeá tu viaje!
+                Buscá ofertas en <b>alojamientos, salidas, aventuras y relax.</b>
               </p>
 
               {/* ─ Search widget — 1 fila ─ */}
@@ -359,8 +359,12 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
       {/* ── ¡Alquilá por menos! ───────────────────────────────── */}
       <PromosSection onOpenDetail={onOpenDetail} accommodations={accommodations} onVerTodas={onVerTodas} onOpenOferta={onOpenOferta} onNavMarketplaceTipo={onNavMarketplaceTipo} />
 
+      {/* ── Cuponear — grupos de ofertas ─────────────────────── */}
+      <CuponearCategoriasSection />
+
       {/* ── Socios locales que son tendencia ──────────────────── */}
-      <SociosTendenciaSection accommodations={accommodations} dining={dining} onOpenDetail={onOpenDetail} />
+      <TiposCuponSection />
+      <SociosTendenciaSection accommodations={accommodations} dining={dining} aventura={aventura} onOpenDetail={onOpenDetail} />
 
       {/* ── FEED "Descubrí experiencias reales" ────────────────────── */}
       <FeedSection onOpenOferta={onOpenOferta} onAddCupon={undefined} />
@@ -369,8 +373,82 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
       <PacksSection onArmarPack={onArmarPack} onOpenPack={onOpenPack} />
 
       {/* ── SALIDAS ───────────────────────────────────────── */}
-      <GastronomySection dining={dining} onOpenDetail={onOpenDetail} onVerTodas={() => {}} />
+      <GastronomySection dining={dining} onOpenDetail={onOpenDetail} onVerTodas={() => { if (onVerTodas) onVerTodas('salidas'); }} />
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Cuponear — 4 grupos de ofertas genéricos
+// ═══════════════════════════════════════════════════════════
+const CUPONEAR_CARDS = [
+  {
+    titulo: 'Descansá',
+    img: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=700&q=80',
+    alt: 'Interior de habitación premium en cabaña de madera con cama king y vista al bosque',
+  },
+  {
+    titulo: 'Salí a comer',
+    img: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=700&q=80',
+    alt: 'Pareja cenando en restaurante íntimo con velas',
+  },
+  {
+    titulo: 'Viví una experiencia',
+    img: '/travesia.avif',
+    alt: '4x4 haciendo travesía en la playa',
+  },
+  {
+    titulo: 'Traete un recuerdo',
+    img: '/aldea.jpeg',
+    alt: 'Aldea de artesanos con turistas recorriendo los locales al atardecer',
+  },
+  {
+    titulo: 'Hacete un mimo',
+    img: '/masaje.jpeg',
+    alt: 'Terapeuta aplicando masaje en la espalda de una persona en camilla de spa',
+  },
+];
+
+function CuponearCategoriasSection() {
+  return (
+    <section style={{ background: '#fff', padding: '72px 0', borderTop: `1px solid ${A.line}` }}>
+      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 40, textAlign: 'center' }}>
+          <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0, lineHeight: 1.1 }}>
+            <em style={{ fontStyle: 'italic', fontWeight: 400, color: A.primary }}>Cuponeá</em> ahora, disfrutá después
+          </h2>
+        </div>
+
+        {/* 4 cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 48 }}>
+          {CUPONEAR_CARDS.map((card) => (
+            <div key={card.titulo} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
+              {/* Imagen con proporción tall pill */}
+              <div style={{ width: '80.5%', aspectRatio: '9/16', borderRadius: 999, overflow: 'hidden', boxShadow: '0 4px 24px rgba(11,16,32,0.10)' }}>
+                <img
+                  src={card.img}
+                  alt={card.alt}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.4s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                />
+              </div>
+
+              {/* Texto */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, lineHeight: 1.2 }}>{card.titulo}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: A.ink }}>con</span>
+                  {/* Logo Cuponear como wordmark */}
+                  <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 24, width: 'auto', opacity: 0.85 }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -380,20 +458,288 @@ export default function HomeView({ accommodations = [], dining = [], onOpenDetai
 const IcoStarFill = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>;
 const IcoFlame    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-1 4.5-2.5 6C8 9.5 7 11 7 13a5 5 0 0 0 10 0c0-1.7-.7-3.2-1.7-4.4-.3 1-1 1.7-1.9 1.9.6-2-.3-4.4-1.4-6.5-.3 1.2-1 2-2 2.6.2-1.8-.2-3.6-1-5.6 1.6.4 3.4 1.3 4.9 0z"/></svg>;
 
-function SociosTendenciaSection({ accommodations = [], dining = [], onOpenDetail }) {
-  // Mezcla socios de alojamiento + salidas; prioriza plan (BLACK > PLUS > resto) y rating
-  const planRank = { BLACK: 3, PLUS: 2, BASE: 1 };
-  const socios = [
-    ...accommodations.map(a => ({ ...a, _tipo: 'alojamiento' })),
-    ...dining.map(d => ({ ...d, _tipo: 'salidas' })),
-  ]
-    .filter(s => s.image && s.name)
-    .map(s => ({ ...s, _reservas: socialProof(`${s._tipo}-${s.id}`).reservasSemana }))
-    // Tendencia real: más reservas primero; plan premium y rating como desempate
-    .sort((a, b) => b._reservas - a._reservas || (planRank[b.plan] || 0) - (planRank[a.plan] || 0) || (b.rating || 0) - (a.rating || 0))
-    .slice(0, 12);
+// Set de 6 íconos SVG (línea, currentColor) que cubren todas las subcategorías por agrupación
+const IcoCatBed    = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7"/><path d="M3 18h18"/><path d="M3 11V7"/><path d="M7 11V9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2"/></svg>;
+const IcoCatFork   = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3v7a2 2 0 1 0 4 0V3"/><path d="M9 10v11"/><path d="M17 3c-1.5 0-2 2-2 4s.5 4 2 4 2-2 2-4-.5-4-2-4Z"/><path d="M17 11v10"/></svg>;
+const IcoCatCup    = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h12v6a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V8Z"/><path d="M17 9h2a2 2 0 0 1 0 4h-2"/><path d="M9 3c-.6.8-.6 1.2 0 2"/><path d="M13 3c-.6.8-.6 1.2 0 2"/></svg>;
+const IcoCatMusic  = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>;
+const IcoCatBeach  = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 17c1.5 1.3 3 1.3 4.5 0s3-1.3 4.5 0 3 1.3 4.5 0 3-1.3 4.5 0"/><path d="M12 14V3"/><path d="M12 3c4 0 7 2.5 7 6H5c0-3.5 3-6 7-6Z"/></svg>;
+const IcoCatBread  = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14c0-5 3.5-9 8-9s8 4 8 9-3 5-8 5-8 0-8-5Z"/><path d="M9 10c.5-1 1.5-1 2 0"/><path d="M13 10c.5-1 1.5-1 2 0"/></svg>;
+
+// Pool de fotos únicas de placeholder, variadas por categoría y escena
+const FALLBACK_PHOTOS = {
+  alojamiento: [
+    'https://images.unsplash.com/photo-1601918774946-25832a4be0d6?w=400&q=80',
+    'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400&q=80',
+    'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&q=80',
+    'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=400&q=80',
+    'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=400&q=80',
+    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&q=80',
+  ],
+  salidas: [
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80',
+    'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&q=80',
+    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=80',
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
+    'https://images.unsplash.com/photo-1533777857889-4be7c70b33f7?w=400&q=80',
+    'https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?w=400&q=80',
+  ],
+  aventura_relax: [
+    'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=400&q=80',
+    'https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?w=400&q=80',
+    'https://images.unsplash.com/photo-1476611338391-6f395a0dd82e?w=400&q=80',
+    'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=400&q=80',
+    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&q=80',
+    'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=400&q=80',
+  ],
+};
+
+// Agrupación de subcategorías de negocio → ícono representativo
+const CATEGORIA_ICON_MAP = {
+  // Alojamiento → cama
+  'Hotel': IcoCatBed, 'Cabaña': IcoCatBed, 'Departamento': IcoCatBed, 'Casa': IcoCatBed,
+  'Hostel': IcoCatBed, 'Dormi': IcoCatBed, 'Domo': IcoCatBed, 'Carpa': IcoCatBed, 'Glamping': IcoCatBed,
+  // Gastronomía de plato → tenedor
+  'Restaurante': IcoCatFork, 'Parrilla': IcoCatFork, 'Gourmet': IcoCatFork,
+  // Panadería → pan
+  'Panadería': IcoCatBread,
+  // Bebidas/café/dulces → taza
+  'Bar': IcoCatCup, 'Café': IcoCatCup, 'Heladería': IcoCatCup,
+  // Entretenimiento → nota musical
+  'Discoteca': IcoCatMusic, 'Cine y Teatro': IcoCatMusic, 'Show y Recital': IcoCatMusic, 'Centro Cultural': IcoCatMusic,
+  // Playa/aventura → sombrilla
+  'Balneario': IcoCatBeach,
+  // Fallbacks por tipo
+  'alojamiento': IcoCatBed, 'salidas': IcoCatFork, 'aventura_relax': IcoCatBeach,
+};
+
+// ═══════════════════════════════════════════════════════════
+//  "Tipos de cupón" — 9 mecánicas en grilla 3 col
+// ═══════════════════════════════════════════════════════════
+function TiposCuponSection() {
+  const [flash, setFlash] = React.useState(2 * 3600 + 45 * 60 + 11);
+  const [hh,    setHh]    = React.useState(4 * 3600 + 12 * 60 + 38);
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      setFlash(s => s > 0 ? s - 1 : 2 * 3600 + 45 * 60 + 11);
+      setHh(s    => s > 0 ? s - 1 : 4 * 3600 + 12 * 60 + 38);
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
+  const fmt = s => {
+    s = Math.max(0, s);
+    return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
+      .map(n => String(n).padStart(2, '0')).join(':');
+  };
+
+  const CARD_BASE = { background: '#fff', border: `1px solid ${A.line}`, borderRadius: 24, padding: '30px 30px 28px', minHeight: 288, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', transition: 'transform .22s ease, box-shadow .22s ease', cursor: 'default' };
+  const CARD_BLUE = { ...CARD_BASE, background: A.primary, border: `1px solid ${A.primary}`, color: '#fff' };
+  const CARD_INK  = { ...CARD_BASE, background: A.navy,    border: `1px solid ${A.navy}`,    color: '#fff' };
+  const CARD_GRAY = { ...CARD_BASE, background: '#ECEEF3', border: '1px solid transparent' };
+  const ICO = (svg, color = A.primary) => <div style={{ color }}>{svg}</div>;
+  const Chip = ({ color = A.primary, bg = A.primarySoft, children }) => (
+    <div style={{ position: 'absolute', top: 26, right: 26, display: 'inline-flex', alignItems: 'center', gap: 6, background: bg, color, fontSize: 11.5, fontWeight: 600, padding: '6px 11px', borderRadius: 999, letterSpacing: '0.01em', fontFamily: A.font }}>
+      {children}
+    </div>
+  );
+  const PulseDot = ({ color = A.primary }) => (
+    <span style={{ position: 'relative', width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+  );
+
+  return (
+    <section style={{ background: '#fff', borderTop: `1px solid ${A.line}` }}>
+      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '88px 48px 104px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 32, marginBottom: 40, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 14 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
+              Tipos de cupón
+            </div>
+            <h2 style={{ fontSize: 46, lineHeight: 1.04, letterSpacing: '-0.03em', fontWeight: 700, margin: 0, maxWidth: '18ch', fontFamily: A.font }}>Cada cupón es único en su especie</h2>
+            <p style={{ fontSize: 17, lineHeight: 1.5, color: A.muted, margin: '14px 0 0', maxWidth: '54ch' }}>
+              Nueve mecánicas distintas, del descuento de siempre a la ruleta de la suerte. Cada socio elige cómo quiere sorprenderte.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', fontSize: 12.5, color: A.muted, fontWeight: 500 }}>
+            {[['#2545E6','En vivo'],['#10A36B','Por activarse'],['#FFC93C','Premio']].map(([color, label]) => (
+              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block' }} />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Grid 3 col */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+
+          {/* 1 · Normal */}
+          <article style={CARD_BASE}>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>)}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Normal</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>El cupón de siempre. Descuento fijo, sin reloj corriendo.</p>
+            <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: A.green }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
+              Sin fecha límite
+            </div>
+          </article>
+
+          {/* 2 · Flash (BLUE) */}
+          <article style={CARD_BLUE}>
+            <Chip color="#fff" bg="rgba(255,255,255,0.16)">
+              <PulseDot color="#fff" />
+              <span style={{ fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.02em' }}>{fmt(flash)}</span>
+            </Chip>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>, '#fff')}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Flash</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.72)', margin: '9px 0 0', maxWidth: '30ch' }}>Cuenta regresiva a la vista. Cuando llega a cero, se apaga.</p>
+            <div style={{ marginTop: 16, fontSize: 12, fontWeight: 600, opacity: 0.85 }}>Termina hoy · {fmt(flash)}</div>
+          </article>
+
+          {/* 3 · Grupal */}
+          <article style={CARD_BASE}>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 3.5-5.5 7-5.5s6 2 7 5.5"/><circle cx="17" cy="9" r="3"/><path d="M16 14.5c2.6.2 4.7 1.8 6 4.5"/></svg>)}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Grupal</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Se activa al juntar N compradores. La variante <em>trampa</em> arranca con la mitad.</p>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11.5, fontWeight: 600, color: A.ink2, marginBottom: 7 }}>
+                <span>12 / 20 personas</span><span style={{ color: A.green }}>⚡ Trampa: 50%</span>
+              </div>
+              <div style={{ height: 7, borderRadius: 999, background: A.line, overflow: 'hidden', position: 'relative' }}>
+                <div style={{ position: 'absolute', inset: 0, width: '60%', borderRadius: 999, background: A.primary }} />
+              </div>
+            </div>
+          </article>
+
+          {/* 4 · Geo Oferta */}
+          <article style={CARD_BASE}>
+            <Chip color={A.primary} bg={A.primarySoft}>
+              <PulseDot color={A.primary} /> En vivo
+            </Chip>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>)}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Geo Oferta</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Se enciende en tiempo real y manda un push a turistas a la redonda.</p>
+            <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: A.ink2 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 1 1 12 0v5l1.5 3h-15L6 13V8Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+              Push en radio de 0,2 km
+            </div>
+          </article>
+
+          {/* 5 · Oferta Tormenta */}
+          <article style={CARD_BASE}>
+            <Chip color="#475569" bg="#F0F1F4">
+              <PulseDot color="#475569" /> Lloviendo
+            </Chip>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15a4 4 0 0 1 .5-7.97 5.5 5.5 0 0 1 10.6 1.02A3.5 3.5 0 0 1 17 15"/><path d="M9 18l-1.5 3M14 18l-1.5 3M16 17l-1 2"/></svg>, '#475569')}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Oferta Tormenta</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>La API del clima la dispara cuando llueve en la localidad del socio.</p>
+            <div style={{ marginTop: 16, fontSize: 12, fontWeight: 600, color: A.ink2 }}>Activa hoy en Villa Gesell</div>
+          </article>
+
+          {/* 6 · Combos (GRAY) */}
+          <article style={CARD_GRAY}>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16.5 9 5 9-5"/></svg>, A.primaryDark)}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Combos</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Premio automático al acumular tipos que se complementan en tu cuponera.</p>
+            <div style={{ marginTop: 16, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {['Café', 'Playa'].map(t => <span key={t} style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: A.primarySoft, color: A.primaryDark }}>{t}</span>)}
+              <span style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: A.yellow, color: A.ink }}>+ Premio</span>
+            </div>
+          </article>
+
+          {/* 7 · Happy Hour */}
+          <article style={CARD_BASE}>
+            <Chip color={A.muted} bg="#F0F1F4">
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: A.muted, display: 'inline-block' }} /> Inactivo
+            </Chip>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>)}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Happy Hour</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Solo se canjea en su franja. Fuera de hora queda en pausa, con cuenta atrás.</p>
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, fontWeight: 600, color: A.ink2 }}>
+              <span style={{ background: A.primarySoft, color: A.primary, padding: '4px 9px', borderRadius: 7 }}>18:00 – 20:00</span>
+              <span style={{ color: A.muted }}>Abre en <span style={{ fontFamily: 'monospace', color: A.ink }}>{fmt(hh)}</span></span>
+            </div>
+          </article>
+
+          {/* 8 · Circuitos Cuponear */}
+          <article style={CARD_BASE}>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M5 8.5v3a3.5 3.5 0 0 0 3.5 3.5h6a3.5 3.5 0 0 1 0 0"/><path d="M7.5 6H14a3.5 3.5 0 0 1 3.5 3.5V15"/></svg>)}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Circuitos Cuponear</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Escaneás el QR de varios socios agrupados. Al completar el circuito, cupón especial.</p>
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 7 }}>
+              {[true,true,true,false,false].map((on, i) => (
+                <React.Fragment key={i}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'monospace', background: on ? A.primary : A.line, color: on ? '#fff' : A.muted }}>{i+1}</div>
+                  {i < 4 && <div style={{ flex: '0 0 14px', height: 2, borderRadius: 2, background: on ? A.primary : A.line }} />}
+                </React.Fragment>
+              ))}
+            </div>
+          </article>
+
+          {/* 9 · Ruleta (INK) */}
+          <article style={CARD_INK}>
+            <Chip color="#fff" bg="rgba(255,255,255,0.16)">
+              <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'conic-gradient(#FFC93C 0 25%, #fff 0 50%, #FFC93C 0 75%, #fff 0 100%)', border: '2px solid #fff', display: 'inline-block', animation: 'spin 6s linear infinite', flexShrink: 0 }} />
+              ¡Girá!
+            </Chip>
+            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 5V3M12 13l5-3M12 13l-4 2.5"/><path d="M12 13v8M4.5 13h15"/></svg>, '#fff')}
+            <div style={{ flex: 1, minHeight: 24 }} />
+            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Ruleta</h3>
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.72)', margin: '9px 0 0', maxWidth: '30ch' }}>Mini ruleta en la ficha del cupón. El giro define tu descuento y tu precio final.</p>
+            <div style={{ marginTop: 16, fontSize: 12, fontWeight: 600, color: A.yellow }}>Suerte: del 10% al 70% OFF</div>
+          </article>
+
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </section>
+  );
+}
+
+function SociosTendenciaSection({ accommodations = [], dining = [], aventura = [], onOpenDetail }) {
+  // Intercalado round-robin de las tres categorías para garantizar diversidad visual
+  const planRank = { PLUS: 2, BASE: 1 };
+  const rank = s => (planRank[s.plan] || 0) * 10 + (s.rating || 0);
+  const sortedA = accommodations.map(a => ({ ...a, _tipo: 'alojamiento' })).filter(s => s.name).sort((a,b) => rank(b) - rank(a));
+  const sortedD = dining.map(d => ({ ...d, _tipo: 'salidas' })).filter(s => s.name).sort((a,b) => rank(b) - rank(a));
+  const sortedX = aventura.map(x => ({ ...x, _tipo: 'aventura_relax' })).filter(s => s.name).sort((a,b) => rank(b) - rank(a));
+  const socios = [];
+  const maxLen = Math.max(sortedA.length, sortedD.length, sortedX.length);
+  for (let i = 0; i < maxLen && socios.length < 12; i++) {
+    if (sortedA[i]) socios.push(sortedA[i]);
+    if (socios.length < 12 && sortedD[i]) socios.push(sortedD[i]);
+    if (socios.length < 12 && sortedX[i]) socios.push(sortedX[i]);
+  }
 
   if (!socios.length) return null;
+
+  // Deduplicar fotos: si dos socios comparten la misma URL de imagen, asignar fallback único por categoría
+  const DEFAULT_IMG = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e';
+  const seenImgs = new Set();
+  const fallbackIdx = { alojamiento: 0, salidas: 0, aventura_relax: 0 };
+  const sociosDeduped = socios.map(s => {
+    const isDefault = !s.image || s.image.startsWith(DEFAULT_IMG);
+    const isDup = seenImgs.has(s.image);
+    if (isDefault || isDup) {
+      const pool = FALLBACK_PHOTOS[s._tipo] || FALLBACK_PHOTOS.alojamiento;
+      const idx = fallbackIdx[s._tipo] || 0;
+      const img = pool[idx % pool.length];
+      fallbackIdx[s._tipo] = idx + 1;
+      seenImgs.add(img);
+      return { ...s, image: img };
+    }
+    seenImgs.add(s.image);
+    return s;
+  });
 
   return (
     <section style={{ background: 'linear-gradient(30deg, #fff1f6 0%, #d2e9f3 55%, #fff1f6 100%)', padding: '72px 0', borderTop: `1px solid ${A.line}`, borderBottom: `1px solid ${A.line}` }}>
@@ -412,44 +758,28 @@ function SociosTendenciaSection({ accommodations = [], dining = [], onOpenDetail
       <div style={{ position: 'relative' }}>
         <div style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingTop: 6, paddingBottom: 12 }} className="no-scrollbar">
           <div style={{ display: 'flex', gap: 26, width: 'max-content', paddingRight: 56 }}>
-            {socios.map(s => (
+            {sociosDeduped.map(s => {
+              const IconCat = CATEGORIA_ICON_MAP[s.category] || CATEGORIA_ICON_MAP[s._tipo] || IcoCatBed;
+              return (
               <button
                 key={`${s._tipo}-${s.id}`}
                 onClick={() => onOpenDetail?.(s, s._tipo)}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: 150, flexShrink: 0, fontFamily: A.font }}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: 128, flexShrink: 0, fontFamily: A.font }}
                 onMouseEnter={e => { const img = e.currentTarget.querySelector('.socio-ring'); if (img) { img.style.transform = 'scale(1.05)'; img.style.boxShadow = '0 16px 36px -12px rgba(37,69,230,0.45)'; } }}
                 onMouseLeave={e => { const img = e.currentTarget.querySelector('.socio-ring'); if (img) { img.style.transform = 'scale(1)'; img.style.boxShadow = '0 10px 28px -14px rgba(11,16,32,0.35)'; } }}
               >
-                {/* Foto redonda */}
-                <div className="socio-ring" style={{ position: 'relative', width: 128, height: 128, borderRadius: '50%', padding: 4, background: '#fff', boxShadow: '0 10px 28px -14px rgba(11,16,32,0.35)', transition: 'transform 0.2s, box-shadow 0.2s' }}>
-                  <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: A.line }}>
-                    <img src={s.image} alt={s.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  {/* Badge plan BLACK */}
-                  {s.plan === 'BLACK' && (
-                    <div style={{ position: 'absolute', top: 2, right: 2, background: A.ink, color: '#fff', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', padding: '3px 7px', borderRadius: 999, border: '2px solid #fff' }}>BLACK</div>
-                  )}
-                  {/* Rating */}
-                  {s.rating != null && (
-                    <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'center', gap: 3, background: '#fff', color: A.ink, fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 999, boxShadow: '0 4px 12px -4px rgba(11,16,32,0.3)' }}>
-                      <span style={{ color: A.yellow, display: 'flex' }}><IcoStarFill /></span>{Number(s.rating).toFixed(1)}
-                    </div>
-                  )}
-                </div>
-                {/* Nombre + localidad */}
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.25, marginBottom: 3 }}>{s.name}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, color: A.muted }}>
-                    <span style={{ display: 'flex' }}><IcoPin /></span>{s.localidad}
-                  </div>
-                  {/* Prueba social — reservas de la semana */}
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 7, padding: '3px 9px', borderRadius: 999, background: 'rgba(255,90,138,0.1)', color: '#E03A6D', fontSize: 11, fontWeight: 700 }}>
-                    <span style={{ display: 'flex' }}><IcoFlame /></span>
-                    {s._reservas} reservas esta semana
+                {/* Logo redondo */}
+                <div className="socio-ring" style={{ position: 'relative', width: 120, height: 120, borderRadius: '50%', padding: 4, background: '#fff', boxShadow: '0 10px 28px -14px rgba(11,16,32,0.35)', transition: 'transform 0.2s, box-shadow 0.2s' }}>
+                  <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: A.line, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {s.fotoPerfil
+                      ? <img src={s.fotoPerfil} alt={s.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8 }} />
+                      : <span style={{ fontSize: 32, fontWeight: 900, color: A.primary, letterSpacing: '-0.04em' }}>{(s.name || '?')[0].toUpperCase()}</span>
+                    }
                   </div>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div style={{ position: 'absolute', top: 0, right: 0, bottom: 12, width: 120, background: 'linear-gradient(to right, transparent, #fff1f6)', pointerEvents: 'none', zIndex: 2 }} />
@@ -1068,7 +1398,7 @@ function PacksSection({ onArmarPack, onOpenPack }) {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(255,201,60,0.16)', color: A.yellow, borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
               <IcoBolt /> Aventura & Relax todo-en-uno
             </div>
-            <h2 style={{ fontSize: 52, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05, margin: 0 }}>
+            <h2 style={{fontSize: 52, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05, margin: 0 }}>
               Packs exclusivos
               <img src="/logo-cuponera-wh.svg" alt="Cuponear" style={{ display: 'block', height: 74, width: 'auto', marginTop: 14 }} />
             </h2>
@@ -1299,84 +1629,148 @@ function PacksSection({ onArmarPack, onOpenPack }) {
 // ═══════════════════════════════════════════════════════════
 //  GASTRONOMÍA
 // ═══════════════════════════════════════════════════════════
+const NIDO_RESENA = 'Cocina de autor en el corazón del bosque. El Nido Bistró combina ingredientes locales con técnica contemporánea en un ambiente íntimo y cálido. La experiencia preferida de quienes visitan Mar de las Pampas.';
+
+const GASTRO_FALLBACKS = [
+  'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=400&q=60',
+  'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=400&q=60',
+  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=60',
+  'https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?auto=format&fit=crop&w=400&q=60',
+];
+
 function GastronomySection({ dining, onOpenDetail, onVerTodas }) {
-  const visible = dining.slice(0, 6);
+  const segundo = dining[0] || null;
+  const tercero = dining[1] || null;
 
   return (
     <section id="salidas" style={{ background: '#fff', padding: '72px 0', borderTop: `1px solid ${A.line}` }}>
-      {/* Header */}
-      <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 28 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-          <IcoBolt /> GASTRONOMÍA
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.025em', color: A.ink, margin: '0 0 6px' }}>Dónde comer y beber</h2>
-            <p style={{ fontSize: 16, color: A.muted, margin: 0, maxWidth: 480 }}>
-              Los mejores restaurantes, bares y cafeterías para cada momento de tu estadía.
-            </p>
+      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
+            <IcoBolt /> GASTRONOMÍA
           </div>
-          <button
-            onClick={onVerTodas}
-            style={{ background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: A.primary, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
-          >
-            Ver todos <IcoArrowR />
-          </button>
+          <h2 style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>
+            Top <em style={{ fontStyle: 'normal', color: A.primary }}>#10</em> donde comer y beber
+          </h2>
         </div>
-      </div>
 
-      {/* Scroll horizontal */}
-      <div style={{ position: 'relative' }}>
-        <div style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 10 }} className="no-scrollbar">
-          <div style={{ display: 'flex', gap: 16, width: 'max-content', paddingRight: 56 }}>
-            {visible.map(place => (
-              <div
-                key={place.id}
-                onClick={() => onOpenDetail(place, 'salidas')}
-                style={{ width: 270, flexShrink: 0, border: `1px solid ${A.line}`, borderRadius: 20, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.2s, transform 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
-              >
-                {/* Photo */}
-                <div style={{ position: 'relative', height: 180, overflow: 'hidden', flexShrink: 0 }}>
-                  <img src={place.image} alt={place.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {place.menuUrl && (
-                    <a
-                      href={place.menuUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(255,255,255,0.95)', color: A.green, border: 'none', borderRadius: 10, padding: '5px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', textDecoration: 'none' }}
-                    >
-                      Ver menú
-                    </a>
-                  )}
+        {/* Layout: #1 grande a la izquierda + columna de thumbs a la derecha */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'stretch' }}>
+
+          {/* ── #1 El Nido Bistró ── */}
+          <div
+            onClick={() => onOpenDetail && onOpenDetail({ id: 'nido', name: 'El Nido Bistró', localidad: 'Mar de las Pampas', image: '/nido.jpg', category: 'Restaurante' }, 'salidas')}
+            style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', cursor: 'pointer', minHeight: 480 }}
+            onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.04)'; }}
+            onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
+          >
+            {/* Foto de fondo full */}
+            <img
+              src="/nido.jpg"
+              alt="El Nido Bistró — Mar de las Pampas"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }}
+            />
+            {/* Gradiente inferior */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.88) 0%, rgba(8,12,24,0.3) 50%, transparent 75%)' }} />
+
+            {/* Label tipo — arriba izquierda */}
+            <div style={{ position: 'absolute', top: 18, left: 18 }}>
+              <span style={{ background: 'rgba(37,69,230,0.55)', backdropFilter: 'blur(8px)', color: '#fff', borderRadius: 999, padding: '7px 18px', fontSize: 15, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', border: '1px solid rgba(37,69,230,0.35)' }}>
+                Restaurante
+              </span>
+            </div>
+
+            {/* Info abajo */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '28px 28px 28px' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
+                Mar de las Pampas
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <div style={{ background: A.yellow, color: A.navy, width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1, flexShrink: 0, boxShadow: '0 3px 12px rgba(255,201,60,0.45)' }}>
+                  #1
                 </div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                  El Nido Bistró
+                </div>
+              </div>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.78)', lineHeight: 1.6, margin: '0 0 20px', maxWidth: 480 }}>
+                {NIDO_RESENA}
+              </p>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: '#fff', color: A.ink, borderRadius: 999, padding: '9px 20px', fontSize: 13, fontWeight: 700 }}>
+                Ver restaurante <IcoArrowR />
+              </div>
+            </div>
+          </div>
 
-                {/* Content */}
-                <div style={{ padding: '14px 16px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <div style={{ fontSize: 11, color: A.primary, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    {place.category}
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
-                    {place.name}
-                  </div>
-                  {place.priceRange && (
-                    <div style={{ fontSize: 12, fontWeight: 600, color: A.ink2 }}>{place.priceRange}</div>
-                  )}
-                  <div style={{ fontSize: 12, color: A.ink2, lineHeight: 1.5, flex: 1 }}>
-                    {place.description}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: A.muted, marginTop: 4 }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                    {place.address || place.location || 'Villa Gesell'}
+          {/* ── Columna derecha: #2, #3, CTA Ver más ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* #2 */}
+            {segundo && (
+              <div
+                onClick={() => onOpenDetail(segundo, 'salidas')}
+                style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', flex: 1 }}
+                onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.06)'; }}
+                onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
+              >
+                <img src={segundo.image} alt={segundo.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.7) 0%, transparent 60%)' }} />
+                <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12 }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{segundo.localidad || 'Villa Gesell'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <div style={{ background: '#fff', color: A.primary, width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, flexShrink: 0, letterSpacing: '-0.02em' }}>#2</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{segundo.name}</div>
                   </div>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* #3 */}
+            {tercero && (
+              <div
+                onClick={() => onOpenDetail(tercero, 'salidas')}
+                style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', flex: 1 }}
+                onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.06)'; }}
+                onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
+              >
+                <img src={tercero.image} alt={tercero.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.7) 0%, transparent 60%)' }} />
+                <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12 }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{tercero.localidad || 'Villa Gesell'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <div style={{ background: '#fff', color: A.primary, width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, flexShrink: 0, letterSpacing: '-0.02em' }}>#3</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{tercero.name}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CTA "Ver más" — thumbnail con fotos desenfocadas atrás */}
+            <div
+              onClick={onVerTodas}
+              style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', flex: 1, minHeight: 120 }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              {/* Grid de miniaturas desenfocadas */}
+              <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 2 }}>
+                {GASTRO_FALLBACKS.map((src, i) => (
+                  <img key={i} src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(3px) brightness(0.5)', display: 'block' }} />
+                ))}
+              </div>
+              {/* Overlay oscuro */}
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,12,24,0.55)' }} />
+              {/* Texto centrado */}
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>Ver todo el ranking</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 500 }}>Top #10 de gastronomía</div>
+              </div>
+            </div>
+
           </div>
         </div>
-        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 10, width: 100, background: 'linear-gradient(to right, transparent, #fff)', pointerEvents: 'none', zIndex: 2 }} />
       </div>
     </section>
   );

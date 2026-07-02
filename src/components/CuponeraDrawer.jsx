@@ -155,7 +155,7 @@ function TicketCard({ c, onRemove }) {
 
 // ── Drawer principal ──
 export default function CuponeraDrawer() {
-  const { cupones, drawerOpen, removeCupon, closeDrawer } = useCuponera();
+  const { cupones, drawerOpen, removeCupon, closeDrawer, handleCheckout } = useCuponera();
 
   const total = cupones.reduce((s, c) => s + c.price, 0);
   const saved = cupones.reduce((s, c) => s + (c.was - c.price), 0);
@@ -320,6 +320,7 @@ export default function CuponeraDrawer() {
           {/* CTA primario */}
           <button
             disabled={empty}
+            onClick={empty ? undefined : handleCheckout}
             style={{
               width: '100%',
               background: empty ? A.line : A.primary,
@@ -337,7 +338,7 @@ export default function CuponeraDrawer() {
           >
             {empty
               ? 'Agregá un cupón para pagar'
-              : `Pagar y activar ${cupones.length} ${cupones.length === 1 ? 'cupón' : 'cupones'}`
+              : `Confirmar y pagar ${cupones.length} ${cupones.length === 1 ? 'cupón' : 'cupones'}`
             }
             {!empty && <ArrowRightIcon width={18} height={18} />}
           </button>

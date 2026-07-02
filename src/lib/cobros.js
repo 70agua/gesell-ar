@@ -3,7 +3,7 @@
 //  Modelo de cobros definitivo:
 //  - Salidas y Aventura & Relax: NUNCA pagan nada
 //  - Alojamientos FREE: pagan tokens ANTES de publicar
-//  - Alojamientos PLUS/BLACK: pagan solo al canjear
+//  - Alojamientos PLUS: pagan solo al canjear
 // ============================================================
 
 import { supabase } from './supabase';
@@ -11,6 +11,20 @@ import { supabase } from './supabase';
 export const CREDITO_PRECIO = 2000;
 export const CREDITO_IVA    = 420;
 export const CREDITO_TOTAL  = CREDITO_PRECIO + CREDITO_IVA;
+
+// Tabla escalonada: ahorro declarado → precio del cupón (con IVA incluido)
+// Techo absoluto: $14.520 ARS
+export function calcularPrecioCupon(ahorroDeclarado) {
+  if (!ahorroDeclarado || ahorroDeclarado <= 0) return 0;
+  let comision;
+  if (ahorroDeclarado <= 5000)        comision = 0.25;
+  else if (ahorroDeclarado <= 15000)  comision = 0.20;
+  else if (ahorroDeclarado <= 40000)  comision = 0.15;
+  else if (ahorroDeclarado <= 100000) comision = 0.10;
+  else                                comision = 0.07;
+  const conIva = ahorroDeclarado * comision * 1.21;
+  return Math.min(Math.round(conIva), 14520);
+}
 
 const TIPOS_ALOJAMIENTO = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
 
@@ -108,21 +122,8 @@ export async function confirmarCompra(compraId, negocioId, cantidad) {
   await acreditarTokens(negocioId, cantidad);
 }
 
-// ─── Al canjear oferta PLUS/BLACK ────────────────────────────
-export async function onCanjeAlojamiento({ negocioId, promocionId, plan }) {
-  if (plan === 'black') {
-    const { data: neg } = await supabase
-      .from('negocios')
-      .select('canjes_acumulados')
-      .eq('id', negocioId)
-      .single();
-    const nuevos = (neg?.canjes_acumulados || 0) + 1;
-    await supabase.from('negocios').update({ canjes_acumulados: nuevos }).eq('id', negocioId);
-    if (nuevos % 3 === 0) {
-      await generarOrdenCanje({ negocioId, promocionId });
-    }
-    return;
-  }
+// ─── Al canjear oferta PLUS ───────────────────────────────────
+export async function onCanjeAlojamiento({ negocioId, promocionId }) {
   // PLUS → 1 crédito por canje
   await generarOrdenCanje({ negocioId, promocionId });
 }

@@ -607,18 +607,15 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
     filtroLocalidades.length === 0 || filtroLocalidades.includes(p.negocioLocalidad) || filtroLocalidades.includes(p.negocioZone)
   );
 
-  // Separar por categoría + plan Black (usa plan del negocio en mock, siempre incluir)
-  const esBlack = p => p.negocioPlan === 'BLACK' || p.esPlanBlack;
+  // Separar por categoría
   const alojPromos  = promosPorLocalidad.filter(p => p.categoria === 'alojamiento');
   const gastroPromos = promosPorLocalidad.filter(p => p.categoria === 'salidas');
   const expPromos    = promosPorLocalidad.filter(p => p.categoria === 'aventura_relax');
 
-  // ── Lógica de mezcla 50/20/20 + Black siempre completo ──
+  // ── Lógica de mezcla 50/20/20 ──
   const N = alojFiltrados.length;
   const pickPromos = (list, cuota) => {
-    const black = list.filter(esBlack);
-    const resto = list.filter(p => !esBlack(p)).slice(0, Math.max(0, cuota - black.length));
-    return [...black, ...resto].map(p => ({ ...p, _esOferta: true, type: 'oferta', _inMarketplace: true }));
+    return list.slice(0, Math.max(0, cuota)).map(p => ({ ...p, _esOferta: true, type: 'oferta', _inMarketplace: true }));
   };
   const alojOfertas  = pickPromos(alojPromos,  Math.floor(N * 0.5));
   const todasOfertas  = [...alojOfertas];
@@ -728,92 +725,77 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   // ── Contenido del sidebar (reutilizado en desktop y drawer) ──
   const SidebarContent = (
     <>
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${A.line}` }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Filtros</span>
-        {isMobile && (
-          <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.muted, display: 'flex', padding: 4 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        )}
+        {hayFiltros
+          ? <button onClick={limpiarFiltros} style={{ background: 'none', border: 'none', fontSize: 12, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font }}>Limpiar filtros</button>
+          : isMobile && <button onClick={() => setDrawerOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.muted, display: 'flex', padding: 4 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        }
       </div>
 
-          {/* Bloque DESTINO */}
-          <div style={{ padding: '14px 18px' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 12 }}>Destino</div>
+      <div style={{ padding: '16px 18px 8px' }}>
 
-            <CheckRow
-              label="Todos los destinos"
-              checked={filtroLocalidades.length === 0 || filtroLocalidades.length === LOCALIDADES.length}
-              onChange={() => setFiltroLocalidades(prev => (prev.length === 0 || prev.length === LOCALIDADES.length) ? [] : [...LOCALIDADES])}
-            />
-            {LOCALIDADES.map(loc => (
-              <CheckRow
-                key={loc}
-                label={loc}
-                checked={filtroLocalidades.includes(loc)}
-                onChange={() => setFiltroLocalidades(prev =>
-                  prev.includes(loc) ? prev.filter(l => l !== loc) : [...prev, loc]
-                )}
-              />
-            ))}
-
-            {/* Botón Ver sólo promociones */}
-            <button
-              onClick={() => onVerOfertas && onVerOfertas(filtroLocalidades)}
-              style={{ marginTop: 20, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '12px 0', background: '#fff', border: `1.5px solid ${A.line}`, borderRadius: 999, fontSize: 13, fontWeight: 600, color: A.ink, cursor: 'pointer', fontFamily: A.font, transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink; }}
-            >
-              <img src="/ico-disc.svg" alt="" style={{ width: 24, height: 24, flexShrink: 0 }} />
-              Ver sólo promociones
-            </button>
-          </div>
-
-          {/* Divisor */}
-          <div style={{ height: 1, background: A.line, margin: '4px 0' }} />
-
-          {/* Bloque OTROS FILTROS */}
-          <div style={{ padding: '14px 18px 8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Otros filtros</span>
-              {haySecundarios && (
-                <button onClick={limpiarSecundarios} style={{ background: 'none', border: 'none', fontSize: 12, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font }}>
-                  Limpiar
+        {/* BENEFICIOS EN */}
+        <div style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: A.muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Beneficios en</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            {[
+              { label: 'Alojamientos',    cat: 'alojamiento' },
+              { label: 'Salidas',         cat: 'salidas' },
+              { label: 'Aventura & Relax',cat: 'aventura_relax' },
+            ].map(({ label, cat }) => {
+              const active = cat === 'alojamiento';
+              return (
+                <button key={cat} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 13px', borderRadius: 999, border: `1.5px solid ${active ? '#38f' : A.line}`, background: active ? '#fff' : '#def', color: active ? '#3d4255' : '#777', fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer', fontFamily: A.font, transition: 'all 0.15s' }}>
+                  {label}
                 </button>
-              )}
-            </div>
-
-            {/* Chips de filtros activos */}
-            {activeChips.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                {activeChips.map(chip => (
-                  <span key={chip.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: A.primarySoft, color: A.primary, borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
-                    {chip.label}
-                    <button onClick={chip.clear} style={{ background: 'none', border: 'none', cursor: 'pointer', color: A.primary, display: 'flex', padding: 0, lineHeight: 1 }}>
-                      <IcoX />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <SideSection title="Tipos de alojamiento">
-              <CheckRow
-                label="Todos los tipos"
-                checked={filtroTipos.size === 0}
-                onChange={() => setFiltroTipos(new Set())}
-              />
-              {TIPOS_ALOJ.map(t => (
-                <CheckRow key={t.val} label={t.label} checked={filtroTipos.has(t.val)} onChange={() => toggleTipo(t.val)} />
-              ))}
-            </SideSection>
-            <SideSection title="Servicios incluidos" defaultOpen={false}>
-              {SERVICIOS_LIST.map(s => (
-                <CheckRow key={s.id} label={s.label} checked={filtroServicios.has(s.id)} onChange={() => toggleServicio(s.id)} />
-              ))}
-            </SideSection>
+              );
+            })}
           </div>
-        </>
+        </div>
+
+        {/* DESTINO */}
+        <div style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: A.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Destino</span>
+            {filtroLocalidades.length > 0 && <button onClick={() => setFiltroLocalidades([])} style={{ background: 'none', border: 'none', fontSize: 11, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font, padding: 0 }}>Limpiar</button>}
+          </div>
+          {LOCALIDADES.map(loc => (
+            <CheckRow key={loc} label={loc} checked={filtroLocalidades.includes(loc)} onChange={() => setFiltroLocalidades(prev => prev.includes(loc) ? prev.filter(l => l !== loc) : [...prev, loc])} />
+          ))}
+        </div>
+
+        {/* FLASH (navega a OfertasView con categoría alojamiento) */}
+        <div style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
+          <CheckRow
+            label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Solo ofertas{' '}<span style={{ fontWeight: 900, fontStyle: 'italic', color: '#EF4444', letterSpacing: '0.05em' }}>FLASH</span><span style={{ color: '#EF4444' }}>⚡</span></span>}
+            checked={false}
+            onChange={() => {}}
+          />
+        </div>
+
+        {/* OTROS FILTROS */}
+        <div style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: A.ink }}>Otros filtros</span>
+            {haySecundarios && <button onClick={limpiarSecundarios} style={{ background: 'none', border: 'none', fontSize: 11, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font, padding: 0 }}>Limpiar</button>}
+          </div>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: A.muted, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>Tipos de alojamiento</div>
+          <CheckRow label="Todos los tipos" checked={filtroTipos.size === 0} onChange={() => setFiltroTipos(new Set())} />
+          {TIPOS_ALOJ.map(t => (
+            <CheckRow key={t.val} label={t.label} checked={filtroTipos.has(t.val)} onChange={() => toggleTipo(t.val)} />
+          ))}
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: A.muted, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8, marginTop: 14 }}>Servicios incluidos</div>
+          {SERVICIOS_LIST.map(s => (
+            <CheckRow key={s.id} label={s.label} checked={filtroServicios.has(s.id)} onChange={() => toggleServicio(s.id)} />
+          ))}
+        </div>
+
+      </div>
+    </>
   );
 
   return (
@@ -834,8 +816,8 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
 
         {/* Sidebar desktop */}
         {!isMobile && (
-          <div style={{ width: 260, flexShrink: 0, alignSelf: 'stretch' }}>
-          <aside ref={sidebarRef} style={{ background: '#fff', borderRadius: 18, border: `1px solid ${A.line}`, overflow: 'hidden', position: 'sticky', top: stickyTop }}>
+          <div style={{ width: 260, flexShrink: 0 }}>
+          <aside style={{ background: '#fff', borderRadius: 18, border: `1px solid ${A.line}`, overflow: 'hidden' }}>
             {SidebarContent}
           </aside>
           </div>

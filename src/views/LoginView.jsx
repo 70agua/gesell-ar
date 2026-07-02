@@ -2,9 +2,11 @@
 //  src/views/LoginView.jsx
 // ============================================================
 import React, { useState, useRef } from 'react';
-import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Zap, Crown, Store, Hotel, UtensilsCrossed, Sparkles, ChevronRight } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Hotel, UtensilsCrossed, Sparkles, ChevronRight } from 'lucide-react';
 import { login, registrarTurista, loginConGoogle } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+import { registrarIntentoPagoTarjeta } from '../lib/planes';
+import PlanPicker from '../components/PlanPicker';
 
 // ─── Helpers ─────────────────────────────────────────────────
 function getSiteName() {
@@ -15,14 +17,6 @@ function getSiteName() {
 
 // ─── Taxonomía de cuentas comerciales ───────────────────────
 const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
-
-const SERVICIOS_ALOJ = [
-  'WiFi', 'Estacionamiento', 'Pileta', 'Desayuno incluido',
-  'Aire acondicionado', 'Calefacción', 'Cocina equipada', 'Parrilla',
-  'Lavarropas', 'Secador de cabello', 'TV Smart', 'Ropa de cama',
-  'Toallas incluidas', 'Caja fuerte', 'Recepción 24 hs', 'Terraza / Balcón',
-  'Vista al mar', 'Bicicletas', 'Jardín / Patio', 'Servicio de limpieza',
-];
 
 // Tipos de cuenta comercial — alineados con los 3 pilares del sitio
 const TIPOS_COMERCIO = [
@@ -37,6 +31,14 @@ const CATS = {
   salidas:        ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
   aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
 };
+
+const SERVICIOS_ALOJ = [
+  'WiFi', 'Estacionamiento', 'Pileta', 'Desayuno incluido',
+  'Aire acondicionado', 'Calefacción', 'Cocina equipada', 'Parrilla',
+  'Lavarropas', 'Secador de cabello', 'TV Smart', 'Ropa de cama',
+  'Toallas incluidas', 'Caja fuerte', 'Recepción 24 hs', 'Terraza / Balcón',
+  'Vista al mar', 'Bicicletas', 'Jardín / Patio', 'Servicio de limpieza',
+];
 
 const A = {
   primary:     '#2545E6',
@@ -330,125 +332,6 @@ function ImageUpload({ file, onChange }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SELECTOR DE PLANES ALOJAMIENTO
-// ═══════════════════════════════════════════════════════════════
-const PLANES_ALOJ = [
-  {
-    id: 'free',
-    nombre: 'FREEMIUM',
-    precio: null,
-    badge: null,
-    items: [
-      'Presencia SIN CARGO en listado de alojamientos',
-      'Panel de administración básico',
-      'Ficha con hasta 4 fotos, mapa y detalles',
-    ],
-    // paymentNote como segmentos: { text, bold, green }
-    paymentSegments: [
-      { text: '$20.000 + IVA, cada oferta publicada' }
-    ],
-  },
-  {
-    id: 'plus',
-    nombre: 'PLUS',
-    precio: '$20.000/mes',
-    badge: 'Más elegido',
-    items: [
-      'Mayor relevancia en el listado',
-      'Panel avanzado (hasta 20 fotos)',
-      'Sello "Socio verificado"',
-      'Formulario de contacto directo',
-      'Estadísticas, reseñas verificadas',
-    ],
-    paymentSegments: [
-      { text: 'SIN CARGO', bold: true, green: true },
-    ],
-  },
-  {
-    id: 'black',
-    nombre: 'BLACK',
-    precio: '$29.000/mes',
-    badge: 'Premium',
-    items: [
-      'Todo lo que incluye PLUS, más:',
-      'Presencia estelar en "Destacados"',
-      'Mail Marketing, redes y Google Ads',
-      'Onboarding personalizado',
-      'Informes de rendimiento mensuales',
-    ],
-    paymentSegments: [
-      { text: 'SIN CARGO', bold: true, green: true },
-    ],
-  },
-];
-
-function PlanSelectorAloj({ planAloj, setPlanAloj }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, margin: '4px 0' }}>
-      {PLANES_ALOJ.map(plan => {
-        const sel = planAloj === plan.id;
-        return (
-          <button
-            key={plan.id}
-            type="button"
-            onClick={() => setPlanAloj(plan.id)}
-            style={{
-              display: 'flex', flexDirection: 'column', textAlign: 'left',
-              border: `2px solid ${sel ? A.primary : A.line}`,
-              borderRadius: 16, padding: '16px 14px', cursor: 'pointer',
-              background: sel ? A.primarySoft : '#fff',
-              transition: 'all .18s', fontFamily: A.font, position: 'relative',
-            }}
-          >
-            {plan.badge && (
-              <span style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: plan.id === 'black' ? '#0B1020' : A.primary, color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-                {plan.badge}
-              </span>
-            )}
-            {/* Nombre + precio */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: sel ? A.primary : A.ink, letterSpacing: '-0.01em' }}>{plan.nombre}</div>
-              <div style={{ fontSize: 12, color: plan.precio ? A.ink2 : A.muted, marginTop: 2 }}>
-                {plan.precio || 'Sin cargo de membresía'}
-              </div>
-            </div>
-            {/* Items */}
-            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 12px', display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
-              {plan.items.map((item, i) => (
-                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11, color: A.ink2, lineHeight: 1.35 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={sel ? A.primary : '#10A36B'} strokeWidth="3" strokeLinecap="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="m5 12 4.5 4.5L20 6"/></svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
-            {/* Publicación de ofertas */}
-            <div style={{ borderTop: `1px solid ${sel ? A.primary + '33' : A.line}`, paddingTop: 10, marginTop: 'auto' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>
-                Publicación de ofertas
-              </div>
-              <p style={{ fontSize: 11, color: A.ink, lineHeight: 1.6, margin: 0 }}>
-                {plan.paymentSegments.map((seg, i) => (
-                  <span key={i} style={{
-                    fontWeight: seg.bold ? 700 : 400,
-                    color: seg.green ? '#10A36B' : A.ink,
-                  }}>
-                    {seg.text}
-                  </span>
-                ))}
-              </p>
-            </div>
-            {/* Selector indicator */}
-            <div style={{ marginTop: 12, padding: '7px 0', borderRadius: 8, background: sel ? A.primary : A.bg, border: `1px solid ${sel ? A.primary : A.line}`, textAlign: 'center', fontSize: 12, fontWeight: 700, color: sel ? '#fff' : A.muted, transition: 'all .18s' }}>
-              {sel ? '✓ Seleccionado' : 'Elegir este plan'}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
 //  ONBOARDING COMERCIAL — wizard de 3 pasos estilo panel admin
 // ═══════════════════════════════════════════════════════════════
 const OBP    = '#475be1';
@@ -473,17 +356,7 @@ const OB_PROVINCIAS = [
 const OB_PAISES = ['Argentina','Uruguay','Chile','Brasil','Paraguay','Bolivia','Otro'];
 const COD_PAISES = ['+54','+598','+56','+55','+595','+591','+1','+34','+39','+44'];
 
-const OB_PLANES = [
-  { id:'free',  label:'Freemium', price:'$0',      priceSub:'para siempre',
-    desc:'Empezá a mostrarte sin costo.',
-    features:['1 oferta activa','Perfil en el directorio','Estadísticas esenciales'] },
-  { id:'plus',  label:'Plus',     price:'$18.333', priceSub:'/mes', badge:'Recomendado',
-    desc:'Para vender más y destacarte.',
-    features:['Ofertas ilimitadas','Estadísticas completas','Posicionamiento destacado','Cupones personalizados'] },
-  { id:'black', label:'Black',    price:'$29.000', priceSub:'/mes', badge:'Premium', dark:true,
-    desc:'Máxima visibilidad y soporte.',
-    features:['Todo lo de Plus','Cuponera destacada','Prioridad en búsquedas','Account manager dedicado'] },
-];
+// Copy/pricing de planes vive en src/lib/planes.js y se renderiza vía <PlanPicker />
 
 // Componentes a nivel de módulo — NO definir dentro del componente
 // (si se recrean en cada render, React remonta los inputs y se pierde el foco al tipear)
@@ -501,12 +374,12 @@ const BtnNext = ({ onClick, disabled, label, saving }) => (
   </button>
 );
 
-function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApellido, rEmail, onComplete }) {
+function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete }) {
   const [obStep,    setObStep]    = useState(1);
   const [doneSteps, setDoneSteps] = useState(new Set());
-  // Tipo + categorías (editables — vienen del registro pero se pueden modificar acá)
-  const [tipoNeg, setTipoNeg] = useState(comTipo || '');
-  const [catsNeg, setCatsNeg] = useState(comCategorias || []);
+  // Rubro (alojamiento/salidas/aventura & relax) + categoría — encabezado del form
+  const [tipoNeg, setTipoNeg] = useState('');
+  const [catsNeg, setCatsNeg] = useState([]);
   const toggleCat = (c) => setCatsNeg(prev =>
     prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= 2 ? prev : [...prev, c])
   );
@@ -536,7 +409,8 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
   const [logoFile,    setLogoFile]    = useState(null);
   const logoRef = useRef();
   // Cuenta
-  const [plan, setPlan] = useState('free');
+  const [plan, setPlan] = useState(null);
+  const [datosTarjetaPlus, setDatosTarjetaPlus] = useState(null);
   // Oferta
   const [ofTitulo, setOfTitulo] = useState('');
   const [ofPct,    setOfPct]    = useState('');
@@ -562,13 +436,17 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
 
   const validate1 = () => {
     const e = {};
+    if (!tipoNeg)                 e.tipo        = 'Elegí el rubro de tu negocio';
+    if (catsNeg.length === 0)     e.categorias  = 'Elegí al menos una categoría';
     if (!nombre.trim())           e.nombre      = 'Campo requerido';
     if (!provincia)               e.provincia   = 'Campo requerido';
     if (!localidad)               e.localidad   = 'Campo requerido';
-    if (!tipoNeg)                 e.tipo        = 'Elegí el tipo de negocio';
-    if (catsNeg.length === 0)     e.categorias  = 'Elegí al menos una categoría';
     if (!email.trim())            e.email       = 'Campo requerido';
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) e.email = 'Email inválido';
+    if (!telMovilNum.trim())      e.telMovil    = 'Campo requerido';
+    if (!codPostal.trim())        e.codPostal   = 'Campo requerido';
+    if (!calle.trim())            e.calle       = 'Campo requerido';
+    if (!numero.trim())           e.numero      = 'Campo requerido';
     if (!descripcion.trim())      e.descripcion = 'Campo requerido';
     else if (descripcion.length < DESC_MIN) e.descripcion = `Mínimo ${DESC_MIN} caracteres (${descripcion.length} escritos)`;
     setErrors(e);
@@ -613,10 +491,16 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
   };
 
   const step2Save = async () => {
-    if (saving) return;
+    if (saving || !plan) return;
     setSaving(true);
     try {
-      if (negocioId) await supabase.from('negocios').update({ plan }).eq('id', negocioId);
+      if (negocioId) {
+        if (plan === 'plus' && datosTarjetaPlus) {
+          await registrarIntentoPagoTarjeta(negocioId, datosTarjetaPlus);
+        } else {
+          await supabase.from('negocios').update({ plan: 'free' }).eq('id', negocioId);
+        }
+      }
       setDoneSteps(s => new Set([...s, 2]));
       setObStep(3);
       window.scrollTo(0, 0);
@@ -695,31 +579,6 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
               </div>
 
               <OBCard>
-                <OBCardTitle label="Identidad" />
-                <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, flexShrink:0 }}>
-                    <div onClick={() => logoRef.current?.click()} style={{ width:84, height:84, borderRadius:'50%', border:`2px dashed ${logoPreview?OBP:OBLINE}`, cursor:'pointer', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:OBBG }}>
-                      {logoPreview
-                        ? <img src={logoPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        : <svg width="38" height="38" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="14" r="8" fill={OBLINE}/><path d="M4 38c0-8.837 7.163-16 16-16s16 7.163 16 16" fill={OBLINE}/></svg>
-                      }
-                    </div>
-                    <button type="button" onClick={() => logoRef.current?.click()} style={{ fontSize:11, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>{logoPreview?'Cambiar logo':'Subir logo'}</button>
-                    <span style={{ fontSize:10, color:OBMUTED, textAlign:'center', maxWidth:78, lineHeight:1.4 }}>PNG/JPG · sin texto ni gráficas</span>
-                    <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoChange} style={{ display:'none' }} />
-                  </div>
-                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12 }}>
-                    <div>
-                      <label style={lbl}>Nombre del negocio <span style={{ color:'#ef4444' }}>*</span></label>
-                      <input value={nombre} onChange={e => { setNombre(e.target.value); setErrors(p => ({...p, nombre:null})); }} style={inpE('nombre')} placeholder="Ej: Hotel La Costa" />
-                      <ErrMsg msg={errors.nombre} />
-                    </div>
-                  </div>
-                </div>
-              </OBCard>
-
-              {/* Rubro — tipo + categorías editables */}
-              <OBCard>
                 <OBCardTitle label="Rubro de tu negocio" />
                 <label style={lbl}>Tipo <span style={{ color:'#ef4444' }}>*</span></label>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:4 }}>
@@ -761,6 +620,49 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
               </OBCard>
 
               <OBCard>
+                <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, flexShrink:0 }}>
+                    <div onClick={() => logoRef.current?.click()} style={{ width:168, height:168, borderRadius:20, border:`2px dashed ${logoPreview?OBP:OBLINE}`, cursor:'pointer', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:OBBG }}>
+                      {logoPreview
+                        ? <img src={logoPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        : (
+                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+                            <div style={{ width:56, height:56, borderRadius:14, background:OBLINE, display:'grid', placeItems:'center' }}>
+                              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 20V6a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" stroke={OBMUTED} strokeWidth="1.6" strokeLinejoin="round"/></svg>
+                            </div>
+                            <span style={{ fontSize:12, fontWeight:700, color:OBMUTED, fontFamily:OBFONT }}>Mi empresa</span>
+                          </div>
+                        )
+                      }
+                    </div>
+                    <button type="button" onClick={() => logoRef.current?.click()} style={{ fontSize:11, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>{logoPreview?'Cambiar logo':'Subir logo'}</button>
+                    <span style={{ fontSize:10, color:OBMUTED, textAlign:'center', maxWidth:120, lineHeight:1.4 }}>PNG/JPG · sin texto ni gráficas · opcional</span>
+                    <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoChange} style={{ display:'none' }} />
+                  </div>
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12 }}>
+                    <div>
+                      <label style={lbl}>Nombre del negocio <span style={{ color:'#ef4444' }}>*</span></label>
+                      <input value={nombre} onChange={e => { setNombre(e.target.value); setErrors(p => ({...p, nombre:null})); }} style={inpE('nombre')} placeholder="Ej: Hotel La Costa" />
+                      <ErrMsg msg={errors.nombre} />
+                    </div>
+                    <div>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6 }}>
+                        <label style={lbl}>Acerca de tu negocio:</label>
+                        <span style={{ fontSize:11, color:OBMUTED, fontFamily:OBFONT, fontWeight:600 }}>Mínimo: {DESC_MIN} caracteres</span>
+                      </div>
+                      <textarea value={descripcion} onChange={e => { setDescripcion(e.target.value.slice(0, DESC_MAX)); setErrors(p => ({...p, descripcion:null})); }} rows={4}
+                        placeholder="Ej: Somos un hotel familiar a media cuadra del mar, con pileta, desayuno y estacionamiento..."
+                        style={{ ...inpE('descripcion'), resize:'vertical', minHeight:90 }} />
+                      <ErrMsg msg={errors.descripcion} />
+                      <div style={{ display:'flex', justifyContent:'flex-end', marginTop:5 }}>
+                        <span style={{ fontSize:15, fontWeight:700, color: descripcion.length > DESC_MAX*0.9 ? '#ef4444' : OBMUTED }}>{descripcion.length} / {DESC_MAX}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </OBCard>
+
+              <OBCard>
                 <OBCardTitle label="Contacto" />
                 {/* Email — pre-cargado, requerido */}
                 <div style={{ marginBottom:14 }}>
@@ -780,13 +682,14 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                     </div>
                   </div>
                   <div>
-                    <label style={lbl}>Línea móvil</label>
+                    <label style={lbl}>Línea móvil <span style={{ color:'#ef4444' }}>*</span></label>
                     <div style={{ display:'flex', gap:6 }}>
                       <select value={telMovilCod} onChange={e => setTelMovilCod(e.target.value)} style={{ ...inp, width:78, flexShrink:0, cursor:'pointer' }}>
                         {COD_PAISES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <input value={telMovilNum} onChange={e => setTelMovilNum(e.target.value)} style={inp} placeholder="2255 11223344" />
+                      <input value={telMovilNum} onChange={e => { setTelMovilNum(e.target.value); setErrors(p => ({...p, telMovil:null})); }} style={inpE('telMovil')} placeholder="2255 11223344" />
                     </div>
+                    <ErrMsg msg={errors.telMovil} />
                   </div>
                 </div>
                 {/* Redes */}
@@ -832,33 +735,28 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                     <ErrMsg msg={errors.localidad} />
                   </div>
                   <div>
-                    <label style={lbl}>Código postal</label>
-                    <input value={codPostal} onChange={e => setCodPostal(e.target.value)} style={inp} placeholder="7165" />
+                    <label style={lbl}>Código postal <span style={{ color:'#ef4444' }}>*</span></label>
+                    <input value={codPostal} onChange={e => { setCodPostal(e.target.value); setErrors(p => ({...p, codPostal:null})); }} style={inpE('codPostal')} placeholder="7165" />
+                    <ErrMsg msg={errors.codPostal} />
                   </div>
                 </div>
                 {/* Domicilio */}
-                <label style={lbl}>Domicilio</label>
-                <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:10 }}>
-                  <input value={calle} onChange={e => setCalle(e.target.value)} style={inp} placeholder="Calle / Avenida" />
-                  <input value={numero} onChange={e => setNumero(e.target.value)} style={inp} placeholder="Número" />
+                <label style={lbl}>Domicilio <span style={{ color:'#ef4444' }}>*</span></label>
+                <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:2 }}>
+                  <div>
+                    <input value={calle} onChange={e => { setCalle(e.target.value); setErrors(p => ({...p, calle:null})); }} style={inpE('calle')} placeholder="Calle / Avenida" />
+                    <ErrMsg msg={errors.calle} />
+                  </div>
+                  <div>
+                    <input value={numero} onChange={e => { setNumero(e.target.value); setErrors(p => ({...p, numero:null})); }} style={inpE('numero')} placeholder="Número o referencia" />
+                    <ErrMsg msg={errors.numero} />
+                  </div>
                 </div>
+                <div style={{ marginBottom:8 }} />
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 2fr', gap:14 }}>
                   <input value={piso} onChange={e => setPiso(e.target.value)} style={inp} placeholder="Piso" />
                   <input value={depto} onChange={e => setDepto(e.target.value)} style={inp} placeholder="Depto" />
                   <input value={entreCalles} onChange={e => setEntreCalles(e.target.value)} style={inp} placeholder="Entre calles" />
-                </div>
-              </OBCard>
-
-              <OBCard>
-                <OBCardTitle label="Descripción pública *" />
-                <label style={lbl}>Contale a tus visitantes brevemente sobre tu negocio</label>
-                <textarea value={descripcion} onChange={e => { setDescripcion(e.target.value.slice(0, DESC_MAX)); setErrors(p => ({...p, descripcion:null})); }} rows={4}
-                  placeholder="Somos un hotel familiar a media cuadra del mar, con pileta, desayuno y estacionamiento..."
-                  style={{ ...inpE('descripcion'), resize:'vertical', minHeight:90 }} />
-                <ErrMsg msg={errors.descripcion} />
-                <div style={{ display:'flex', justifyContent:'space-between', marginTop:5 }}>
-                  <span style={{ fontSize:11, color:OBMUTED }}>Mín. {DESC_MIN} · máx. {DESC_MAX} caracteres</span>
-                  <span style={{ fontSize:11, color: descripcion.length > DESC_MAX*0.9 ? '#ef4444' : OBMUTED }}>{descripcion.length} / {DESC_MAX}</span>
                 </div>
               </OBCard>
 
@@ -878,44 +776,16 @@ function OnboardingComercial({ regUserId, comTipo, comCategorias, rNombre, rApel
                 <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Podés empezar gratis y actualizar cuando quieras. El cobro se activa cuando tu ficha sea aprobada.</p>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16, alignItems:'stretch' }}>
-                {OB_PLANES.map(pl => {
-                  const on = plan === pl.id;
-                  const accent = pl.dark ? OBNAVY : OBP;
-                  return (
-                    <div key={pl.id} onClick={() => setPlan(pl.id)}
-                      style={{ background:OBCARD, border:`2px solid ${on ? accent : OBLINE}`, borderRadius:18, padding:'22px 18px 20px', cursor:'pointer', transition:'all .18s', position:'relative', display:'flex', flexDirection:'column',
-                        boxShadow: on ? `0 10px 30px -12px ${pl.dark ? 'rgba(15,23,42,0.4)' : 'rgba(71,91,225,0.35)'}` : '0 1px 2px rgba(15,23,42,0.04)' }}>
-                      {pl.badge && (
-                        <div style={{ position:'absolute', top:-11, left:'50%', transform:'translateX(-50%)', background:accent, color:'#fff', borderRadius:999, padding:'4px 14px', fontSize:10, fontWeight:800, letterSpacing:'0.06em', textTransform:'uppercase', whiteSpace:'nowrap', fontFamily:OBFONT, boxShadow:`0 4px 10px -2px ${pl.dark ? 'rgba(15,23,42,0.45)' : 'rgba(71,91,225,0.4)'}` }}>{pl.badge}</div>
-                      )}
-                      {on && <div style={{ position:'absolute', top:14, right:14, width:20, height:20, borderRadius:'50%', background:accent, display:'grid', placeItems:'center' }}><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
-
-                      <div style={{ fontFamily:OBFONT, fontWeight:800, fontSize:18, letterSpacing:'-0.01em', color: pl.dark ? OBNAVY : OBINK, marginBottom:2 }}>{pl.label}</div>
-                      <div style={{ fontFamily:OBFONT, fontSize:12, color:OBMUTED, marginBottom:14, minHeight:32, lineHeight:1.4 }}>{pl.desc}</div>
-
-                      <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:16 }}>
-                        <span style={{ fontFamily:OBFONT, fontWeight:800, fontSize:28, letterSpacing:'-0.03em', color: pl.dark ? OBNAVY : OBINK }}>{pl.price}</span>
-                        <span style={{ fontFamily:OBFONT, fontSize:12, fontWeight:500, color:OBMUTED }}>{pl.priceSub}</span>
-                      </div>
-
-                      <div style={{ height:1, background:OBLINE, margin:'0 0 14px' }} />
-
-                      <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
-                        {pl.features.map(f => (
-                          <div key={f} style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:12.5, color:OBINK2, fontFamily:OBFONT, lineHeight:1.35 }}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, marginTop:1 }}><circle cx="12" cy="12" r="10" fill={pl.dark ? OBNAVY : (on ? OBP : OBPS)}/><path d="M8 12l2.5 2.5L16 9" stroke={pl.dark || on ? '#fff' : OBP} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            {f}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <PlanPicker
+                value={plan}
+                primaryColor={OBP}
+                saving={saving}
+                onConfirmFree={() => { setPlan('free'); setDatosTarjetaPlus(null); }}
+                onConfirmPlus={datos => { setPlan('plus'); setDatosTarjetaPlus(datos); }}
+              />
 
               <div style={{ display:'flex', justifyContent:'center', paddingBottom:40 }}>
-                <BtnNext onClick={step2Save} saving={saving} label="Siguiente →" />
+                <BtnNext onClick={step2Save} saving={saving} disabled={!plan} label="Siguiente →" />
               </div>
             </div>
           )}
@@ -1048,10 +918,6 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
     if (!rApellido.trim()) { setError('Ingresá tu apellido.'); return; }
     if (rPass.length < 6)  { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
     if (rPass !== rPass2)  { setError('Las contraseñas no coinciden.'); return; }
-    if (esComercial) {
-      if (!comTipo)                { setError('Seleccioná el tipo de tu cuenta comercial.'); return; }
-      if (comCategorias.length === 0) { setError('Elegí al menos una categoría de tu negocio.'); return; }
-    }
     if (!terminos) { setError('Debés aceptar los términos y condiciones.'); return; }
 
     setLoading(true);
@@ -1147,8 +1013,6 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
     return (
       <OnboardingComercial
         regUserId={regUserId}
-        comTipo={comTipo}
-        comCategorias={comCategorias}
         rNombre={rNombre}
         rApellido={rApellido}
         rEmail={rEmail}
@@ -1260,62 +1124,10 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
                           <span style={{ fontSize: 14, fontWeight: 700, color: esComercial ? A.primary : A.ink, fontFamily: A.font }}>Es una cuenta comercial</span>
                         </div>
                         <div style={{ fontSize: 12.5, color: A.muted, marginTop: 4, lineHeight: 1.5, fontFamily: A.font }}>
-                          Activala si tenés un negocio. Así vas a poder <strong style={{ color: A.ink2 }}>publicar promociones</strong> y crear tu ficha en Cuponear.
+                          Activala si tenés un negocio. Así vas a poder <strong style={{ color: A.ink2 }}>crear cupones de descuento</strong> para tus clientes y armar tu ficha en Cuponear. El rubro exacto (alojamiento, salidas o aventura &amp; relax) lo elegís después, desde tu panel.
                         </div>
                       </div>
                     </div>
-
-                    {/* Tipo + categoría — solo si es comercial */}
-                    {esComercial && (
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 8, fontFamily: A.font }}>¿Qué tipo de negocio? <span style={{ color: A.red }}>*</span></div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                          {TIPOS_COMERCIO.map(t => {
-                            const sel = comTipo === t.id;
-                            return (
-                              <button key={t.id} type="button"
-                                onClick={() => { setComTipo(t.id); setComCategorias([]); setError(''); }}
-                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 6px', border: `1.5px solid ${sel ? A.primary : A.line}`, borderRadius: 12, cursor: 'pointer', background: sel ? '#fff' : A.bg, transition: 'all .15s', fontFamily: A.font, textAlign: 'center' }}
-                              >
-                                <t.Icon size={22} color={sel ? A.primary : A.ink2} />
-                                <div>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: sel ? A.primary : A.ink }}>{t.label}</div>
-                                  <div style={{ fontSize: 9.5, color: A.muted, marginTop: 2, lineHeight: 1.3, whiteSpace: 'pre-line' }}>{t.sub}</div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Categoría / industria */}
-                        {comTipo && (
-                          <div style={{ marginTop: 14 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: A.ink2, fontFamily: A.font }}>Categoría / industria <span style={{ color: A.red }}>*</span></div>
-                              <div style={{ fontSize: 11, color: A.muted, fontFamily: A.font }}>Elegí hasta 2</div>
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                              {CATS[comTipo].map(c => {
-                                const sel = comCategorias.includes(c);
-                                const maxed = !sel && comCategorias.length >= 2;
-                                return (
-                                  <button key={c} type="button"
-                                    onClick={() => {
-                                      if (maxed) return;
-                                      setComCategorias(prev => sel ? prev.filter(x => x !== c) : [...prev, c]);
-                                      setError('');
-                                    }}
-                                    style={{ padding: '6px 12px', border: `1px solid ${sel ? A.primary : A.line}`, borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: maxed ? 'not-allowed' : 'pointer', background: sel ? A.primary : '#fff', color: sel ? '#fff' : maxed ? A.muted : A.ink2, fontFamily: A.font, transition: 'all .15s', opacity: maxed ? 0.5 : 1 }}
-                                  >
-                                    {c}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   <Terminos checked={terminos} onChange={setTerminos} />
