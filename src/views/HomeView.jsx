@@ -8,6 +8,7 @@ import { secondsUntil, formatCountdown } from '../lib/ofertas';
 import { useCuponera }  from '../lib/cuponera';
 import HeartButton      from '../components/HeartButton';
 import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
+import ActivaloCon from '../components/ActivaloCon';
 import { busqueda } from '../lib/busqueda';
 import DateRangePicker from '../components/DateRangePicker';
 import { socialProof } from '../lib/socialProof';
@@ -286,7 +287,7 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
 
               {/* H1 rotating — tamaño fijo calibrado para la localidad más larga */}
               <h1 style={{ fontSize: 'clamp(40px, 4.6vw, 70px)', lineHeight: 1.05, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
-                <span style={{ fontWeight: 500, letterSpacing: '-0.03em' }}>Tu cuponera viajera<br />de beneficios en</span><br />
+                <span style={{ fontWeight: 500, letterSpacing: '-0.03em' }}>Tu cuponera viajera<br />de descuentos en</span><br />
                 <span style={{
                   fontFamily: "'NauryzRedkeds', cursive",
                   fontSize: 'clamp(30px, 3.6vw, 54px)',
@@ -303,7 +304,7 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
               </h1>
 
               <p style={{ fontSize: 18, lineHeight: 1.55, color: A.muted, margin: '0 0 26px', fontWeight: 400, maxWidth: 600 }}>
-                Buscá ofertas en <b>alojamientos, salidas, aventuras y relax.</b>
+                Buscá ofertas y beneficios en <b>alojamientos, salidas, aventuras y relax.</b>
               </p>
 
               {/* ─ Search widget — 1 fila ─ */}
@@ -416,7 +417,7 @@ function CuponearCategoriasSection() {
         {/* Header */}
         <div style={{ marginBottom: 40, textAlign: 'center' }}>
           <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0, lineHeight: 1.1 }}>
-            <em style={{ fontStyle: 'italic', fontWeight: 400, color: A.primary }}>Cuponeá</em> ahora, disfrutá después
+            <em style={{ fontStyle: 'italic', fontWeight: 400, color: A.primary }}>Cuponeá</em> en cada momento de tu viaje
           </h2>
         </div>
 
@@ -1011,17 +1012,7 @@ function OfertaFeedCard({ promo, onOpen, onAdd }) {
           >
             + Agregar a cuponera
           </button>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: A.muted, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '18px' }}>Activalo con</span>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <img src="/cuponera-coin.svg" alt="" width="11" height="11" />
-                <span style={{ fontSize: 12, fontWeight: 800, color: A.ink }}>{cred} crédito{cred !== 1 ? 's' : ''}</span>
-                <CreditTooltip />
-              </div>
-              <span style={{ fontSize: 10, color: A.muted }}>{pesoPrice}</span>
-            </div>
-          </div>
+          <ActivaloCon creditos={cred} ink={A.ink} muted={A.muted} />
         </div>
       </div>
     </div>
@@ -1224,17 +1215,7 @@ function OfertaCardAire({ promo, onClick, onAddToCuponera, showTipo }) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
         {promo.tokens_costo != null && promo.tokens_costo > 0 && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: A.muted, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '18px' }}>Activalo con</span>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <img src="/cuponera-coin.svg" alt="" width="11" height="11" />
-                <span style={{ fontSize: 12, fontWeight: 800, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                <CreditTooltip />
-              </div>
-              <span style={{ fontSize: 10, color: A.muted }}>${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA</span>
-            </div>
-          </div>
+          <ActivaloCon creditos={promo.tokens_costo} ink={A.ink} muted={A.muted} />
         )}
       </div>
     </div>
@@ -1271,7 +1252,7 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
           <IcoBolt /> OFERTAS EN ALOJAMIENTOS
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>¡Alquilá por menos!</h2>
+          <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>Empezá ahorrando en el alojamiento</h2>
           {/* Pills — click navega directo al marketplace filtrado */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 4 }}>
             {TYPE_FILTERS.map(f => (

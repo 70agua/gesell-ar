@@ -12,6 +12,7 @@ import { useCuponera } from '../lib/cuponera';
 import InfoTooltip from '../components/InfoTooltip';
 import HeartButton from '../components/HeartButton';
 import { useFavoritos } from '../lib/favoritos';
+import { useMostrarCreditos } from '../lib/sesion';
 
 // ─── Design tokens ───────────────────────────────────────────
 const C = {
@@ -262,6 +263,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   if (!oferta) return null;
 
   const { addCupon } = useCuponera();
+  const mostrarCreditos = useMostrarCreditos();
   const favCtx = useFavoritos();
   const esFav  = favCtx?.esFavorito(oferta.id);
   const [added, setAdded]           = useState(false);
@@ -527,11 +529,17 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                     </span>
                   </div>
                   <div style={{ padding: '4px 14px 4px', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <CoinSVG size={26} />
-                    <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>{tokensCosto}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.ink2, alignSelf: 'flex-end', paddingBottom: 1 }}>
-                      crédito{tokensCosto !== 1 ? 's' : ''}
-                    </span>
+                    {mostrarCreditos ? (
+                      <>
+                        <CoinSVG size={26} />
+                        <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>{tokensCosto}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.ink2, alignSelf: 'flex-end', paddingBottom: 1 }}>
+                          crédito{tokensCosto !== 1 ? 's' : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>${precioCreditosARS.toLocaleString('es-AR')}</span>
+                    )}
                   </div>
 
                   {/* Fila 3 — Subtextos */}
@@ -540,7 +548,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                     <InfoTooltip />
                   </div>
                   <div style={{ padding: '4px 14px 16px' }}>
-                    <span style={{ fontSize: 11, color: C.muted }}>(${precioCreditosARS.toLocaleString('es-AR')} + IVA)</span>
+                    <span style={{ fontSize: 11, color: C.muted }}>{mostrarCreditos ? `(${precioCreditosARS.toLocaleString('es-AR')} + IVA)` : '+ IVA'}</span>
                   </div>
 
                 </div>

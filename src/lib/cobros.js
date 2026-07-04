@@ -70,9 +70,26 @@ export async function descontarToken(negocioId) {
   const saldo = await getSaldo(negocioId);
   if (saldo < 1) return false;
 
+  // onConflict: 'negocio_id' es imprescindible — la PK real de la tabla es `id`
+  // (autogenerado), así que sin esto el upsert intenta insertar una fila nueva
+  // y choca contra el unique constraint de negocio_id en cualquier fila ya existente.
   const { error } = await supabase
     .from('socio_tokens')
-    .upsert({ negocio_id: negocioId, saldo: saldo - 1, updated_at: new Date().toISOString() });
+    .upsert({ negocio_id: negocioId, saldo: saldo - 1, updated_at: new Date().toISOString() }, { onConflict: 'negocio_id' });
+
+  return !error;
+}
+
+// ─── Descontar N créditos (armado de cuponeras regalo) ───────
+// Devuelve false si no alcanza el saldo (sin descontar nada).
+export async function descontarCreditos(negocioId, n) {
+  if (!n || n <= 0) return true;
+  const saldo = await getSaldo(negocioId);
+  if (saldo < n) return false;
+
+  const { error } = await supabase
+    .from('socio_tokens')
+    .upsert({ negocio_id: negocioId, saldo: saldo - n, updated_at: new Date().toISOString() }, { onConflict: 'negocio_id' });
 
   return !error;
 }
@@ -80,9 +97,10 @@ export async function descontarToken(negocioId) {
 // ─── Acreditar tokens después de una compra ──────────────────
 export async function acreditarTokens(negocioId, cantidad) {
   const saldo = await getSaldo(negocioId);
-  await supabase
+  const { error } = await supabase
     .from('socio_tokens')
-    .upsert({ negocio_id: negocioId, saldo: saldo + cantidad, updated_at: new Date().toISOString() });
+    .upsert({ negocio_id: negocioId, saldo: saldo + cantidad, updated_at: new Date().toISOString() }, { onConflict: 'negocio_id' });
+  if (error) console.error('acreditarTokens error:', error);
 }
 
 // ─── Registrar compra de tokens ──────────────────────────────

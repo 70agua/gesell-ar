@@ -6,6 +6,13 @@
 // ============================================================
 
 import { supabase } from './supabase';
+import { acreditarTokens } from './cobros';
+
+// Créditos de "capacidad" que recibe un socio al darse de alta en Plus (una sola vez).
+const CREDITOS_ALTA_PLUS = 50;
+
+// Tope de fotos en la galería del perfil, según plan.
+export const FOTOS_GALERIA_MAX = { free: 4, plus: 20 };
 
 // ─── Copy/precios de los planes — editable desde Superadmin → Ajustes → Planes ─
 export async function getPlanesConfig() {
@@ -72,11 +79,17 @@ export async function generarAliasUnico(negocioId, unidadesDeclaradas = 0) {
 // titular, últimos 4 dígitos y vencimiento, a modo de referencia. No hay
 // gateway real conectado todavía: se confirma al instante, igual que
 // confirmarCompra() en cobros.js hace hoy con forma_pago 'tarjeta'/'mercadopago'.
-export async function registrarIntentoPagoTarjeta(negocioId, { titular, ultimos4, vencimiento, unidadesDeclaradas = 0 }) {
+// Para transferencia, el negocio queda operativo pero sin poder compartir
+// cuponeras hasta que el comprobante se apruebe manualmente (ver Superadmin).
+export async function registrarIntentoPagoTarjeta(negocioId, { titular, ultimos4, vencimiento, unidadesDeclaradas = 0, formaPago = 'tarjeta', comprobanteUrl = null }) {
   const { error } = await supabase.from('intentos_pago_tarjeta').insert({
     negocio_id: negocioId, titular, ultimos_4: ultimos4, vencimiento, estado: 'confirmado',
+    forma_pago: formaPago, comprobante_url: comprobanteUrl,
   });
   if (error) return { error };
+  if (formaPago === 'transferencia') {
+    await supabase.from('negocios').update({ puede_compartir_cuponeras: false }).eq('id', negocioId);
+  }
   return crearSuscripcionPlus(negocioId, { unidadesDeclaradas });
 }
 
@@ -96,9 +109,12 @@ export async function crearSuscripcionPlus(negocioId, { unidadesDeclaradas = 0 }
 
   await supabase.from('negocios').update({ plan: 'plus', fecha_alta_plus: ahora }).eq('id', negocioId);
 
+  // El alias sólo existe si el negocio ya fue Plus antes → sirve de proxy de "alta nueva":
+  // generamos alias y acreditamos los 50 créditos de capacidad una única vez.
   const { data: aliasExistente } = await supabase.from('socio_alias').select('id').eq('negocio_id', negocioId).maybeSingle();
   if (!aliasExistente) {
     await generarAliasUnico(negocioId, unidadesDeclaradas);
+    await acreditarTokens(negocioId, CREDITOS_ALTA_PLUS);
   }
 
   return { error: null };

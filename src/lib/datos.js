@@ -15,11 +15,11 @@ const LOCALIDADES_CERCANAS = {
   'El Salvaje':        ['Villa Gesell'],
 };
 
-const TIPOS_ALOJ   = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Casa', 'Hostel', 'Glamping']);
+export const TIPOS_ALOJ   = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Casa', 'Hostel', 'Glamping']);
 const TIPOS_GASTRO = new Set(['salidas', 'Restaurante', 'Restaurantes', 'Bar', 'Bares', 'Café', 'Cafés & Dulces', 'Cafés y Dulces', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Heladerías', 'Bodegón', 'Panadería', 'Panaderías', 'Discoteca', 'Discotecas', 'Cine y Teatro', 'Cines y Teatros', 'Show y Recital', 'Shows y Recitales', 'Centro Cultural', 'Centros Culturales', 'Otro', 'Otros']);
 const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos']);
 
-function categoriaDeNegocio(tipo, negocioId) {
+export function categoriaDeNegocio(tipo, negocioId) {
   if (!tipo && negocioId)  return 'alojamiento';
   if (!tipo && !negocioId) return 'aventura_relax';
   if (TIPOS_ALOJ.has(tipo))   return 'alojamiento';
@@ -53,6 +53,7 @@ function normalizeNegocio(n) {
     fotoPerfil:        n.foto_perfil         || null,
     lat:               n.lat != null ? Number(n.lat) : null,
     lng:               n.lng != null ? Number(n.lng) : null,
+    plan:              n.plan                || 'free',
     esReal:            true,
   };
 }

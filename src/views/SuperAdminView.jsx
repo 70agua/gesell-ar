@@ -156,6 +156,13 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     showToast(activo ? 'Negocio desactivado' : 'Negocio activado');
   }
 
+  async function aprobarComprobante(id) {
+    const { error } = await supabase.from('negocios').update({ puede_compartir_cuponeras: true }).eq('id', id);
+    if (error) return showToast('Error al aprobar comprobante', 'error');
+    setNegocios(prev => prev.map(n => n.id === id ? { ...n, puede_compartir_cuponeras: true } : n));
+    showToast('Comprobante aprobado — ya puede compartir cuponeras');
+  }
+
   async function marcarLeida(id) {
     await supabase.from('consultas').update({ leida: true }).eq('id', id);
     setConsultas(prev => prev.map(c => c.id === id ? { ...c, leida: true } : c));
@@ -211,7 +218,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
         ) : (
           <>
             {tab === 'resumen'   && <TabResumen stats={stats} negocios={negocios} consultas={consultas} ofertas={ofertas} ventas={ventas} onEditarSocio={onEditarSocio} setTab={setTab} setOfertas={setOfertas} showToast={showToast} />}
-            {tab === 'negocios'  && <TabNegocios negocios={negocios} onAprobar={aprobar} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} />}
+            {tab === 'negocios'  && <TabNegocios negocios={negocios} onAprobar={aprobar} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} onAprobarComprobante={aprobarComprobante} />}
             {tab === 'ofertas'   && <TabOfertas ofertas={ofertas} setOfertas={setOfertas} showToast={showToast} />}
             {tab === 'ventas'    && <TabVentas ventas={ventas} />}
             {tab === 'usuarios'  && <TabUsuarios usuarios={usuarios} />}
@@ -346,12 +353,14 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
 // ═══════════════════════════════════════════════════════════
 //  TAB: SOCIOS
 // ═══════════════════════════════════════════════════════════
-function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio }) {
+function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio, onAprobarComprobante }) {
   const [filtroEstado, setFiltroEstado]       = useState('todos');
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
   const [busqueda, setBusqueda]               = useState('');
   const [seleccionados, setSeleccionados]     = useState([]);
   const [accion, setAccion]                   = useState('');
+
+  const comprobantesPendientes = negocios.filter(n => n.plan === 'plus' && n.puede_compartir_cuponeras === false);
 
   const tiposAloj   = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
   const tiposGastro = ['Restaurante','Bar','Café','Balneario','Pastelería','Gourmet'];
@@ -392,6 +401,24 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      {/* Comprobantes de transferencia pendientes de aprobación */}
+      {comprobantesPendientes.length > 0 && (
+        <div style={{ background:'#FFF9E8', border:'1px solid #FDE68A', borderRadius:14, padding:16 }}>
+          <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:'#92400E', marginBottom:10 }}>
+            Comprobantes de transferencia pendientes ({comprobantesPendientes.length})
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {comprobantesPendientes.map(n => (
+              <div key={n.id} style={{ display:'flex', alignItems:'center', gap:12, background:'#fff', borderRadius:10, padding:'10px 14px' }}>
+                <span style={{ flex:1, fontFamily:A.font, fontSize:13, fontWeight:600, color:A.ink }}>{n.nombre}</span>
+                <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{n.tipo}{n.localidad ? ` · ${n.localidad}` : ''}</span>
+                <ABtn onClick={() => onAprobarComprobante(n.id)} variant="success" style={{ fontSize:12, padding:'6px 10px' }}>Aprobar comprobante</ABtn>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Barra filtros */}
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
         <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}

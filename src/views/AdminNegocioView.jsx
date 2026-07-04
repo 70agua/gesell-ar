@@ -4,20 +4,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import {
-  LayoutDashboard, MessageSquare, Bell, Tag, Building2, CreditCard, Puzzle,
+  LayoutDashboard, MessageSquare, Bell, Tag, CreditCard, Puzzle,
   LogOut, ArrowLeft, TrendingUp, Eye, MousePointerClick, Users, ChevronRight,
   Plus, X, Save, ToggleLeft, ToggleRight, Send, Check, Archive,
   Clock, Star, Trash2, Upload, Image, AlertCircle, CheckCircle2, Zap, Crown,
   Store, Coins, ShoppingBag, Utensils, Map, MapPin, Smartphone, Globe, Calendar, Gift,
-  MessageCircle, ChevronDown, Edit2, RefreshCw, Package, BarChart2, Home, Search,
+  MessageCircle, Edit2, RefreshCw, Package, BarChart2, Home, Search,
   Inbox, CalendarDays, Minus, Megaphone, Download, Mail, Link2, Wallet,
+  CloudRain, Share2, Route, Disc3,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getOrdenesPendientes, getSaldo, debeUsarTokens } from '../lib/cobros';
 import { contarSeguidores } from '../lib/seguir';
+import {
+  getCuponerasRegalo, crearCuponeraRegalo, renombrarCuponera, cambiarEstadoCuponera, toggleModoInteligente,
+  eliminarCuponeraRegalo, agregarCupon, quitarCupon, buscarPromosDisponibles, costoCreditosDePromo, sugerirCupones,
+} from '../lib/cuponerasRegalo';
+import { LOCALIDADES } from '../lib/localidades';
+import { FOTOS_GALERIA_MAX } from '../lib/planes';
 import ComprarTokensModal from '../components/ComprarTokensModal';
 import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import LoadingScreen from '../components/LoadingScreen';
+import GaleriaFotos from '../components/GaleriaFotos';
+import PerfilNegocioForm from '../components/PerfilNegocioForm';
+import { perfilDesdeNegocio, perfilAPayload, validarPerfil } from '../lib/perfilNegocio';
 
 // ─── Design tokens ───────────────────────────────────────────
 const P = '#475be1';   // primary blue
@@ -67,18 +77,6 @@ const NAV_BOTTOM = [
 ];
 const TIPOS_ALOJ_ADMIN = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi']);
 
-// Rubros editables (deben coincidir con los del registro en LoginView)
-const TIPOS_RUBRO = [
-  { id: 'alojamiento',    label: 'Alojamiento' },
-  { id: 'salidas',        label: 'Salidas' },
-  { id: 'aventura_relax', label: 'Aventura & Relax' },
-];
-const CATS_RUBRO = {
-  alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
-  salidas:        ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
-  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
-};
-
 // ─── Mock data ───────────────────────────────────────────────
 const MOCK_CHATS = [
   { id: 1, nombre: 'Valentina R.', avatar: 'V', avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face', msg: '¿Tienen habitaciones disponibles para el fin de semana del 20?', time: '10:32', labelId: 'pendiente', unread: 2, msgs: [
@@ -111,52 +109,10 @@ const MOCK_OFERTAS = [
   { id: 3, titulo: 'Tarifa Anticipada -10%', desc: 'Reserva con 30 días de anticipación y ahorrá.', descuento: 10, tipo: 'Descuento Directo', activa: false },
 ];
 
-const MOCK_FOTOS = [
-  { id: 1, src: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=300&q=80', alt: 'Fachada' },
-  { id: 2, src: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=300&q=80', alt: 'Habitación' },
-  { id: 3, src: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=300&q=80', alt: 'Piscina' },
-];
-
 const MOCK_FACTURAS = [
   { fecha: 'Jun 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
   { fecha: 'May 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
   { fecha: 'Abr 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
-];
-
-const MOCK_CUPONERAS = [
-  {
-    id: 'cup1', nombre: 'Escapada Mar de las Pampas', tipo: 'personal',
-    cupones: [
-      { id: 'c1', titulo: 'Menú completo para 2', negocio: 'La Pescadería Gesell', badge: '-20%',
-        imagen: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=80&q=80', vence: '2025-03-31',
-        tokens: [{ id: 'TK-2841-A', estado: 'disponible' }] },
-      { id: 'c2', titulo: 'Entrada + postre gratis', negocio: 'Churros El Topo', badge: 'Gratis',
-        imagen: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?w=80&q=80', vence: '2025-01-15',
-        tokens: [{ id: 'TK-2842-A', estado: 'utilizado' }] },
-      { id: 'c3', titulo: 'Paseo en cuatriciclo 1h', negocio: 'Dunas Adventure', badge: '-15%',
-        imagen: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=80&q=80', vence: '2025-04-30',
-        tokens: [{ id: 'TK-2843-A', estado: 'disponible' }] },
-    ],
-  },
-  {
-    id: 'cup2', nombre: 'Bienvenida Verano 2025', tipo: 'huespedes', precio: 15000,
-    cupones: [
-      { id: 'c4', titulo: 'Desayuno buffet', negocio: 'Café del Mar', badge: 'Incluido',
-        imagen: 'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?w=80&q=80', vence: '2025-04-30',
-        tokens: [
-          { id: 'TK-3001-A', estado: 'utilizado' },
-          { id: 'TK-3001-B', estado: 'disponible' },
-          { id: 'TK-3001-C', estado: 'disponible' },
-        ] },
-      { id: 'c5', titulo: 'Copa de bienvenida', negocio: 'La Pescadería Gesell', badge: 'Gratis',
-        imagen: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=80&q=80', vence: '2025-04-30',
-        tokens: [
-          { id: 'TK-3002-A', estado: 'disponible' },
-          { id: 'TK-3002-B', estado: 'vencido' },
-          { id: 'TK-3002-C', estado: 'disponible' },
-        ] },
-    ],
-  },
 ];
 
 const ADDONS_CATALOG = [
@@ -864,7 +820,7 @@ function MiniDateRange({ value, onChange }) {
   );
 }
 
-function TabOfertas({ dbPromos, negocioId, showToast }) {
+function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }) {
   const [ofertas, setOfertas] = useState(() => {
     if (dbPromos.length > 0) {
       return dbPromos.map(p => {
@@ -882,10 +838,10 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
   const [editingOferta, setEditingOferta] = useState('new');
   const EMPTY_FORM = {
     titulo: '', badge: '', desc: '',
-    tipo: 'standard',
+    formatos: [],           // formatos no-base activos (estándar es la base implícita)
     flashFechaFin: null,
-    ahorrosUsuarios: '10',
-    exclusivaZona: 'localidad',
+    grupalN: '10', grupalTrampa: true,
+    happyDesde: '15:00', happyHasta: '18:00',
     activa: true, imagenes: [], fechaDesde: null, fechaHasta: null,
   };
   const [editForm, setEditForm] = useState(EMPTY_FORM);
@@ -896,17 +852,34 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
 
   const setF = updater => { setEditForm(updater); setIsDirty(true); };
 
-  const TIPOS_OFERTA = [
-    { id: 'standard',  label: 'Oferta estándar',       Icon: Tag,    accent: INK2,      bg: BG,       desc: 'Sin condiciones especiales' },
-    { id: 'flash',     label: 'FLASH',                 Icon: Zap,    accent: '#ef4444', bg: '#fff5f5', desc: 'Tiempo limitado con countdown' },
-    { id: 'ahorros',   label: 'Ahorros compartidos',   Icon: Users,  accent: '#7c3aed', bg: '#f5f3ff', desc: 'Se activa al sumar N usuarios' },
-    { id: 'exclusiva', label: 'Exclusiva por zona',    Icon: MapPin, accent: '#059669', bg: '#f0fdf4', desc: 'Solo para ciertas localidades' },
+  // Los 9 formatos de oferta (ver reference_formatos_oferta en memoria del proyecto).
+  const FORMATOS = [
+    { id: 'flash',     label: 'FLASH Sale!',           Icon: Zap,       color: '#ef4444', grupo: 'combinable', desc: 'Cuenta regresiva visible; al vencer, se desactiva.' },
+    { id: 'happyhour', label: 'Happy Hour',            Icon: Clock,     color: '#0ea5e9', grupo: 'combinable', desc: 'Canjeable sólo dentro de un rango horario.' },
+    { id: 'geo',       label: 'Geo Oferta',            Icon: MapPin,    color: '#059669', grupo: 'combinable', desc: 'Se activa cuando el turista entra a 0,2 km del local.' },
+    { id: 'tormenta',  label: 'Oferta Tormenta',       Icon: CloudRain, color: '#6366f1', grupo: 'combinable', desc: 'Se activa cuando llueve en tu localidad.' },
+    { id: 'viral',     label: 'Cupón Viral',           Icon: Share2,    color: '#db2777', grupo: 'combinable', desc: 'El descuento sube +2% por cada vez que se comparte (tope +30%).' },
+    { id: 'grupal',    label: 'Oferta Grupal',         Icon: Users,     color: '#7c3aed', grupo: 'exclusivo',  desc: 'Se activa al sumar N compradores.' },
+    { id: 'circuitos', label: 'Circuitos Cuponear',    Icon: Route,     color: '#ea580c', grupo: 'exclusivo',  desc: 'Parte de un circuito de varios socios.' },
+    { id: 'ruleta',    label: 'Jugá y ganá (Ruleta)',  Icon: Disc3,     color: '#ca8a04', grupo: 'exclusivo',  desc: 'El turista gira una ruleta que define el precio final.' },
   ];
-  const ZONAS = [
-    { id: 'localidad', label: 'Solo esta localidad' },
-    { id: 'cercanas',  label: 'Zonas cercanas'      },
-    { id: 'alejadas',  label: 'Zonas alejadas'      },
-  ];
+  const formatoDe = (id) => FORMATOS.find(f => f.id === id);
+  const exclusivoActivo = editForm.formatos.map(formatoDe).find(f => f?.grupo === 'exclusivo');
+
+  const toggleFormato = (id) => {
+    const f = formatoDe(id);
+    setF(prev => {
+      const activos = prev.formatos;
+      if (f.grupo === 'exclusivo') {
+        // exclusivo: reemplaza todo lo demás; volver a tocarlo lo apaga
+        return { ...prev, formatos: activos.includes(id) ? [] : [id] };
+      }
+      // combinable: bloqueado si hay un exclusivo activo
+      if (activos.some(x => formatoDe(x)?.grupo === 'exclusivo')) return prev;
+      return { ...prev, formatos: activos.includes(id) ? activos.filter(x => x !== id) : [...activos, id] };
+    });
+  };
+  const formatoDisabled = (f) => f.grupo === 'combinable' && !!exclusivoActivo && !editForm.formatos.includes(f.id);
 
   function handleImageFiles(files) {
     files.filter(f => f.type.startsWith('image/')).forEach(file => {
@@ -916,23 +889,16 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
     });
   }
 
-  function tipoLegacyMap(t) {
-    if (!t || t === 'Descuento Directo' || t === 'Normal') return 'standard';
-    if (t === 'Pack Armado') return 'ahorros';
-    if (['standard', 'flash', 'ahorros', 'exclusiva'].includes(t)) return t;
-    return 'standard';
-  }
-
   function doStartEdit(o) {
     setEditingOferta(o);
     setEditForm({
       titulo: o.titulo || '',
       badge: o.badge || (o.descuento ? `${o.descuento}%` : ''),
       desc: o.desc || '',
-      tipo: tipoLegacyMap(o.tipo),
+      formatos: Array.isArray(o.formatos) ? o.formatos : (o.tipo === 'flash' ? ['flash'] : []),
       flashFechaFin: o.flashFechaFin || null,
-      ahorrosUsuarios: String(o.ahorrosUsuarios || '10'),
-      exclusivaZona: o.exclusivaZona || 'localidad',
+      grupalN: String(o.grupalN || '10'), grupalTrampa: o.grupalTrampa ?? true,
+      happyDesde: o.happyDesde || '15:00', happyHasta: o.happyHasta || '18:00',
       activa: o.activa !== false,
       imagenes: o.imagenes?.length > 0 ? o.imagenes : o.img ? [{ src: o.img, file: null }] : [],
       fechaDesde: o.fechaDesde || null,
@@ -987,6 +953,12 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
     showToast('Estado actualizado', 'ok');
   }
 
+  // Etiqueta de formato para mostrar en las tarjetas de la lista.
+  const etiquetaFormato = (o) => {
+    if (Array.isArray(o.formatos) && o.formatos.length) return formatoDe(o.formatos[0])?.label || 'Ahorro estándar';
+    return o.tipo || 'Ahorro estándar';
+  };
+
   function OfertaCardGrid({ o, idx }) {
     const img = o.img || PLACEHOLDER_IMGS[idx % PLACEHOLDER_IMGS.length];
     const isSel = editingOferta && editingOferta !== 'new' && editingOferta.id === o.id;
@@ -1006,7 +978,7 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
           </div>
         </div>
         <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>{o.tipo}</div>
+          <div style={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>{etiquetaFormato(o)}</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: INK, lineHeight: 1.3, flex: 1 }}>{o.titulo}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <div onClick={e => e.stopPropagation()}>
@@ -1028,7 +1000,7 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: INK }}>{o.titulo}</div>
-          <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{o.tipo}{o.desc && ` · ${o.desc}`}</div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{etiquetaFormato(o)}{o.desc && ` · ${o.desc}`}</div>
         </div>
         <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
         <span style={{ fontSize: 11, fontWeight: 600, color: o.activa ? GREEN : MUTED, minWidth: 44 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
@@ -1150,6 +1122,7 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
               <div style={{ width: 44, height: 44, borderRadius: '50%', border: '2px dashed currentColor', display: 'grid', placeItems: 'center' }}><Plus size={20}/></div>
               <span style={{ fontSize: 13, fontWeight: 600 }}>Crear oferta</span>
             </button>
+            {ofertas.length > 0 && <RendimientoCard plan={plan} onUpgrade={onUpgrade} />}
             {[...ofertas].reverse().map((o, idx) => <OfertaCardGrid key={o.id} o={o} idx={idx}/>)}
           </div>
         ) : (
@@ -1184,201 +1157,162 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
         {/* Contenido del panel */}
         <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
 
-          {/* ── Imágenes ── */}
-          <div>
-            {editForm.imagenes.length > 0 ? (
-              <>
-                {/* Foto principal */}
-                <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 8, position: 'relative', aspectRatio: '16/9' }}>
-                  <img src={editForm.imagenes[0].src} alt="principal" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.55), transparent)', padding: '12px 10px 8px' }}>
-                    <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Foto principal</span>
-                  </div>
-                  <button onClick={() => setEditForm(f => ({ ...f, imagenes: f.imagenes.filter((_, j) => j !== 0) }))}
-                    style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }}>
-                    <X size={12}/>
-                  </button>
-                </div>
-                {/* Thumbnails */}
-                {editForm.imagenes.length > 1 && (
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                    {editForm.imagenes.slice(1).map((img, i) => (
-                      <div key={i+1} style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', border: `1px solid ${LINE}`, flexShrink: 0 }}>
-                        <img src={img.src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-                        <button onClick={() => setEditForm(f => ({ ...f, imagenes: f.imagenes.filter((_, j) => j !== i+1) }))}
-                          style={{ position: 'absolute', top: 2, right: 2, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }}>
-                          <X size={9}/>
-                        </button>
-                      </div>
-                    ))}
-                    <div onClick={() => fileInputRef.current?.click()} title="Agregar foto"
-                      style={{ width: 56, height: 56, borderRadius: 8, border: `2px dashed ${LINE}`, display: 'grid', placeItems: 'center', cursor: 'pointer', color: MUTED, flexShrink: 0 }}>
-                      <Plus size={18}/>
-                    </div>
-                  </div>
-                )}
-                {editForm.imagenes.length === 1 && (
-                  <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'none', border: `1px dashed ${LINE}`, borderRadius: 8, padding: '8px 0', cursor: 'pointer', color: MUTED, fontFamily: FONT, fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                    <Upload size={13}/> Agregar más fotos
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <FieldLabel label="Imágenes"/>
-                <div onClick={() => fileInputRef.current?.click()}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => { e.preventDefault(); handleImageFiles(Array.from(e.dataTransfer.files)); }}
-                  style={{ border: `2px dashed ${LINE}`, borderRadius: 9, padding: '20px 0', textAlign: 'center', cursor: 'pointer', color: MUTED, fontFamily: FONT, fontSize: 12 }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = P; e.currentTarget.style.background = PS; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.background = 'transparent'; }}>
-                  <Upload size={18} style={{ margin: '0 auto 6px', display: 'block', opacity: 0.4 }}/>
-                  Arrastrá o hacé clic para subir fotos
-                </div>
-              </>
-            )}
-            <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
-              onChange={e => { handleImageFiles(Array.from(e.target.files)); e.target.value = ''; }}/>
-          </div>
-
-          <div style={{ borderTop: `1px solid ${LINE}` }}/>
-
-          {/* ── Badge / mini-descripción ── */}
-          <div>
-            <FieldLabel label="Mini-descripción del descuento" val={editForm.badge} max={10}/>
-            <input
-              value={editForm.badge}
-              onChange={e => e.target.value.length <= 10 && setEditForm(f => ({ ...f, badge: e.target.value }))}
-              placeholder="Ej: 20%"
-              maxLength={10}
-              style={inputSt}
-            />
-          </div>
-
-          {/* ── Título ── */}
-          <div>
-            <FieldLabel label="Título" val={editForm.titulo} max={80}/>
-            <input
-              value={editForm.titulo}
-              onChange={e => e.target.value.length <= 80 && setEditForm(f => ({ ...f, titulo: e.target.value }))}
-              placeholder="Ej: Escapada romántica en Mar de las Pampas"
-              maxLength={80}
-              style={inputSt}
-            />
-          </div>
-
-          {/* ── Descripción ── */}
-          <div>
-            <FieldLabel label="Descripción" val={editForm.desc} max={300}/>
-            <textarea
-              value={editForm.desc}
-              onChange={e => e.target.value.length <= 300 && setEditForm(f => ({ ...f, desc: e.target.value }))}
-              placeholder="Describí la oferta con detalle…"
-              maxLength={300}
-              rows={3}
-              style={{ ...inputSt, resize: 'vertical', lineHeight: 1.5 }}
-            />
-          </div>
-
-          {/* ── Tipo de oferta ── */}
+          {/* ── 1) Tipo de oferta (primero de todo) ── */}
           <div>
             <FieldLabel label="Tipo de oferta"/>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {TIPOS_OFERTA.map(t => {
-                const sel = editForm.tipo === t.id;
+            <div style={{ fontFamily: FONT, fontSize: 11, color: MUTED, marginBottom: 8 }}>
+              <b style={{ color: INK2 }}>Ahorro estándar</b> es la base. Sumale uno o más formatos:
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+              {FORMATOS.map(t => {
+                const sel = editForm.formatos.includes(t.id);
+                const dis = formatoDisabled(t);
                 return (
                   <div key={t.id}
-                    onClick={() => setF(f => ({ ...f, tipo: t.id }))}
-                    style={{ border: `1.5px solid ${sel ? t.accent : LINE}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', background: sel ? t.bg : '#fff', transition: 'all 0.12s' }}>
-
-                    {/* Label row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${sel ? t.accent : LINE}`, background: sel ? t.accent : '#fff', flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-                        {sel && <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }}/>}
+                    onClick={() => !dis && toggleFormato(t.id)}
+                    title={dis ? `No se combina con ${exclusivoActivo?.label}` : t.desc}
+                    style={{ border: `1.5px solid ${sel ? t.color : LINE}`, borderRadius: 10, padding: '9px 10px', cursor: dis ? 'not-allowed' : 'pointer', background: sel ? `${t.color}0f` : '#fff', opacity: dis ? 0.4 : 1, transition: 'all 0.12s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <div style={{ width: 24, height: 24, borderRadius: 7, background: sel ? t.color : `${t.color}18`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <t.Icon size={13} color={sel ? '#fff' : t.color}/>
                       </div>
-
-                      {t.id === 'flash' ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#ef4444', borderRadius: 6, padding: '2px 9px 2px 6px' }}>
-                          <Zap size={11} color="#fff" fill="#fff" style={{ flexShrink: 0 }}/>
-                          <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 900, color: '#fff', fontStyle: 'italic', letterSpacing: '0.04em' }}>FLASH</span>
-                        </div>
-                      ) : t.id === 'ahorros' ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ background: sel ? '#7c3aed' : '#ede9fe', borderRadius: 6, width: 22, height: 22, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                            <Users size={12} color={sel ? '#fff' : '#7c3aed'}/>
-                          </div>
-                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: sel ? '#7c3aed' : INK }}>Ahorros compartidos</span>
-                        </div>
-                      ) : t.id === 'exclusiva' ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <MapPin size={13} color={sel ? '#059669' : MUTED} style={{ flexShrink: 0 }}/>
-                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: sel ? '#059669' : INK }}>Exclusiva por zona</span>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Tag size={12} color={sel ? INK2 : MUTED} style={{ flexShrink: 0 }}/>
-                          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: sel ? INK : MUTED }}>Oferta estándar</span>
-                        </div>
-                      )}
+                      <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: sel ? t.color : INK, lineHeight: 1.15 }}>{t.label}</span>
                     </div>
-                    <div style={{ fontFamily: FONT, fontSize: 11, color: MUTED, marginTop: 3, marginLeft: 22 }}>{t.desc}</div>
-
-                    {/* Sub-selectores */}
-                    {sel && t.id === 'flash' && (
-                      <div style={{ marginTop: 10, marginLeft: 22 }}>
-                        <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Fecha y hora límite</div>
-                        <input
-                          type="datetime-local"
-                          value={editForm.flashFechaFin ? new Date(editForm.flashFechaFin.getTime() - editForm.flashFechaFin.getTimezoneOffset()*60000).toISOString().slice(0,16) : ''}
-                          onChange={e => setF(f => ({ ...f, flashFechaFin: e.target.value ? new Date(e.target.value) : null }))}
-                          onClick={e => e.stopPropagation()}
-                          style={{ ...inputSt, fontSize: 12, accentColor: '#ef4444' }}
-                        />
-                      </div>
-                    )}
-
-                    {sel && t.id === 'ahorros' && (
-                      <div style={{ marginTop: 10, marginLeft: 22 }}>
-                        <div style={{ fontFamily: FONT, fontSize: 11, color: '#7c3aed', fontWeight: 600, marginBottom: 6 }}>Usuarios necesarios para activarla:</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <button onClick={e => { e.stopPropagation(); setF(f => ({ ...f, ahorrosUsuarios: String(Math.max(2, Number(f.ahorrosUsuarios)-1)) })); }}
-                            style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #ddd6fe', background: '#ede9fe', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, color: '#7c3aed', fontSize: 16, display: 'grid', placeItems: 'center' }}>−</button>
-                          <input
-                            type="number" min="2" max="999"
-                            value={editForm.ahorrosUsuarios}
-                            onChange={e => setF(f => ({ ...f, ahorrosUsuarios: e.target.value }))}
-                            onClick={e => e.stopPropagation()}
-                            style={{ width: 56, padding: '5px 8px', borderRadius: 7, border: '1px solid #ddd6fe', fontFamily: FONT, fontSize: 15, fontWeight: 800, color: '#7c3aed', outline: 'none', textAlign: 'center', background: '#fff' }}
-                          />
-                          <button onClick={e => { e.stopPropagation(); setF(f => ({ ...f, ahorrosUsuarios: String(Number(f.ahorrosUsuarios)+1) })); }}
-                            style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #ddd6fe', background: '#ede9fe', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, color: '#7c3aed', fontSize: 16, display: 'grid', placeItems: 'center' }}>+</button>
-                          <span style={{ fontFamily: FONT, fontSize: 11, color: MUTED }}>personas</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {sel && t.id === 'exclusiva' && (
-                      <div style={{ marginTop: 10, marginLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {ZONAS.map(z => (
-                          <label key={z.id} onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                            <input type="radio" name="zona" checked={editForm.exclusivaZona === z.id}
-                              onChange={() => setF(f => ({ ...f, exclusivaZona: z.id }))}
-                              style={{ accentColor: '#059669', width: 14, height: 14 }}/>
-                            <span style={{ fontFamily: FONT, fontSize: 12, color: editForm.exclusivaZona === z.id ? '#059669' : INK, fontWeight: editForm.exclusivaZona === z.id ? 700 : 400 }}>{z.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
+
+            {/* Sub-config de los formatos activos */}
+            {editForm.formatos.includes('flash') && (
+              <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 9 }}>
+                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>FLASH · fecha y hora límite</div>
+                <input type="datetime-local"
+                  value={editForm.flashFechaFin ? new Date(editForm.flashFechaFin.getTime() - editForm.flashFechaFin.getTimezoneOffset()*60000).toISOString().slice(0,16) : ''}
+                  onChange={e => setF(f => ({ ...f, flashFechaFin: e.target.value ? new Date(e.target.value) : null }))}
+                  style={{ ...inputSt, fontSize: 12, accentColor: '#ef4444' }}/>
+              </div>
+            )}
+            {editForm.formatos.includes('happyhour') && (
+              <div style={{ marginTop: 10, padding: '10px 12px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 9 }}>
+                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#0ea5e9', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Happy Hour · rango horario</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="time" value={editForm.happyDesde} onChange={e => setF(f => ({ ...f, happyDesde: e.target.value }))} style={{ ...inputSt, fontSize: 12, width: 'auto', flex: 1 }}/>
+                  <span style={{ fontFamily: FONT, fontSize: 12, color: MUTED }}>a</span>
+                  <input type="time" value={editForm.happyHasta} onChange={e => setF(f => ({ ...f, happyHasta: e.target.value }))} style={{ ...inputSt, fontSize: 12, width: 'auto', flex: 1 }}/>
+                </div>
+              </div>
+            )}
+            {editForm.formatos.includes('geo') && (
+              <div style={{ marginTop: 10, padding: '9px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#065f46', lineHeight: 1.45 }}>
+                Se activa automáticamente cuando un turista con la app abierta entra en un radio de <b>0,2 km</b> de tu local (dispara notificación push).
+              </div>
+            )}
+            {editForm.formatos.includes('tormenta') && (
+              <div style={{ marginTop: 10, padding: '9px 12px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#3730a3', lineHeight: 1.45 }}>
+                Se activa vía API de clima cuando <b>llueve</b> en tu localidad, y avisa por push a los turistas de la zona.
+              </div>
+            )}
+            {editForm.formatos.includes('viral') && (
+              <div style={{ marginTop: 10, padding: '9px 12px', background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#9d174d', lineHeight: 1.45 }}>
+                El descuento sube <b>+2%</b> por cada vez que el turista comparte la oferta, con tope de <b>+30%</b> sobre el descuento base.
+              </div>
+            )}
+            {editForm.formatos.includes('grupal') && (
+              <div style={{ marginTop: 10, padding: '10px 12px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 9 }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: '#7c3aed', fontWeight: 700, marginBottom: 6 }}>Compradores necesarios para activarla:</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <button onClick={() => setF(f => ({ ...f, grupalN: String(Math.max(2, Number(f.grupalN)-1)) }))} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #ddd6fe', background: '#ede9fe', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, color: '#7c3aed', fontSize: 16, display: 'grid', placeItems: 'center' }}>−</button>
+                  <input type="number" min="2" max="999" value={editForm.grupalN} onChange={e => setF(f => ({ ...f, grupalN: e.target.value }))} style={{ width: 56, padding: '5px 8px', borderRadius: 7, border: '1px solid #ddd6fe', fontFamily: FONT, fontSize: 15, fontWeight: 800, color: '#7c3aed', outline: 'none', textAlign: 'center', background: '#fff' }}/>
+                  <button onClick={() => setF(f => ({ ...f, grupalN: String(Number(f.grupalN)+1) }))} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #ddd6fe', background: '#ede9fe', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, color: '#7c3aed', fontSize: 16, display: 'grid', placeItems: 'center' }}>+</button>
+                  <span style={{ fontFamily: FONT, fontSize: 11, color: MUTED }}>personas</span>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={editForm.grupalTrampa} onChange={e => setF(f => ({ ...f, grupalTrampa: e.target.checked }))} style={{ accentColor: '#7c3aed', width: 15, height: 15 }}/>
+                  <span style={{ fontFamily: FONT, fontSize: 11.5, color: INK2 }}>Mostrar como "activada" al llegar al 50% (incentivo visual)</span>
+                </label>
+              </div>
+            )}
+            {editForm.formatos.includes('circuitos') && (
+              <div style={{ marginTop: 10, padding: '9px 12px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#9a3412', lineHeight: 1.45 }}>
+                Este cupón formará parte de un <b>circuito</b> de varios socios. El turista canjea en cada local y, al completar todos los QR, desbloquea un cupón de recompensa. <i>La configuración del circuito se define con el equipo de Cuponear.</i>
+              </div>
+            )}
+            {editForm.formatos.includes('ruleta') && (
+              <div style={{ marginTop: 10, padding: '9px 12px', background: '#fefce8', border: '1px solid #fef08a', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#854d0e', lineHeight: 1.45 }}>
+                En el detalle del cupón, el turista gira una <b>ruleta</b> (un giro por persona) que define el precio y el descuento final. Reemplaza el precio fijo.
+              </div>
+            )}
           </div>
 
-          {/* ── Período activo (desactivado para FLASH) ── */}
-          <div style={{ opacity: editForm.tipo === 'flash' ? 0.38 : 1, pointerEvents: editForm.tipo === 'flash' ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
+          {/* ── 2) Vista previa editable (minificha) ── */}
+          <div>
+            <FieldLabel label="Así se va a ver tu cupón — editalo acá"/>
+            <div style={{ border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden', background: CARD }}>
+              {/* Foto + ribbons + badge inline */}
+              <div style={{ position: 'relative', height: 150, overflow: 'hidden', background: BG }}>
+                {editForm.imagenes[0]?.src ? (
+                  <img src={editForm.imagenes[0].src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                ) : (
+                  <div onClick={() => fileInputRef.current?.click()}
+                    onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleImageFiles(Array.from(e.dataTransfer.files)); }}
+                    style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', color: MUTED }}>
+                    <Upload size={20} style={{ opacity: 0.5 }}/>
+                    <span style={{ fontFamily: FONT, fontSize: 12 }}>Subí la foto del cupón</span>
+                  </div>
+                )}
+                <div style={{ position: 'absolute', inset: 0, background: editForm.imagenes[0]?.src ? 'linear-gradient(to top, rgba(11,16,32,0.72) 0%, rgba(11,16,32,0.1) 55%, transparent 100%)' : 'none', pointerEvents: 'none' }}/>
+
+                {/* Ribbons de formatos activos */}
+                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: '75%' }}>
+                  {editForm.formatos.map(fid => {
+                    const f = formatoDe(fid);
+                    return (
+                      <div key={fid} style={{ display: 'flex', alignItems: 'center', gap: 4, background: f.color, borderRadius: 6, padding: '3px 8px 3px 6px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                        <f.Icon size={11} color="#fff"/>
+                        <span style={{ fontFamily: FONT, fontSize: 10.5, fontWeight: 800, color: '#fff', letterSpacing: '0.02em' }}>{f.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Badge inline (grande, sobre el gradiente) */}
+                <input
+                  value={editForm.badge}
+                  onChange={e => e.target.value.length <= 10 && setF(f => ({ ...f, badge: e.target.value }))}
+                  placeholder="20%" maxLength={10}
+                  style={{ position: 'absolute', bottom: 8, left: 12, width: '60%', background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontFamily: FONT, fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1, padding: 0 }}/>
+
+                {editForm.imagenes[0]?.src && (
+                  <button onClick={() => fileInputRef.current?.click()} title="Cambiar foto"
+                    style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }}>
+                    <Upload size={12}/>
+                  </button>
+                )}
+              </div>
+
+              {/* Título + descripción inline */}
+              <div style={{ padding: '11px 13px 13px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <input
+                  value={editForm.titulo}
+                  onChange={e => e.target.value.length <= 80 && setF(f => ({ ...f, titulo: e.target.value }))}
+                  placeholder="Título del cupón (ej: Noche + desayuno para 2)" maxLength={80}
+                  style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontFamily: FONT, fontSize: 15, fontWeight: 700, color: INK, padding: 0 }}/>
+                <textarea
+                  value={editForm.desc}
+                  onChange={e => e.target.value.length <= 300 && setF(f => ({ ...f, desc: e.target.value }))}
+                  placeholder="Descripción: qué incluye, condiciones, vigencia…" maxLength={300} rows={2}
+                  style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', resize: 'vertical', fontFamily: FONT, fontSize: 12.5, color: INK2, lineHeight: 1.5, padding: 0 }}/>
+              </div>
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+              onChange={e => { handleImageFiles(Array.from(e.target.files)); e.target.value = ''; }}/>
+          </div>
+
+          {/* ── 3) Período activo (debajo de la descripción; FLASH usa su propia fecha) ── */}
+          <div style={{ opacity: editForm.formatos.includes('flash') ? 0.38 : 1, pointerEvents: editForm.formatos.includes('flash') ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
             <FieldLabel label="Período activo"/>
-            {editForm.tipo === 'flash' ? (
+            {editForm.formatos.includes('flash') ? (
               <div style={{ fontFamily: FONT, fontSize: 11, color: MUTED, padding: '8px 10px', background: '#fff5f5', borderRadius: 8, border: '1px solid #fecaca' }}>
                 Las ofertas FLASH usan su propia fecha límite.
               </div>
@@ -1456,249 +1390,26 @@ function TabOfertas({ dbPromos, negocioId, showToast }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════
-//  TAB — MI EMPRESA  (constantes + helpers)
-// ════════════════════════════════════════════════════════════
-const LOCALIDADES_ADM = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
-
-const PROVINCIAS_AR = [
-  'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut',
-  'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy',
-  'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén',
-  'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz',
-  'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
-];
-
-const SERVICIOS_ALOJ = [
-  'WiFi', 'Estacionamiento', 'Pileta', 'Desayuno incluido',
-  'Aire acondicionado', 'Calefacción', 'Cocina equipada', 'Parrilla',
-  'Lavarropas', 'Secador de cabello', 'TV Smart', 'Ropa de cama',
-  'Toallas incluidas', 'Caja fuerte', 'Recepción 24 hs', 'Terraza / Balcón',
-  'Vista al mar', 'Bicicletas', 'Jardín / Patio', 'Servicio de limpieza',
-];
-
-// Estilos base de campo heredados del panel
-const INP = {
-  width: '100%', boxSizing: 'border-box', padding: '10px 14px',
-  borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT,
-  fontSize: 13, color: INK, outline: 'none', background: '#fff',
-  transition: 'border-color .15s',
-};
-const LBL = {
-  fontFamily: FONT, fontSize: 11, fontWeight: 700, color: INK2,
-  display: 'block', marginBottom: 6,
-  textTransform: 'uppercase', letterSpacing: '0.05em',
-};
-
-function SecTitulo({ label, Icon: Ico }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${LINE}` }}>
-      {Ico && <div style={{ width: 26, height: 26, borderRadius: 7, background: PS, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Ico size={14} color={P} /></div>}
-      <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK }}>{label}</span>
-    </div>
-  );
-}
-
-function ToggleRow({ label, on, onChange }) {
-  return (
-    <div onClick={() => onChange(!on)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: `1px solid ${on ? P : LINE}`, borderRadius: 10, background: on ? PS : '#fff', cursor: 'pointer', userSelect: 'none', transition: 'all .15s' }}>
-      <span style={{ fontFamily: FONT, fontSize: 13, color: on ? P : INK2, fontWeight: 500 }}>{label}</span>
-      <Toggle on={on} onChange={() => {}} />
-    </div>
-  );
-}
-
-function ServiciosMulti({ selected, onChange }) {
-  const [open, setOpen] = useState(false);
-  const [custom, setCustom] = useState('');
-  const toggle = (s) => onChange(selected.includes(s) ? selected.filter(x => x !== s) : [...selected, s]);
-  const addCustom = () => { const t = custom.trim(); if (t && !selected.includes(t)) onChange([...selected, t]); setCustom(''); };
-  const extras = selected.filter(s => !SERVICIOS_ALOJ.includes(s));
-  return (
-    <div>
-      <label style={LBL}>Servicios incluidos</label>
-      <button type="button" onClick={() => setOpen(o => !o)}
-        style={{ ...INP, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderRadius: open ? '10px 10px 0 0' : 10, borderColor: open ? P : LINE, color: selected.length ? INK : MUTED }}>
-        <span style={{ fontFamily: FONT, fontSize: 13 }}>
-          {selected.length === 0 ? 'Seleccionar servicios...' : `${selected.length} servicio${selected.length !== 1 ? 's' : ''} seleccionado${selected.length !== 1 ? 's' : ''}`}
-        </span>
-        <ChevronDown size={14} color={MUTED} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }} />
-      </button>
-      {open && (
-        <div style={{ border: `1px solid ${P}`, borderTop: 'none', borderRadius: '0 0 10px 10px', padding: '12px 12px 10px', background: '#fff' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-            {SERVICIOS_ALOJ.map(s => {
-              const sel = selected.includes(s);
-              return (
-                <div key={s} onClick={() => toggle(s)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: sel ? PS : 'transparent', cursor: 'pointer', userSelect: 'none', transition: 'background .1s' }}>
-                  <div style={{ width: 15, height: 15, borderRadius: 4, border: `1.5px solid ${sel ? P : LINE}`, background: sel ? P : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, transition: 'all .1s' }}>
-                    {sel && <svg width="8" height="8" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                  <span style={{ fontSize: 12.5, color: sel ? P : INK2, fontFamily: FONT, fontWeight: sel ? 600 : 400 }}>{s}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 10, paddingTop: 10, display: 'flex', gap: 8 }}>
-            <input value={custom} onChange={e => setCustom(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
-              placeholder="Agregar otro servicio..." style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 8, padding: '7px 12px', fontSize: 12, fontFamily: FONT, color: INK, outline: 'none' }} />
-            <button type="button" onClick={addCustom} style={{ padding: '7px 14px', background: P, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>+</button>
-          </div>
-          {extras.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-              {extras.map(s => (
-                <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', background: PS, borderRadius: 999, fontSize: 12, color: P, fontFamily: FONT }}>
-                  {s} <button type="button" onClick={() => toggle(s)} style={{ background: 'none', border: 'none', color: P, cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TabEmpresa({ negocio, showToast }) {
-  const tipoInit = (() => {
-    const t = negocio?.tipo || '';
-    return TIPOS_ALOJ_ADMIN.has(t) ? 'alojamiento' : t;
-  })();
-  const [tipoSel, setTipoSel] = useState(tipoInit);
-  const [catsSel, setCatsSel] = useState(
-    negocio?.categoria ? negocio.categoria.split(' / ').map(s => s.trim()).filter(Boolean) : []
-  );
-  const toggleCatSel = (c) => setCatsSel(prev =>
-    prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= 2 ? prev : [...prev, c])
-  );
-  const tipo = tipoSel;
-  const esAloj    = tipoSel === 'alojamiento';
-  const esSalidas = tipoSel === 'salidas';
-  const esAvent   = tipoSel === 'aventura_relax';
-
-  const parsedServicios = negocio?.servicios
-    ? negocio.servicios.split(',').map(s => s.trim()).filter(Boolean)
-    : [];
-
-  // ── Estado del formulario ──────────────────────────────────
-  const [nombre,       setNombre]       = useState(negocio?.nombre      || '');
-  // Contacto
-  const [email,        setEmail]        = useState(negocio?.email       || '');
-  const [telFijoCod,   setTelFijoCod]   = useState(negocio?.tel_fijo_cod  || '+54');
-  const [telFijoNum,   setTelFijoNum]   = useState(negocio?.tel_fijo_num  || '');
-  const [telMovilCod,  setTelMovilCod]  = useState(negocio?.tel_movil_cod || '+54');
-  const [telMovilNum,  setTelMovilNum]  = useState(negocio?.tel_movil_num || '');
-  const [sitioWeb,     setSitioWeb]     = useState(negocio?.sitio_web  || '');
-  const [instagram,    setInstagram]    = useState(negocio?.instagram  || '');
-  const [facebook,     setFacebook]     = useState(negocio?.facebook   || '');
-  const [tiktok,       setTiktok]       = useState(negocio?.tiktok     || '');
-  // Ubicación
-  const [pais,         setPais]         = useState(negocio?.pais        || 'Argentina');
-  const [provincia,    setProvincia]    = useState(negocio?.provincia   || '');
-  const [localidad,    setLocalidad]    = useState(negocio?.localidad   || '');
-  const [codPostal,    setCodPostal]    = useState(negocio?.cod_postal  || '');
-  const [calle,        setCalle]        = useState(negocio?.calle        || '');
-  const [numero,       setNumero]       = useState(negocio?.numero       || '');
-  const [piso,         setPiso]         = useState(negocio?.piso         || '');
-  const [depto,        setDepto]        = useState(negocio?.depto        || '');
-  const [entreCalles,  setEntreCalles]  = useState(negocio?.entre_calles || '');
-  const [descripcion,  setDescripcion]  = useState(negocio?.descripcion || '');
-
-  // Alojamiento
-  const [tamMinM2,          setTamMinM2]          = useState(negocio?.tam_min_m2?.toString()    || '');
-  const [tamMaxM2,          setTamMaxM2]           = useState(negocio?.tam_max_m2?.toString()    || '');
-  const [minHues,           setMinHues]            = useState(negocio?.min_huespedes?.toString() || '');
-  const [maxHues,           setMaxHues]            = useState(negocio?.max_huespedes?.toString() || '');
-  const [serviciosSelected, setServiciosSelected]  = useState(parsedServicios);
-  const [aceptaMascotas,    setAceptaMascotas]     = useState(negocio?.acepta_mascotas || false);
-  const [aceptaNinos,       setAceptaNinos]        = useState(negocio?.acepta_ninos    ?? true);
-
-  // Salidas
-  const [capacidad,  setCapacidad]  = useState(negocio?.capacidad?.toString() || '');
-  const [tipoCocina, setTipoCocina] = useState(negocio?.tipo_cocina           || '');
-
-  // Aventura & Relax
-  const [duracion,  setDuracion]  = useState(negocio?.duracion             || '');
-  const [maxPax,    setMaxPax]    = useState(negocio?.max_pax?.toString()   || '');
-  const [sedeFija,  setSedeFija]  = useState(negocio?.sede_fija             || '');
-
-  // Logo + galería
-  const [logoPreview, setLogoPreview] = useState(negocio?.imagen_url || null);
-  const [logoFile,    setLogoFile]    = useState(null);
-  const logoRef = useRef();
-  const [fotos,      setFotos]      = useState(MOCK_FOTOS);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fotoRef = useRef();
+  const [perfil, setPerfil] = useState(() => perfilDesdeNegocio(negocio));
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const addFiles = (files) => {
-    [...(files || [])].filter(f => f.type.startsWith('image/')).forEach(f =>
-      setFotos(prev => [...prev, { id: Date.now() + Math.random(), src: URL.createObjectURL(f), alt: f.name }])
-    );
-  };
-  const handleGalleryDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    addFiles(e.dataTransfer.files);
-  };
-
-  const DESC_MIN = 40;
-  const DESC_MAX = 450;
-
-  const handleLogoChange = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setLogoFile(f);
-    const reader = new FileReader();
-    reader.onload = ev => setLogoPreview(ev.target.result);
-    reader.readAsDataURL(f);
-  };
-
   const save = async () => {
+    if (saving) return;
+    const errs = validarPerfil(perfil);
+    if (Object.keys(errs).length) { setErrors(errs); showToast('Revisá los campos obligatorios', 'err'); return; }
     setSaving(true);
     try {
-      const payload = {
-        nombre, tipo: tipoSel, categoria: catsSel.join(' / '),
-        email: email.trim() || null,
-        tel_fijo_cod: telFijoNum.trim() ? telFijoCod : null, tel_fijo_num: telFijoNum.trim() || null,
-        tel_movil_cod: telMovilNum.trim() ? telMovilCod : null, tel_movil_num: telMovilNum.trim() || null,
-        sitio_web: sitioWeb, instagram, facebook: facebook.trim() || null, tiktok: tiktok.trim() || null,
-        pais, provincia, localidad, cod_postal: codPostal,
-        calle: calle.trim() || null, numero: numero.trim() || null, piso: piso.trim() || null,
-        depto: depto.trim() || null, entre_calles: entreCalles.trim() || null,
-        descripcion,
-      };
-      if (esAloj) {
-        Object.assign(payload, {
-          tam_min_m2: tamMinM2 ? parseFloat(tamMinM2) : null,
-          tam_max_m2: tamMaxM2 ? parseFloat(tamMaxM2) : null,
-          min_huespedes: minHues ? parseInt(minHues) : null,
-          max_huespedes: maxHues ? parseInt(maxHues) : null,
-          servicios: serviciosSelected.join(', '),
-          acepta_mascotas: aceptaMascotas,
-          acepta_ninos:    aceptaNinos,
-        });
-      } else if (esSalidas) {
-        payload.capacidad   = capacidad ? parseInt(capacidad) : null;
-        payload.tipo_cocina = tipoCocina;
-      } else if (esAvent) {
-        payload.duracion  = duracion;
-        payload.max_pax   = maxPax ? parseInt(maxPax) : null;
-        payload.sede_fija = sedeFija;
-      }
-
-      if (logoFile && negocio?.id) {
+      let imagenUrl = perfil.logoPreview || null;
+      if (perfil.logoFile && negocio?.id) {
         try {
-          const ext = logoFile.name.split('.').pop().toLowerCase();
-          const { data: up } = await supabase.storage
-            .from('negocios').upload(`logos/${negocio.id}.${ext}`, logoFile, { upsert: true });
-          if (up) {
-            const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path);
-            payload.imagen_url = ud.publicUrl;
-          }
+          const ext = perfil.logoFile.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage.from('negocios').upload(`logos/${negocio.id}.${ext}`, perfil.logoFile, { upsert: true });
+          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); imagenUrl = ud.publicUrl; }
         } catch { /* logo se puede subir más tarde */ }
       }
-
+      const payload = { ...perfilAPayload(perfil), imagen_url: imagenUrl };
       if (negocio?.id) {
         const { error } = await supabase.from('negocios').update(payload).eq('id', negocio.id);
         if (error) throw error;
@@ -1711,353 +1422,59 @@ function TabEmpresa({ negocio, showToast }) {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 740 }}>
-
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: INK, margin: 0, flex: 1 }}>Mi Empresa</h2>
-        {catsSel.map(c => <Pill key={c} label={c} />)}
+        <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: INK, margin: 0, flex: 1 }}>Perfil del negocio</h2>
+        {perfil.cats.map(c => <Pill key={c} label={c} />)}
       </div>
 
-      {/* ── Identidad ── */}
+      <PerfilNegocioForm value={perfil} onChange={setPerfil} errors={errors} />
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 40 }}>
+        <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8, background: saving ? MUTED : P, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontFamily: FONT, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(71,91,225,0.3)', transition: 'background .15s' }}>
+          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TabGaleria({ negocio, showToast }) {
+  const [fotos, setFotos] = useState((negocio?.galeria || []).map((url, i) => ({ id: `g${i}`, file: null, src: url })));
+  const maxFotos = FOTOS_GALERIA_MAX[negocio?.plan || 'free'];
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (saving || !negocio?.id) return;
+    setSaving(true);
+    try {
+      const urlsGaleria = [];
+      for (let i = 0; i < fotos.length; i++) {
+        const f = fotos[i];
+        if (!f.file) { urlsGaleria.push(f.src); continue; }
+        try {
+          const ext = f.file.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage.from('negocios').upload(`galeria/${negocio.id}/${Date.now()}-${i}.${ext}`, f.file, { upsert: true });
+          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); urlsGaleria.push(ud.publicUrl); }
+        } catch { /* esa foto se puede resubir más tarde */ }
+      }
+      const { error } = await supabase.from('negocios').update({ galeria: urlsGaleria }).eq('id', negocio.id);
+      if (error) throw error;
+      showToast('Galería guardada', 'ok');
+    } catch (err) {
+      showToast(err?.message || 'Error al guardar', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 740 }}>
+      <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: INK, margin: 0 }}>Galería de imágenes</h2>
       <Card>
-        <SecTitulo label="Identidad" Icon={Building2} />
-        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-
-          {/* Logo circular */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div onClick={() => logoRef.current?.click()} style={{ width: 96, height: 96, borderRadius: '50%', border: `2px dashed ${logoPreview ? P : LINE}`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: logoPreview ? 'transparent' : BG, transition: 'border-color .15s', position: 'relative' }}>
-              {logoPreview
-                ? <img src={logoPreview} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : (
-                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <circle cx="24" cy="18" r="10" fill={LINE} />
-                    <path d="M4 46c0-11.046 8.954-20 20-20s20 8.954 20 20" fill={LINE} />
-                  </svg>
-                )
-              }
-            </div>
-            <button type="button" onClick={() => logoRef.current?.click()} style={{ fontSize: 11, fontWeight: 700, color: P, background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT }}>
-              {logoPreview ? 'Cambiar logo' : 'Subir logo'}
-            </button>
-            <span style={{ fontSize: 10, color: MUTED, fontFamily: FONT, textAlign: 'center', maxWidth: 80 }}>PNG, JPG · hasta 5 MB</span>
-            <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoChange} style={{ display: 'none' }} />
-          </div>
-
-          {/* Nombre + tipo */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={LBL}>Nombre del negocio</label>
-              <input value={nombre} onChange={e => setNombre(e.target.value)} style={INP} placeholder="Ej: Hotel La Costa" />
-            </div>
-            <div>
-              <label style={LBL}>Tipo de negocio</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {TIPOS_RUBRO.map(t => {
-                  const sel = tipoSel === t.id;
-                  return (
-                    <button key={t.id} type="button"
-                      onClick={() => { setTipoSel(t.id); setCatsSel([]); }}
-                      style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700,
-                        border: `1.5px solid ${sel ? P : LINE}`, background: sel ? PS : '#fff', color: sel ? P : INK2, transition: 'all .15s' }}>
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {tipoSel && (
-              <div>
-                <label style={LBL}>Categorías — hasta 2</label>
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                  {CATS_RUBRO[tipoSel].map(c => {
-                    const sel = catsSel.includes(c);
-                    const maxed = !sel && catsSel.length >= 2;
-                    return (
-                      <button key={c} type="button" disabled={maxed} onClick={() => toggleCatSel(c)}
-                        style={{ padding: '6px 12px', borderRadius: 999, fontFamily: FONT, fontSize: 12, fontWeight: 600,
-                          cursor: maxed ? 'not-allowed' : 'pointer', opacity: maxed ? 0.45 : 1,
-                          border: `1.5px solid ${sel ? P : LINE}`, background: sel ? P : '#fff', color: sel ? '#fff' : INK2, transition: 'all .15s' }}>
-                        {c}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <GaleriaFotos fotos={fotos} onChange={setFotos} maxFotos={maxFotos} />
       </Card>
-
-      {/* ── Contacto ── */}
-      <Card>
-        <SecTitulo label="Contacto" Icon={Smartphone} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={LBL}>Email <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={INP} placeholder="contacto@minegocio.com" />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={LBL}>Teléfono fijo</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <select value={telFijoCod} onChange={e => setTelFijoCod(e.target.value)} style={{ ...INP, width: 86, flexShrink: 0, cursor: 'pointer' }}>
-                  {['+54', '+598', '+56', '+55', '+595', '+591', '+1'].map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <input value={telFijoNum} onChange={e => setTelFijoNum(e.target.value.replace(/\D/g, ''))} style={{ ...INP, flex: 1 }} placeholder="2255 432100" />
-              </div>
-            </div>
-            <div>
-              <label style={LBL}>Línea móvil</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <select value={telMovilCod} onChange={e => setTelMovilCod(e.target.value)} style={{ ...INP, width: 86, flexShrink: 0, cursor: 'pointer' }}>
-                  {['+54', '+598', '+56', '+55', '+595', '+591', '+1'].map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <input value={telMovilNum} onChange={e => setTelMovilNum(e.target.value.replace(/\D/g, ''))} style={{ ...INP, flex: 1 }} placeholder="2255 11223344" />
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={LBL}>Sitio web</label>
-              <input value={sitioWeb} onChange={e => setSitioWeb(e.target.value)} style={INP} placeholder="https://..." />
-            </div>
-            <div>
-              <label style={LBL}>Instagram</label>
-              <input value={instagram} onChange={e => setInstagram(e.target.value)} style={INP} placeholder="@mi.negocio" />
-            </div>
-            <div>
-              <label style={LBL}>Facebook</label>
-              <input value={facebook} onChange={e => setFacebook(e.target.value)} style={INP} placeholder="/mi.negocio" />
-            </div>
-            <div>
-              <label style={LBL}>TikTok</label>
-              <input value={tiktok} onChange={e => setTiktok(e.target.value)} style={INP} placeholder="@mi.negocio" />
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* ── Ubicación ── */}
-      <Card>
-        <SecTitulo label="Ubicación" Icon={Map} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={LBL}>País</label>
-              <select value={pais} onChange={e => setPais(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
-                {['Argentina', 'Uruguay', 'Brasil', 'Chile', 'Paraguay', 'Bolivia', 'España', 'Otro'].map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={LBL}>Provincia</label>
-              <select value={provincia} onChange={e => setProvincia(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
-                <option value="">Seleccioná</option>
-                {PROVINCIAS_AR.map(pr => <option key={pr} value={pr}>{pr}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={LBL}>Localidad</label>
-              <select value={localidad} onChange={e => setLocalidad(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
-                <option value="">Seleccioná</option>
-                {LOCALIDADES_ADM.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={LBL}>Código postal</label>
-              <input value={codPostal} onChange={e => setCodPostal(e.target.value)} style={INP} placeholder="7165" maxLength={8} />
-            </div>
-          </div>
-          <div>
-            <label style={LBL}>Domicilio</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 10 }}>
-              <input value={calle} onChange={e => setCalle(e.target.value)} style={INP} placeholder="Calle / Avenida" />
-              <input value={numero} onChange={e => setNumero(e.target.value)} style={INP} placeholder="Número" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 14 }}>
-              <input value={piso} onChange={e => setPiso(e.target.value)} style={INP} placeholder="Piso" />
-              <input value={depto} onChange={e => setDepto(e.target.value)} style={INP} placeholder="Depto" />
-              <input value={entreCalles} onChange={e => setEntreCalles(e.target.value)} style={INP} placeholder="Entre calles" />
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* ── Características (condicional por tipo) ── */}
-      {(esAloj || esSalidas || esAvent) && (
-        <Card>
-          <SecTitulo label="Características" Icon={Store} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            {esAloj && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={LBL}>Unidad más chica (m²)</label>
-                    <input type="number" value={tamMinM2} onChange={e => setTamMinM2(e.target.value)} style={INP} placeholder="Ej: 22" />
-                  </div>
-                  <div>
-                    <label style={LBL}>Unidad más grande (m²)</label>
-                    <input type="number" value={tamMaxM2} onChange={e => setTamMaxM2(e.target.value)} style={INP} placeholder="Ej: 65" />
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={LBL}>Mín. huéspedes por unidad</label>
-                    <input type="number" value={minHues} onChange={e => setMinHues(e.target.value)} style={INP} placeholder="Ej: 2" />
-                  </div>
-                  <div>
-                    <label style={LBL}>Máx. huéspedes (unidad amplia)</label>
-                    <input type="number" value={maxHues} onChange={e => setMaxHues(e.target.value)} style={INP} placeholder="Ej: 6" />
-                  </div>
-                </div>
-                <ServiciosMulti selected={serviciosSelected} onChange={setServiciosSelected} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <ToggleRow label="Acepta mascotas" on={aceptaMascotas} onChange={setAceptaMascotas} />
-                  <ToggleRow label="Acepta niños"    on={aceptaNinos}    onChange={setAceptaNinos}    />
-                </div>
-              </>
-            )}
-
-            {esSalidas && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div>
-                  <label style={LBL}>Capacidad (cubiertos / personas)</label>
-                  <input type="number" value={capacidad} onChange={e => setCapacidad(e.target.value)} style={INP} placeholder="Ej: 80" />
-                </div>
-                <div>
-                  <label style={LBL}>Tipo de cocina / propuesta</label>
-                  <input value={tipoCocina} onChange={e => setTipoCocina(e.target.value)} style={INP} placeholder="Parrilla, cocina de mar..." />
-                </div>
-              </div>
-            )}
-
-            {esAvent && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={LBL}>Duración aproximada</label>
-                    <input value={duracion} onChange={e => setDuracion(e.target.value)} style={INP} placeholder="Ej: 2 horas, jornada completa" />
-                  </div>
-                  <div>
-                    <label style={LBL}>Participantes máximos</label>
-                    <input type="number" value={maxPax} onChange={e => setMaxPax(e.target.value)} style={INP} placeholder="Ej: 12" />
-                  </div>
-                </div>
-                <div>
-                  <label style={LBL}>¿La experiencia tiene sede fija?</label>
-                  <select value={sedeFija} onChange={e => setSedeFija(e.target.value)} style={{ ...INP, cursor: 'pointer' }}>
-                    <option value="">Seleccioná</option>
-                    <option value="fija">Sí, tiene dirección fija</option>
-                    <option value="domicilio">No, voy al domicilio del cliente</option>
-                    <option value="variable">Tiene punto de encuentro variable</option>
-                  </select>
-                </div>
-              </>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* ── Descripción ── */}
-      <Card>
-        <SecTitulo label="Descripción pública" Icon={MessageSquare} />
-        <div>
-          <label style={LBL}>
-            {esAloj
-              ? 'Contale a tus huéspedes brevemente sobre tu alojamiento'
-              : 'Contale a tus visitantes brevemente sobre tu negocio'}
-          </label>
-          <textarea value={descripcion} onChange={e => setDescripcion(e.target.value.slice(0, DESC_MAX))} rows={5}
-            placeholder="Somos un hotel familiar a media cuadra del mar, con pileta, desayuno incluido y estacionamiento privado..."
-            style={{ ...INP, resize: 'vertical', minHeight: 110 }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
-            <span style={{ fontSize: 11, fontFamily: FONT, color: descripcion.length > 0 && descripcion.length < DESC_MIN ? '#ef4444' : 'transparent' }}>
-              Mínimo {DESC_MIN} caracteres
-            </span>
-            <span style={{ fontSize: 11, fontFamily: FONT, color: descripcion.length > DESC_MAX * 0.9 ? '#ef4444' : MUTED }}>
-              {descripcion.length} / {DESC_MAX}
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      {/* ── Galería ── */}
-      <Card>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK }}>Galería de imágenes</span>
-          <button onClick={() => fotoRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: `1px dashed ${P}`, background: PS, color: P, fontFamily: FONT, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            <Upload size={14} /> Agregar fotos
-          </button>
-          <input ref={fotoRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => addFiles(e.target.files)} />
-        </div>
-
-        {/* Aviso de imágenes */}
-        <div style={{ display: 'flex', gap: 8, padding: '8px 12px', background: '#fffbeb', border: `1px solid #fcd34d`, borderRadius: 10, marginBottom: 14, alignItems: 'flex-start' }}>
-          <AlertCircle size={14} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 11.5, color: '#92400e', fontFamily: FONT, lineHeight: 1.5 }}>
-            Las fotos deben mostrar exclusivamente el lugar o servicio — sin textos, logos ni gráficas superpuestas. La primera foto es la imagen principal de tu perfil.
-          </span>
-        </div>
-
-        {/* Drop zone */}
-        <div
-          onDrop={handleGalleryDrop}
-          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-          onDragLeave={() => setIsDragOver(false)}
-          style={{ borderRadius: 14, outline: isDragOver ? `2px dashed ${P}` : '2px dashed transparent', outlineOffset: 3, transition: 'outline .15s' }}
-        >
-          {fotos.length === 0 ? (
-            <div
-              onClick={() => fotoRef.current?.click()}
-              style={{ height: 140, border: `2px dashed ${isDragOver ? P : LINE}`, borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: isDragOver ? P : MUTED, cursor: 'pointer', transition: 'all .15s' }}
-            >
-              <Image size={28} color={isDragOver ? P : LINE} />
-              <span style={{ fontSize: 13, fontFamily: FONT }}>Subí fotos o arrastrá archivos desde tu computadora</span>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: 90, gap: 8 }}>
-              {fotos.map((f, idx) => (
-                <div
-                  key={f.id}
-                  style={{
-                    position: 'relative',
-                    borderRadius: idx === 0 ? 12 : 8,
-                    overflow: 'hidden',
-                    gridColumn: idx === 0 ? 'span 2' : undefined,
-                    gridRow:    idx === 0 ? 'span 2' : undefined,
-                  }}
-                >
-                  <img src={f.src} alt={f.alt} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  {idx === 0 ? (
-                    <div style={{ position: 'absolute', bottom: 7, left: 7, background: P, color: '#fff', fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 5, fontFamily: FONT, letterSpacing: '0.06em' }}>
-                      PRINCIPAL
-                    </div>
-                  ) : (
-                    <div style={{ position: 'absolute', top: 5, left: 5, width: 18, height: 18, borderRadius: 5, background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center' }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', fontFamily: FONT }}>{idx + 1}</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setFotos(prev => prev.filter(x => x.id !== f.id))}
-                    style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-                  >
-                    <Trash2 size={10} color="#fff" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Guardar */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 40 }}>
         <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8, background: saving ? MUTED : P, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontFamily: FONT, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(71,91,225,0.3)', transition: 'background .15s' }}>
           <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
@@ -2535,7 +1952,31 @@ function TabAddons({ addonTotal, setAddonTotal, showToast }) {
 // ════════════════════════════════════════════════════════════
 //  RENDIMIENTO WIDGET
 // ════════════════════════════════════════════════════════════
-function RendimientoWidget({ plan = 'free', seguidores = 0, onUpgrade }) {
+// Bloque de seguidores — queda en el sidebar (estilo oscuro)
+function SeguidoresWidget({ seguidores = 0 }) {
+  return (
+    <div style={{ margin: '0 8px 8px', background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <svg width="44" height="36" viewBox="0 0 44 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+          <circle cx="11" cy="10" r="6" fill="rgba(177,187,255,0.4)"/>
+          <path d="M2 36c0-5 4.03-9 9-9s9 4 9 9" fill="rgba(177,187,255,0.4)"/>
+          <circle cx="33" cy="10" r="6" fill="rgba(177,187,255,0.4)"/>
+          <path d="M24 36c0-5 4.03-9 9-9s9 4 9 9" fill="rgba(177,187,255,0.4)"/>
+          <circle cx="22" cy="9" r="7" fill="#b1bbff"/>
+          <path d="M12 36c0-5.5 4.48-10 10-10s10 4.5 10 10" fill="#b1bbff"/>
+        </svg>
+        <div style={{ lineHeight: 1.25 }}>
+          <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{seguidores}</div>
+          <div style={{ fontFamily: FONT, fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>siguen tus ofertas</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Tarjeta de rendimiento — vive en el grid de "Creadas por mí" (estilo claro,
+// tamaño de una minificha de oferta). Sólo se muestra si hay ≥1 oferta cargada.
+function RendimientoCard({ plan = 'free', onUpgrade }) {
   const [nivel,     setNivel]     = useState(0);
   const [showModal, setShowModal] = useState(false);
   const isPremium = plan === 'plus';
@@ -2554,70 +1995,41 @@ function RendimientoWidget({ plan = 'free', seguidores = 0, onUpgrade }) {
 
   return (
     <>
-      <div style={{ margin: '0 8px 8px', background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px' }}>
-
-        {/* Seguidores — integrado arriba */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, paddingBottom: 9, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <svg width="44" height="36" viewBox="0 0 44 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-            {/* Persona izquierda */}
-            <circle cx="11" cy="10" r="6" fill="rgba(177,187,255,0.4)"/>
-            <path d="M2 36c0-5 4.03-9 9-9s9 4 9 9" fill="rgba(177,187,255,0.4)"/>
-            {/* Persona derecha */}
-            <circle cx="33" cy="10" r="6" fill="rgba(177,187,255,0.4)"/>
-            <path d="M24 36c0-5 4.03-9 9-9s9 4 9 9" fill="rgba(177,187,255,0.4)"/>
-            {/* Persona central (más grande y brillante) */}
-            <circle cx="22" cy="9" r="7" fill="#b1bbff"/>
-            <path d="M12 36c0-5.5 4.48-10 10-10s10 4.5 10 10" fill="#b1bbff"/>
-          </svg>
-          <div style={{ lineHeight: 1.25 }}>
-            <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{seguidores}</div>
-            <div style={{ fontFamily: FONT, fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>siguen tus ofertas</div>
-          </div>
-        </div>
+      <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 20, minHeight: 240, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', fontFamily: FONT }}>
 
         {/* Header rendimiento */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-          <Zap size={12} color="#f59e0b" style={{ flexShrink: 0 }} />
-          <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.04em' }}>RENDIMIENTO DE TUS OFERTAS</span>
+          <Zap size={13} color="#f59e0b" style={{ flexShrink: 0 }} />
+          <span style={{ fontFamily: FONT, fontSize: 10.5, fontWeight: 800, color: INK2, letterSpacing: '0.04em' }}>RENDIMIENTO DE TUS OFERTAS</span>
         </div>
 
-        {/* Slider — dots dentro del track para positioning correcto */}
-        <div style={{ position: 'relative', height: 3, background: 'rgba(255,255,255,0.12)', borderRadius: 2, margin: '14px 0 18px' }}>
+        {/* Slider */}
+        <div style={{ position: 'relative', height: 3, background: LINE, borderRadius: 2, margin: '16px 6px 20px' }}>
           <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 2, background: P, width: `${pct}%`, transition: 'width .25s ease', pointerEvents: 'none' }} />
           {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              onClick={() => trySetNivel(i)}
+            <div key={i} onClick={() => trySetNivel(i)}
               style={{
-                position: 'absolute',
-                left: `${i * 50}%`,
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: nivel === i ? 14 : 8,
-                height: nivel === i ? 14 : 8,
-                borderRadius: '50%',
-                background: i <= nivel ? '#fff' : 'rgba(255,255,255,0.18)',
-                border: nivel === i ? `2px solid ${P}` : 'none',
-                cursor: !isPremium && i > 0 ? 'default' : 'pointer',
-                transition: 'all .2s ease',
-                zIndex: 2,
-                boxShadow: nivel === i ? '0 0 0 3px rgba(71,91,225,0.35)' : 'none',
+                position: 'absolute', left: `${i * 50}%`, top: '50%', transform: 'translate(-50%, -50%)',
+                width: nivel === i ? 14 : 9, height: nivel === i ? 14 : 9, borderRadius: '50%',
+                background: i <= nivel ? P : '#cbd5e1', border: nivel === i ? '2px solid #fff' : 'none',
+                cursor: !isPremium && i > 0 ? 'default' : 'pointer', transition: 'all .2s ease', zIndex: 2,
+                boxShadow: nivel === i ? '0 0 0 3px rgba(71,91,225,0.25)' : 'none',
               }}
             />
           ))}
         </div>
 
         {/* Labels */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
           {['Normal', 'Alto', 'Máximo'].map((label, i) => (
-            <span key={i} style={{ fontSize: 9, fontWeight: nivel === i ? 700 : 500, color: nivel === i ? '#fff' : 'rgba(255,255,255,0.32)', fontFamily: FONT, transition: 'color .2s', userSelect: 'none' }}>
+            <span key={i} style={{ fontSize: 9.5, fontWeight: nivel === i ? 800 : 500, color: nivel === i ? P : MUTED, fontFamily: FONT, transition: 'color .2s', userSelect: 'none' }}>
               {label}{!isPremium && i > 0 ? ' 🔒' : ''}
             </span>
           ))}
         </div>
 
         {/* Texto dinámico */}
-        <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)', fontFamily: FONT, lineHeight: 1.55, margin: nivel === 0 ? '0 0 8px' : '0' }}>
+        <p style={{ fontSize: 10.5, color: MUTED, fontFamily: FONT, lineHeight: 1.55, margin: '0 0 10px', flex: 1 }}>
           {TEXTOS[nivel]}
         </p>
 
@@ -2625,14 +2037,14 @@ function RendimientoWidget({ plan = 'free', seguidores = 0, onUpgrade }) {
         {nivel === 0 && (
           <button
             onClick={() => { if (!isPremium) { onUpgrade?.(); } else setNivel(1); }}
-            style={{ width: '100%', background: '#f59e0b', color: '#0f172a', border: 'none', borderRadius: 7, padding: '7px 0', fontFamily: FONT, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+            style={{ width: '100%', background: '#f59e0b', color: '#0f172a', border: 'none', borderRadius: 8, padding: '9px 0', fontFamily: FONT, fontSize: 11.5, fontWeight: 800, cursor: 'pointer' }}
           >
             ↑ Aumentar Rendimiento
           </button>
         )}
       </div>
 
-      {/* Modal via Portal — escapa cualquier stacking context del sidebar */}
+      {/* Modal via Portal */}
       {showModal && ReactDOM.createPortal(
         <>
           <div
@@ -2675,7 +2087,7 @@ function RendimientoWidget({ plan = 'free', seguidores = 0, onUpgrade }) {
 // ════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ════════════════════════════════════════════════════════════
-function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, seguidores = 0, setShowComprar, onVolver, onGoHome, onLogout, onUpgrade, navCounts = {} }) {
+function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, seguidores = 0, setShowComprar, onVolver, onGoHome, onLogout, navCounts = {} }) {
   const esAloj = negocio?.tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
   const plan   = negocio?.plan || 'free';
 
@@ -2741,8 +2153,8 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, seguid
         {NAV_BOTTOM.map(t => navItem(t, false))}
       </nav>
 
-      {/* Rendimiento + seguidores */}
-      <RendimientoWidget plan={negocio?.plan || 'free'} seguidores={seguidores} onUpgrade={onUpgrade} />
+      {/* Seguidores (el rendimiento se muestra dentro de "Creadas por mí") */}
+      <SeguidoresWidget seguidores={seguidores} />
 
       {/* Tokens (solo plan free con alojamiento) */}
       {negocio && debeUsarTokens(negocio.tipo, negocio.plan) && (
@@ -2955,338 +2367,347 @@ function TabVentas({ negocioId, showToast }) {
 //  TAB COMPRAS
 // ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════
-//  MINI QR PLACEHOLDER
+//  TAB CUPONERAS (regalo) — sólo socios Plus
 // ════════════════════════════════════════════════════════════
-function MiniQR({ size = 52, disabled = false }) {
-  const cell = size / 7;
-  const bits = [
-    1,1,1,0,1,1,1,
-    1,0,1,0,1,0,1,
-    1,1,1,0,1,1,1,
-    0,0,0,1,0,1,0,
-    1,1,0,1,1,0,1,
-    1,0,1,0,0,1,0,
-    1,1,1,0,1,1,1,
-  ];
-  return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity: disabled ? 0.18 : 1, display: 'block' }}>
-        <rect width={size} height={size} fill="#f8f9fa" rx={4}/>
-        {bits.map((b, i) => b ? (
-          <rect key={i}
-            x={(i % 7) * cell + 1} y={Math.floor(i / 7) * cell + 1}
-            width={cell - 2} height={cell - 2}
-            fill="#0f172a" rx={0.8}
-          />
-        ) : null)}
-      </svg>
-      {disabled && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2.5} strokeLinecap="round">
-            <line x1="4" y1="4" x2="20" y2="20"/>
-            <line x1="20" y1="4" x2="4" y2="20"/>
-          </svg>
-        </div>
-      )}
-    </div>
-  );
-}
+const ESTADO_BADGE = {
+  borrador:  { label: 'Borrador',  bg: `${MUTED}22`,  color: INK2 },
+  activa:    { label: 'Activa',    bg: `${GREEN}1a`,  color: GREEN },
+  pausada:   { label: 'Pausada',   bg: `${YELLOW}22`, color: '#b45309' },
+  archivada: { label: 'Archivada', bg: `${MUTED}22`,  color: MUTED },
+};
 
-// ════════════════════════════════════════════════════════════
-//  TOKEN ROW (QR + código + estado)
-// ════════════════════════════════════════════════════════════
-function TokenRow({ token, esHuesped }) {
-  const disabled = token.estado !== 'disponible';
-  const STATUS = {
-    disponible: { label: 'Disponible', color: GREEN,     bg: GREEN + '18' },
-    utilizado:  { label: 'Utilizado',  color: '#ef4444', bg: '#fef2f2'    },
-    vencido:    { label: 'Vencido',    color: '#ef4444', bg: '#fef2f2'    },
-  };
-  const st = STATUS[token.estado] || STATUS.disponible;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: disabled ? '#fafafa' : '#fff', borderRadius: 10, border: `1px solid ${disabled ? '#fecaca' : LINE}` }}>
-      <MiniQR size={48} disabled={disabled}/>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textDecoration: disabled ? 'line-through' : 'none', color: disabled ? '#9ca3af' : INK }}>
-          {token.id}
-        </div>
-        {esHuesped && <div style={{ fontSize: 10, color: MUTED, fontFamily: FONT, marginTop: 2 }}>Token de huésped</div>}
-      </div>
-      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: st.bg, color: st.color, fontFamily: FONT, whiteSpace: 'nowrap' }}>
-        {st.label}
-      </span>
-    </div>
-  );
-}
+function TabCuponeras({ negocio, perfil, showToast, saldoTokens, setSaldoTokens, setShowComprar }) {
+  const esPlus = negocio?.plan === 'plus';
 
-// ════════════════════════════════════════════════════════════
-//  TAB CUPONERAS
-// ════════════════════════════════════════════════════════════
-function TabCuponeras({ negocio, perfil, showToast }) {
-  const esAloj = negocio?.tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(negocio?.tipo ?? '');
-
-  const [cuponeras, setCuponeras]   = useState(MOCK_CUPONERAS);
-  const [selectedId, setSelectedId] = useState(MOCK_CUPONERAS[0]?.id || null);
-  const [expanded, setExpanded]     = useState(new Set());
+  const [loading, setLoading]       = useState(esPlus);
+  const [cuponeras, setCuponeras]   = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [alias, setAlias]           = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [createNombre, setCreateNombre] = useState('');
-  const [createTipo, setCreateTipo]    = useState('personal');
   const [editingId, setEditingId]   = useState(null);
   const [editingNombre, setEditingNombre] = useState('');
-  const [showWaModal, setShowWaModal] = useState(false);
-  const [waPhone, setWaPhone]       = useState('');
+  const [busTexto, setBusTexto]         = useState('');
+  const [busLocalidad, setBusLocalidad] = useState('');
+  const [busResultados, setBusResultados] = useState([]);
+  const [busLoading, setBusLoading]     = useState(false);
+  const [sugiriendo, setSugiriendo]     = useState(false);
 
   const selected = cuponeras.find(c => c.id === selectedId) || null;
 
-  const TIPO_BADGE = {
-    personal:  { label: 'Personal',         bg: PS,             color: P         },
-    huespedes: { label: 'Para huéspedes',   bg: `${YELLOW}22`, color: '#b45309' },
-  };
+  useEffect(() => {
+    if (esPlus && negocio?.id) cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [negocio?.id, esPlus]);
 
-  function toggleExpand(id) {
-    setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  useEffect(() => {
+    if (esPlus && negocio?.id) buscar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [negocio?.id, esPlus]);
+
+  async function cargar() {
+    setLoading(true);
+    const [cups, aliasRes] = await Promise.all([
+      getCuponerasRegalo(negocio.id),
+      supabase.from('socio_alias').select('codigo, unidades_declaradas').eq('negocio_id', negocio.id).maybeSingle(),
+    ]);
+    setCuponeras(cups);
+    setAlias(aliasRes.data || null);
+    setSelectedId(prev => (prev && cups.some(c => c.id === prev)) ? prev : (cups[0]?.id || null));
+    setLoading(false);
   }
 
-  function deleteCuponera(id) {
-    if (!window.confirm('¿Eliminar esta cuponera?')) return;
-    const next = cuponeras.filter(c => c.id !== id);
-    setCuponeras(next);
-    if (selectedId === id) setSelectedId(next[0]?.id || null);
+  async function refrescarSaldo() {
+    const nuevo = await getSaldo(negocio.id);
+    setSaldoTokens?.(nuevo);
   }
 
-  function saveRename(id) {
-    if (!editingNombre.trim()) { setEditingId(null); return; }
-    setCuponeras(prev => prev.map(c => c.id === id ? { ...c, nombre: editingNombre.trim() } : c));
-    setEditingId(null);
-  }
-
-  function createCuponera() {
+  async function handleCrear() {
     if (!createNombre.trim()) return;
-    const nc = { id: `cup-${Date.now()}`, nombre: createNombre.trim(), tipo: createTipo, cupones: [] };
-    setCuponeras(prev => [...prev, nc]);
-    setSelectedId(nc.id);
-    setCreateNombre('');
-    setCreateTipo('personal');
-    setShowCreate(false);
+    const { data, error } = await crearCuponeraRegalo(negocio.id, createNombre.trim());
+    if (error) { showToast('Error al crear la cuponera', 'error'); return; }
+    setCreateNombre(''); setShowCreate(false);
+    await cargar();
+    setSelectedId(data.id);
   }
 
-  function copyLink() {
-    const url = `${window.location.origin}/cuponera/${selected?.id}`;
-    navigator.clipboard.writeText(url).then(() => showToast('Enlace copiado al portapapeles', 'ok')).catch(() => showToast('No se pudo copiar', 'error'));
+  async function handleRenombrar(id) {
+    if (!editingNombre.trim()) { setEditingId(null); return; }
+    await renombrarCuponera(id, editingNombre.trim());
+    setEditingId(null);
+    await cargar();
   }
 
-  function sendWhatsApp() {
-    if (!waPhone.trim()) return;
-    const url = `${window.location.origin}/cuponera/${selected?.id}`;
-    const text = encodeURIComponent(`¡Hola! Te comparto la cuponera: ${url}`);
-    window.open(`https://wa.me/${waPhone.replace(/\D/g, '')}?text=${text}`, '_blank');
-    setShowWaModal(false);
-    setWaPhone('');
+  async function handleEliminar(id) {
+    if (!window.confirm('¿Eliminar esta cuponera? Se devuelven los créditos de los cupones que tenía.')) return;
+    await eliminarCuponeraRegalo(negocio.id, id);
+    await cargar();
+    await refrescarSaldo();
+    showToast('Cuponera eliminada', 'ok');
   }
 
-  const btnShare = (onClick, icon, label, accent = false) => (
-    <button onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 6,
-      padding: '7px 14px', borderRadius: 9, fontFamily: FONT, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-      border: `1px solid ${accent ? '#25D36655' : LINE}`,
-      background: accent ? '#25D36610' : '#fff',
-      color: accent ? '#25D366' : INK2,
-    }}>
-      {icon} {label}
-    </button>
-  );
+  async function handleCambiarEstado(id, estado) {
+    await cambiarEstadoCuponera(id, estado);
+    await cargar();
+    showToast(`Cuponera ${ESTADO_BADGE[estado]?.label.toLowerCase() || estado}`, 'ok');
+  }
+
+  async function handleToggleModo(id, actual) {
+    await toggleModoInteligente(id, !actual);
+    await cargar();
+  }
+
+  async function buscar() {
+    setBusLoading(true);
+    setSugiriendo(false);
+    setBusResultados(await buscarPromosDisponibles({ texto: busTexto, localidad: busLocalidad || negocio?.localidad }));
+    setBusLoading(false);
+  }
+
+  async function handleSugerir() {
+    setBusLoading(true);
+    setSugiriendo(true);
+    const excluirIds = selected?.cuponeras_regalo_cupones.map(c => c.promocion_id) || [];
+    setBusResultados(await sugerirCupones(busLocalidad || negocio?.localidad, { excluirIds }));
+    setBusLoading(false);
+  }
+
+  async function handleAgregarCupon(promo) {
+    if (!selected) { showToast('Creá o elegí una cuponera primero', 'error'); return; }
+    const yaIncluido = selected.cuponeras_regalo_cupones.some(c => c.promocion_id === promo.id);
+    if (yaIncluido) { showToast('Ese cupón ya está en la cuponera', 'error'); return; }
+    const { error } = await agregarCupon(negocio.id, selected.id, promo, selected.cuponeras_regalo_cupones.length);
+    if (error) { showToast(error, 'error'); return; }
+    await cargar();
+    await refrescarSaldo();
+  }
+
+  async function handleQuitarCupon(cuponeraCuponId) {
+    await quitarCupon(negocio.id, cuponeraCuponId);
+    await cargar();
+    await refrescarSaldo();
+  }
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: MUTED }}>Cargando cuponeras...</div>;
+
+  if (!esPlus) {
+    return (
+      <div style={{ padding: '32px 36px' }}>
+        <Card style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <Gift size={36} color={P} style={{ margin: '0 auto 14px', display: 'block' }} />
+          <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 800, color: INK, marginBottom: 8 }}>Las cuponeras regalo son para socios Plus</div>
+          <div style={{ fontFamily: FONT, fontSize: 13, color: MUTED, marginBottom: 18, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>
+            Armá una plantilla de cupones de otros socios y regalásela a tus huéspedes con tu alias — la pagás una sola vez al armarla.
+          </div>
+          <button style={{ background: P, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            Pasate a Plus
+          </button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '32px 36px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: INK, margin: 0 }}>Mis cuponeras</h2>
-        <button
-          onClick={() => setShowCreate(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: P, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-        >
-          <Plus size={15}/> Nueva cuponera
-        </button>
       </div>
 
-      {/* Crear cuponera */}
-      {showCreate && (
-        <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
-          <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: INK, marginBottom: 12 }}>Nueva cuponera</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <input
-              autoFocus value={createNombre} onChange={e => setCreateNombre(e.target.value)}
-              placeholder="Nombre de la cuponera" onKeyDown={e => e.key === 'Enter' && createCuponera()}
-              style={{ padding: '10px 14px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 14, outline: 'none', color: INK }}
-            />
-            {esAloj && (
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[{ id: 'personal', label: 'Personal' }, { id: 'huespedes', label: 'Para huéspedes' }].map(t => (
-                  <button key={t.id} onClick={() => setCreateTipo(t.id)} style={{
-                    flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${createTipo === t.id ? P : LINE}`,
-                    background: createTipo === t.id ? PS : 'transparent', color: createTipo === t.id ? P : INK2,
-                    fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  }}>{t.label}</button>
-                ))}
-              </div>
-            )}
-            {createTipo === 'huespedes' && (
-              <p style={{ fontFamily: FONT, fontSize: 12, color: MUTED, margin: 0, background: `${YELLOW}12`, border: `1px solid ${YELLOW}40`, borderRadius: 8, padding: '8px 12px', lineHeight: 1.5 }}>
-                Cada cupón incluido tendrá 3 QR/tokens reutilizables para tus huéspedes. Pagás la cuponera una sola vez.
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={createCuponera} style={{ flex: 1, background: P, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 0', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Crear</button>
-              <button onClick={() => setShowCreate(false)} style={{ flex: 1, background: 'transparent', color: MUTED, border: `1px solid ${LINE}`, borderRadius: 10, padding: '10px 0', fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-            </div>
-          </div>
+      {/* Saldo de créditos + alias */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT, fontSize: 13, color: INK2 }}>
+          <Coins size={16} color={YELLOW}/> <b style={{ color: INK }}>{saldoTokens}</b> créditos disponibles
+          <button onClick={() => setShowComprar?.(true)} style={{ background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Comprar más</button>
         </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-
-        {/* ─── Lista de cuponeras ─── */}
-        <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {cuponeras.map(c => {
-            const tb = TIPO_BADGE[c.tipo] || TIPO_BADGE.personal;
-            const active = selectedId === c.id;
-            return (
-              <div key={c.id} onClick={() => setSelectedId(c.id)}
-                style={{ padding: '11px 13px', borderRadius: 12, border: `1px solid ${active ? P : LINE}`, background: active ? PS : '#fff', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-                  {editingId === c.id ? (
-                    <input
-                      autoFocus value={editingNombre} onChange={e => setEditingNombre(e.target.value)}
-                      onBlur={() => saveRename(c.id)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveRename(c.id); if (e.key === 'Escape') setEditingId(null); }}
-                      onClick={e => e.stopPropagation()}
-                      style={{ flex: 1, border: `1px solid ${P}`, borderRadius: 6, padding: '2px 7px', fontFamily: FONT, fontSize: 13, fontWeight: 700, outline: 'none', color: INK }}
-                    />
-                  ) : (
-                    <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: active ? P : INK, flex: 1, lineHeight: 1.3 }}>{c.nombre}</span>
-                  )}
-                  <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setEditingId(c.id); setEditingNombre(c.nombre); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 3 }}><Edit2 size={11}/></button>
-                    <button onClick={() => deleteCuponera(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 3 }}><Trash2 size={11}/></button>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                  <span style={{ fontFamily: FONT, fontSize: 10, color: MUTED }}>{c.cupones.length} cupón{c.cupones.length !== 1 ? 'es' : ''}</span>
-                  <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: tb.bg, color: tb.color, fontFamily: FONT }}>{tb.label}</span>
-                </div>
-              </div>
-            );
-          })}
-          {cuponeras.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '40px 10px', color: MUTED }}>
-              <Wallet size={28} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.3 }}/>
-              <div style={{ fontFamily: FONT, fontSize: 12 }}>Sin cuponeras</div>
-            </div>
-          )}
-        </div>
-
-        {/* ─── Detalle de cuponera ─── */}
-        {selected ? (
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* Header */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 800, color: INK }}>{selected.nombre}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5 }}>
-                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, background: TIPO_BADGE[selected.tipo]?.bg, color: TIPO_BADGE[selected.tipo]?.color, fontFamily: FONT }}>
-                  {TIPO_BADGE[selected.tipo]?.label}
-                </span>
-                {selected.tipo === 'huespedes' && (
-                  <span style={{ fontSize: 11, color: MUTED, fontFamily: FONT }}>· 3 canjes por cupón · enviable por WhatsApp o mail</span>
-                )}
-              </div>
-            </div>
-
-            {/* Share bar */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20, padding: '12px 14px', background: CARD, borderRadius: 14, border: `1px solid ${LINE}` }}>
-              {btnShare(() => showToast('Generando PDF… (próximamente)', 'ok'), <Download size={13}/>, 'Descargar PDF')}
-              {btnShare(() => showToast('Abriendo cliente de correo… (próximamente)', 'ok'), <Mail size={13}/>, 'Enviar por mail')}
-              {btnShare(copyLink, <Link2 size={13}/>, 'Copiar enlace')}
-              {btnShare(() => setShowWaModal(true), <MessageCircle size={13}/>, 'WhatsApp', true)}
-            </div>
-
-            {/* Lista de cupones */}
-            {selected.cupones.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: MUTED }}>
-                <Tag size={36} style={{ margin: '0 auto 10px', display: 'block', opacity: 0.3 }}/>
-                <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>Esta cuponera está vacía</div>
-                <div style={{ fontFamily: FONT, fontSize: 12, marginTop: 4 }}>Agregá cupones desde el explorador de ofertas</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {selected.cupones.map(cup => {
-                  const isOpen = expanded.has(cup.id);
-                  const nDisp = cup.tokens.filter(t => t.estado === 'disponible').length;
-                  const total = cup.tokens.length;
-                  return (
-                    <div key={cup.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden' }}>
-                      <div onClick={() => toggleExpand(cup.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 16px', cursor: 'pointer' }}
-                      >
-                        <img src={cup.imagen} alt={cup.titulo} style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cup.titulo}</div>
-                          <div style={{ fontFamily: FONT, fontSize: 11, color: MUTED, marginTop: 2 }}>{cup.negocio}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                          <Pill label={cup.badge} color={P}/>
-                          <span style={{ fontSize: 11, fontFamily: FONT, fontWeight: 700, color: nDisp > 0 ? GREEN : '#ef4444' }}>
-                            {nDisp}/{total} disp.
-                          </span>
-                          <ChevronDown size={14} color={MUTED} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s' }}/>
-                        </div>
-                      </div>
-
-                      {isOpen && (
-                        <div style={{ borderTop: `1px solid ${LINE}`, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {cup.tokens.map(tk => (
-                            <TokenRow key={tk.id} token={tk} esHuesped={selected.tipo === 'huespedes'}/>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', color: MUTED }}>
-            <Wallet size={40} style={{ opacity: 0.25, marginBottom: 12 }}/>
-            <div style={{ fontFamily: FONT, fontSize: 14 }}>Seleccioná una cuponera para ver su contenido</div>
+        {alias && (
+          <div style={{ fontFamily: FONT, fontSize: 13, color: INK2 }}>
+            Alias: <b style={{ color: INK }}>{alias.codigo}</b> · {alias.unidades_declaradas} activaciones/semana
           </div>
         )}
       </div>
 
-      {/* Modal WhatsApp */}
-      {showWaModal && ReactDOM.createPortal(
-        <>
-          <div onClick={() => setShowWaModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(8,12,26,0.6)', zIndex: 99990 }}/>
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 99991, width: 320, background: '#fff', borderRadius: 20, padding: '28px 24px', fontFamily: FONT, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: INK, marginBottom: 8 }}>Enviar por WhatsApp</div>
-            <div style={{ fontSize: 13, color: MUTED, marginBottom: 16 }}>Ingresá el número de destino con código de país.</div>
-            <input
-              autoFocus value={waPhone} onChange={e => setWaPhone(e.target.value)}
-              placeholder="Ej: 5491140001234"
-              onKeyDown={e => e.key === 'Enter' && sendWhatsApp()}
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 14, outline: 'none', color: INK, boxSizing: 'border-box', marginBottom: 14 }}
-            />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={sendWhatsApp} style={{ flex: 1, background: '#25D366', color: '#fff', border: 'none', borderRadius: 10, padding: '11px 0', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <MessageCircle size={14}/> Enviar
-              </button>
-              <button onClick={() => setShowWaModal(false)} style={{ flex: 1, background: 'transparent', border: `1px solid ${LINE}`, borderRadius: 10, padding: '11px 0', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: MUTED, cursor: 'pointer' }}>
-                Cancelar
-              </button>
+      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+
+        {/* ─── Catálogo (izquierda) ─── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <Search size={14} color={MUTED} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}/>
+              <input value={busTexto} onChange={e => setBusTexto(e.target.value)} onKeyDown={e => e.key === 'Enter' && buscar()}
+                placeholder="Buscar por título..."
+                style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px 9px 30px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13, outline: 'none', color: INK }}/>
             </div>
+            <select value={busLocalidad} onChange={e => setBusLocalidad(e.target.value)}
+              style={{ padding: '9px 10px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13, color: INK, cursor: 'pointer', outline: 'none' }}>
+              <option value="">{negocio?.localidad || 'Toda localidad'}</option>
+              {LOCALIDADES.filter(l => l !== negocio?.localidad).map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <button onClick={buscar} style={{ background: PS, color: P, border: 'none', borderRadius: 10, padding: '0 16px', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Buscar</button>
           </div>
-        </>,
-        document.body
-      )}
+
+          <button onClick={handleSugerir} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: sugiriendo ? P : PS, color: sugiriendo ? '#fff' : P, border: `1.5px dashed ${P}55`, borderRadius: 12, padding: '11px 0', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 16 }}>
+            <Zap size={15}/> Sugerir cupones de mi zona automáticamente
+          </button>
+
+          {busLoading ? (
+            <div style={{ textAlign: 'center', padding: 30, color: MUTED, fontFamily: FONT, fontSize: 13 }}>Buscando…</div>
+          ) : busResultados.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 30, color: MUTED, fontFamily: FONT, fontSize: 13 }}>Sin resultados</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {busResultados.map(p => {
+                const costo = costoCreditosDePromo(p);
+                const yaIncluido = selected?.cuponeras_regalo_cupones.some(c => c.promocion_id === p.id);
+                return (
+                  <div key={p.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <img src={p.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width: '100%', height: 100, objectFit: 'cover' }}/>
+                    <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                      <div style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 700, color: INK, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.titulo}</div>
+                      <div style={{ fontFamily: FONT, fontSize: 10.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.negocios?.nombre}</div>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: INK2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Coins size={11} color={YELLOW}/> {costo} crédito{costo !== 1 ? 's' : ''}
+                      </span>
+                      <button disabled={yaIncluido || !selected} onClick={() => handleAgregarCupon(p)}
+                        style={{ marginTop: 'auto', background: yaIncluido ? LINE : P, color: yaIncluido ? MUTED : '#fff', border: 'none', borderRadius: 8, padding: '7px 0', fontFamily: FONT, fontSize: 11.5, fontWeight: 700, cursor: (yaIncluido || !selected) ? 'default' : 'pointer' }}>
+                        {yaIncluido ? 'Ya agregado' : 'Añadir a cuponera'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ─── Panel de la cuponera (derecha, 36%) ─── */}
+        <div style={{ width: '36%', flexShrink: 0, position: 'sticky', top: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK }}>Tus cuponeras</span>
+            <button onClick={() => setShowCreate(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              <Plus size={13}/> Nueva
+            </button>
+          </div>
+
+          {showCreate && (
+            <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 12, marginBottom: 12, display: 'flex', gap: 6 }}>
+              <input autoFocus value={createNombre} onChange={e => setCreateNombre(e.target.value)}
+                placeholder="Nombre de la cuponera" onKeyDown={e => e.key === 'Enter' && handleCrear()}
+                style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 12.5, outline: 'none', color: INK }} />
+              <button onClick={handleCrear} style={{ background: P, color: '#fff', border: 'none', borderRadius: 8, padding: '0 12px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Crear</button>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+            {cuponeras.map(c => {
+              const eb = ESTADO_BADGE[c.estado] || ESTADO_BADGE.borrador;
+              const active = selectedId === c.id;
+              return (
+                <button key={c.id} onClick={() => setSelectedId(c.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 999, border: `1.5px solid ${active ? P : LINE}`, background: active ? PS : '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 11.5, fontWeight: 700, color: active ? P : INK2 }}>
+                  {c.nombre}
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: eb.color }} />
+                </button>
+              );
+            })}
+            {cuponeras.length === 0 && (
+              <div style={{ fontFamily: FONT, fontSize: 12, color: MUTED }}>Sin cuponeras todavía</div>
+            )}
+          </div>
+
+          {selected ? (
+            <Card>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+                {editingId === selected.id ? (
+                  <input autoFocus value={editingNombre} onChange={e => setEditingNombre(e.target.value)}
+                    onBlur={() => handleRenombrar(selected.id)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleRenombrar(selected.id); if (e.key === 'Escape') setEditingId(null); }}
+                    style={{ flex: 1, border: `1px solid ${P}`, borderRadius: 6, padding: '2px 7px', fontFamily: FONT, fontSize: 14, fontWeight: 700, outline: 'none', color: INK }} />
+                ) : (
+                  <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 800, color: INK }}>{selected.nombre}</span>
+                )}
+                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => { setEditingId(selected.id); setEditingNombre(selected.nombre); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 3 }}><Edit2 size={12}/></button>
+                  <button onClick={() => handleEliminar(selected.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 3 }}><Trash2 size={12}/></button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, background: ESTADO_BADGE[selected.estado]?.bg, color: ESTADO_BADGE[selected.estado]?.color, fontFamily: FONT }}>
+                  {ESTADO_BADGE[selected.estado]?.label}
+                </span>
+                <span style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Coins size={11} color={YELLOW}/> {selected.costo_creditos} usados
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11.5, color: INK2 }}>
+                  <Zap size={11} color={selected.modo_inteligente ? GREEN : MUTED}/>
+                  <Toggle on={selected.modo_inteligente} onChange={() => handleToggleModo(selected.id, selected.modo_inteligente)} />
+                </span>
+              </div>
+
+              {!negocio?.puede_compartir_cuponeras && (
+                <div style={{ background: `${YELLOW}15`, border: `1px solid ${YELLOW}40`, borderRadius: 10, padding: '8px 10px', marginBottom: 12, fontFamily: FONT, fontSize: 11, color: '#b45309' }}>
+                  Comprobante pendiente de aprobación — podés armar la cuponera, pero no publicarla todavía.
+                </div>
+              )}
+
+              {selected.cuponeras_regalo_cupones.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: MUTED }}>
+                  <Tag size={26} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.3 }}/>
+                  <div style={{ fontFamily: FONT, fontSize: 12.5 }}>Todavía no agregaste cupones</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14, maxHeight: 320, overflowY: 'auto' }}>
+                  {selected.cuponeras_regalo_cupones.map(cup => (
+                    <div key={cup.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: `1px solid ${LINE}`, borderRadius: 10 }}>
+                      <img src={cup.promociones?.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}/>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: FONT, fontSize: 11.5, fontWeight: 700, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cup.promociones?.titulo}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 10, color: MUTED }}>{cup.promociones?.negocios?.nombre}</div>
+                      </div>
+                      <span style={{ fontSize: 10.5, fontFamily: FONT, fontWeight: 700, color: INK2, display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                        <Coins size={10} color={YELLOW}/> {cup.costo_creditos}
+                      </span>
+                      <button onClick={() => handleQuitarCupon(cup.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 3, flexShrink: 0 }}><Trash2 size={12}/></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {selected.estado === 'borrador' && (
+                  <button onClick={() => handleCambiarEstado(selected.id, 'activa')} disabled={selected.cuponeras_regalo_cupones.length === 0 || !negocio?.puede_compartir_cuponeras}
+                    title={!negocio?.puede_compartir_cuponeras ? 'Pendiente de aprobación del comprobante de pago' : ''}
+                    style={{ background: GREEN, color: '#fff', border: 'none', borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: (selected.cuponeras_regalo_cupones.length && negocio?.puede_compartir_cuponeras) ? 'pointer' : 'not-allowed', opacity: (selected.cuponeras_regalo_cupones.length && negocio?.puede_compartir_cuponeras) ? 1 : 0.5 }}>
+                    Publicar
+                  </button>
+                )}
+                {selected.estado === 'activa' && (
+                  <button onClick={() => handleCambiarEstado(selected.id, 'pausada')} style={{ background: 'transparent', color: '#b45309', border: `1px solid ${YELLOW}55`, borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    Pausar
+                  </button>
+                )}
+                {selected.estado === 'pausada' && (
+                  <button onClick={() => handleCambiarEstado(selected.id, 'activa')} disabled={!negocio?.puede_compartir_cuponeras}
+                    title={!negocio?.puede_compartir_cuponeras ? 'Pendiente de aprobación del comprobante de pago' : ''}
+                    style={{ background: GREEN, color: '#fff', border: 'none', borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: negocio?.puede_compartir_cuponeras ? 'pointer' : 'not-allowed', opacity: negocio?.puede_compartir_cuponeras ? 1 : 0.5 }}>
+                    Reactivar
+                  </button>
+                )}
+                {selected.estado !== 'archivada' && (
+                  <button onClick={() => handleCambiarEstado(selected.id, 'archivada')} style={{ background: 'transparent', color: MUTED, border: `1px solid ${LINE}`, borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Archive size={12}/> Archivar
+                  </button>
+                )}
+              </div>
+            </Card>
+          ) : (
+            <Card style={{ textAlign: 'center', padding: '32px 16px', color: MUTED }}>
+              <Wallet size={32} style={{ opacity: 0.25, marginBottom: 10 }}/>
+              <div style={{ fontFamily: FONT, fontSize: 13 }}>Creá una cuponera para empezar</div>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -3310,7 +2731,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
   const ofertasActivasCount = promos.length > 0
     ? promos.filter(p => p.activo !== false).length
     : MOCK_OFERTAS.filter(o => o.activa).length;
-  const navCounts = { ofertas: ofertasActivasCount, compras: MOCK_CUPONERAS.length };
+  const navCounts = { ofertas: ofertasActivasCount };
 
   useEffect(() => { cargarTodo(); }, []);
 
@@ -3373,17 +2794,17 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
         notifCount={notifCount} saldoTokens={saldoTokens} seguidores={seguidores} navCounts={navCounts}
         setShowComprar={setShowComprar} onVolver={onVolver}
         onGoHome={onGoHome} onLogout={handleLogout}
-        onUpgrade={() => setTab('cuenta')}
       />
 
       <main style={{ flex:1, padding:28, overflowY:'auto', maxWidth:'100%' }}>
         {tab === 'cuenta'      && <TabCuenta credits={credits} addonTotal={addonTotal} setShowComprar={setShowComprar} perfil={perfil} negocio={negocio} onCuentaEliminada={handleLogout}/>}
         {tab === 'notif'       && <TabNovedades credits={credits} setCredits={setCredits} onGoToVentas={() => setTab('solicitudes')}/>}
-        {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast}/>}
+        {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')}/>}
         {tab === 'stats'       && <TabEstadisticas/>}
         {tab === 'solicitudes' && <TabVentas negocioId={perfil?.negocio_id} showToast={showToast}/>}
-        {(tab === 'empresa' || tab === 'galeria') && <TabEmpresa negocio={negocio} showToast={showToast}/>}
-        {tab === 'compras'     && <TabCuponeras negocio={negocio} perfil={perfil} showToast={showToast}/>}
+        {tab === 'empresa' && <TabEmpresa negocio={negocio} showToast={showToast}/>}
+        {tab === 'galeria' && <TabGaleria negocio={negocio} showToast={showToast}/>}
+        {tab === 'compras'     && <TabCuponeras negocio={negocio} perfil={perfil} showToast={showToast} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens} setShowComprar={setShowComprar}/>}
         {tab === 'inbox'       && <TabInbox/>}
         {tab === 'addons'      && <TabAddons addonTotal={addonTotal} setAddonTotal={setAddonTotal} showToast={showToast}/>}
       </main>

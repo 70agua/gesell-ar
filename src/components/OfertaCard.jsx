@@ -7,6 +7,7 @@ import { MapPin } from 'lucide-react';
 import { secondsUntil } from '../lib/ofertas';
 import CuponIcon from './CuponIcon';
 import InfoTooltip, { CreditTooltip } from './InfoTooltip';
+import { useMostrarCreditos } from '../lib/sesion';
 
 // ─── Monedita SVG dorada ──────────────────────────────────────
 function CoinIcon({ size = 14 }) {
@@ -46,6 +47,7 @@ function FlashTimer({ fechaFin }) {
 export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLocalidad }) {
   const esFlash    = promo.offerType === 'Flash';
   const esSinCargo = promo.tokens_costo === 0;
+  const mostrarCreditos = useMostrarCreditos();
 
   return (
     <div
@@ -138,12 +140,16 @@ export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLo
             : <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-2.5">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">Lo activás con</span>
-                  <div className="flex items-center gap-1">
-                    <CoinIcon size={13} />
-                    <span className="text-[13px] font-extrabold text-slate-800">{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                    <CreditTooltip />
-                    <span className="text-[10px] font-semibold text-slate-400">(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
-                  </div>
+                  {mostrarCreditos ? (
+                    <div className="flex items-center gap-1">
+                      <CoinIcon size={13} />
+                      <span className="text-[13px] font-extrabold text-slate-800">{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
+                      <CreditTooltip />
+                      <span className="text-[10px] font-semibold text-slate-400">(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
+                    </div>
+                  ) : (
+                    <span className="text-[13px] font-extrabold text-slate-800">${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA</span>
+                  )}
                 </div>
               </div>
         )}

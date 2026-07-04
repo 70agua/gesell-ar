@@ -7,6 +7,7 @@
 // ============================================================
 import React, { useState } from 'react';
 import InfoTooltip from '../components/InfoTooltip';
+import { useMostrarCreditos } from '../lib/sesion';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const P     = '#475be1';
@@ -92,6 +93,7 @@ const CATEGORIAS = ['Todas', 'Salidas', 'Actividades', 'Bienestar'];
 
 // ─── Tarjeta de oferta ────────────────────────────────────────
 function OfertaCard({ o, onActivar }) {
+  const mostrarCreditos = useMostrarCreditos();
   const [hover, setHover] = useState(false);
   const ahorro = Math.round(o.descuento * 800);
   const badge = `−${o.descuento}%`;
@@ -152,10 +154,14 @@ function OfertaCard({ o, onActivar }) {
         <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: MUTED }}>Lo activás con</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <CoinSVG size={13}/> <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>{o.creditos} créditos</span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>(${(o.creditos * 2000).toLocaleString('es-AR')} + IVA)</span>
-            </div>
+            {mostrarCreditos ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <CoinSVG size={13}/> <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>{o.creditos} créditos</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>(${(o.creditos * 2000).toLocaleString('es-AR')} + IVA)</span>
+              </div>
+            ) : (
+              <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>${(o.creditos * 2000).toLocaleString('es-AR')} + IVA</span>
+            )}
           </div>
         </div>
       </div>

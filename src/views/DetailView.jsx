@@ -18,6 +18,7 @@ import { getPromosDeNegocio, getAlianzasPorNegocio, getPromosLocalidad } from '.
 import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
 import { useCuponera } from '../lib/cuponera';
 import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
+import { useMostrarCreditos } from '../lib/sesion';
 import { busqueda } from '../lib/busqueda';
 import DateRangePicker from '../components/DateRangePicker';
 import { socialProof } from '../lib/socialProof';
@@ -572,6 +573,7 @@ function AmenityChip({ tag }) {
 
 // ─── Offer card (promos propias en left column) — horizontal ─
 function OfferCard({ promo, onAdd, onOpenOferta }) {
+  const mostrarCreditos = useMostrarCreditos();
   return (
     <div
       className="rounded-2xl overflow-hidden flex flex-row cursor-pointer"
@@ -624,16 +626,20 @@ function OfferCard({ promo, onAdd, onOpenOferta }) {
         {(() => { const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return (
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted, lineHeight: '18px' }}>Activalo con</span>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <CoinSVG size={11} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+            {mostrarCreditos ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <CoinSVG size={11} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ fontSize: 10, color: C.muted }}>(${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                  <CreditTooltip />
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span style={{ fontSize: 10, color: C.muted }}>(${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
-                <CreditTooltip />
-              </div>
-            </div>
+            ) : (
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+            )}
           </div>
         ); })()}
       </div>
@@ -740,6 +746,7 @@ const BLOB_PALETTES = [
 // ─── Propia offer card (ofertas del propio alojamiento) ──────
 // Click solo en área de color y título. Ancho área = 240px.
 function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
+  const mostrarCreditos = useMostrarCreditos();
   const [titleHov, setTitleHov] = useState(false);
   const isFlash = promo.offerType === 'Flash';
   const palette = BLOB_PALETTES[seed % BLOB_PALETTES.length];
@@ -880,16 +887,20 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
         {/* Activalo con — debajo del CTA */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 4 }}>
           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted, lineHeight: '18px' }}>Activalo con</span>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <CoinSVG size={12} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+          {mostrarCreditos ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <CoinSVG size={12} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 11, color: C.muted }}>({precioCreditos})</span>
+                <CreditTooltip />
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ fontSize: 11, color: C.muted }}>({precioCreditos})</span>
-              <CreditTooltip />
-            </div>
-          </div>
+          ) : (
+            <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{precioCreditos}</span>
+          )}
         </div>
       </div>
     </div>
@@ -898,6 +909,7 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
 
 // ─── Big offer card (ofertas exclusivas section) ─────────
 function BigOfferCard({ promo, onAdd, onOpenOferta }) {
+  const mostrarCreditos = useMostrarCreditos();
   const provNombre = promo.proveedorNombre || promo.negocios?.nombre || promo.subtitle?.split('·')[0]?.trim() || '';
   return (
     <div
@@ -961,16 +973,20 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
         {(() => { const btc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return btc > 0 ? (
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: '18px' }}>Activalo con</span>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <CoinSVG size={11} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{btc} crédito{btc !== 1 ? 's' : ''}</span>
+            {mostrarCreditos ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <CoinSVG size={11} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{btc} crédito{btc !== 1 ? 's' : ''}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ fontSize: 10, color: C.muted }}>(${(btc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                  <CreditTooltip />
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span style={{ fontSize: 10, color: C.muted }}>(${(btc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
-                <CreditTooltip />
-              </div>
-            </div>
+            ) : (
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(btc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+            )}
           </div>
         ) : null; })()}
       </div>
@@ -1478,6 +1494,7 @@ function AlojamientoGallery({ item, plan }) {
 //  CuponeraItem — mini-ficha para columna derecha
 // ═══════════════════════════════════════════════════════════
 function CuponeraItem({ promo, onOpenOferta }) {
+  const mostrarCreditos = useMostrarCreditos();
   const tokens = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
   const tokensMitad = Math.max(1, Math.floor(tokens / 2));
   return (
@@ -1519,15 +1536,21 @@ function CuponeraItem({ promo, onOpenOferta }) {
             {[promo.negocioLocalidad || promo.negocios?.localidad, promo.proveedorNombre || promo.negocios?.nombre].filter(Boolean).join(' · ')}
           </div>
         )}
-        {/* Créditos */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <CoinSVG size={11} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tokens} crédito{tokens !== 1 ? 's' : ''}</span>
-            <CreditTooltip />
+        {/* Precio */}
+        {mostrarCreditos ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <CoinSVG size={11} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tokens} crédito{tokens !== 1 ? 's' : ''}</span>
+              <CreditTooltip />
+            </div>
+            <span style={{ fontSize: 10, color: C.muted }}>(${(tokens * 2000).toLocaleString('es-AR')} + IVA)</span>
           </div>
-          <span style={{ fontSize: 10, color: C.muted }}>(${(tokens * 2000).toLocaleString('es-AR')} + IVA)</span>
-        </div>
+        ) : (
+          <div style={{ marginTop: 2 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tokens * 2000).toLocaleString('es-AR')} + IVA</span>
+          </div>
+        )}
       </div>
       <HeartButton id={promo.id} size={28} light />
       <ChevronRight size={14} color={C.muted} style={{ flexShrink: 0 }} />
@@ -1697,6 +1720,7 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
 //  OfertasPropiasCard — ofertas del alojamiento con paginador
 // ═══════════════════════════════════════════════════════════
 function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }) {
+  const mostrarCreditos = useMostrarCreditos();
   const _b = busqueda.get();
   const [idx, setIdx]           = useState(0);
   const [fechas, setFechas]     = useState(() => ({ desde: _b.desde, hasta: _b.hasta }));
@@ -1852,7 +1876,7 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
             {/* Disclaimer */}
             <div style={{ padding: '10px 12px', background: '#F7F7F8', borderRadius: 8, marginBottom: 12 }}>
               <p style={{ fontSize: 13, color: C.ink2, margin: 0, lineHeight: 1.55 }}>
-                No te cobraremos hasta que el socio confirme la solicitud. Si acepta, los créditos se debitarán automáticamente de tu billetera de créditos (o podés adquirirlos en el momento si no tenés suficientes).
+                Esta oferta requiere una confirmación de la fecha por parte de la empresa que lo publicó. Lo que pagues ahora se te reintegra al instante si no es aceptada.
               </p>
             </div>
 
@@ -1869,12 +1893,18 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
             {/* Activalo con — debajo del CTA, una sola fila centrada */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', gap: 5, marginTop: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <CoinSVG size={12} />
-                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
-              </div>
-              <span style={{ fontSize: 11, color: C.muted }}>${(creditos * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
-              <CreditTooltip />
+              {mostrarCreditos ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                    <CoinSVG size={12} />
+                    <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: C.muted }}>${(creditos * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+                  <CreditTooltip />
+                </>
+              ) : (
+                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>${(creditos * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+              )}
             </div>
           </>
         )}
@@ -1926,6 +1956,7 @@ function MiCuponeraPanel() {
 //  CuponeraCard — columna derecha sticky (alianzas)
 // ═══════════════════════════════════════════════════════════
 function CuponeraCard({ alianzas, onOpenOferta, cuponeraSectionRef }) {
+  const mostrarCreditos = useMostrarCreditos();
   const items = alianzas.map(al => {
 
     if (al.promociones) {
@@ -1983,24 +2014,37 @@ function CuponeraCard({ alianzas, onOpenOferta, cuponeraSectionRef }) {
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ACTIVALO CON</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                      {/* Número tachado diagonal: número negro, línea roja */}
-                      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                        <CoinSVG size={12} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensNormal}</span>
+                  {mostrarCreditos ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+                        {/* Número tachado diagonal: número negro, línea roja */}
+                        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                          <CoinSVG size={12} />
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensNormal}</span>
+                          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <line x1="5" y1="95" x2="95" y2="5" stroke="#cc2020" strokeWidth="9" strokeLinecap="round" />
+                          </svg>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <CoinSVG size={12} />
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensMitad} crédito{totalTokensMitad !== 1 ? 's' : ''}</span>
+                          <CreditTooltip />
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 10, color: C.muted }}>(${(totalTokensMitad * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {/* Precio normal tachado en pesos */}
+                      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>${(totalTokensNormal * PRECIO_CREDITO).toLocaleString('es-AR')}</span>
                         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
                           <line x1="5" y1="95" x2="95" y2="5" stroke="#cc2020" strokeWidth="9" strokeLinecap="round" />
                         </svg>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <CoinSVG size={12} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensMitad} crédito{totalTokensMitad !== 1 ? 's' : ''}</span>
-                        <CreditTooltip />
-                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>${(totalTokensMitad * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
                     </div>
-                    <span style={{ fontSize: 10, color: C.muted }}>(${(totalTokensMitad * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
-                  </div>
+                  )}
                 </div>
               </div>
             );
@@ -2029,6 +2073,7 @@ function CuponeraCard({ alianzas, onOpenOferta, cuponeraSectionRef }) {
 // ═══════════════════════════════════════════════════════════
 function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
   const { addCupon } = useCuponera();
+  const mostrarCreditos = useMostrarCreditos();
   return (
     <div
       style={{ width: 264, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 18, overflow: 'hidden', flexShrink: 0, display: 'flex', flexDirection: 'column', cursor: 'pointer', boxShadow: '0 2px 12px -4px rgba(11,16,32,0.08)' }}
@@ -2053,14 +2098,18 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
         <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>{p.proveedorNombre}</p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingTop: 5, borderTop: `1px solid ${C.line}` }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <CoinSVG size={12} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0)} crédito{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) !== 1 ? 's' : ''}</span>
-              <CreditTooltip />
+          {mostrarCreditos ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <CoinSVG size={12} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0)} crédito{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) !== 1 ? 's' : ''}</span>
+                <CreditTooltip />
+              </div>
+              <span style={{ fontSize: 10, color: C.muted }}>(${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2000).toLocaleString('es-AR')} + IVA)</span>
             </div>
-            <span style={{ fontSize: 10, color: C.muted }}>(${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2000).toLocaleString('es-AR')} + IVA)</span>
-          </div>
+          ) : (
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2000).toLocaleString('es-AR')} + IVA</span>
+          )}
         </div>
         <div style={{ marginTop: 'auto', paddingTop: 10 }}>
           <button

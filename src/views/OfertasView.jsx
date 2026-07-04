@@ -9,6 +9,7 @@ import { ALL_PROMOS }   from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
 import HeartButton     from '../components/HeartButton';
 import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
+import { useMostrarCreditos } from '../lib/sesion';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const A = {
@@ -158,6 +159,7 @@ const IcoPin = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
 
 // ─── Oferta Card (misma estética que Home) ───────────────────
 function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
+  const mostrarCreditos = useMostrarCreditos();
   const esFlash = promo.offerType === 'Flash';
   const [secs, setSecs] = useState(() => esFlash ? secondsUntil(promo.fechaFinFlash) : 0);
 
@@ -282,12 +284,16 @@ function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
             : <div style={{ borderTop: `1px solid ${A.line}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <CoinSVG size={13} />
-                    <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                    <CreditTooltip />
-                    <span style={{ fontSize: 10, fontWeight: 600, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
-                  </div>
+                  {mostrarCreditos ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <CoinSVG size={13} />
+                      <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
+                      <CreditTooltip />
+                      <span style={{ fontSize: 10, fontWeight: 600, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA</span>
+                  )}
                 </div>
               </div>
         )}

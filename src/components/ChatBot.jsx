@@ -355,15 +355,17 @@ function ThanksScreen({ onClose }) {
 }
 
 // ─── Panel de chat ─────────────────────────────────────────────
-function ChatPanel({ onMinimize, isClosing }) {
+function ChatPanel({ onMinimize, isClosing, initialBotMessage }) {
   const initialSuggestions = FAQS.filter(f => TOP_FAQS.includes(f.id));
 
-  const [messages, setMessages] = useState([
-    { id: 0, from: 'bot', text: '¡Hola! Soy Cuponix, tu asistente. Escribí tu consulta o elegí una de las preguntas más frecuentes.' }
-  ]);
+  const [messages, setMessages] = useState(() => {
+    const base = [{ id: 0, from: 'bot', text: '¡Hola! Soy Cuponix, tu asistente. Escribí tu consulta o elegí una de las preguntas más frecuentes.' }];
+    if (initialBotMessage) base.push({ id: 1, from: 'bot', text: initialBotMessage });
+    return base;
+  });
   const [input, setInput] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [showInitial, setShowInitial] = useState(true);
+  const [showInitial, setShowInitial] = useState(!initialBotMessage);
   const [showAllFaqs, setShowAllFaqs] = useState(false);
   const [filterCat, setFilterCat] = useState(null);
   const [showContact, setShowContact] = useState(false);
@@ -611,7 +613,7 @@ function RobotButton({ open, onClick }) {
     <div
       onClick={onClick}
       title={open ? 'Cerrar asistente' : 'Abrir asistente'}
-      style={{ position: 'fixed', bottom: 20, right: 10, zIndex: 9001, cursor: 'pointer' }}
+      style={{ position: 'fixed', bottom: 20, right: 10, zIndex: 9001, cursor: 'pointer', animation: open ? undefined : 'robotIn .55s cubic-bezier(.34,1.56,.64,1) both' }}
     >
       {open
         ? <img src="/cuponix-work.svg" alt="Cuponix" style={{ width: 140, height: 140, display: 'block' }} />
@@ -628,15 +630,57 @@ function RobotButton({ open, onClick }) {
   );
 }
 
+// ─── Globito del circulito minimizado (contextual o "sigo por acá") ──
+function MiniBubble({ titulo, sub, onSaberMas, onClose, closing }) {
+  return (
+    <div style={{
+      position: 'fixed', bottom: 74, right: 20, zIndex: 9003, width: 220,
+      background: '#fff', borderRadius: 12, border: `1.5px solid ${C.line}`,
+      boxShadow: '0 6px 24px rgba(11,16,32,0.14)', padding: '11px 14px',
+      fontFamily: BUBBLE_FONT, color: C.ink, lineHeight: 1.35,
+      animation: closing ? 'bubbleOut .3s ease both' : 'bubbleIn .35s cubic-bezier(.34,1.56,.64,1) both',
+    }}>
+      <div style={{ fontSize: 13.5, fontWeight: 700 }}>{titulo}</div>
+      {sub && <div style={{ fontSize: 12.5, fontWeight: 400, marginTop: 1 }}>{sub}</div>}
+      {onSaberMas && (
+        <button onClick={onSaberMas} style={{ marginTop: 6, background: 'none', border: 'none', padding: 0, color: C.primary, fontFamily: BUBBLE_FONT, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+          Saber más →
+        </button>
+      )}
+      {/* Caret hacia el circulito */}
+      <span style={{ position: 'absolute', bottom: -8, right: 16, width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid #fff' }} />
+      <span style={{ position: 'absolute', bottom: -10, right: 15, width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `9px solid ${C.line}`, zIndex: -1 }} />
+      <button onClick={onClose} style={{ position: 'absolute', top: -8, right: -8, width: 17, height: 17, borderRadius: '50%', background: C.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, lineHeight: 1 }}>✕</button>
+    </div>
+  );
+}
+
+// Mensajes contextuales según la pantalla (view) donde está el turista.
+const MENSAJES_VIEW = {
+  home:                 { titulo: '¿Primera vez por acá?',            sub: 'Te muestro cómo aprovechar los cupones de Gesell.ar.', extendido: 'Gesell.ar es tu billetera de cupones para Villa Gesell y la zona. Sumás cupones de distintos socios a tu cuponera con créditos (1 crédito = $2.000 + IVA) y los activás cuando estás listo para consumir. Empezá por explorar las ofertas: cuando veas una que te gusta, tocá "Agregar a cuponera". ¿Querés que te explique cómo conseguir créditos?' },
+  marketplace:          { titulo: 'Tocá cualquier cupón para activarlo.', sub: 'Con tus créditos lo sumás a tu cuponera en 1 clic.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Al tocarla ves el detalle y el botón para sumarla a tu cuponera (se descuenta el crédito indicado). Después la activás cuando estés en el local. ¿Te muestro cómo comprar créditos?' },
+  'marketplace-ofertas':{ titulo: 'Tocá cualquier cupón para activarlo.', sub: 'Con tus créditos lo sumás a tu cuponera en 1 clic.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Al tocarla ves el detalle y el botón para sumarla a tu cuponera. Después la activás cuando estés en el local. ¿Te muestro cómo comprar créditos?' },
+  ofertas:              { titulo: 'Tocá cualquier cupón para activarlo.', sub: 'Con tus créditos lo sumás a tu cuponera en 1 clic.', extendido: 'Cada tarjeta es un cupón de un socio. Tocala para ver el detalle y sumarla a tu cuponera; después la activás en el local. ¿Te muestro cómo comprar créditos?' },
+  salidas:              { titulo: 'Tocá cualquier cupón para activarlo.', sub: 'Con tus créditos lo sumás a tu cuponera en 1 clic.', extendido: 'Cada tarjeta es un cupón de un socio de Salidas. Tocala para ver el detalle y sumarla a tu cuponera; después la activás en el local. ¿Te muestro cómo comprar créditos?' },
+  'oferta-detail':      { titulo: 'Activá este cupón y mostralo en el local.', sub: '1 crédito y listo — ¡así de fácil!', extendido: 'Para usar este cupón: sumalo a tu cuponera (se descuenta el crédito), y cuando estés en el local tocá "Activar" y mostrale la pantalla al comercio. La activación tiene su vigencia, así que activalo recién cuando vayas a consumir. ¿Alguna duda con los créditos?' },
+  detail:               { titulo: 'Este socio tiene cupones activos.', sub: 'Activalos ahora y usalos en tu visita.', extendido: 'En la ficha del socio vas a ver sus cupones disponibles. Sumá los que te interesen a tu cuponera con tus créditos y activalos cuando estés en el lugar. Si es un alojamiento Plus, además puede regalarte una cuponera al hospedarte. ¿Te muestro cómo funciona?' },
+  socios:               { titulo: 'Este socio tiene cupones activos.', sub: 'Activalos ahora y usalos en tu visita.', extendido: 'En la ficha del socio vas a ver sus cupones disponibles. Sumá los que te interesen a tu cuponera y activalos cuando estés en el lugar. ¿Te muestro cómo funciona?' },
+};
+
 // ─── Componente principal ─────────────────────────────────────
-export default function ChatBot() {
+export default function ChatBot({ view = 'home' }) {
   const [open, setOpen]                   = useState(false);
   const [chatClosing, setChatClosing]     = useState(false);
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [minimized, setMinimized]         = useState(false);
   const [scrolledDown, setScrolledDown]   = useState(false);
+  const [miniBubble, setMiniBubble]       = useState(null);   // { titulo, sub, extendido? }
+  const [miniClosing, setMiniClosing]     = useState(false);
+  const [initialBotMessage, setInitialBotMessage] = useState(null);
   const scrolledRef = useRef(false);
   const closingRef  = useRef(false);
+  const miniTimers  = useRef([]);
+  const shownViews  = useRef(new Set());
 
   useEffect(() => {
     const handler = () => {
@@ -656,6 +700,33 @@ export default function ChatBot() {
     return () => clearTimeout(t);
   }, [scrolledDown]);
 
+  // Muestra un globito del circulito por 4s y lo cierra con animación.
+  const openMini = useCallback((bubble) => {
+    miniTimers.current.forEach(clearTimeout);
+    miniTimers.current = [];
+    setMiniClosing(false);
+    setMiniBubble(bubble);
+    miniTimers.current.push(setTimeout(() => setMiniClosing(true), 3700));
+    miniTimers.current.push(setTimeout(() => { setMiniBubble(null); setMiniClosing(false); }, 4000));
+  }, []);
+
+  const closeMini = useCallback(() => {
+    miniTimers.current.forEach(clearTimeout);
+    miniTimers.current = [];
+    setMiniClosing(true);
+    setTimeout(() => { setMiniBubble(null); setMiniClosing(false); }, 300);
+  }, []);
+
+  // Mensaje contextual según la pantalla (una vez por view por sesión).
+  useEffect(() => {
+    if (!minimized || open) return;
+    const msg = MENSAJES_VIEW[view];
+    if (!msg || shownViews.current.has(view)) return;
+    shownViews.current.add(view);
+    const t = setTimeout(() => openMini(msg), 600);
+    return () => clearTimeout(t);
+  }, [view, minimized, open, openMini]);
+
   const handleMinimize = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
@@ -666,19 +737,37 @@ export default function ChatBot() {
       setMinimized(true);
       setBubbleVisible(false);
       closingRef.current = false;
+      openMini({ titulo: 'Tsss! sigo por acá!', sub: 'Cualquier cosa avisame...' });
     }, 350);
-  }, []);
+  }, [openMini]);
 
   const handleOpen = () => {
     setOpen(true);
     setChatClosing(false);
     setBubbleVisible(false);
+    miniTimers.current.forEach(clearTimeout);
+    setMiniBubble(null);
+    setMiniClosing(false);
+  };
+
+  const saberMas = (extendido) => {
+    setInitialBotMessage(extendido);
+    setMinimized(false);
+    handleOpen();
   };
 
   const KEYFRAMES = `
     @keyframes bubbleIn {
       from { opacity:0; transform:scale(0.8) translateY(8px); }
       to   { opacity:1; transform:scale(1)   translateY(0); }
+    }
+    @keyframes bubbleOut {
+      from { opacity:1; transform:scale(1)   translateY(0); }
+      to   { opacity:0; transform:scale(0.85) translateY(6px); }
+    }
+    @keyframes robotIn {
+      0%   { opacity:0; transform:translateY(48px) scale(0.85); }
+      100% { opacity:1; transform:translateY(0)    scale(1); }
     }
     @keyframes chatOpen {
       0%   { opacity:0; transform:scale(0.82) translateY(24px); }
@@ -704,6 +793,13 @@ export default function ChatBot() {
     return (
       <>
         <style>{KEYFRAMES}</style>
+        {miniBubble && (
+          <MiniBubble
+            titulo={miniBubble.titulo} sub={miniBubble.sub} closing={miniClosing}
+            onSaberMas={miniBubble.extendido ? () => saberMas(miniBubble.extendido) : undefined}
+            onClose={closeMini}
+          />
+        )}
         <MinimizedDot onClick={() => { setMinimized(false); handleOpen(); }} />
       </>
     );
@@ -714,7 +810,7 @@ export default function ChatBot() {
   return (
     <>
       <style>{KEYFRAMES}</style>
-      {showChat && <ChatPanel isClosing={chatClosing} onMinimize={handleMinimize} />}
+      {showChat && <ChatPanel isClosing={chatClosing} onMinimize={handleMinimize} initialBotMessage={initialBotMessage} />}
       {bubbleVisible && !open && !chatClosing && (
         <SpeechBubble onDismiss={() => { setBubbleVisible(false); setMinimized(true); }} />
       )}

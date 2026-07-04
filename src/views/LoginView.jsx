@@ -1,12 +1,20 @@
 // ============================================================
 //  src/views/LoginView.jsx
 // ============================================================
-import React, { useState, useRef } from 'react';
-import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Hotel, UtensilsCrossed, Sparkles, ChevronRight } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Coins, Trash2 } from 'lucide-react';
 import { login, registrarTurista, loginConGoogle } from '../lib/auth';
 import { supabase } from '../lib/supabase';
-import { registrarIntentoPagoTarjeta } from '../lib/planes';
+import { registrarIntentoPagoTarjeta, FOTOS_GALERIA_MAX } from '../lib/planes';
+import { getSaldo } from '../lib/cobros';
+import {
+  getCuponerasRegalo, crearCuponeraRegalo, cambiarEstadoCuponera,
+  agregarCupon, quitarCupon, buscarPromosDisponibles, costoCreditosDePromo, sugerirCupones,
+} from '../lib/cuponerasRegalo';
 import PlanPicker from '../components/PlanPicker';
+import GaleriaFotos from '../components/GaleriaFotos';
+import PerfilNegocioForm from '../components/PerfilNegocioForm';
+import { perfilDesdeNegocio, perfilAPayload, validarPerfil } from '../lib/perfilNegocio';
 
 // ─── Helpers ─────────────────────────────────────────────────
 function getSiteName() {
@@ -15,30 +23,9 @@ function getSiteName() {
   return h === 'localhost' ? 'gesell.ar' : h;
 }
 
-// ─── Taxonomía de cuentas comerciales ───────────────────────
-const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
-
-// Tipos de cuenta comercial — alineados con los 3 pilares del sitio
-const TIPOS_COMERCIO = [
-  { id: 'alojamiento',    label: 'Alojamiento',      sub: 'Hotel, cabaña, dpto\ndomo, glamping, carpa...', Icon: Hotel },
-  { id: 'salidas',        label: 'Salidas',           sub: 'Gastronomía, bar, café\nheladería, disco, teatro...', Icon: UtensilsCrossed },
-  { id: 'aventura_relax', label: 'Aventura & Relax',  sub: 'Tours, deportes, yoga\nspa, masajes, cultura...', Icon: Sparkles },
-];
-
-// Categorías / industrias por tipo
-const CATS = {
-  alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
-  salidas:        ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
-  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
-};
-
-const SERVICIOS_ALOJ = [
-  'WiFi', 'Estacionamiento', 'Pileta', 'Desayuno incluido',
-  'Aire acondicionado', 'Calefacción', 'Cocina equipada', 'Parrilla',
-  'Lavarropas', 'Secador de cabello', 'TV Smart', 'Ropa de cama',
-  'Toallas incluidas', 'Caja fuerte', 'Recepción 24 hs', 'Terraza / Balcón',
-  'Vista al mar', 'Bicicletas', 'Jardín / Patio', 'Servicio de limpieza',
-];
+// Cupo semanal por defecto de activaciones de cuponera regalo
+// (socio_alias.unidades_declaradas) — ya no se le pregunta al socio en el alta.
+const UNIDADES_DEFAULT = 20;
 
 const A = {
   primary:     '#2545E6',
@@ -61,55 +48,6 @@ const IcoGoogle = () => (
     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-  </svg>
-);
-
-// Turista: persona con mochila viajando
-const IcoTurista = ({ size = 56, selected }) => (
-  <svg width={size} height={size} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="22" cy="13" r="7" stroke={selected ? A.primary : A.ink2} strokeWidth="2" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M8 36c0-7.732 6.268-14 14-14h1c7.732 0 14 6.268 14 14v2H8v-2z" stroke={selected ? A.primary : A.ink2} strokeWidth="2" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <rect x="32" y="28" width="15" height="12" rx="2.5" stroke={selected ? A.primary : A.ink2} strokeWidth="2" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M35 28v-2a3 3 0 0 1 3-3h3a3 3 0 0 1 3 3v2" stroke={selected ? A.primary : A.ink2} strokeWidth="2"/>
-    <line x1="39.5" y1="28" x2="39.5" y2="40" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5"/>
-    <line x1="32" y1="33" x2="47" y2="33" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5"/>
-    <path d="M10 38h25" stroke={selected ? A.primary : A.ink2} strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
-
-// Publicar ofertas: tienda / local comercial
-const IcoPublicar = ({ size = 56, selected }) => (
-  <svg width={size} height={size} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="8" y="26" width="40" height="22" rx="2" stroke={selected ? A.primary : A.ink2} strokeWidth="2" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M5 26l23-16 23 16" stroke={selected ? A.primary : A.ink2} strokeWidth="2" strokeLinejoin="round"/>
-    <rect x="22" y="36" width="12" height="12" rx="1.5" stroke={selected ? A.primary : A.ink2} strokeWidth="2" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <rect x="10" y="32" width="10" height="7" rx="1.5" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <rect x="36" y="32" width="10" height="7" rx="1.5" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M28 10v4M25 12h6" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-);
-
-// Alojamiento: cama
-const IcoAlojamiento = ({ size = 48, selected }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="4" y="20" width="40" height="18" rx="3" stroke={selected ? A.primary : A.ink2} strokeWidth="2" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M4 28h40" stroke={selected ? A.primary : A.ink2} strokeWidth="2"/>
-    <rect x="10" y="22" width="10" height="6" rx="2" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <rect x="28" y="22" width="10" height="6" rx="2" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M8 20V14a2 2 0 0 1 2-2h28a2 2 0 0 1 2 2v6" stroke={selected ? A.primary : A.ink2} strokeWidth="2"/>
-    <path d="M8 38v4M40 38v4" stroke={selected ? A.primary : A.ink2} strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
-
-// Comercio o servicio: tenedor y llave
-const IcoComercio = ({ size = 48, selected }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="6" y="8" width="36" height="32" rx="3" stroke={selected ? A.primary : A.ink2} strokeWidth="2" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M6 18h36" stroke={selected ? A.primary : A.ink2} strokeWidth="2"/>
-    <path d="M16 8v10" stroke={selected ? A.primary : A.ink2} strokeWidth="2" strokeLinecap="round"/>
-    <path d="M32 8v10" stroke={selected ? A.primary : A.ink2} strokeWidth="2" strokeLinecap="round"/>
-    <circle cx="24" cy="31" r="5" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5" fill={selected ? A.primarySoft : '#F7F8FA'}/>
-    <path d="M24 28v3l2 1.5" stroke={selected ? A.primary : A.ink2} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -199,137 +137,6 @@ function BtnSubmit({ loading, label, loadingLabel }) {
   );
 }
 
-// ─── Tarjeta de selección (tipo de usuario / tipo de negocio) ─
-function TipoCard({ selected, onClick, icon, title, sub }) {
-  return (
-    <button type="button" onClick={onClick}
-      style={{
-        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-        padding: '20px 14px 16px',
-        border: `2px solid ${selected ? A.primary : A.line}`,
-        borderRadius: 16, cursor: 'pointer', background: selected ? A.primarySoft : '#fff',
-        transition: 'all .2s', fontFamily: A.font,
-      }}
-    >
-      {icon}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: selected ? A.primary : A.ink }}>{title}</div>
-        {sub && <div style={{ fontSize: 11, color: A.muted, marginTop: 3, lineHeight: 1.4 }}>{sub}</div>}
-      </div>
-    </button>
-  );
-}
-
-// ─── Toggle switch ────────────────────────────────────────────
-function Toggle({ label, checked, onChange }) {
-  return (
-    <div onClick={() => onChange(!checked)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', border: `1.5px solid ${checked ? A.primary : A.line}`, borderRadius: 13, background: checked ? A.primarySoft : '#fff', cursor: 'pointer', userSelect: 'none', transition: 'all .15s' }}>
-      <span style={{ fontSize: 13, fontWeight: 500, color: checked ? A.primary : A.ink2, fontFamily: A.font }}>{label}</span>
-      <div style={{ width: 42, height: 24, borderRadius: 12, background: checked ? A.primary : A.line, position: 'relative', transition: 'background .15s', flexShrink: 0 }}>
-        <div style={{ position: 'absolute', top: 3, left: checked ? 21 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.18)', transition: 'left .15s' }} />
-      </div>
-    </div>
-  );
-}
-
-// ─── Servicios collapsible multi-checkbox ─────────────────────
-function ServiciosField({ selected, onChange }) {
-  const [open, setOpen] = useState(false);
-  const [custom, setCustom] = useState('');
-
-  const toggle = (s) => onChange(selected.includes(s) ? selected.filter(x => x !== s) : [...selected, s]);
-  const addCustom = () => {
-    const t = custom.trim();
-    if (t && !selected.includes(t)) onChange([...selected, t]);
-    setCustom('');
-  };
-  const customOnes = selected.filter(s => !SERVICIOS_ALOJ.includes(s));
-
-  return (
-    <div>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 6, fontFamily: A.font }}>Servicios incluidos</label>
-      {/* Trigger */}
-      <button type="button" onClick={() => setOpen(o => !o)} style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', border: `1.5px solid ${open ? A.primary : A.line}`, borderRadius: open ? '13px 13px 0 0' : 13, fontSize: 14, fontWeight: 500, fontFamily: A.font, color: selected.length ? A.ink : A.muted, background: '#fff', cursor: 'pointer', transition: 'border-color .15s' }}>
-        <span>{selected.length === 0 ? 'Seleccionar servicios...' : `${selected.length} servicio${selected.length !== 1 ? 's' : ''} seleccionado${selected.length !== 1 ? 's' : ''}`}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s', color: A.muted, flexShrink: 0 }}><path d="m6 9 6 6 6-6"/></svg>
-      </button>
-      {/* Panel */}
-      {open && (
-        <div style={{ border: `1.5px solid ${A.primary}`, borderTop: 'none', borderRadius: '0 0 13px 13px', padding: '14px 14px 12px', background: '#fff' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-            {SERVICIOS_ALOJ.map(s => {
-              const sel = selected.includes(s);
-              return (
-                <div key={s} onClick={() => toggle(s)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 9, background: sel ? A.primarySoft : 'transparent', cursor: 'pointer', userSelect: 'none', transition: 'background .12s' }}>
-                  <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${sel ? A.primary : A.line}`, background: sel ? A.primary : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, transition: 'all .12s' }}>
-                    {sel && <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                  <span style={{ fontSize: 12.5, color: sel ? A.primary : A.ink2, fontFamily: A.font, fontWeight: sel ? 600 : 400 }}>{s}</span>
-                </div>
-              );
-            })}
-          </div>
-          {/* Custom */}
-          <div style={{ borderTop: `1px solid ${A.line}`, marginTop: 10, paddingTop: 10, display: 'flex', gap: 8 }}>
-            <input value={custom} onChange={e => setCustom(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }} placeholder="Agregar otro servicio..." style={{ flex: 1, border: `1px solid ${A.line}`, borderRadius: 9, padding: '8px 12px', fontSize: 13, fontFamily: A.font, color: A.ink, outline: 'none' }} />
-            <button type="button" onClick={addCustom} style={{ padding: '8px 16px', background: A.primary, color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>+</button>
-          </div>
-          {customOnes.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-              {customOnes.map(s => (
-                <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px 4px 10px', background: A.primarySoft, border: `1px solid ${A.primary}33`, borderRadius: 100, fontSize: 12, color: A.primary, fontFamily: A.font }}>
-                  {s}
-                  <button type="button" onClick={() => toggle(s)} style={{ background: 'none', border: 'none', color: A.primary, cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Upload de logo / imagen de perfil ────────────────────────
-function ImageUpload({ file, onChange }) {
-  const ref = useRef(null);
-  const [preview, setPreview] = useState(null);
-
-  const handleChange = (f) => {
-    onChange(f);
-    if (f) {
-      const reader = new FileReader();
-      reader.onload = e => setPreview(e.target.result);
-      reader.readAsDataURL(f);
-    } else {
-      setPreview(null);
-    }
-  };
-
-  return (
-    <div>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: A.ink2, marginBottom: 6, fontFamily: A.font }}>
-        Logo o imagen del negocio <span style={{ fontWeight: 400, color: A.muted }}>(opcional)</span>
-      </label>
-      <div onClick={() => ref.current?.click()} style={{ border: `2px dashed ${preview ? A.primary : A.line}`, borderRadius: 14, padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', background: preview ? A.primarySoft : '#fafafa', transition: 'all .15s' }}>
-        {preview
-          ? <img src={preview} alt="preview" style={{ height: 80, width: 80, objectFit: 'cover', borderRadius: 12, border: `2px solid ${A.primary}33` }} />
-          : <>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={A.muted} strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-              <span style={{ fontSize: 13, color: A.muted, fontFamily: A.font }}>Subir logo o foto del local</span>
-              <span style={{ fontSize: 11, color: A.muted, fontFamily: A.font }}>PNG, JPG — hasta 5 MB</span>
-            </>
-        }
-        {preview && (
-          <button type="button" onClick={e => { e.stopPropagation(); handleChange(null); }} style={{ fontSize: 12, color: A.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: A.font }}>
-            Cambiar imagen
-          </button>
-        )}
-      </div>
-      <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" onChange={e => handleChange(e.target.files[0] || null)} style={{ display: 'none' }} />
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════
 //  ONBOARDING COMERCIAL — wizard de 3 pasos estilo panel admin
@@ -346,21 +153,10 @@ const OBNAVY = '#0f172a';
 const OBFONT = "'Inter', system-ui, sans-serif";
 const OBGRN  = '#10b981';
 
-const OB_PROVINCIAS = [
-  'Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes',
-  'Entre Ríos','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones',
-  'Neuquén','Río Negro','Salta','San Juan','San Luis','Santa Cruz','Santa Fe',
-  'Santiago del Estero','Tierra del Fuego','Tucumán',
-];
-
-const OB_PAISES = ['Argentina','Uruguay','Chile','Brasil','Paraguay','Bolivia','Otro'];
-const COD_PAISES = ['+54','+598','+56','+55','+595','+591','+1','+34','+39','+44'];
-
 // Copy/pricing de planes vive en src/lib/planes.js y se renderiza vía <PlanPicker />
 
 // Componentes a nivel de módulo — NO definir dentro del componente
 // (si se recrean en cada render, React remonta los inputs y se pierde el foco al tipear)
-const ErrMsg = ({ msg }) => msg ? <span style={{ fontSize:11, color:'#ef4444', marginTop:3, display:'block', fontFamily:OBFONT }}>{msg}</span> : null;
 const OBCard = ({ children, style }) => (
   <div style={{ background:OBCARD, borderRadius:16, border:`1px solid ${OBLINE}`, padding:20, ...style }}>{children}</div>
 );
@@ -377,155 +173,247 @@ const BtnNext = ({ onClick, disabled, label, saving }) => (
 function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete }) {
   const [obStep,    setObStep]    = useState(1);
   const [doneSteps, setDoneSteps] = useState(new Set());
-  // Rubro (alojamiento/salidas/aventura & relax) + categoría — encabezado del form
-  const [tipoNeg, setTipoNeg] = useState('');
-  const [catsNeg, setCatsNeg] = useState([]);
-  const toggleCat = (c) => setCatsNeg(prev =>
-    prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= 2 ? prev : [...prev, c])
-  );
-  // Empresa
-  const [nombre,      setNombre]      = useState('');
-  // Contacto
-  const [email,       setEmail]       = useState(rEmail || '');
-  const [telFijoCod,  setTelFijoCod]  = useState('+54');
-  const [telFijoNum,  setTelFijoNum]  = useState('');
-  const [telMovilCod, setTelMovilCod] = useState('+54');
-  const [telMovilNum, setTelMovilNum] = useState('');
-  const [instagram,   setInstagram]   = useState('');
-  const [facebook,    setFacebook]    = useState('');
-  const [tiktok,      setTiktok]      = useState('');
-  // Ubicación
-  const [pais,        setPais]        = useState('Argentina');
-  const [provincia,   setProvincia]   = useState('');
-  const [localidad,   setLocalidad]   = useState('');
-  const [codPostal,   setCodPostal]   = useState('');
-  const [calle,       setCalle]       = useState('');
-  const [numero,      setNumero]      = useState('');
-  const [piso,        setPiso]        = useState('');
-  const [depto,       setDepto]       = useState('');
-  const [entreCalles, setEntreCalles] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [logoPreview, setLogoPreview] = useState(null);
-  const [logoFile,    setLogoFile]    = useState(null);
-  const logoRef = useRef();
+  // Perfil del negocio — objeto único manejado por PerfilNegocioForm
+  const [perfil, setPerfil] = useState(() => perfilDesdeNegocio(null, rEmail));
+  const [fotos, setFotos] = useState([]);
   // Cuenta
   const [plan, setPlan] = useState(null);
-  const [datosTarjetaPlus, setDatosTarjetaPlus] = useState(null);
   // Oferta
   const [ofTitulo, setOfTitulo] = useState('');
   const [ofPct,    setOfPct]    = useState('');
   const [ofDesc,   setOfDesc]   = useState('');
+  const [ofTipo,   setOfTipo]   = useState('Normal'); // 'Normal' | 'Flash'
+  const [ofFechaFinFlash, setOfFechaFinFlash] = useState('');
+  const [ofImagenFile, setOfImagenFile]       = useState(null);
+  const [ofImagenPreview, setOfImagenPreview] = useState(null);
+  const ofImagenRef = useRef();
+  // Cuponera regalo (paso 4, solo Plus)
+  const [cuponeraId, setCuponeraId]   = useState(null);
+  const [saldoCreditos, setSaldoCreditos] = useState(0);
+  const [aliasSocio, setAliasSocio]   = useState(null);
+  const [cuponesCup, setCuponesCup]   = useState([]);
+  const [busTexto, setBusTexto]       = useState('');
+  const [busResultados, setBusResultados] = useState([]);
+  const [busLoading, setBusLoading]   = useState(false);
+  const [showCrearOtra, setShowCrearOtra] = useState(false);
+  const [nuevaCupNombre, setNuevaCupNombre] = useState('');
+  const [cup4Loading, setCup4Loading] = useState(true);
+  const [cup4Error, setCup4Error]     = useState('');
+  const [puedeCompartir, setPuedeCompartir] = useState(true);
   // Misc
   const [negocioId, setNegocioId] = useState(null);
+  const [stubError, setStubError] = useState(null);
   const [saving,    setSaving]    = useState(false);
   const [errors,    setErrors]    = useState({});
 
-  const DESC_MIN = 40, DESC_MAX = 450;
+  // Estilos compartidos por los pasos 3 y 4 (el paso 2 los trae PerfilNegocioForm)
+  const inp = { width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:10, border:`1px solid ${OBLINE}`, fontFamily:OBFONT, fontSize:13, color:OBINK, outline:'none', background:'#fff', transition:'border-color .15s' };
+  const lbl = { fontFamily:OBFONT, fontSize:11, fontWeight:700, color:OBINK2, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
 
-  const inp  = { width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:10, border:`1px solid ${OBLINE}`, fontFamily:OBFONT, fontSize:13, color:OBINK, outline:'none', background:'#fff', transition:'border-color .15s' };
-  const inpE = (f) => ({ ...inp, borderColor: errors[f] ? '#ef4444' : OBLINE });
-  const lbl  = { fontFamily:OBFONT, fontSize:11, fontWeight:700, color:OBINK2, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
+  // Se crea un negocio "borrador" apenas arranca el wizard (con datos provisorios)
+  // para que el paso 1 (Cuenta) ya tenga un negocioId real donde atar el plan,
+  // los créditos y el alias — el paso 2 (Mi Empresa) lo completa con un update.
+  useEffect(() => {
+    if (!negocioId) crearNegocioStub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleLogoChange = (e) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    setLogoFile(f);
-    const reader = new FileReader();
-    reader.onload = ev => setLogoPreview(ev.target.result);
-    reader.readAsDataURL(f);
-  };
-
-  const validate1 = () => {
-    const e = {};
-    if (!tipoNeg)                 e.tipo        = 'Elegí el rubro de tu negocio';
-    if (catsNeg.length === 0)     e.categorias  = 'Elegí al menos una categoría';
-    if (!nombre.trim())           e.nombre      = 'Campo requerido';
-    if (!provincia)               e.provincia   = 'Campo requerido';
-    if (!localidad)               e.localidad   = 'Campo requerido';
-    if (!email.trim())            e.email       = 'Campo requerido';
-    else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) e.email = 'Email inválido';
-    if (!telMovilNum.trim())      e.telMovil    = 'Campo requerido';
-    if (!codPostal.trim())        e.codPostal   = 'Campo requerido';
-    if (!calle.trim())            e.calle       = 'Campo requerido';
-    if (!numero.trim())           e.numero      = 'Campo requerido';
-    if (!descripcion.trim())      e.descripcion = 'Campo requerido';
-    else if (descripcion.length < DESC_MIN) e.descripcion = `Mínimo ${DESC_MIN} caracteres (${descripcion.length} escritos)`;
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const step1Save = async () => {
-    if (!validate1() || saving) return;
-    setSaving(true);
+  async function crearNegocioStub() {
+    setStubError(null);
     try {
-      let imagenUrl = null;
-      if (logoFile && regUserId) {
-        try {
-          const ext = logoFile.name.split('.').pop().toLowerCase();
-          const { data: up } = await supabase.storage.from('negocios').upload(`logos/${regUserId}.${ext}`, logoFile, { upsert: true });
-          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); imagenUrl = ud.publicUrl; }
-        } catch {}
-      }
       const { data: neg, error: negErr } = await supabase.from('negocios').insert({
-        nombre: nombre.trim(), tipo: tipoNeg, categoria: catsNeg.join(' / '),
-        email: email.trim() || null,
-        tel_fijo_cod: telFijoNum.trim() ? telFijoCod : null, tel_fijo_num: telFijoNum.trim() || null,
-        tel_movil_cod: telMovilNum.trim() ? telMovilCod : null, tel_movil_num: telMovilNum.trim() || null,
-        instagram: instagram.trim() || null, facebook: facebook.trim() || null, tiktok: tiktok.trim() || null,
-        pais, provincia, localidad, cod_postal: codPostal.trim() || null,
-        calle: calle.trim() || null, numero: numero.trim() || null, piso: piso.trim() || null,
-        depto: depto.trim() || null, entre_calles: entreCalles.trim() || null,
-        descripcion: descripcion.trim(),
-        imagen_url: imagenUrl, plan:'free', aprobado:false, activo:false,
+        nombre: `${rNombre} ${rApellido}`.trim() || 'Nuevo negocio',
+        tipo: 'alojamiento', plan: 'free', aprobado: false, activo: false,
       }).select().single();
       if (negErr) throw negErr;
       await supabase.from('perfiles').insert({
-        id: regUserId, nombre:`${rNombre} ${rApellido}`.trim(), email: rEmail,
-        negocio_id: neg.id, rol:'socio', es_superadmin:false,
+        id: regUserId, nombre: `${rNombre} ${rApellido}`.trim(), email: rEmail,
+        negocio_id: neg.id, rol: 'socio', es_superadmin: false,
       });
       setNegocioId(neg.id);
-      setDoneSteps(s => new Set([...s, 1]));
-      setObStep(2);
+    } catch (err) {
+      setStubError(err?.message || 'No pudimos preparar tu cuenta. Reintentá.');
+    }
+  }
+
+  const stepEmpresaSave = async () => {
+    if (saving) return;
+    const errs = validarPerfil(perfil);
+    if (Object.keys(errs).length) { setErrors(errs); window.scrollTo(0, 0); return; }
+    setSaving(true);
+    try {
+      let imagenUrl = perfil.logoPreview || null;
+      if (perfil.logoFile && negocioId) {
+        try {
+          const ext = perfil.logoFile.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage.from('negocios').upload(`logos/${negocioId}.${ext}`, perfil.logoFile, { upsert: true });
+          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); imagenUrl = ud.publicUrl; }
+        } catch { /* logo se puede subir más tarde */ }
+      }
+      const urlsGaleria = [];
+      for (let i = 0; i < fotos.length; i++) {
+        const f = fotos[i];
+        if (!f.file) { urlsGaleria.push(f.src); continue; }
+        try {
+          const ext = f.file.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage.from('negocios').upload(`galeria/${negocioId}/${Date.now()}-${i}.${ext}`, f.file, { upsert: true });
+          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); urlsGaleria.push(ud.publicUrl); }
+        } catch { /* esa foto se puede resubir más tarde */ }
+      }
+      const payload = { ...perfilAPayload(perfil), imagen_url: imagenUrl, galeria: urlsGaleria };
+      const { error: negErr } = await supabase.from('negocios').update(payload).eq('id', negocioId);
+      if (negErr) throw negErr;
+      setDoneSteps(s => new Set([...s, 2]));
+      setObStep(3);
       window.scrollTo(0, 0);
     } catch (err) { setErrors({ _: err?.message || 'Error al guardar, intentá de nuevo.' }); }
     finally { setSaving(false); }
   };
 
-  const step2Save = async () => {
-    if (saving || !plan) return;
+  // Elegir un plan ya persiste y avanza de paso — un solo click (sin "Siguiente" aparte).
+  const confirmarFree = async () => {
+    if (saving) return;
+    setPlan('free');
     setSaving(true);
     try {
-      if (negocioId) {
-        if (plan === 'plus' && datosTarjetaPlus) {
-          await registrarIntentoPagoTarjeta(negocioId, datosTarjetaPlus);
-        } else {
-          await supabase.from('negocios').update({ plan: 'free' }).eq('id', negocioId);
-        }
-      }
-      setDoneSteps(s => new Set([...s, 2]));
-      setObStep(3);
+      if (negocioId) await supabase.from('negocios').update({ plan: 'free' }).eq('id', negocioId);
+      setDoneSteps(s => new Set([...s, 1]));
+      setObStep(2);
       window.scrollTo(0, 0);
-    } catch {}
+    } catch { /* alta se completa igual, el socio queda en free por default */ }
     finally { setSaving(false); }
+  };
+
+  const confirmarPlus = async (datos) => {
+    if (saving) return;
+    setPlan('plus');
+    setSaving(true);
+    try {
+      let comprobanteUrl = null;
+      if (datos.comprobanteFile && negocioId) {
+        const ext = datos.comprobanteFile.name.split('.').pop().toLowerCase();
+        const { data: up } = await supabase.storage.from('negocios').upload(`comprobantes/${negocioId}.${ext}`, datos.comprobanteFile, { upsert: true });
+        if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); comprobanteUrl = ud.publicUrl; }
+      }
+      if (negocioId) await registrarIntentoPagoTarjeta(negocioId, { ...datos, comprobanteUrl });
+      setDoneSteps(s => new Set([...s, 1]));
+      setObStep(2);
+      window.scrollTo(0, 0);
+    } catch { /* alta se completa igual, se puede reintentar Plus luego desde el panel */ }
+    finally { setSaving(false); }
+  };
+
+  const handleOfImagenChange = (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setOfImagenFile(f);
+    const reader = new FileReader();
+    reader.onload = ev => setOfImagenPreview(ev.target.result);
+    reader.readAsDataURL(f);
   };
 
   const step3Save = async () => {
     if (saving || !ofTitulo.trim() || !ofPct) return;
     setSaving(true);
     try {
-      if (negocioId) await supabase.from('ofertas').insert({
+      let imagenUrl = null;
+      if (ofImagenFile && negocioId) {
+        try {
+          const ext = ofImagenFile.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage.from('negocios').upload(`promos/${negocioId}-${Date.now()}.${ext}`, ofImagenFile, { upsert: true });
+          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); imagenUrl = ud.publicUrl; }
+        } catch { /* imagen se puede subir más tarde */ }
+      }
+      if (negocioId) await supabase.from('promociones').insert({
         negocio_id: negocioId, titulo: ofTitulo.trim(),
-        descripcion: ofDesc.trim() || null, descuento_pct: parseInt(ofPct),
-        tipo: tipoNeg, activo: false,
+        descripcion: ofDesc.trim() || null, badge: `-${ofPct}%`,
+        offer_type: ofTipo, fecha_fin_flash: ofTipo === 'Flash' && ofFechaFinFlash ? ofFechaFinFlash : null,
+        imagen_url: imagenUrl, aprobada: false, activa: false,
       });
-      onComplete();
-    } catch { onComplete(); }
+      setDoneSteps(s => new Set([...s, 3]));
+      if (plan === 'plus') { setObStep(4); window.scrollTo(0, 0); }
+      else onComplete();
+    } catch {
+      if (plan === 'plus') { setDoneSteps(s => new Set([...s, 3])); setObStep(4); window.scrollTo(0, 0); }
+      else onComplete();
+    }
     finally { setSaving(false); }
   };
 
+  // ── Paso 4 (solo Plus): armar la primera cuponera regalo ──
+  async function cargarPaso4() {
+    setCup4Loading(true);
+    const [cups, saldo, aliasRes, negRes] = await Promise.all([
+      getCuponerasRegalo(negocioId),
+      getSaldo(negocioId),
+      supabase.from('socio_alias').select('codigo, unidades_declaradas').eq('negocio_id', negocioId).maybeSingle(),
+      supabase.from('negocios').select('puede_compartir_cuponeras').eq('id', negocioId).single(),
+    ]);
+    let cup = cups[0];
+    if (!cup) {
+      const { data } = await crearCuponeraRegalo(negocioId, 'Mi primera cuponera');
+      cup = { ...data, cuponeras_regalo_cupones: [] };
+    }
+    setCuponeraId(cup.id);
+    setCuponesCup(cup.cuponeras_regalo_cupones || []);
+    setSaldoCreditos(saldo);
+    setAliasSocio(aliasRes.data || null);
+    setPuedeCompartir(negRes.data?.puede_compartir_cuponeras !== false);
+    setBusResultados(await buscarPromosDisponibles({ localidad: perfil.localidad }));
+    setCup4Loading(false);
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (obStep === 4 && negocioId) cargarPaso4();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obStep, negocioId]);
+
+  async function refrescarPaso4() {
+    const [cups, saldo] = await Promise.all([getCuponerasRegalo(negocioId), getSaldo(negocioId)]);
+    const cup = cups.find(c => c.id === cuponeraId) || cups[0];
+    setCuponesCup(cup?.cuponeras_regalo_cupones || []);
+    setSaldoCreditos(saldo);
+  }
+
+  async function handleAgregarCupon4(promo) {
+    if (cuponesCup.some(c => c.promocion_id === promo.id)) return;
+    const { error } = await agregarCupon(negocioId, cuponeraId, promo, cuponesCup.length);
+    if (error) { setCup4Error(error); return; }
+    setCup4Error('');
+    await refrescarPaso4();
+  }
+
+  async function handleSugerir4() {
+    setBusLoading(true);
+    const excluirIds = cuponesCup.map(c => c.promocion_id);
+    setBusResultados(await sugerirCupones(perfil.localidad, { excluirIds }));
+    setBusLoading(false);
+  }
+
+  async function handleQuitarCupon4(cuponeraCuponId) {
+    await quitarCupon(negocioId, cuponeraCuponId);
+    await refrescarPaso4();
+  }
+
+  async function handleCrearOtraCuponera() {
+    if (!nuevaCupNombre.trim()) return;
+    const { data } = await crearCuponeraRegalo(negocioId, nuevaCupNombre.trim());
+    setCuponeraId(data.id);
+    setCuponesCup([]);
+    setNuevaCupNombre('');
+    setShowCrearOtra(false);
+  }
+
+  async function finalizarPaso4() {
+    if (cuponesCup.length > 0 && puedeCompartir) await cambiarEstadoCuponera(cuponeraId, 'activa');
+    onComplete();
+  }
+
   const NAV_STEPS = [
-    { n:1, label:'Mi Empresa',     sub:'Perfil del negocio' },
-    { n:2, label:'Cuenta',         sub:'Planes para socios' },
-    { n:3, label:'Primera oferta', sub:'Captá clientes desde el día 1' },
+    { n:1, label:'Cuenta',       sub:'Planes para socios' },
+    { n:2, label:'Mi Empresa',   sub:'Perfil del negocio' },
+    { n:3, label:'Crear oferta', sub:'Captá clientes desde el día 1' },
+    ...(plan === 'plus' ? [{ n:4, label:'Cuponera regalo', sub:'Regalale a tus huéspedes' }] : []),
   ];
 
   return (
@@ -561,236 +449,70 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
         </nav>
         <div style={{ padding:'14px 20px', borderTop:'1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ fontSize:11, color:OBMUTED, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{rEmail}</div>
-          {tipoNeg && <div style={{ fontSize:10, color:'rgba(255,255,255,0.25)', marginTop:2 }}>{tipoNeg}{catsNeg[0] ? ` · ${catsNeg[0]}` : ''}</div>}
+          {perfil.tipo && <div style={{ fontSize:10, color:'rgba(255,255,255,0.25)', marginTop:2 }}>{perfil.tipo}{perfil.cats[0] ? ` · ${perfil.cats[0]}` : ''}</div>}
         </div>
       </div>
 
       {/* ── Contenido (mismo ancho/padding que el panel) ── */}
       <div style={{ flex:1, overflow:'auto', padding:28 }}>
         <div style={{ maxWidth:740 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:OBMUTED, letterSpacing:'0.08em', marginBottom:8 }}>PASO {obStep} DE 3</div>
+          <div style={{ fontSize:11, fontWeight:700, color:OBMUTED, letterSpacing:'0.08em', marginBottom:8 }}>PASO {obStep} DE {NAV_STEPS.length}</div>
 
-          {/* ── Paso 1: Mi Empresa ── */}
-          {obStep === 1 && (
+          {/* ── Paso 2: Mi Empresa ── */}
+          {obStep === 2 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div>
                 <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Tu perfil de negocio</h1>
                 <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Esta info aparece en tu ficha pública. Los campos con <span style={{ color:'#ef4444' }}>*</span> son obligatorios.</p>
               </div>
 
-              <OBCard>
-                <OBCardTitle label="Rubro de tu negocio" />
-                <label style={lbl}>Tipo <span style={{ color:'#ef4444' }}>*</span></label>
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:4 }}>
-                  {TIPOS_COMERCIO.map(t => {
-                    const sel = tipoNeg === t.id;
-                    return (
-                      <button key={t.id} type="button"
-                        onClick={() => { setTipoNeg(t.id); setCatsNeg([]); setErrors(p => ({ ...p, tipo:null, categorias:null })); }}
-                        style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:12, cursor:'pointer', fontFamily:OBFONT, fontSize:13, fontWeight:700,
-                          border:`1.5px solid ${sel?OBP:OBLINE}`, background:sel?OBPS:'#fff', color:sel?OBP:OBINK2, transition:'all .15s' }}>
-                        <t.Icon size={16} /> {t.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <ErrMsg msg={errors.tipo} />
-
-                {tipoNeg && (
-                  <div style={{ marginTop:16 }}>
-                    <label style={lbl}>Categorías — elegí hasta 2 <span style={{ color:'#ef4444' }}>*</span></label>
-                    <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
-                      {CATS[tipoNeg].map(c => {
-                        const sel = catsNeg.includes(c);
-                        const maxed = !sel && catsNeg.length >= 2;
-                        return (
-                          <button key={c} type="button" disabled={maxed}
-                            onClick={() => { toggleCat(c); setErrors(p => ({ ...p, categorias:null })); }}
-                            style={{ padding:'7px 13px', borderRadius:999, fontFamily:OBFONT, fontSize:12, fontWeight:600,
-                              cursor: maxed ? 'not-allowed' : 'pointer', opacity: maxed ? 0.45 : 1,
-                              border:`1.5px solid ${sel?OBP:OBLINE}`, background:sel?OBP:'#fff', color:sel?'#fff':OBINK2, transition:'all .15s' }}>
-                            {c}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <ErrMsg msg={errors.categorias} />
-                  </div>
-                )}
-              </OBCard>
+              <PerfilNegocioForm value={perfil} onChange={setPerfil} errors={errors} />
 
               <OBCard>
-                <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, flexShrink:0 }}>
-                    <div onClick={() => logoRef.current?.click()} style={{ width:168, height:168, borderRadius:20, border:`2px dashed ${logoPreview?OBP:OBLINE}`, cursor:'pointer', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:OBBG }}>
-                      {logoPreview
-                        ? <img src={logoPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        : (
-                          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
-                            <div style={{ width:56, height:56, borderRadius:14, background:OBLINE, display:'grid', placeItems:'center' }}>
-                              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 20V6a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" stroke={OBMUTED} strokeWidth="1.6" strokeLinejoin="round"/></svg>
-                            </div>
-                            <span style={{ fontSize:12, fontWeight:700, color:OBMUTED, fontFamily:OBFONT }}>Mi empresa</span>
-                          </div>
-                        )
-                      }
-                    </div>
-                    <button type="button" onClick={() => logoRef.current?.click()} style={{ fontSize:11, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>{logoPreview?'Cambiar logo':'Subir logo'}</button>
-                    <span style={{ fontSize:10, color:OBMUTED, textAlign:'center', maxWidth:120, lineHeight:1.4 }}>PNG/JPG · sin texto ni gráficas · opcional</span>
-                    <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoChange} style={{ display:'none' }} />
-                  </div>
-                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12 }}>
-                    <div>
-                      <label style={lbl}>Nombre del negocio <span style={{ color:'#ef4444' }}>*</span></label>
-                      <input value={nombre} onChange={e => { setNombre(e.target.value); setErrors(p => ({...p, nombre:null})); }} style={inpE('nombre')} placeholder="Ej: Hotel La Costa" />
-                      <ErrMsg msg={errors.nombre} />
-                    </div>
-                    <div>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6 }}>
-                        <label style={lbl}>Acerca de tu negocio:</label>
-                        <span style={{ fontSize:11, color:OBMUTED, fontFamily:OBFONT, fontWeight:600 }}>Mínimo: {DESC_MIN} caracteres</span>
-                      </div>
-                      <textarea value={descripcion} onChange={e => { setDescripcion(e.target.value.slice(0, DESC_MAX)); setErrors(p => ({...p, descripcion:null})); }} rows={4}
-                        placeholder="Ej: Somos un hotel familiar a media cuadra del mar, con pileta, desayuno y estacionamiento..."
-                        style={{ ...inpE('descripcion'), resize:'vertical', minHeight:90 }} />
-                      <ErrMsg msg={errors.descripcion} />
-                      <div style={{ display:'flex', justifyContent:'flex-end', marginTop:5 }}>
-                        <span style={{ fontSize:15, fontWeight:700, color: descripcion.length > DESC_MAX*0.9 ? '#ef4444' : OBMUTED }}>{descripcion.length} / {DESC_MAX}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </OBCard>
-
-              <OBCard>
-                <OBCardTitle label="Contacto" />
-                {/* Email — pre-cargado, requerido */}
-                <div style={{ marginBottom:14 }}>
-                  <label style={lbl}>Email <span style={{ color:'#ef4444' }}>*</span></label>
-                  <input type="email" value={email} onChange={e => { setEmail(e.target.value); setErrors(p => ({...p, email:null})); }} style={inpE('email')} placeholder="contacto@minegocio.com" />
-                  <ErrMsg msg={errors.email} />
-                </div>
-                {/* Teléfonos */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-                  <div>
-                    <label style={lbl}>Teléfono fijo</label>
-                    <div style={{ display:'flex', gap:6 }}>
-                      <select value={telFijoCod} onChange={e => setTelFijoCod(e.target.value)} style={{ ...inp, width:78, flexShrink:0, cursor:'pointer' }}>
-                        {COD_PAISES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                      <input value={telFijoNum} onChange={e => setTelFijoNum(e.target.value)} style={inp} placeholder="2255 432100" />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={lbl}>Línea móvil <span style={{ color:'#ef4444' }}>*</span></label>
-                    <div style={{ display:'flex', gap:6 }}>
-                      <select value={telMovilCod} onChange={e => setTelMovilCod(e.target.value)} style={{ ...inp, width:78, flexShrink:0, cursor:'pointer' }}>
-                        {COD_PAISES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                      <input value={telMovilNum} onChange={e => { setTelMovilNum(e.target.value); setErrors(p => ({...p, telMovil:null})); }} style={inpE('telMovil')} placeholder="2255 11223344" />
-                    </div>
-                    <ErrMsg msg={errors.telMovil} />
-                  </div>
-                </div>
-                {/* Redes */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
-                  <div>
-                    <label style={lbl}>Instagram</label>
-                    <input value={instagram} onChange={e => setInstagram(e.target.value)} style={inp} placeholder="@mi.negocio" />
-                  </div>
-                  <div>
-                    <label style={lbl}>Facebook</label>
-                    <input value={facebook} onChange={e => setFacebook(e.target.value)} style={inp} placeholder="/mi.negocio" />
-                  </div>
-                  <div>
-                    <label style={lbl}>TikTok</label>
-                    <input value={tiktok} onChange={e => setTiktok(e.target.value)} style={inp} placeholder="@mi.negocio" />
-                  </div>
-                </div>
-              </OBCard>
-
-              <OBCard>
-                <OBCardTitle label="Ubicación" />
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-                  <div>
-                    <label style={lbl}>País <span style={{ color:'#ef4444' }}>*</span></label>
-                    <select value={pais} onChange={e => setPais(e.target.value)} style={{ ...inp, cursor:'pointer' }}>
-                      {OB_PAISES.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={lbl}>Provincia <span style={{ color:'#ef4444' }}>*</span></label>
-                    <select value={provincia} onChange={e => { setProvincia(e.target.value); setErrors(p => ({...p, provincia:null})); }} style={{ ...inpE('provincia'), cursor:'pointer' }}>
-                      <option value="">Seleccioná</option>
-                      {OB_PROVINCIAS.map(pr => <option key={pr} value={pr}>{pr}</option>)}
-                    </select>
-                    <ErrMsg msg={errors.provincia} />
-                  </div>
-                  <div>
-                    <label style={lbl}>Localidad <span style={{ color:'#ef4444' }}>*</span></label>
-                    <select value={localidad} onChange={e => { setLocalidad(e.target.value); setErrors(p => ({...p, localidad:null})); }} style={{ ...inpE('localidad'), cursor:'pointer' }}>
-                      <option value="">Seleccioná</option>
-                      {LOCALIDADES.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                    <ErrMsg msg={errors.localidad} />
-                  </div>
-                  <div>
-                    <label style={lbl}>Código postal <span style={{ color:'#ef4444' }}>*</span></label>
-                    <input value={codPostal} onChange={e => { setCodPostal(e.target.value); setErrors(p => ({...p, codPostal:null})); }} style={inpE('codPostal')} placeholder="7165" />
-                    <ErrMsg msg={errors.codPostal} />
-                  </div>
-                </div>
-                {/* Domicilio */}
-                <label style={lbl}>Domicilio <span style={{ color:'#ef4444' }}>*</span></label>
-                <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:2 }}>
-                  <div>
-                    <input value={calle} onChange={e => { setCalle(e.target.value); setErrors(p => ({...p, calle:null})); }} style={inpE('calle')} placeholder="Calle / Avenida" />
-                    <ErrMsg msg={errors.calle} />
-                  </div>
-                  <div>
-                    <input value={numero} onChange={e => { setNumero(e.target.value); setErrors(p => ({...p, numero:null})); }} style={inpE('numero')} placeholder="Número o referencia" />
-                    <ErrMsg msg={errors.numero} />
-                  </div>
-                </div>
-                <div style={{ marginBottom:8 }} />
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 2fr', gap:14 }}>
-                  <input value={piso} onChange={e => setPiso(e.target.value)} style={inp} placeholder="Piso" />
-                  <input value={depto} onChange={e => setDepto(e.target.value)} style={inp} placeholder="Depto" />
-                  <input value={entreCalles} onChange={e => setEntreCalles(e.target.value)} style={inp} placeholder="Entre calles" />
-                </div>
+                <GaleriaFotos fotos={fotos} onChange={setFotos} maxFotos={FOTOS_GALERIA_MAX[plan || 'free']} />
               </OBCard>
 
               {errors._ && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{errors._}</div>}
 
               <div style={{ display:'flex', justifyContent:'center', paddingBottom:40 }}>
-                <BtnNext onClick={step1Save} saving={saving} label="Siguiente →" />
+                <BtnNext onClick={stepEmpresaSave} saving={saving} label="Siguiente →" />
               </div>
             </div>
           )}
 
-          {/* ── Paso 2: Cuenta ── */}
-          {obStep === 2 && (
+          {/* ── Paso 1: Cuenta ── */}
+          {obStep === 1 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div>
                 <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Elegí tu plan</h1>
                 <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Podés empezar gratis y actualizar cuando quieras. El cobro se activa cuando tu ficha sea aprobada.</p>
               </div>
 
-              <PlanPicker
-                value={plan}
-                primaryColor={OBP}
-                saving={saving}
-                onConfirmFree={() => { setPlan('free'); setDatosTarjetaPlus(null); }}
-                onConfirmPlus={datos => { setPlan('plus'); setDatosTarjetaPlus(datos); }}
-              />
-
-              <div style={{ display:'flex', justifyContent:'center', paddingBottom:40 }}>
-                <BtnNext onClick={step2Save} saving={saving} disabled={!plan} label="Siguiente →" />
-              </div>
+              {!negocioId ? (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'40px 0' }}>
+                  {stubError ? (
+                    <>
+                      <p style={{ fontSize:13, color:'#ef4444', fontFamily:OBFONT, margin:0 }}>{stubError}</p>
+                      <button type="button" onClick={crearNegocioStub} style={{ background:OBP, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontFamily:OBFONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>Reintentar</button>
+                    </>
+                  ) : (
+                    <p style={{ fontSize:13, color:OBMUTED, fontFamily:OBFONT }}>Preparando tu cuenta…</p>
+                  )}
+                </div>
+              ) : (
+                <PlanPicker
+                  value={plan}
+                  primaryColor={OBP}
+                  saving={saving}
+                  unidadesDeclaradas={UNIDADES_DEFAULT}
+                  onConfirmFree={confirmarFree}
+                  onConfirmPlus={confirmarPlus}
+                />
+              )}
             </div>
           )}
 
-          {/* ── Paso 3: Primera Oferta ── */}
+          {/* ── Paso 3: Crear oferta ── */}
           {obStep === 3 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div>
@@ -799,33 +521,182 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
               </div>
 
               <OBCard>
-                <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-                  <div>
-                    <label style={lbl}>Título de la oferta <span style={{ color:'#ef4444' }}>*</span></label>
-                    <input value={ofTitulo} onChange={e => setOfTitulo(e.target.value)} style={inp} placeholder="Ej: Noche + desayuno para 2 personas" />
-                  </div>
-                  <div>
-                    <label style={lbl}>Descuento <span style={{ color:'#ef4444' }}>*</span></label>
-                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                      <input type="number" min={1} max={99} value={ofPct} onChange={e => setOfPct(e.target.value)} style={{ ...inp, width:110 }} placeholder="20" />
-                      <span style={{ fontSize:22, fontWeight:700, color:OBINK2 }}>%</span>
+                <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, flexShrink:0 }}>
+                    <div onClick={() => ofImagenRef.current?.click()} style={{ width:140, height:140, borderRadius:20, border:`2px dashed ${ofImagenPreview?OBP:OBLINE}`, cursor:'pointer', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:OBBG }}>
+                      {ofImagenPreview
+                        ? <img src={ofImagenPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        : <span style={{ fontSize:12, fontWeight:700, color:OBMUTED, fontFamily:OBFONT }}>Foto</span>
+                      }
                     </div>
+                    <button type="button" onClick={() => ofImagenRef.current?.click()} style={{ fontSize:11, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>{ofImagenPreview?'Cambiar foto':'Subir foto'}</button>
+                    <input ref={ofImagenRef} type="file" accept="image/*" onChange={handleOfImagenChange} style={{ display:'none' }} />
                   </div>
-                  <div>
-                    <label style={lbl}>Descripción breve <span style={{ textTransform:'none', fontWeight:400, color:OBMUTED }}>— opcional</span></label>
-                    <textarea value={ofDesc} onChange={e => setOfDesc(e.target.value)} rows={3}
-                      placeholder="Qué incluye, condiciones, vigencia..."
-                      style={{ ...inp, resize:'vertical', minHeight:70 }} />
+
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:14 }}>
+                    <div>
+                      <label style={lbl}>Título de la oferta <span style={{ color:'#ef4444' }}>*</span></label>
+                      <input value={ofTitulo} onChange={e => setOfTitulo(e.target.value)} style={inp} placeholder="Ej: Noche + desayuno para 2 personas" />
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                      <div>
+                        <label style={lbl}>Descuento <span style={{ color:'#ef4444' }}>*</span></label>
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <input type="number" min={1} max={99} value={ofPct} onChange={e => setOfPct(e.target.value)} style={{ ...inp, width:110 }} placeholder="20" />
+                          <span style={{ fontSize:22, fontWeight:700, color:OBINK2 }}>%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={lbl}>Tipo de oferta</label>
+                        <select value={ofTipo} onChange={e => setOfTipo(e.target.value)} style={{ ...inp, cursor:'pointer' }}>
+                          <option value="Normal">Normal</option>
+                          <option value="Flash">Flash (con cuenta regresiva)</option>
+                        </select>
+                      </div>
+                    </div>
+                    {ofTipo === 'Flash' && (
+                      <div>
+                        <label style={lbl}>Vence el <span style={{ color:'#ef4444' }}>*</span></label>
+                        <input type="datetime-local" value={ofFechaFinFlash} onChange={e => setOfFechaFinFlash(e.target.value)} style={{ ...inp, maxWidth:220 }} />
+                      </div>
+                    )}
+                    <div>
+                      <label style={lbl}>Descripción breve <span style={{ textTransform:'none', fontWeight:400, color:OBMUTED }}>— opcional</span></label>
+                      <textarea value={ofDesc} onChange={e => setOfDesc(e.target.value)} rows={3}
+                        placeholder="Qué incluye, condiciones, vigencia..."
+                        style={{ ...inp, resize:'vertical', minHeight:70 }} />
+                    </div>
                   </div>
                 </div>
               </OBCard>
 
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, paddingBottom:40 }}>
-                <BtnNext onClick={step3Save} saving={saving} disabled={!ofTitulo.trim() || !ofPct} label="Guardar y terminar" />
-                <button onClick={onComplete} style={{ fontSize:13, color:OBMUTED, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT, fontWeight:600 }}>
+                <BtnNext onClick={step3Save} saving={saving} disabled={!ofTitulo.trim() || !ofPct} label={plan === 'plus' ? 'Guardar y seguir' : 'Guardar y terminar'} />
+                <button onClick={() => (plan === 'plus' ? setObStep(4) : onComplete())} style={{ fontSize:13, color:OBMUTED, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT, fontWeight:600 }}>
                   Lo haré más tarde →
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ── Paso 4: Cuponera regalo (solo Plus) ── */}
+          {obStep === 4 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+              <div>
+                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Armá tu primera cuponera regalo</h1>
+                <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Sumale cupones de otros socios y regalásela a tus huéspedes con tu alias. La pagás una sola vez al armarla — hoy tenés créditos de bienvenida para empezar.</p>
+              </div>
+
+              {cup4Loading ? (
+                <div style={{ padding:'30px 0', textAlign:'center', fontFamily:OBFONT, fontSize:13, color:OBMUTED }}>Cargando…</div>
+              ) : (
+                <>
+                  <div style={{ display:'flex', gap:14, alignItems:'center' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, fontFamily:OBFONT, fontSize:13, color:OBINK2 }}>
+                      <Coins size={16} color="#f59e0b" /> <b style={{ color:OBINK }}>{saldoCreditos}</b> créditos disponibles
+                    </div>
+                    {aliasSocio && (
+                      <div style={{ fontFamily:OBFONT, fontSize:13, color:OBINK2 }}>
+                        Alias: <b style={{ color:OBINK }}>{aliasSocio.codigo}</b> · {aliasSocio.unidades_declaradas} activaciones/semana
+                      </div>
+                    )}
+                  </div>
+
+                  {cup4Error && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{cup4Error}</div>}
+
+                  <OBCard>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                      <OBCardTitle label="Cupones incluidos" />
+                      {!showCrearOtra && (
+                        <button type="button" onClick={() => setShowCrearOtra(true)} style={{ fontSize:12, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>
+                          Crear otra cuponera
+                        </button>
+                      )}
+                    </div>
+
+                    {showCrearOtra && (
+                      <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+                        <input value={nuevaCupNombre} onChange={e => setNuevaCupNombre(e.target.value)} placeholder="Nombre de la nueva cuponera" style={inp} onKeyDown={e => e.key === 'Enter' && handleCrearOtraCuponera()} />
+                        <button type="button" onClick={handleCrearOtraCuponera} style={{ background:OBP, color:'#fff', border:'none', borderRadius:10, padding:'0 16px', fontFamily:OBFONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>Crear</button>
+                        <button type="button" onClick={() => setShowCrearOtra(false)} style={{ background:'transparent', color:OBMUTED, border:`1px solid ${OBLINE}`, borderRadius:10, padding:'0 14px', fontFamily:OBFONT, fontSize:13, fontWeight:600, cursor:'pointer' }}>Cancelar</button>
+                      </div>
+                    )}
+
+                    {cuponesCup.length === 0 ? (
+                      <div style={{ textAlign:'center', padding:'24px 0', color:OBMUTED, fontFamily:OBFONT, fontSize:13 }}>
+                        Todavía no agregaste cupones — elegí alguno de la lista de abajo.
+                      </div>
+                    ) : (
+                      <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:4 }}>
+                        {cuponesCup.map(cup => (
+                          <div key={cup.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:10, border:`1px solid ${OBLINE}` }}>
+                            <img src={cup.promociones?.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width:38, height:38, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontFamily:OBFONT, fontSize:13, fontWeight:700, color:OBINK, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cup.promociones?.titulo}</div>
+                              <div style={{ fontFamily:OBFONT, fontSize:11, color:OBMUTED }}>{cup.promociones?.negocios?.nombre}</div>
+                            </div>
+                            <span style={{ fontSize:11, fontWeight:700, color:OBINK2, display:'flex', alignItems:'center', gap:4, fontFamily:OBFONT, flexShrink:0 }}>
+                              <Coins size={12} color="#f59e0b" /> {cup.costo_creditos}
+                            </span>
+                            <button type="button" onClick={() => handleQuitarCupon4(cup.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#ef4444', padding:4, flexShrink:0 }}><Trash2 size={14} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </OBCard>
+
+                  <OBCard>
+                    <OBCardTitle label={`Catálogo en ${perfil.localidad || 'tu localidad'}`} />
+                    <button type="button" onClick={handleSugerir4} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:OBPS, color:OBP, border:`1.5px dashed ${OBP}55`, borderRadius:10, padding:'10px 0', fontFamily:OBFONT, fontSize:12.5, fontWeight:700, cursor:'pointer', marginBottom:12 }}>
+                      <Coins size={14} color="#f59e0b" /> Sugerir cupones de mi zona automáticamente
+                    </button>
+                    <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+                      <input value={busTexto} onChange={e => setBusTexto(e.target.value)}
+                        onKeyDown={async e => { if (e.key === 'Enter') { setBusLoading(true); setBusResultados(await buscarPromosDisponibles({ localidad: perfil.localidad, texto: busTexto })); setBusLoading(false); } }}
+                        placeholder="Buscar por título..." style={inp} />
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:280, overflowY:'auto' }}>
+                      {busLoading ? (
+                        <div style={{ textAlign:'center', padding:20, color:OBMUTED, fontFamily:OBFONT, fontSize:13 }}>Buscando…</div>
+                      ) : busResultados.length === 0 ? (
+                        <div style={{ textAlign:'center', padding:20, color:OBMUTED, fontFamily:OBFONT, fontSize:13 }}>Sin resultados</div>
+                      ) : busResultados.map(p => {
+                        const costo = costoCreditosDePromo(p);
+                        const yaIncluido = cuponesCup.some(c => c.promocion_id === p.id);
+                        return (
+                          <div key={p.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:10, border:`1px solid ${OBLINE}` }}>
+                            <img src={p.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width:38, height:38, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontFamily:OBFONT, fontSize:13, fontWeight:700, color:OBINK, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
+                              <div style={{ fontFamily:OBFONT, fontSize:11, color:OBMUTED }}>{p.negocios?.nombre}</div>
+                            </div>
+                            <span style={{ fontSize:11, fontWeight:700, color:OBINK2, display:'flex', alignItems:'center', gap:4, fontFamily:OBFONT, flexShrink:0 }}>
+                              <Coins size={12} color="#f59e0b" /> {costo}
+                            </span>
+                            <button type="button" disabled={yaIncluido} onClick={() => handleAgregarCupon4(p)}
+                              style={{ background:yaIncluido?OBLINE:OBPS, color:yaIncluido?OBMUTED:OBP, border:'none', borderRadius:8, padding:'6px 12px', fontFamily:OBFONT, fontSize:12, fontWeight:700, cursor:yaIncluido?'default':'pointer', flexShrink:0 }}>
+                              {yaIncluido ? 'Agregado' : 'Agregar'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </OBCard>
+
+                  {!puedeCompartir && cuponesCup.length > 0 && (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', fontFamily:OBFONT, fontSize: 12, color: '#b45309' }}>
+                      Tu comprobante de transferencia está pendiente de aprobación — tu cuponera queda en borrador y la vas a poder publicar desde el panel apenas se apruebe.
+                    </div>
+                  )}
+
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, paddingBottom:40 }}>
+                    <BtnNext onClick={finalizarPaso4} saving={saving} label={cuponesCup.length > 0 && puedeCompartir ? 'Publicar y terminar' : 'Terminar'} />
+                    <button onClick={onComplete} style={{ fontSize:13, color:OBMUTED, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT, fontWeight:600 }}>
+                      Lo haré más tarde →
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -865,34 +736,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
   // ── Cuenta comercial (checkbox al final del paso 1) ──
   const [esComercial,   setEsComercial]   = useState(false);
-  const [comTipo,       setComTipo]       = useState('');   // 'alojamiento' | 'salidas' | 'aventura_relax'
-  const [comCategorias, setComCategorias] = useState([]);   // hasta 2 seleccionadas
   const [regUserId,     setRegUserId]     = useState(null); // userId creado en paso 1
-
-  // ── Ficha del negocio (paso 2) ──
-  const [negNombre,      setNegNombre]      = useState('');
-  const [negLocalidad,   setNegLocalidad]   = useState('');
-  const [negDireccion,   setNegDireccion]   = useState('');
-  const [negDescripcion, setNegDescripcion] = useState('');
-  const [imagenFile,     setImagenFile]     = useState(null);
-
-  // Alojamiento
-  const [tamMinM2,       setTamMinM2]       = useState('');
-  const [tamMaxM2,       setTamMaxM2]       = useState('');
-  const [minHues,        setMinHues]        = useState('');
-  const [maxHues,        setMaxHues]        = useState('');
-  const [serviciosSelected, setServiciosSelected] = useState([]);
-  const [aceptaMascotas, setAceptaMascotas] = useState(false);
-  const [aceptaNinos,    setAceptaNinos]    = useState(false);
-
-  // Gastronomía / Salidas
-  const [capacidad,      setCapacidad]      = useState('');
-  const [tipoCocina,     setTipoCocina]     = useState('');
-
-  // Aventura & Relax
-  const [duracion,       setDuracion]       = useState('');
-  const [maxPax,         setMaxPax]         = useState('');
-  const [sedeFija,       setSedeFija]       = useState('');
 
   // ── Handlers ─────────────────────────────────────────────────
   const handleIngresar = async (e) => {
@@ -950,52 +794,6 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
     }
   };
 
-  // Paso 2 — ficha del negocio (solo comercial). Crea usuario + negocio + perfil.
-  const handleNegocioSubmit = async (e) => {
-    e.preventDefault();
-    if (loading) return;
-    setError('');
-    if (!negNombre.trim()) { setError('Ingresá el nombre de tu negocio.'); return; }
-    if (!negLocalidad)     { setError('Seleccioná la localidad.'); return; }
-    setLoading(true);
-    try {
-      // La cuenta ya fue creada en paso 1 — solo necesitamos el userId
-      const userId = regUserId;
-      if (!userId) throw new Error('Sesión expirada, volvé al paso anterior.');
-
-      const payload = {
-        nombre:    negNombre,
-        tipo:      comTipo,
-        categoria: comCategorias.join(' / '),
-        localidad: negLocalidad,
-        plan:      'free',
-        aprobado:  false,
-        activo:    false,
-      };
-
-      const { data: negocio, error: negError } = await supabase
-        .from('negocios').insert(payload).select().single();
-      if (negError) throw negError;
-
-      await supabase.from('perfiles').insert({
-        id:          userId,
-        nombre:      `${rNombre} ${rApellido}`.trim(),
-        email:       rEmail,
-        negocio_id:  negocio.id,
-        rol:         'socio',
-        es_superadmin: false,
-      });
-
-      setExitoTipo('comercial');
-    } catch (err) {
-      const msg = err?.message || '';
-      if (msg.includes('already')) setError('Ese email ya está registrado. Probá ingresando.');
-      else setError(msg || 'Hubo un error. Intentá de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleGoogle = async () => {
     setError(''); setLoading(true);
     try { await loginConGoogle(); }
@@ -1004,7 +802,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
   const switchTab = (t) => {
     setTab(t); setError(''); setExito(''); setExitoTipo(null); setRegStep(1);
-    setEsComercial(false); setComTipo(''); setComCategorias([]); setRegUserId(null);
+    setEsComercial(false); setRegUserId(null);
   };
 
   // ─── Render ──────────────────────────────────────────────────

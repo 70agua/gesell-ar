@@ -32,6 +32,7 @@ import { LoadingProvider, useLoading }     from './lib/loading';
 import { CuponeraProvider }               from './lib/cuponera';
 import CuponeraDrawer                     from './components/CuponeraDrawer';
 import { FavoritosProvider }             from './lib/favoritos';
+import { SesionProvider }                from './lib/sesion';
 import ChatBot                           from './components/ChatBot';
 
 // ─── Contenido de la app (necesita el contexto de loading) ───
@@ -175,6 +176,7 @@ function AppContent() {
   const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout'];
 
   return (
+    <SesionProvider perfil={perfil}>
     <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
     <CuponeraProvider session={session} onLoginRequired={() => setView('login')} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
       {/* Loading global — se activa con showLoading() desde cualquier vista */}
@@ -388,7 +390,7 @@ function AppContent() {
         {PUBLIC_VIEWS.includes(view) && <Footer onNavigate={(v) => { setView(v); window.scrollTo(0,0); }} />}
 
         <CuponeraDrawer />
-        <ChatBot />
+        <ChatBot view={view} />
 
         {/* ── Wizard tip post-onboarding ── */}
         {wizardTip && (() => {
@@ -458,6 +460,7 @@ function AppContent() {
       </div>
     </CuponeraProvider>
     </FavoritosProvider>
+    </SesionProvider>
   );
 }
 

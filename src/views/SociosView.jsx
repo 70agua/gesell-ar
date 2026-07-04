@@ -10,6 +10,9 @@ import PlanPicker from '../components/PlanPicker';
 
 const PLUS_COLOR = '#2563eb'; // blue-600, mismo azul que ya usan los CTA de este archivo
 
+// Cupo semanal por defecto de activaciones de cuponera regalo (socio_alias.unidades_declaradas)
+const UNIDADES_DEFAULT = 20;
+
 // Estilo visual por plan — el copy/precios/beneficios vienen de la tabla `planes` (editable en Superadmin)
 const PLAN_ESTILOS = {
   free: { colorBorde: 'border-slate-200', icon: <Store size={26} className="text-slate-400" />, ctaColor: 'bg-slate-900 hover:bg-slate-800 text-white', titleClass: 'text-green-600' },
@@ -159,7 +162,13 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
     });
 
     if (form.plan === 'plus' && datosTarjetaPlus) {
-      await registrarIntentoPagoTarjeta(negocio.id, datosTarjetaPlus);
+      let comprobanteUrl = null;
+      if (datosTarjetaPlus.comprobanteFile) {
+        const ext = datosTarjetaPlus.comprobanteFile.name.split('.').pop().toLowerCase();
+        const { data: up } = await supabase.storage.from('negocios').upload(`comprobantes/${negocio.id}.${ext}`, datosTarjetaPlus.comprobanteFile, { upsert: true });
+        if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); comprobanteUrl = ud.publicUrl; }
+      }
+      await registrarIntentoPagoTarjeta(negocio.id, { ...datosTarjetaPlus, comprobanteUrl });
     }
 
     setLoading(false);
@@ -192,6 +201,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
               value={form.plan}
               primaryColor={PLUS_COLOR}
               saving={loading}
+              unidadesDeclaradas={UNIDADES_DEFAULT}
               onConfirmFree={() => { setForm(f => ({ ...f, plan: 'free' })); setDatosTarjetaPlus(null); }}
               onConfirmPlus={datos => { setForm(f => ({ ...f, plan: 'plus' })); setDatosTarjetaPlus(datos); }}
             />
