@@ -1,7 +1,7 @@
 // ============================================================
 //  src/views/GastronomyView.jsx — Mapa arriba · Mini-fichas abajo
 // ============================================================
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -94,47 +94,56 @@ function itemLatLng(id, zona) {
   return [lat, lng];
 }
 
-// Crear icono circular de color para cada tipo
-function makePinIcon(color, label, active = true) {
-  const opacity = active ? 1 : 0.3;
-  const html = `
-    <div style="
-      width:28px;height:28px;border-radius:50%;
-      background:${color};border:2.5px solid #fff;
-      box-shadow:0 2px 8px rgba(0,0,0,0.28);
-      display:flex;align-items:center;justify-content:center;
-      font-size:11px;font-weight:800;color:#fff;
-      opacity:${opacity};
-      font-family:Inter,system-ui,sans-serif;
-    ">${label.charAt(0)}</div>`;
-  return L.divIcon({ html, className: '', iconSize: [28,28], iconAnchor: [14,14] });
+// Bounds del Partido de Villa Gesell (VG, Mar de las Pampas, Las Gaviotas,
+// Mar Azul, Nueva Atlantis). El mapa arranca mostrando todo el partido.
+const PARTIDO_BOUNDS = [[-37.16, -57.05], [-37.42, -56.88]];
+// A partir de este zoom aparecen los puntitos del resto de propuestas.
+const DOT_ZOOM = 14;
+
+// Ancla del popup: en desktop lo abrimos al costado (derecha) del círculo;
+// en mobile arriba. Combinado con autoPan, nunca queda cortado.
+function popupAnchorFor(size, isMobile) {
+  const half = Math.round(size / 2);
+  return isMobile ? [0, -half - 2] : [half + 6, 0];
 }
 
-// ─── Tracker de bounds: diferencia drag vs zoom ──────────────
-function MapBoundsTracker({ onBoundsChange, onDrag, debounceMs = 800 }) {
-  const timerRef = useRef(null);
+// Círculo numerado del ranking: top 3 en amarillo (igual que el ranking),
+// puestos 4–10 en gris. Todos con reborde blanco para despegar del fondo.
+function makeRankIcon(rank, top3, isMobile) {
+  const bg   = top3 ? '#FFC93C' : '#8B8B8B';
+  const fg   = top3 ? '#0B1733' : '#fff';
+  const size = top3 ? 34 : 28;
+  const html = `
+    <div style="
+      width:${size}px;height:${size}px;border-radius:50%;
+      background:${bg};border:3px solid #fff;
+      box-shadow:0 2px 8px rgba(0,0,0,0.3);
+      display:flex;align-items:center;justify-content:center;
+      font-size:${top3 ? 15 : 12}px;font-weight:800;color:${fg};
+      font-family:Inter,system-ui,sans-serif;
+    ">${rank}</div>`;
+  return L.divIcon({ html, className: '', iconSize: [size,size], iconAnchor: [size/2,size/2], popupAnchor: popupAnchorFor(size, isMobile) });
+}
 
+// Puntito chico (color principal, reborde blanco) para el resto de las
+// propuestas gastronómicas que no están en el top 10.
+function makeDotIcon(isMobile) {
+  const html = `
+    <div style="
+      width:13px;height:13px;border-radius:50%;
+      background:${A.primary};border:2px solid #fff;
+      box-shadow:0 1px 4px rgba(0,0,0,0.3);
+    "></div>`;
+  return L.divIcon({ html, className: '', iconSize: [13,13], iconAnchor: [6.5,6.5], popupAnchor: popupAnchorFor(13, isMobile) });
+}
+
+// ─── Tracker de zoom: revela los puntitos al acercar el mapa ──
+function MapZoomTracker({ onZoom }) {
   const map = useMapEvents({
-    dragend: () => {
-      onDrag && onDrag();
-      schedule();
-    },
-    zoomend: () => schedule(),
-    load:    () => onBoundsChange(map.getBounds()),
+    zoomend: () => onZoom(map.getZoom()),
+    load:    () => onZoom(map.getZoom()),
   });
-
-  function schedule() {
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      onBoundsChange(map.getBounds());
-    }, debounceMs);
-  }
-
-  useEffect(() => {
-    setTimeout(() => onBoundsChange(map.getBounds()), 100);
-    return () => clearTimeout(timerRef.current);
-  }, []);
-
+  useEffect(() => { onZoom(map.getZoom()); }, []);
   return null;
 }
 
@@ -250,8 +259,14 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
   const [orden,       setOrden]       = useState('relevancia');
   const [showOrden,   setShowOrden]   = useState(false);
   const [hoveredId,   setHoveredId]   = useState(null);
-  const [mapBounds,   setMapBounds]   = useState(null);   // Leaflet LatLngBounds | null
-  const [refreshing,  setRefreshing]  = useState(false);  // breve indicador visual
+  const [zoom,        setZoom]        = useState(12);      // zoom actual del mapa (revela puntitos)
+  const [isMobile,    setIsMobile]    = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   // Sidebar filters
   const [filtroLocalidad,   setFiltroLocalidad]   = useState('');
@@ -292,17 +307,6 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const handleBoundsChange = useCallback((bounds) => {
-    setRefreshing(true);
-    setMapBounds(bounds);
-    setTimeout(() => setRefreshing(false), 600);
-  }, []);
-
-  // Al arrastrar el mapa: limpiar destino
-  const handleDrag = useCallback(() => {
-    setFiltroLocalidad('');
-  }, []);
-
   // Asociar lat/lng a cada ítem (estable, no recalcula)
   const itemsConLatLng = salidas.map(item => ({
     ...item,
@@ -319,10 +323,9 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
     return matchLocalidad && matchTipo && matchPrecio && matchBusq;
   });
 
-  // Filtro adicional por viewport del mapa
-  const gastroFiltrada = mapBounds
-    ? gastroFiltradaBase.filter(item => mapBounds.contains([item._lat, item._lng]))
-    : gastroFiltradaBase;
+  // El ranking y el mapa muestran el mismo conjunto (filtros del sidebar),
+  // sin recortar por viewport: el zoom solo revela puntitos, no filtra la lista.
+  const gastroFiltrada = gastroFiltradaBase;
 
   const esNido = item => (item.name || '').toLowerCase().includes('nido');
   const gastroOrdenada = [...gastroFiltrada].sort((a, b) => {
@@ -345,6 +348,67 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
 
   // IDs de items que pasan los filtros de sidebar (para highlight de pins)
   const filtradoBaseIds = new Set(gastroFiltradaBase.map(i => i.id));
+
+  // ─── Mapa: círculos numerados del top 10 + puntitos del resto ──
+  //  Se posiciona distinto según el modo (ver más abajo en el render).
+  const mapEl = (
+    <div className="gastro-map-wrapper" style={{ position:'relative', height:'46vh', minHeight:340, maxHeight:520, borderRadius:16, overflow:'hidden', border:`1px solid ${A.line}`, marginBottom:24, background:'#e8f4f8', transform:'translateZ(0)' }}>
+      <MapContainer
+        bounds={PARTIDO_BOUNDS}
+        style={{ width:'100%', height:'100%' }}
+        scrollWheelZoom={false}
+        zoomControl={false}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapZoomTracker onZoom={setZoom} />
+        <ZoomControls />
+
+        {gastroOrdenada.map((item, idx) => {
+          const rank      = idx + 1;
+          const enRanking = rank <= 10;
+          // El resto (puntitos) solo aparece al acercar el zoom.
+          if (!enRanking && zoom < DOT_ZOOM) return null;
+          const icon = enRanking ? makeRankIcon(rank, rank <= 3, isMobile) : makeDotIcon(isMobile);
+          return (
+            <Marker
+              key={item.id}
+              position={[item._lat, item._lng]}
+              icon={icon}
+              eventHandlers={{ mouseover: () => setHoveredId(item.id), mouseout: () => setHoveredId(null) }}
+            >
+              <Popup minWidth={190} maxWidth={210} autoPan keepInView autoPanPadding={[28, 28]}>
+                <div style={{ fontFamily:A.font, width:190 }}>
+                  {item.image && (
+                    <div style={{ margin:'-12px -20px 10px', height:104, overflow:'hidden', borderRadius:'8px 8px 0 0' }}>
+                      <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+                    </div>
+                  )}
+                  <div style={{ fontWeight:700, fontSize:13, color:A.ink, lineHeight:1.3, marginBottom:6 }}>
+                    {enRanking && <span style={{ color: rank <= 3 ? '#C9971B' : A.muted, fontWeight:800 }}>#{rank} · </span>}
+                    {item.name}
+                  </div>
+                  {(item.zona || item.localidad) && (
+                    <div style={{ fontSize:11, color:A.muted, marginBottom:10, display:'flex', alignItems:'center', gap:3 }}>
+                      <IcoPin /> {[item.zona, item.localidad].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
+                    style={{ width:'100%', padding:'7px 0', background:A.primary, color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:A.font }}
+                  >
+                    Ver más →
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
+    </div>
+  );
 
   return (
     <div style={{ minHeight:'100vh', background:A.bg, fontFamily:A.font, color:A.ink, paddingTop:70 }}>
@@ -439,7 +503,13 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
           {/* Encabezado: título + chips + buscador */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, marginBottom:20 }}>
             <div style={{ flex:1 }}>
-              <h1 style={{ fontSize:26, fontWeight:800, color:A.ink, letterSpacing:'-0.02em', margin:'0 0 6px' }}>{modoAventura ? 'Aventura & Relax' : 'Los más ricos sabores locales'}</h1>
+              <h1 style={{ fontSize:30, fontStyle:'italic', fontWeight:500, color:A.ink, letterSpacing:'-0.01em', margin:'25px 0 6px', lineHeight:1.2 }}>
+                {modoAventura
+                  ? 'Aventura & Relax'
+                  : modoRanking
+                  ? <>Top <em style={{ fontStyle:'normal', color:A.primary }}>#10</em> donde comer y beber</>
+                  : 'Los más ricos sabores locales'}
+              </h1>
               <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:6 }}>
                 <span style={{ fontSize:13, color:A.muted }}>
                   {loading ? 'Cargando…' : `${gastroOrdenada.length} lugar${gastroOrdenada.length!==1?'es':''} encontrado${gastroOrdenada.length!==1?'s':''}`}
@@ -458,7 +528,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
                 )}
               </div>
             </div>
-            <div style={{ position:'relative', flexShrink:0 }}>
+            <div style={{ position:'relative', flexShrink:0, marginTop:25 }}>
               <input
                 type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder={modoAventura ? 'Buscar en aventura & relax' : 'Buscar en gastronomía'}
@@ -489,118 +559,6 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
             </div>
           )}
 
-          {/* Pills de mood/experiencia */}
-          {!loading && (
-            <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:4, marginBottom:20, scrollbarWidth:'none', msOverflowStyle:'none' }}>
-              {EXPERIENCIA_OPTS.map(o => {
-                const active = filtroExperiencia === o.label;
-                return (
-                  <button
-                    key={o.label}
-                    onClick={() => setFiltroExperiencia(active ? '' : o.label)}
-                    style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:7, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:0 }}
-                  >
-                    <div style={{ width:60, height:60, borderRadius:'50%', background:'#fff', border:`2px solid ${active ? '#38f' : A.line}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, transition:'border-color 0.15s, box-shadow 0.15s', boxShadow: active ? '0 0 0 3px rgba(51,136,255,0.15)' : 'none' }}>
-                      {o.icon}
-                    </div>
-                    <span style={{ fontSize:11, fontWeight: active ? 700 : 500, color: active ? '#3d4255' : A.muted, textAlign:'center', lineHeight:1.3, maxWidth:72, whiteSpace:'normal' }}>{o.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Mapa dentro del área de resultados */}
-          {!loading && (
-            <div className="gastro-map-wrapper" style={{ position:'relative', height:'46vh', minHeight:340, maxHeight:520, borderRadius:16, overflow:'hidden', border:`1px solid ${A.line}`, marginBottom:24, background:'#e8f4f8', transform:'translateZ(0)' }}>
-              <MapContainer
-                center={[-37.263, -56.974]}
-                zoom={13}
-                style={{ width:'100%', height:'100%' }}
-                scrollWheelZoom={false}
-                zoomControl={false}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <MapBoundsTracker onBoundsChange={handleBoundsChange} onDrag={handleDrag} debounceMs={800} />
-                <ZoomControls />
-
-                {/* Solo pines de items que pasan los filtros del sidebar */}
-                {gastroFiltradaBase.map(item => {
-                  const color = TIPO_COLORS[item.category] || A.primary;
-                  const icon  = makePinIcon(color, item.name, true);
-                  return (
-                    <Marker
-                      key={item.id}
-                      position={[item._lat, item._lng]}
-                      icon={icon}
-                      eventHandlers={{
-                        mouseover: () => setHoveredId(item.id),
-                        mouseout:  () => setHoveredId(null),
-                      }}
-                    >
-                      <Popup minWidth={200} maxWidth={220} autoPan={false}>
-                        <div style={{ fontFamily:A.font, width:200, padding:0, margin:0 }}>
-                          {/* Thumbnail */}
-                          {item.image && (
-                            <div style={{ margin:'-12px -20px 10px', height:110, overflow:'hidden', borderRadius:'8px 8px 0 0' }}>
-                              <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
-                            </div>
-                          )}
-                          {/* Badge categoría */}
-                          <div style={{ marginBottom:5 }}>
-                            <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:color, padding:'2px 8px', borderRadius:999 }}>{item.category}</span>
-                            {item.priceRange && <span style={{ marginLeft:6, fontSize:11, color:A.muted }}>{item.priceRange}</span>}
-                          </div>
-                          {/* Nombre */}
-                          <div style={{ fontWeight:700, fontSize:13, color:A.ink, lineHeight:1.3, marginBottom:8 }}>{item.name}</div>
-                          {/* Localidad */}
-                          {item.localidad && (
-                            <div style={{ fontSize:11, color:A.muted, marginBottom:10, display:'flex', alignItems:'center', gap:3 }}>
-                              <IcoPin /> {item.localidad}
-                            </div>
-                          )}
-                          {/* CTA */}
-                          <button
-                            onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
-                            style={{ width:'100%', padding:'7px 0', background:A.primary, color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:A.font }}
-                          >
-                            Ver detalle →
-                          </button>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-              </MapContainer>
-
-              {/* Badge instrucción */}
-              <div style={{ position:'absolute', bottom:12, left:'50%', transform:'translateX(-50%)', background:'rgba(11,16,32,0.75)', color:'#fff', borderRadius:999, padding:'5px 14px', fontSize:11, fontWeight:600, zIndex:800, pointerEvents:'none', backdropFilter:'blur(4px)', whiteSpace:'nowrap' }}>
-                Mové o hacé zoom — los resultados se actualizan solos
-              </div>
-
-              {/* Leyenda */}
-              <div style={{ position:'absolute', top:10, left:10, background:'rgba(255,255,255,0.95)', borderRadius:10, padding:'6px 10px', zIndex:800, display:'flex', flexWrap:'wrap', gap:6, maxWidth:220, boxShadow:'0 2px 10px rgba(0,0,0,0.1)' }}>
-                {Object.entries(TIPO_COLORS).slice(0,7).map(([tipo, color]) => (
-                  <div key={tipo} style={{ display:'flex', alignItems:'center', gap:4 }}>
-                    <div style={{ width:7, height:7, borderRadius:'50%', background:color, flexShrink:0 }} />
-                    <span style={{ fontSize:9, color:A.muted, fontWeight:600 }}>{tipo}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Contador */}
-              <div style={{ position:'absolute', top:10, right:52, background:'rgba(255,255,255,0.95)', borderRadius:8, padding:'5px 10px', zIndex:800, fontSize:12, fontWeight:600, color:A.ink, boxShadow:'0 1px 5px rgba(0,0,0,0.12)' }}>
-                {refreshing
-                  ? <span style={{ color:A.primary }}>Actualizando…</span>
-                  : <><span style={{ color:A.primary }}>{gastroFiltrada.length}</span> en el mapa</>
-                }
-              </div>
-            </div>
-          )}
-
           {/* Ranking de fichas */}
           {loading ? (
             <MiniLoader />
@@ -616,7 +574,9 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
               </button>
             </div>
           ) : !modoRanking ? (
-            /* ── Vista regular (desde header nav): grilla sin numeración ── */
+            /* ── Vista regular (desde header nav): mapa + grilla sin numeración ── */
+            <>
+            {mapEl}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16 }}>
               {gastroOrdenada.map((item) => {
                 const color = TIPO_COLORS[item.category] || A.primary;
@@ -649,6 +609,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
                 );
               })}
             </div>
+            </>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
 
@@ -694,6 +655,9 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
                   })}
                 </div>
               )}
+
+              {/* MAPA — top 10 numerado + puntitos del resto */}
+              {mapEl}
 
               {/* PUESTO 4–10 — lista intermedia */}
               {gastroOrdenada.slice(3,10).map((item, i) => {

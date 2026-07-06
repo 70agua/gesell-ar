@@ -10,6 +10,7 @@ import { descontarToken, debeUsarTokens, CREDITO_TOTAL, calcularPrecioCupon } fr
 import { getPlanesConfig, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
 import { PUBLI_CATEGORIAS, listarPublicidadesAdmin, crearPublicidad, actualizarPublicidad, eliminarPublicidad } from '../lib/publicidad';
+import { getDemandaDestinos } from '../lib/demanda';
 
 // ─── Aire tokens ─────────────────────────────────────────────
 const A = {
@@ -34,6 +35,7 @@ const TABS = [
   { id: 'ventas',    label: 'Ventas'    },
   { id: 'usuarios',  label: 'Usuarios'  },
   { id: 'consultas', label: 'Consultas' },
+  { id: 'estadisticas', label: 'Estadísticas' },
   { id: 'ajustes',   label: 'Ajustes'   },
 ];
 
@@ -226,6 +228,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
             {tab === 'ventas'    && <TabVentas ventas={ventas} />}
             {tab === 'usuarios'  && <TabUsuarios usuarios={usuarios} />}
             {tab === 'consultas' && <TabConsultas consultas={consultas} onLeer={marcarLeida} />}
+            {tab === 'estadisticas' && <TabEstadisticas />}
             {tab === 'ajustes'   && <TabAjustes showToast={showToast} />}
           </>
         )}
@@ -874,6 +877,142 @@ function TabPublicidad({ showToast }) {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB: ESTADÍSTICAS
+//  Contenedor por secciones — agregar nuevas métricas como más
+//  <StatSection> debajo de la de demanda de destinos.
+// ═══════════════════════════════════════════════════════════
+function StatSection({ title, subtitle, children }) {
+  return (
+    <section style={{ marginBottom:28 }}>
+      <h3 style={{ fontFamily:A.font, fontSize:16, fontWeight:800, color:A.ink, margin:'0 0 2px' }}>{title}</h3>
+      {subtitle && <p style={{ fontFamily:A.font, fontSize:12.5, color:A.muted, margin:'0 0 14px' }}>{subtitle}</p>}
+      {children}
+    </section>
+  );
+}
+
+function StatKpi({ label, value, color = A.primary, bg = A.primarySoft }) {
+  return (
+    <div style={{ background:bg, borderRadius:14, padding:'14px 16px', minWidth:130, flex:'1 1 130px' }}>
+      <div style={{ fontFamily:A.font, fontSize:24, fontWeight:800, color }}>{value}</div>
+      <div style={{ fontFamily:A.font, fontSize:12, fontWeight:600, color:A.ink2, marginTop:2 }}>{label}</div>
+    </div>
+  );
+}
+
+function TabEstadisticas() {
+  const [demanda, setDemanda] = useState(null); // null = cargando
+
+  useEffect(() => {
+    (async () => { setDemanda(await getDemandaDestinos()); })();
+  }, []);
+
+  if (demanda === null) return <MiniLoader />;
+
+  // ── Agregación de demanda por destino ──
+  const porDestino = {};
+  demanda.forEach(d => {
+    const key = `${d.destino}||${d.provincia || ''}`;
+    const g = porDestino[key] || (porDestino[key] = {
+      destino: d.destino, provincia: d.provincia, tipo: d.tipo,
+      clicks: 0, sesiones: new Set(), conEmail: 0, ultima: d.created_at,
+    });
+    g.clicks++;
+    if (d.session_id) g.sesiones.add(d.session_id);
+    if (d.email) g.conEmail++;
+    if (d.created_at > g.ultima) g.ultima = d.created_at;
+  });
+  const filas = Object.values(porDestino)
+    .map(g => ({ ...g, sesiones: g.sesiones.size }))
+    .sort((a, b) => b.clicks - a.clicks);
+
+  const totalBusquedas = demanda.length;
+  const emails = demanda.filter(d => d.email);
+  const fmtFecha = x => x ? new Date(x).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
+
+  const th = { textAlign:'left', fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.04em', padding:'0 12px 8px' };
+  const td = { fontFamily:A.font, fontSize:13.5, color:A.ink, padding:'10px 12px', borderTop:`1px solid ${A.line}` };
+
+  return (
+    <div>
+      <StatSection
+        title="Demanda de destinos (expansión)"
+        subtitle='Búsquedas en “Buscar en el resto del país”. Cada fila es un destino que la gente pidió y al que todavía no llegamos.'
+      >
+        {/* KPIs */}
+        <div style={{ display:'flex', flexWrap:'wrap', gap:12, marginBottom:18 }}>
+          <StatKpi label="Búsquedas totales" value={totalBusquedas} />
+          <StatKpi label="Destinos distintos" value={filas.length} color={A.green} bg="#E8F5EC" />
+          <StatKpi label="Emails capturados" value={emails.length} color="#7A3FD8" bg="#F3E8FF" />
+        </div>
+
+        {filas.length === 0 ? (
+          <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'40px 24px', textAlign:'center', fontFamily:A.font, fontSize:14, color:A.muted }}>
+            Todavía no hay búsquedas de destinos fuera de cobertura.
+          </div>
+        ) : (
+          <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:560 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...th, paddingTop:14 }}>Destino</th>
+                    <th style={{ ...th, paddingTop:14 }}>Provincia</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Búsquedas</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Sesiones</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Con email</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Última</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((f, i) => (
+                    <tr key={i}>
+                      <td style={{ ...td, fontWeight:600 }}>{f.destino}</td>
+                      <td style={{ ...td, color:A.muted }}>{f.provincia || '—'}</td>
+                      <td style={{ ...td, textAlign:'right', fontWeight:700 }}>{f.clicks}</td>
+                      <td style={{ ...td, textAlign:'right' }}>{f.sesiones}</td>
+                      <td style={{ ...td, textAlign:'right', color: f.conEmail > 0 ? A.green : A.muted, fontWeight: f.conEmail > 0 ? 700 : 400 }}>{f.conEmail}</td>
+                      <td style={{ ...td, textAlign:'right', color:A.muted, whiteSpace:'nowrap' }}>{fmtFecha(f.ultima)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </StatSection>
+
+      {emails.length > 0 && (
+        <StatSection title="Emails para avisar" subtitle="Personas que dejaron su email esperando que lleguemos a su destino.">
+          <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:440 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...th, paddingTop:14 }}>Email</th>
+                    <th style={{ ...th, paddingTop:14 }}>Destino</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emails.map((d, i) => (
+                    <tr key={i}>
+                      <td style={{ ...td, fontWeight:600 }}>{d.email}</td>
+                      <td style={{ ...td }}>{d.destino}{d.provincia ? `, ${d.provincia}` : ''}</td>
+                      <td style={{ ...td, textAlign:'right', color:A.muted, whiteSpace:'nowrap' }}>{fmtFecha(d.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </StatSection>
       )}
     </div>
   );

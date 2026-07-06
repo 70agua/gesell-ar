@@ -8,6 +8,7 @@ import { ALL_PROMOS }   from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
 import OfertaCard from '../components/OfertaCard';
 import { getPublicidades, elegirPublicidad } from '../lib/publicidad';
+import BuscarDestinoModal from '../components/BuscarDestinoModal';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const A = {
@@ -184,6 +185,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   const [drawerOpen,  setDrawerOpen]  = useState(false);
   const [shownCount,  setShownCount]  = useState(10);
   const [publi,       setPubli]       = useState(null);
+  const [buscarPaisOpen, setBuscarPaisOpen] = useState(false);
   const sentinelRef = useRef(null);
   const { addCupon }                  = useCuponera();
   const winW    = useWindowWidth();
@@ -501,6 +503,11 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   return (
     <div style={{ minHeight: '100vh', background: A.bg, fontFamily: A.font, paddingTop: 70 }}>
 
+      {/* Modal "Buscar en el resto del país" */}
+      {buscarPaisOpen && (
+        <BuscarDestinoModal categoria={catActiva} onClose={() => setBuscarPaisOpen(false)} />
+      )}
+
       {/* Drawer mobile */}
       {isMobile && drawerOpen && (
         <>
@@ -535,7 +542,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
                   <>
                     {visibles.length} oferta{visibles.length !== 1 ? 's' : ''} disponible{visibles.length !== 1 ? 's' : ''}
                     <button
-                      onClick={() => setLocalidades([])}
+                      onClick={() => setBuscarPaisOpen(true)}
                       style={{ background: 'none', border: 'none', padding: 0, marginLeft: 8, color: A.primary, textDecoration: 'underline', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}
                     >
                       Buscar en el resto del país
