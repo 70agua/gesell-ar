@@ -14,14 +14,14 @@ import {
   CloudRain, Share2, Route, Disc3,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getOrdenesPendientes, getSaldo, debeUsarTokens } from '../lib/cobros';
+import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos } from '../lib/cobros';
 import { contarSeguidores } from '../lib/seguir';
 import {
   getCuponerasRegalo, crearCuponeraRegalo, renombrarCuponera, cambiarEstadoCuponera, toggleModoInteligente,
   eliminarCuponeraRegalo, agregarCupon, quitarCupon, buscarPromosDisponibles, costoCreditosDePromo, sugerirCupones,
 } from '../lib/cuponerasRegalo';
 import { LOCALIDADES } from '../lib/localidades';
-import { FOTOS_GALERIA_MAX } from '../lib/planes';
+import { FOTOS_GALERIA_MAX, getPlanesConfig } from '../lib/planes';
 import ComprarTokensModal from '../components/ComprarTokensModal';
 import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import LoadingScreen from '../components/LoadingScreen';
@@ -1507,15 +1507,6 @@ function CoinSVG({ size = 22 }) {
   );
 }
 
-const MOCK_MOVS = [
-  { kind:'cred-in',  socio:'Churros El Topo',   oferta:'Docena de churros con chocolate',  date:'Hoy · 12:40',  cred:+1 },
-  { kind:'cred-in',  socio:'La Pescadería',      oferta:'Menú del día para dos',            date:'Hoy · 09:15',  cred:+1 },
-  { kind:'cred-out', title:'Canjeaste Pack −$2.000 de abono',                               date:'Ayer · 18:02', cred:-8 },
-  { kind:'pesos',    title:'Cobro plan PLUS · Junio',                                       date:'1 jun',        pesos:-18333 },
-  { kind:'cred-out', title:'Enviaste créditos a Valentina R.',                              date:'29 may',       cred:-5 },
-  { kind:'cred-in',  socio:'Paseos en Cuatri',   oferta:'Paseo de 2 horas por la costa',   date:'28 may',       cred:+1 },
-  { kind:'pesos',    title:'Compra de 20 créditos',                                         date:'27 may',       pesos:-12100, cred:+20 },
-];
 
 const PACKS_ABONO = [
   { badge:'-2k',  off:2000,  cred:8,  popular:false },
@@ -1558,7 +1549,7 @@ function PackFicha({ badge, off, cred, popular, darkIdx = 0 }) {
             <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED, whiteSpace:'nowrap' }}>Lo activás con</span>
             <span style={{ display:'inline-flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
               <CreditCoin size={15}/><span style={{ fontSize:13, fontWeight:800, color:INK }}>{cred} créditos</span>
-              <span style={{ fontSize:10, fontWeight:600, color:MUTED }}>(${(cred * 2000).toLocaleString('es-AR')} + IVA)</span>
+              <span style={{ fontSize:10, fontWeight:600, color:MUTED }}>(AR${(cred * 2420).toLocaleString('es-AR')})</span>
             </span>
           </div>
         </div>
@@ -1661,11 +1652,46 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, onCue
   const [showEliminar, setShowEliminar] = useState(false);
   const movRef = useRef(null);
 
-  const movsFiltrados = MOCK_MOVS.filter(m => {
+  // Plan real del negocio + precio real del plan Plus (fuente de verdad: tabla `planes`)
+  const esPlusReal = negocio?.plan === 'plus';
+  const [planPlus, setPlanPlus] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    getPlanesConfig()
+      .then(planes => { if (vivo) setPlanPlus((planes || []).find(p => p.id === 'plus') || null); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const precioMes  = planPlus?.precioMes ?? 20000;
+  const mesesPago  = (planPlus?.mesesContrato ?? 12) - (planPlus?.mesesGratisBono ?? 1);
+  const precioAnio = precioMes * mesesPago;
+
+  // Historial real de movimientos de la billetera del negocio
+  const [movs, setMovs] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    if (negocio?.id) {
+      getMovimientos(negocio.id)
+        .then(data => { if (vivo) setMovs(data || []); })
+        .catch(() => { if (vivo) setMovs([]); });
+    } else {
+      setMovs([]);
+    }
+    return () => { vivo = false; };
+  }, [negocio?.id]);
+
+  const movsFiltrados = movs.filter(m => {
     if (filtroMov === 'cred')  return m.cred != null;
     if (filtroMov === 'pesos') return m.pesos != null;
     return true;
   });
+
+  // Créditos netos ganados/gastados en el mes en curso (para el badge de saldo)
+  const credEsteMes = movs.reduce((acc, m) => {
+    if (m.cred == null) return acc;
+    const d = new Date(m._ts); const hoy = new Date();
+    return (d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear()) ? acc + m.cred : acc;
+  }, 0);
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
@@ -1688,9 +1714,11 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, onCue
                 <span style={{ fontFamily:FONT, fontSize:38, fontWeight:800, color:INK, lineHeight:1 }}>{credits}</span>
                 <span style={{ fontFamily:FONT, fontSize:15, fontWeight:600, color:INK2 }}>créditos</span>
               </div>
-              <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:GREENS, color:GREEN, fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:999, marginTop:8 }}>
-                +3 este mes
-              </span>
+              {credEsteMes !== 0 && (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:GREENS, color:GREEN, fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:999, marginTop:8 }}>
+                  {credEsteMes > 0 ? '+' : '−'}{Math.abs(credEsteMes)} este mes
+                </span>
+              )}
             </div>
           </div>
 
@@ -1785,38 +1813,51 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, onCue
         {/* ── Columna derecha ── */}
         <div style={{ display:'flex', flexDirection:'column', gap:14, height:'100%' }}>
 
-          {/* Plan activo */}
+          {/* Plan activo — refleja el plan real del negocio */}
           <Card>
-            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom: esPlusReal ? 14 : 0 }}>
               <div style={{ width:44, height:44, borderRadius:12, background:PS, color:P, display:'grid', placeItems:'center', flexShrink:0 }}>
                 <Zap size={22}/>
               </div>
               <div style={{ flex:1 }}>
                 <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Plan activo</div>
-                <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>PLUS</div>
+                <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{esPlusReal ? 'PLUS' : 'Gratis'}</div>
               </div>
               <div style={{ textAlign:'right' }}>
-                <div style={{ display:'flex', alignItems:'baseline', gap:4, justifyContent:'flex-end' }}>
-                  <span style={{ fontFamily:FONT, fontSize:26, fontWeight:800, color:INK, letterSpacing:'-0.02em' }}>$18.333</span>
-                  <span style={{ fontFamily:FONT, fontSize:13, color:MUTED, fontWeight:600 }}>/mes</span>
-                </div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:INK2, fontWeight:600, marginTop:2 }}>$220.000 /año</div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, marginTop:2 }}>(no incluye impuestos nacionales)</div>
+                {esPlusReal ? (
+                  <>
+                    <div style={{ display:'flex', alignItems:'baseline', gap:4, justifyContent:'flex-end' }}>
+                      <span style={{ fontFamily:FONT, fontSize:26, fontWeight:800, color:INK, letterSpacing:'-0.02em' }}>${precioMes.toLocaleString('es-AR')}</span>
+                      <span style={{ fontFamily:FONT, fontSize:13, color:MUTED, fontWeight:600 }}>+ IVA /mes</span>
+                    </div>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:INK2, fontWeight:600, marginTop:2 }}>${precioAnio.toLocaleString('es-AR')} + IVA /año (1 mes bonificado)</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, marginTop:2 }}>(no incluye impuestos nacionales)</div>
+                  </>
+                ) : (
+                  <div style={{ display:'flex', alignItems:'baseline', gap:4, justifyContent:'flex-end' }}>
+                    <span style={{ fontFamily:FONT, fontSize:26, fontWeight:800, color:INK, letterSpacing:'-0.02em' }}>$0</span>
+                    <span style={{ fontFamily:FONT, fontSize:13, color:MUTED, fontWeight:600 }}>/mes</span>
+                  </div>
+                )}
               </div>
             </div>
-            {(() => { const deuda = 0; return (
+            {esPlusReal ? (() => { const deuda = 0; return (
               <div style={{ background:BG, borderRadius:11, padding:'11px 14px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:14 }}>
                   <span style={{ fontFamily:FONT, fontSize:13, fontWeight:800, color: deuda > 0 ? '#ef4444' : INK }}>
                     Debés: ${deuda.toLocaleString('es-AR')}
                   </span>
-                  <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Próximo cobro · 1 de julio</span>
+                  <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Al día</span>
                 </div>
                 <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:P, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:3, flexShrink:0 }}>
                   Gestionar <ChevronRight size={13}/>
                 </span>
               </div>
-            );})()}
+            );})() : (
+              <div style={{ background:BG, borderRadius:11, padding:'11px 14px', marginTop:14 }}>
+                <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Publicás sin cargo. Pasate a <b style={{ color:P }}>Plus</b> (${precioMes.toLocaleString('es-AR')} + IVA/mes) para armar cuponeras de regalo y sumar beneficios.</span>
+              </div>
+            )}
           </Card>
 
           {/* Botón ver movimientos */}
@@ -1862,7 +1903,13 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, onCue
           </div>
         </div>
         <div>
-          {movsFiltrados.map((m, i) => <MovRow key={i} m={m} last={i === movsFiltrados.length - 1}/>)}
+          {movsFiltrados.length === 0 ? (
+            <div style={{ fontFamily:FONT, fontSize:13, color:MUTED, textAlign:'center', padding:'28px 0' }}>
+              Todavía no hay movimientos en tu cuenta.
+            </div>
+          ) : (
+            movsFiltrados.map((m, i) => <MovRow key={i} m={m} last={i === movsFiltrados.length - 1}/>)
+          )}
         </div>
       </Card>
 

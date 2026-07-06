@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Reel localidades — opción 1 (infinito con pulso de velocidad)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  @font-face {
+    font-family: 'Inter';
+    src: url('/fonts/Inter-Variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'NauryzRedkeds';
+    src: url('/nauryzredkeds.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root{
+    --primary:#2545E6;
+    --ink:#0B1020;
+    --muted:#6B7280;
+    --line:#E7E9EE;
+    --bg:#F4F5F8;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background:#fff;
+    font-family:'Inter', system-ui, sans-serif;
+    color:var(--ink);
+    padding:48px 40px 80px;
+  }
+  header{ max-width:760px; margin:0 auto 34px; }
+  header h1{ font-size:20px; margin:0 0 6px; letter-spacing:-0.02em; }
+  header p{ font-size:13px; color:var(--muted); margin:0; line-height:1.5; }
+
+  /* ---- réplica del H1 del hero real ---- */
+  .hero-box{
+    max-width:760px; margin:0 auto;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:44px 40px;
+  }
+  .h1{
+    font-size:clamp(30px,4.4vw,54px);
+    line-height:1.05;
+    letter-spacing:-0.04em;
+    color:var(--ink);
+    margin:0;
+    font-weight:800;
+  }
+  .h1 .lead{ font-weight:500; letter-spacing:-0.03em; }
+
+  .reel-mask{
+    position:relative;
+    height:1.15em;
+    overflow:hidden;
+    margin-top:6px;
+  }
+  .reel-track{
+    position:absolute;
+    left:0; right:0; top:0;
+    will-change:transform, filter;
+  }
+  .reel-track > div{
+    height:var(--rowh,60px);
+    display:flex;
+    align-items:center;
+    white-space:nowrap;
+    font-family:'NauryzRedkeds', cursive;
+    font-size:clamp(24px,3.6vw,44px);
+    letter-spacing:0.03em;
+    color:var(--primary);
+    line-height:1;
+  }
+
+  /* controles */
+  .ctrls{ max-width:760px; margin:26px auto 0; display:flex; gap:22px; flex-wrap:wrap; }
+  .ctrls label{ font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:6px; min-width:180px; }
+  .ctrls output{ color:var(--ink); font-weight:600; }
+  input[type=range]{ accent-color:var(--primary); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Opción 1 — reel vertical infinito (cae hacia abajo)</h1>
+  <p>Nunca se detiene: acelera de forma progresiva hasta el 100% y desacelera suave hasta el 10% de la velocidad, y vuelve a arrancar. El desenfoque sigue en vivo a la velocidad real (pico reducido 70% respecto a la versión anterior). Ajustá los sliders para calibrar el feeling.</p>
+</header>
+
+<div class="hero-box">
+  <h1 class="h1">
+    <span class="lead">Tu cuponera viajera<br />de descuentos en</span>
+    <div class="reel-mask">
+      <div class="reel-track" id="reel"></div>
+    </div>
+  </h1>
+</div>
+
+<div class="ctrls">
+  <label>Velocidad máxima <output id="oMax"></output>
+    <input type="range" id="sMax" min="300" max="4000" step="50" value="600">
+  </label>
+  <label>Velocidad mínima (% del máx) <output id="oMin"></output>
+    <input type="range" id="sMin" min="2" max="40" step="1" value="7">
+  </label>
+  <label>Duración del pulso (s) <output id="oCyc"></output>
+    <input type="range" id="sCyc" min="1.5" max="6" step="0.1" value="2.3">
+  </label>
+  <label>Blur máximo (px) <output id="oBlur"></output>
+    <input type="range" id="sBlur" min="0" max="4" step="0.1" value="2.2">
+  </label>
+</div>
+
+<script>
+const locations = [
+  "Villa Gesell",
+  "Mar de las Pampas",
+  "Las Gaviotas",
+  "Mar Azul",
+  "Chacras del Mar",
+  "Colonia Marina",
+  "El Salvaje",
+];
+
+const track = document.getElementById('reel');
+
+// medir la altura de fila real según el font-size responsivo
+function rowHeight(){
+  // usamos el line-height calculado del mask (1.15em del h1) -> medimos el primer hijo
+  const probe = track.firstElementChild;
+  return probe ? probe.getBoundingClientRect().height : 60;
+}
+
+// construir suficientes copias para cubrir mask + un ciclo completo, y poder wrappear sin costura
+function buildTrack(){
+  // 3 sets completos: 1 visible + margen arriba/abajo para el wrap continuo
+  const sets = 3;
+  let html = '';
+  for(let s = 0; s < sets; s++){
+    for(let i = 0; i < locations.length; i++){
+      html += `<div>${locations[i]}</div>`;
+    }
+  }
+  track.innerHTML = html;
+}
+buildTrack();
+
+let ROW_H = 0;
+let SET_H = 0;
+function measure(){
+  ROW_H = rowHeight();
+  track.style.setProperty('--rowh', ROW_H + 'px');
+  // recalcular tras aplicar la var
+  ROW_H = rowHeight();
+  SET_H = ROW_H * locations.length;
+}
+measure();
+window.addEventListener('resize', measure);
+
+// ---- parámetros (ligados a sliders) ----
+const P = {
+  vMax: 600,    // px/s a velocidad plena
+  vMinPct: 0.07, // fracción de vMax en el valle
+  cycle: 2.3,   // segundos por ciclo completo de pulso
+  blurMax: 2.2, // px de blur a velocidad plena
+};
+
+// arranque desplazado un set hacia arriba, para tener recorrido antes de wrappear
+let pos = -SET_H; // translateY negativo = contenido subido; al ir "cayendo" incrementamos pos
+let phase = 0;
+let last = performance.now();
+
+function speedFactor(t){
+  // sine suave entre vMin y vMax -> aceleración y desaceleración progresivas, nunca 0
+  // (0.5 - 0.5*cos) va de 0 a 1 con derivada 0 en los extremos = arranque/freno suaves
+  const eased = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
+  return P.vMinPct + (1 - P.vMinPct) * eased;
+}
+
+function frame(now){
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+
+  phase = (phase + dt / P.cycle) % 1;
+  const f = speedFactor(phase);
+  const v = P.vMax * f; // px/s actuales
+
+  // "cae hacia abajo": el contenido se mueve hacia abajo -> pos aumenta
+  pos += v * dt;
+
+  // wrap continuo sin costura: cada vez que avanzamos un set, retrocedemos un set
+  if(pos >= 0) pos -= SET_H;
+
+  track.style.transform = `translateY(${pos}px)`;
+
+  // blur proporcional a la velocidad actual (con piso perceptual)
+  const blur = P.blurMax * f;
+  track.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none';
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---- sliders ----
+function bind(id, out, fmt, apply){
+  const el = document.getElementById(id);
+  const o = document.getElementById(out);
+  const upd = () => { o.textContent = fmt(el.value); apply(parseFloat(el.value)); };
+  el.addEventListener('input', upd); upd();
+}
+bind('sMax','oMax', v => v + ' px/s', v => P.vMax = v);
+bind('sMin','oMin', v => v + ' %',    v => P.vMinPct = v/100);
+bind('sCyc','oCyc', v => v + ' s',    v => P.cycle = v);
+bind('sBlur','oBlur', v => v + ' px', v => P.blurMax = v);
+</script>
+
+</body>
+</html>

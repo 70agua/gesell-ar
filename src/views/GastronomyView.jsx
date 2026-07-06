@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { getGastronomia, getPromos } from '../lib/datos';
+import { getGastronomia, getAventura, getPromos } from '../lib/datos';
 import { mockDining } from '../data/mockData';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:220 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { LOCALIDADES } from '../lib/localidades';
@@ -34,15 +34,34 @@ const A = {
 };
 
 const TIPOS_GASTRO = [
-  { label: 'Restaurantes',     val: 'Restaurante' },
-  { label: 'Bares',            val: 'Bar' },
-  { label: 'Cafés & Dulces',   val: 'Café' },
-  { label: 'Heladerías',       val: 'Heladería' },
-  { label: 'Panaderías',       val: 'Panadería' },
-  { label: 'Discotecas',       val: 'Discoteca' },
-  { label: 'Cines y Teatros',  val: 'Cine y Teatro' },
-  { label: 'Shows y Recitales',val: 'Show y Recital' },
+  { label: 'Restaurantes',      val: 'Restaurante' },
+  { label: 'Bares',             val: 'Bar' },
+  { label: 'Cafés & Dulces',    val: 'Café' },
+  { label: 'Heladerías',        val: 'Heladería' },
+  { label: 'Panaderías',        val: 'Panadería' },
+  { label: 'Compras',           val: 'Compras' },
+  { label: 'Discotecas',        val: 'Discoteca' },
+  { label: 'Cines y Teatros',   val: 'Cine y Teatro' },
+  { label: 'Shows y Recitales', val: 'Show y Recital' },
   { label: 'Centros Culturales',val: 'Centro Cultural' },
+];
+
+const TIPOS_AVENTURA = [
+  { label: 'Excursiones',         val: 'Excursion' },
+  { label: 'Actividades',         val: 'Actividad' },
+  { label: 'Deportes acuáticos',  val: 'Deportes acuáticos' },
+  { label: 'Cabalgatas',          val: 'Cabalgatas' },
+  { label: 'Kitesurf',            val: 'Kitesurf' },
+  { label: 'Tour fotográfico',    val: 'Tour fotográfico' },
+  { label: 'Pesca deportiva',     val: 'Pesca deportiva' },
+  { label: 'Senderismo',          val: 'Senderismo' },
+  { label: 'Espectáculos',        val: 'Espectáculos' },
+];
+
+const TIPOS_MIMO = [
+  { label: 'Spa',                 val: 'Spa' },
+  { label: 'Yoga & Bienestar',    val: 'Yoga / Bienestar' },
+  { label: 'Masajes',             val: 'Masajes a domicilio' },
 ];
 
 const EXPERIENCIA_OPTS = [
@@ -223,7 +242,7 @@ function GastroCard({ item, isHovered, onHover, session, onLoginClick, onOpenDet
 }
 
 // ═══════════════════════════════════════════════════════════
-export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, initialCategoria = '', initialAventura = '', modoRanking = false }) {
+export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, initialCategoria = '', initialAventura = '', initialTipos = null, modoRanking = false, modoAventura = false }) {
   const { addCupon } = useCuponera();
   const [salidas, setSalidas] = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -242,7 +261,8 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
   const [filtroExperiencia, setFiltroExperiencia] = useState('');
 
   useEffect(() => {
-    if (initialCategoria) setFiltroTipos(new Set([initialCategoria]));
+    if (initialTipos) setFiltroTipos(new Set(initialTipos));
+    else if (initialCategoria) setFiltroTipos(new Set([initialCategoria]));
     if (initialAventura) setFiltroExperiencia(initialAventura);
   }, []);
 
@@ -250,16 +270,21 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
 
   useEffect(() => {
     (async () => {
-      const gastro = await getGastronomia();
-      const realIds   = new Set(gastro.map(g => String(g.id)));
-      const realNames = new Set(gastro.map(g => (g.name || '').toLowerCase()));
-      const mocks = mockDining
-        .filter(m => !realIds.has(String(m.id)) && !realNames.has((m.name || '').toLowerCase()))
-        .map(m => ({ ...m, esReal: false }));
-      setSalidas([...gastro, ...mocks]);
+      if (modoAventura) {
+        const data = await getAventura();
+        setSalidas(data);
+      } else {
+        const gastro = await getGastronomia();
+        const realIds   = new Set(gastro.map(g => String(g.id)));
+        const realNames = new Set(gastro.map(g => (g.name || '').toLowerCase()));
+        const mocks = mockDining
+          .filter(m => !realIds.has(String(m.id)) && !realNames.has((m.name || '').toLowerCase()))
+          .map(m => ({ ...m, esReal: false }));
+        setSalidas([...gastro, ...mocks]);
+      }
       setLoading(false);
     })();
-  }, []);
+  }, [modoAventura]);
 
   useEffect(() => {
     const h = e => { if (ordenRef.current && !ordenRef.current.contains(e.target)) setShowOrden(false); };
@@ -388,16 +413,20 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
                 </div>
 
                 {/* Tipos */}
-                <div style={{ fontSize:11, fontWeight:700, color:A.muted, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:8 }}>Tipo de local</div>
-                {TIPOS_GASTRO.map(t => (
+                <div style={{ fontSize:11, fontWeight:700, color:A.muted, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:8 }}>Tipo de lugar</div>
+                {(modoAventura ? [...TIPOS_AVENTURA, ...TIPOS_MIMO] : TIPOS_GASTRO).map(t => (
                   <CheckRow key={t.val} label={t.label} checked={filtroTipos.has(t.val)} onChange={() => toggleTipo(t.val)} />
                 ))}
 
-                {/* Experiencia */}
-                <div style={{ fontSize:11, fontWeight:700, color:A.muted, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:8, marginTop:14 }}>Tipo de experiencia</div>
-                {EXPERIENCIA_OPTS.map(o => (
-                  <CheckRow key={o.label} label={o.label} checked={filtroExperiencia === o.label} onChange={() => setFiltroExperiencia(filtroExperiencia === o.label ? '' : o.label)} />
-                ))}
+                {!modoAventura && (
+                  <>
+                    {/* Experiencia (solo gastro) */}
+                    <div style={{ fontSize:11, fontWeight:700, color:A.muted, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:8, marginTop:14 }}>Tipo de experiencia</div>
+                    {EXPERIENCIA_OPTS.map(o => (
+                      <CheckRow key={o.label} label={o.label} checked={filtroExperiencia === o.label} onChange={() => setFiltroExperiencia(filtroExperiencia === o.label ? '' : o.label)} />
+                    ))}
+                  </>
+                )}
               </div>
 
             </div>
@@ -410,7 +439,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
           {/* Encabezado: título + chips + buscador */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, marginBottom:20 }}>
             <div style={{ flex:1 }}>
-              <h1 style={{ fontSize:26, fontWeight:800, color:A.ink, letterSpacing:'-0.02em', margin:'0 0 6px' }}>Los más ricos sabores locales</h1>
+              <h1 style={{ fontSize:26, fontWeight:800, color:A.ink, letterSpacing:'-0.02em', margin:'0 0 6px' }}>{modoAventura ? 'Aventura & Relax' : 'Los más ricos sabores locales'}</h1>
               <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:6 }}>
                 <span style={{ fontSize:13, color:A.muted }}>
                   {loading ? 'Cargando…' : `${gastroOrdenada.length} lugar${gastroOrdenada.length!==1?'es':''} encontrado${gastroOrdenada.length!==1?'s':''}`}
@@ -432,7 +461,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
             <div style={{ position:'relative', flexShrink:0 }}>
               <input
                 type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                placeholder="Buscar en gastronomía"
+                placeholder={modoAventura ? 'Buscar en aventura & relax' : 'Buscar en gastronomía'}
                 style={{ width:260, paddingLeft:14, paddingRight:40, paddingTop:10, paddingBottom:10, border:`1.5px solid ${A.line}`, borderRadius:12, fontSize:14, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', boxSizing:'border-box' }}
                 onFocus={e => e.target.style.borderColor=A.primary}
                 onBlur={e => e.target.style.borderColor=A.line}
@@ -627,8 +656,8 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
               {gastroOrdenada.length > 0 && (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16, marginBottom:8 }}>
                   {gastroOrdenada.slice(0,3).map((item, i) => {
-                    const MEDAL      = [A.yellow, '#111111', '#111111'];
-                    const MEDAL_TEXT = [A.navy,   '#fff',    '#fff'   ];
+                    const MEDAL      = [A.yellow, A.yellow, A.yellow];
+                    const MEDAL_TEXT = [A.navy,   A.navy,   A.navy  ];
                     const color = TIPO_COLORS[item.category] || A.primary;
                     const isHov = hoveredId === item.id;
                     return (

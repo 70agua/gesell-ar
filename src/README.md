@@ -1,4 +1,4 @@
-# gesell.ar — Guía de estructura del proyecto
+# Cuponear — Guía de estructura del proyecto
 
 Este documento explica **para qué sirve cada archivo** y **cómo editarlos**
 sin ser programador.

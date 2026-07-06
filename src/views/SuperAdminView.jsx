@@ -6,7 +6,7 @@ import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Cal
 import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import { CoinSVG } from '../components/Token';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
-import { descontarToken, debeUsarTokens } from '../lib/cobros';
+import { descontarToken, debeUsarTokens, CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
 import { getPlanesConfig, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
 
@@ -697,7 +697,12 @@ function TabOfertas({ ofertas, setOfertas, showToast }) {
                     <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4, flexWrap:'wrap' }}>
                       {o.tokens_costo != null && (
                         <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily:A.font, fontSize:11, color:A.muted }}>
-                          <CoinSVG size={12} />{o.tokens_costo === 0 ? 'SIN CARGO' : o.tokens_costo}
+                          <CoinSVG size={12} />{o.tokens_costo === 0 ? 'SIN CARGO' : `${o.tokens_costo} · AR$${(o.tokens_costo * CREDITO_TOTAL).toLocaleString('es-AR')}`}
+                        </span>
+                      )}
+                      {o.ahorro_estimado > 0 && (
+                        <span style={{ fontFamily:A.font, fontSize:11, color:A.green, fontWeight:600 }}>
+                          Ahorro decl. ${Number(o.ahorro_estimado).toLocaleString('es-AR')}
                         </span>
                       )}
                       {filtro === 'todas' && (
@@ -723,10 +728,17 @@ function TabOfertas({ ofertas, setOfertas, showToast }) {
                     {!o.aprobada && o.activa !== false ? (
                       aprobando === o.id ? (
                         <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                          <input type="number" min="0" value={tokensVal} onChange={e => setTokensVal(e.target.value)}
-                            placeholder="Créditos (0=gratis)"
-                            style={{ width:110, padding:'6px 10px', border:`1px solid ${A.line}`, borderRadius:8, fontFamily:A.font, fontSize:12, outline:'none' }}
-                          />
+                          <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                            <input type="number" min="0" value={tokensVal} onChange={e => setTokensVal(e.target.value)}
+                              placeholder="Créditos (0=gratis)"
+                              style={{ width:110, padding:'6px 10px', border:`1px solid ${A.line}`, borderRadius:8, fontFamily:A.font, fontSize:12, outline:'none' }}
+                            />
+                            {o.ahorro_estimado > 0 && (
+                              <span style={{ fontFamily:A.font, fontSize:10, color:A.muted }}>
+                                Sugerido: {Math.max(1, Math.round(calcularPrecioCupon(o.ahorro_estimado) / CREDITO_TOTAL))} créd.
+                              </span>
+                            )}
+                          </div>
                           <ABtn onClick={() => aprobarOferta(o)} variant="success" style={{ fontSize:12, padding:'6px 10px' }}>✓</ABtn>
                           <ABtn onClick={() => { setAprobando(null); setTokensVal(''); }} style={{ fontSize:12, padding:'6px 10px' }}>✕</ABtn>
                         </div>

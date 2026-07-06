@@ -1,4 +1,4 @@
-Mapa de archivos — Cuponear (gesell.ar)
+Mapa de archivos — Cuponear
 
 Raíz / Entry Points
 src/main.jsx: Punto de entrada React. Monta <App> en el DOM.

@@ -62,9 +62,9 @@ function makeMarkerHtml(promo, active) {
 function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
   const titulo = promo.title || promo.titulo;
   const precioCreditos = promo.tokens_precio != null
-    ? `$${promo.tokens_precio.toLocaleString('es-AR')} + IVA`
+    ? `AR$${Math.round(promo.tokens_precio * 1.21).toLocaleString('es-AR')}`
     : promo.tokens_costo != null
-    ? `$${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA`
+    ? `AR$${(promo.tokens_costo * 2420).toLocaleString('es-AR')}`
     : null;
 
   return (

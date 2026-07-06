@@ -55,52 +55,47 @@ function useOutsideClose(refs, fn) {
 // ═══════════════════════════════════════════════════════════
 // ─── MINI OFERTA CARD — tarjeta destacada en dropdowns ─────
 // ═══════════════════════════════════════════════════════════
-function NavCoin() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" fill="#F59E0B"/>
-      <text x="12" y="16.5" textAnchor="middle" fontSize="9" fill="#fff" fontWeight="900" fontFamily="sans-serif">₢</text>
-    </svg>
-  );
-}
-
-function MiniOfertaCard({ img, badge, subtitulo, titulo, proveedorNombre = 'Villa Gesell', tokens = 1, onNavigate, destino }) {
+function MiniOfertaCard({ img, badge, subtitulo, titulo, proveedorNombre = 'Villa Gesell', onNavigate, destino, opts = {} }) {
   return (
     <button
-      onClick={() => onNavigate(destino || 'marketplace', {})}
+      onClick={() => onNavigate(destino || 'ofertas', opts)}
       style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${A.line}`, borderRadius: 14, overflow: 'hidden', background: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: A.font, width: '100%', padding: 0, transition: 'box-shadow .18s, transform .18s' }}
       onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 10px 28px -8px rgba(11,16,32,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
     >
+      {/* Header: avatar + nombre — mismo orden que la card grande */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 11px 7px' }}>
+        <div style={{ width: 24, height: 24, borderRadius: '50%', background: A.primarySoft, border: `1px solid ${A.line}`, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: A.primary }}>{(proveedorNombre)[0]}</span>
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 700, color: A.ink, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{proveedorNombre}</span>
+      </div>
+
       {/* Imagen 4:3 */}
       <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden', background: '#e0e0ea', flexShrink: 0 }}>
         <img src={img} alt={titulo} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.45) 0%, transparent 55%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.55) 0%, transparent 55%)' }} />
         {subtitulo && (
           <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(11,16,32,0.52)', padding: '3px 8px', borderRadius: 7, backdropFilter: 'blur(4px)' }}>
             {subtitulo}
           </span>
         )}
-        {badge && (
-          <div style={{ position: 'absolute', bottom: 9, left: 11, fontSize: (badge.length || 0) > 5 ? 20 : 27, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1, textShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>
-            {badge}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '9px 11px 10px' }}>
+          {badge && (
+            <div style={{ fontSize: (badge.length || 0) > 5 ? 20 : 27, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>
+              {badge}
+            </div>
+          )}
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3, marginTop: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+            {titulo}
           </div>
-        )}
-      </div>
-      {/* Body */}
-      <div style={{ padding: '9px 11px 11px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: A.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-          {titulo}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <div style={{ width: 22, height: 22, borderRadius: '50%', background: A.primarySoft, border: `1px solid ${A.line}`, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: A.primary }}>{(proveedorNombre)[0]}</span>
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 600, color: A.ink2, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{proveedorNombre}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-            <NavCoin />
-            <span style={{ fontSize: 11.5, fontWeight: 800, color: A.ink }}>{tokens}</span>
-          </div>
+      </div>
+
+      {/* Footer: Ver oferta */}
+      <div style={{ padding: '9px 11px 11px' }}>
+        <div style={{ width: '100%', textAlign: 'center', border: `1.5px solid ${A.ink}`, borderRadius: 9, padding: '6px 0', fontSize: 11.5, fontWeight: 800, color: A.ink }}>
+          Ver oferta
         </div>
       </div>
     </button>
@@ -108,30 +103,25 @@ function MiniOfertaCard({ img, badge, subtitulo, titulo, proveedorNombre = 'Vill
 }
 
 // ─── Fila compacta de oferta (columna derecha) ──────────────
-function MiniOfertaRow({ badge, badgeColor = '#10A36B', titulo, proveedorNombre = 'Villa Gesell', tokens = 1, onNavigate, destino }) {
+function MiniOfertaRow({ badge, badgeColor = '#10A36B', titulo, proveedorNombre = 'Villa Gesell', onNavigate, destino, opts = {} }) {
   return (
     <button
-      onClick={() => onNavigate(destino || 'marketplace', {})}
+      onClick={() => onNavigate(destino || 'ofertas', opts)}
       style={{ width: '100%', textAlign: 'left', border: 'none', background: 'none', padding: '9px 0', cursor: 'pointer', fontFamily: A.font, display: 'flex', flexDirection: 'column', gap: 4, transition: 'opacity .12s' }}
       onMouseEnter={e => e.currentTarget.style.opacity = '0.72'}
       onMouseLeave={e => e.currentTarget.style.opacity = '1'}
     >
-      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, color: '#fff', background: badgeColor, padding: '2px 8px', borderRadius: 999 }}>
-        {badge}
-      </span>
-      <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-        {titulo}
-      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <div style={{ width: 18, height: 18, borderRadius: '50%', background: A.primarySoft, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
           <span style={{ fontSize: 8, fontWeight: 800, color: A.primary }}>{(proveedorNombre)[0]}</span>
         </div>
         <span style={{ fontSize: 11, fontWeight: 600, color: A.ink2, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{proveedorNombre}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-          <NavCoin />
-          <span style={{ fontSize: 11, fontWeight: 700, color: A.ink }}>{tokens}</span>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={A.muted} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
+      </div>
+      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, color: '#fff', background: badgeColor, padding: '2px 8px', borderRadius: 999 }}>
+        {badge}
+      </span>
+      <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+        {titulo}
       </div>
     </button>
   );
@@ -196,13 +186,13 @@ function AlojDrop({ onNavigate }) {
             key={u.label}
             label={u.label}
             onClick={() => u.locs.length === 1
-              ? onNavigate('marketplace', { localidad: u.locs[0] })
-              : onNavigate('marketplace', { localidades: u.locs })
+              ? onNavigate('ofertas', { ofertasCategoria: 'alojamiento', localidad: u.locs[0] })
+              : onNavigate('ofertas', { ofertasCategoria: 'alojamiento', localidades: u.locs })
             }
           />
         ))}
         <DropDivider />
-        <DropLink label="Todos los destinos" onClick={() => onNavigate('marketplace', { localidad: '' })} />
+        <DropLink label="Todos los destinos" onClick={() => onNavigate('ofertas', { ofertasCategoria: 'alojamiento', localidad: '' })} />
       </DropCol>
 
       {/* Separador vertical */}
@@ -211,10 +201,10 @@ function AlojDrop({ onNavigate }) {
       {/* Col 2 */}
       <DropCol title="Por tipo de alojamiento">
         {ALOJ_TIPOS_LIST.map(t => (
-          <DropLink key={t.val} label={t.label} onClick={() => onNavigate('marketplace', { tipo: t.val })} />
+          <DropLink key={t.val} label={t.label} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'alojamiento', tipo: t.val })} />
         ))}
         <DropDivider />
-        <DropLink label="Todos los tipos" onClick={() => onNavigate('marketplace', {})} />
+        <DropLink label="Todos los tipos" onClick={() => onNavigate('ofertas', { ofertasCategoria: 'alojamiento' })} />
       </DropCol>
 
       {/* Separador vertical */}
@@ -230,7 +220,8 @@ function AlojDrop({ onNavigate }) {
           proveedorNombre="Las Gaviotas Lodge"
           tokens={2}
           onNavigate={onNavigate}
-          destino="marketplace"
+          destino="ofertas"
+          opts={{ ofertasCategoria: 'alojamiento' }}
         />
       </div>
 
@@ -247,7 +238,8 @@ function AlojDrop({ onNavigate }) {
           proveedorNombre="Hotel del Bosque"
           tokens={1}
           onNavigate={onNavigate}
-          destino="marketplace"
+          destino="ofertas"
+          opts={{ ofertasCategoria: 'alojamiento' }}
         />
         <div style={{ height: 1, background: A.line }} />
         <MiniOfertaRow
@@ -257,11 +249,12 @@ function AlojDrop({ onNavigate }) {
           proveedorNombre="Mar de las Pampas"
           tokens={2}
           onNavigate={onNavigate}
-          destino="marketplace"
+          destino="ofertas"
+          opts={{ ofertasCategoria: 'alojamiento' }}
         />
         <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
         <button
-          onClick={() => onNavigate('marketplace', {})}
+          onClick={() => onNavigate('ofertas', { ofertasCategoria: 'alojamiento' })}
           style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
@@ -332,10 +325,10 @@ function GastroDrop({ onNavigate }) {
           { label: 'Centros Culturales',  val: 'Centro Cultural' },
           { label: 'Otros',               val: 'Otro' },
         ].map(({ label, val }) => (
-          <DropLink key={val} label={label} onClick={() => onNavigate('salidas', { gastroCategoria: val })} />
+          <DropLink key={val} label={label} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas', gastroCategoria: val })} />
         ))}
         <DropDivider />
-        <DropLink label="Todas las categorías" onClick={() => onNavigate('salidas', { gastroCategoria: '' })} />
+        <DropLink label="Todas las categorías" onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas' })} />
       </DropCol>
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
@@ -343,10 +336,10 @@ function GastroDrop({ onNavigate }) {
       {/* Col 2: Tipo de experiencia */}
       <DropCol title="Tipo de experiencia">
         {GASTRO_EXPERIENCIA.map(l => (
-          <DropLink key={l} label={l} onClick={() => onNavigate('salidas', { gastroExperiencia: l })} />
+          <DropLink key={l} label={l} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas', gastroExperiencia: l })} />
         ))}
         <DropDivider />
-        <DropLink label="Todos los tipos" onClick={() => onNavigate('salidas', { gastroExperiencia: '' })} />
+        <DropLink label="Todos los tipos" onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas' })} />
       </DropCol>
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
@@ -362,7 +355,8 @@ function GastroDrop({ onNavigate }) {
           proveedorNombre="Restaurante Amarena"
           tokens={1}
           onNavigate={onNavigate}
-          destino="salidas"
+          destino="ofertas"
+          opts={{ ofertasCategoria: 'salidas' }}
         />
       </div>
 
@@ -378,7 +372,8 @@ function GastroDrop({ onNavigate }) {
           proveedorNombre="Restaurante Amarena"
           tokens={1}
           onNavigate={onNavigate}
-          destino="salidas"
+          destino="ofertas"
+          opts={{ ofertasCategoria: 'salidas' }}
         />
         <div style={{ height: 1, background: A.line }} />
         <MiniOfertaRow
@@ -388,11 +383,12 @@ function GastroDrop({ onNavigate }) {
           proveedorNombre="Bar La Costa"
           tokens={1}
           onNavigate={onNavigate}
-          destino="salidas"
+          destino="ofertas"
+          opts={{ ofertasCategoria: 'salidas' }}
         />
         <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
         <button
-          onClick={() => onNavigate('salidas', {})}
+          onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas' })}
           style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink2; }}
@@ -408,14 +404,13 @@ function GastroDrop({ onNavigate }) {
 // ─── DROPDOWN AVENTURA & RELAX ──────────────────────────────
 // ═══════════════════════════════════════════════════════════
 const AVENT_CATS_LIST = [
-  'Todo en Aventura & Relax',
-  'Excursiones & Paseos',
-  'Deportes acuáticos',
-  'Senderismo & Naturaleza',
-  'Spa & Masajes',
-  'Cabalgatas',
-  'Yoga & Mindfulness',
-  'Kitesurf & Viento',
+  { label: 'Excursiones & Paseos',    tipo: 'Excursion' },
+  { label: 'Deportes acuáticos',      tipo: 'Deportes acuáticos' },
+  { label: 'Senderismo & Naturaleza', tipo: 'Senderismo' },
+  { label: 'Spa & Masajes',           tipo: 'Spa' },
+  { label: 'Cabalgatas',              tipo: 'Cabalgatas' },
+  { label: 'Yoga & Mindfulness',      tipo: 'Yoga / Bienestar' },
+  { label: 'Kitesurf & Viento',       tipo: 'Kitesurf' },
 ];
 
 function AventDrop({ onNavigate }) {
@@ -424,11 +419,11 @@ function AventDrop({ onNavigate }) {
 
       {/* Col categorías */}
       <DropCol title="Categorías">
-        {AVENT_CATS_LIST.slice(1).map(l => (
-          <DropLink key={l} label={l} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax' })} />
+        {AVENT_CATS_LIST.map(({ label, tipo }) => (
+          <DropLink key={label} label={label} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax', aventuraTipo: tipo })} />
         ))}
         <DropDivider />
-        <DropLink label={AVENT_CATS_LIST[0]} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax' })} />
+        <DropLink label="Todo en Aventura & Relax" onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax' })} />
       </DropCol>
 
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
@@ -445,6 +440,7 @@ function AventDrop({ onNavigate }) {
           tokens={1}
           onNavigate={onNavigate}
           destino="ofertas"
+          opts={{ ofertasCategoria: 'aventura_relax' }}
         />
       </div>
 
@@ -461,6 +457,7 @@ function AventDrop({ onNavigate }) {
           tokens={1}
           onNavigate={onNavigate}
           destino="ofertas"
+          opts={{ ofertasCategoria: 'aventura_relax' }}
         />
         <div style={{ height: 1, background: A.line }} />
         <MiniOfertaRow
@@ -471,6 +468,7 @@ function AventDrop({ onNavigate }) {
           tokens={2}
           onNavigate={onNavigate}
           destino="ofertas"
+          opts={{ ofertasCategoria: 'aventura_relax' }}
         />
         <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
         <button
@@ -632,7 +630,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('aloj')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('marketplace', {})} style={{ ...navBtnSt, color: openMenu === 'aloj' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('ofertas', { ofertasCategoria: 'alojamiento' })} style={{ ...navBtnSt, color: openMenu === 'aloj' ? A.primary : A.ink2 }}>
                 alojamientos <ChevD />
               </button>
               {(openMenu === 'aloj' || closingMenu === 'aloj') && (
@@ -647,7 +645,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('gastro')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('salidas', {})} style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('ofertas', { ofertasCategoria: 'salidas' })} style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
                 salidas <ChevD />
               </button>
               {(openMenu === 'gastro' || closingMenu === 'gastro') && (

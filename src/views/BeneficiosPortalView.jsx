@@ -157,10 +157,10 @@ function OfertaCard({ o, onActivar }) {
             {mostrarCreditos ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <CoinSVG size={13}/> <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>{o.creditos} créditos</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>(${(o.creditos * 2000).toLocaleString('es-AR')} + IVA)</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>(AR${(o.creditos * 2420).toLocaleString('es-AR')})</span>
               </div>
             ) : (
-              <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>${(o.creditos * 2000).toLocaleString('es-AR')} + IVA</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>AR${(o.creditos * 2420).toLocaleString('es-AR')}</span>
             )}
           </div>
         </div>

@@ -138,7 +138,7 @@ function PantallaPago({ plan, primaryColor, unidadesDeclaradas, onConfirmar, onV
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onClick={e => e.stopPropagation()}>
           <div style={{ background: '#f8fafc', border: `1px solid ${GREY_LINE}`, borderRadius: 12, padding: '12px 14px', fontFamily: FONT, fontSize: 12.5, color: INK2, lineHeight: 1.7 }}>
             <div><b>CBU:</b> 0000003100089489894505</div>
-            <div><b>Alias:</b> GESELL.AR</div>
+            <div><b>Alias:</b> CUPONEAR</div>
             <div><b>Banco:</b> Banco Galicia</div>
             <div><b>Razón social:</b> Cuponear SRL</div>
           </div>

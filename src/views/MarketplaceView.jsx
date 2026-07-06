@@ -3,12 +3,10 @@
 // ============================================================
 import React, { useState, useEffect, useRef } from 'react';
 import AccommodationCard from '../components/AccommodationCard';
+import OfertaCard from '../components/OfertaCard';
 import { getAlojamientos, getPromos } from '../lib/datos';
 import { LOCALIDADES, ZONAS, getVecinas } from '../lib/localidades';
-import { secondsUntil, formatCountdown } from '../lib/ofertas';
 import { useCuponera } from '../lib/cuponera';
-import HeartButton     from '../components/HeartButton';
-import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
 
 const A = {
   primary:     '#2545E6',
@@ -50,281 +48,13 @@ const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="n
 const IcoX       = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>;
 const IcoChevD   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>;
 const IcoChevR   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m9 6 6 6-6 6"/></svg>;
-const IcoTicket  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>;
 const IcoPin     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>;
-const IcoBolt    = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
 
 const IcoGrid    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
 const IcoList    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>;
 const IcoMap     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>;
 const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
 
-function CoinSVG({ size = 13 }) {
-  return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
-}
-
-// ─── Offer card (grid) ────────────────────────────────────────
-function OfertaCardGrid({ promo, onClick, onAddToCuponera, inMarketplace = false }) {
-  const esFlash = promo.offerType === 'Flash';
-  const [secs, setSecs] = useState(() => esFlash ? secondsUntil(promo.fechaFinFlash) : 0);
-  useEffect(() => {
-    if (!esFlash) return;
-    const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, [esFlash]);
-
-  const pad = n => String(n).padStart(2, '0');
-  const th = Math.floor(secs / 3600);
-  const tm = Math.floor((secs % 3600) / 60);
-  const ts = secs % 60;
-  const tc = promo.tokens_costo;
-
-  const card = (
-    <div
-      onClick={() => onClick && onClick(promo)}
-      style={{ background: '#fff', border: inMarketplace ? 'none' : `1px solid ${A.line}`, borderRadius: inMarketplace ? 19 : 20, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s', position: 'relative', flex: 1 }}
-      onMouseEnter={e => { e.currentTarget.parentElement?.style && (e.currentTarget.parentElement.style.transform = 'translateY(-2px)'); e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; }}
-      onMouseLeave={e => { e.currentTarget.parentElement?.style && (e.currentTarget.parentElement.style.transform = 'none'); e.currentTarget.style.boxShadow = 'none'; }}
-    >
-      {/* Imagen 4:3 */}
-      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
-        <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }} />
-
-        {/* Pill FLASH + timer */}
-        {esFlash && secs > 0 && (
-          <div style={{ position: 'absolute', top: 10, left: 10, right: 10, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
-            <div style={{ height: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', borderRadius: 999, padding: '0 10px 0 9px' }}>
-              <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
-              <span style={{ fontSize: 10, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
-              <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: '100%' }}>
-              {[th, tm, ts].map((v, i) => (
-                <React.Fragment key={i}>
-                  <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, height: '100%', minWidth: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
-                    {i === 0 ? v : pad(v)}
-                  </div>
-                  {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13 }}>:</span>}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Exclusivo huéspedes */}
-        {promo.exclusivoHuespedes && (
-          <>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-              </svg>
-              <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>Exclusivo huéspedes {promo.exclusivoHuespedes}</span>
-            </div>
-          </>
-        )}
-
-        {/* Badge PROMOCIÓN — solo marketplace, top right */}
-        {inMarketplace && (
-          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3, background: '#d2e9f3', color: '#0c101f', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '3px 8px', borderRadius: 999 }}>
-            PROMOCIÓN
-          </div>
-        )}
-
-        {/* Heart — top right (sin marketplace badge) */}
-        {!inMarketplace && (
-          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }}>
-            <HeartButton id={promo.id} />
-          </div>
-        )}
-
-        {/* Badge + título — abajo */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 14px 13px' }}>
-          <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 25 : 36, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Proveedor */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: A.bg, border: `1px solid ${A.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {promo.proveedorImage
-              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontSize: 12, fontWeight: 700, color: A.muted }}>{(promo.proveedorNombre || '?')[0]}</span>
-            }
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-              {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-            </div>
-            {(promo.negocioLocalidad || promo.negocioZone) && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: A.primary, marginTop: 2 }}>
-                <IcoPin /> {promo.negocioLocalidad || promo.negocioZone}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Botón */}
-        <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 11, padding: '10px 0', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = A.primary}
-        >
-          <IcoTicket /> Agregar a cuponera
-        </button>
-
-        {/* Info rows */}
-        {tc === 0
-          ? <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', borderRadius: 9, padding: '8px 11px', border: '1px solid #BBF7D0', flexShrink: 0 }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón DE REGALO para vos</span>
-            </div>
-          : tc != null && (
-            <div style={{ borderTop: `1px solid ${A.line}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <CoinSVG size={13} />
-                  <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
-                  <CreditTooltip />
-                  <span style={{ fontSize: 10, fontWeight: 600, color: A.muted }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</span>
-                </div>
-              </div>
-            </div>
-          )
-        }
-      </div>
-    </div>
-  );
-
-  if (inMarketplace) {
-    return (
-      <div style={{ background: 'linear-gradient(to bottom, #d2e9f3, #2d44dd)', borderRadius: 21, padding: 2, display: 'flex', transition: 'transform 0.2s' }}>
-        {card}
-      </div>
-    );
-  }
-  return card;
-}
-
-// ─── Offer card (list) ────────────────────────────────────────
-function OfertaCardList({ promo, onClick, onAddToCuponera }) {
-  const esFlash = promo.offerType === 'Flash';
-  const [secs, setSecs] = useState(() => esFlash ? secondsUntil(promo.fechaFinFlash) : 0);
-  useEffect(() => {
-    if (!esFlash) return;
-    const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, [esFlash]);
-
-  const pad = n => String(n).padStart(2, '0');
-  const th = Math.floor(secs / 3600);
-  const tm = Math.floor((secs % 3600) / 60);
-  const ts = secs % 60;
-  const tc = promo.tokens_costo;
-
-  return (
-    <div
-      onClick={() => onClick && onClick(promo)}
-      style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 18, overflow: 'hidden', display: 'flex', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
-      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 8px 32px -12px rgba(11,16,32,0.18)'}
-      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-    >
-      {/* Imagen — lado izquierdo, 4:3 dentro de ancho fijo */}
-      <div style={{ position: 'relative', width: 160, flexShrink: 0, overflow: 'hidden' }}>
-        <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.1) 50%, transparent 100%)' }} />
-        {esFlash && secs > 0 && (
-          <div style={{ position: 'absolute', top: 8, left: 8, display: 'inline-flex', alignItems: 'center', gap: 3, background: '#EF4444', borderRadius: 999, padding: '3px 8px 3px 7px' }}>
-            <span style={{ fontSize: 9, fontWeight: 500, color: '#fff' }}>OFERTA</span>
-            <span style={{ fontSize: 9, fontWeight: 900, color: A.yellow, fontStyle: 'italic' }}>FLASH</span>
-            <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
-          </div>
-        )}
-        {/* Heart top right */}
-        <div style={{ position: 'absolute', top: 8, right: 8 }}><HeartButton id={promo.id} size={26} /></div>
-        {/* Badge + título — abajo */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 10px 9px' }}>
-          <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 20 : 28, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.85)', lineHeight: 1.3, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {/* Timer flash en body */}
-        {esFlash && secs > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            {[th, tm, ts].map((v, i) => (
-              <React.Fragment key={i}>
-                <div style={{ background: A.bg, border: `1px solid ${A.line}`, color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {i === 0 ? v : pad(v)}
-                </div>
-                {i < 2 && <span style={{ color: A.muted, fontWeight: 700, fontSize: 13 }}>:</span>}
-              </React.Fragment>
-            ))}
-            <span style={{ fontSize: 10, color: A.muted, marginLeft: 4 }}>restantes</span>
-          </div>
-        )}
-
-        {/* Proveedor */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: A.bg, border: `1px solid ${A.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {promo.proveedorImage
-              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontSize: 11, fontWeight: 700, color: A.muted }}>{(promo.proveedorNombre || '?')[0]}</span>
-            }
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-              {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-            </div>
-            {promo.negocioLocalidad && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: A.primary, marginTop: 1 }}>
-                <IcoPin /> {promo.negocioLocalidad}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Botón + info */}
-        <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 0', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
-          onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = A.primary}
-        >
-          <IcoTicket /> Agregar a cuponera
-        </button>
-
-        {tc === 0
-          ? <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F0FDF4', borderRadius: 8, padding: '6px 10px', border: '1px solid #BBF7D0' }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#10A36B' }}>Cupón DE REGALO para vos</span>
-            </div>
-          : tc != null && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <CoinSVG size={12} />
-                <span style={{ fontSize: 12, fontWeight: 800, color: A.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
-                <CreditTooltip />
-                <span style={{ fontSize: 9.5, fontWeight: 600, color: A.muted }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</span>
-              </div>
-            </div>
-          )
-        }
-      </div>
-    </div>
-  );
-}
 
 // ─── Accommodation card (list) ────────────────────────────────
 function AlojListCard({ item, onClick }) {
@@ -512,7 +242,7 @@ function useWindowWidth() {
   return w;
 }
 
-export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 'todos', initialLocalidad = 'todas', onVerOfertas }) {
+export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 'todos', initialLocalidad = 'todas', onVerOfertas, onOpenOferta }) {
   const { addCupon } = useCuponera();
   const [alojamientos, setAlojamientos] = useState([]);
   const [promos,       setPromos]       = useState([]);
@@ -705,7 +435,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const renderGrid = (items) => (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 22 }}>
       {items.map(item => item._esOferta
-        ? <OfertaCardGrid key={`o-${item.id}-${item.categoria}`} promo={item} onClick={() => {}} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
+        ? <OfertaCard key={`o-${item.id}-${item.categoria}`} promo={item} onOpen={onOpenOferta} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
         : <AccommodationCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} discountTags={discountTagsMap[item.id]} />
       )}
     </div>
@@ -714,7 +444,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const renderList = (items) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {items.map(item => item._esOferta
-        ? <OfertaCardList key={`o-${item.id}-${item.categoria}`} promo={item} onClick={() => {}} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
+        ? <OfertaCard key={`o-${item.id}-${item.categoria}`} promo={item} variant="list" onOpen={onOpenOferta} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
         : <AlojListCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} discountTags={discountTagsMap[item.id]} />
       )}
     </div>

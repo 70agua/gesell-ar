@@ -288,7 +288,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
 
   // Precio del cupón en créditos y en pesos
   const tokensCosto      = oferta.tokens_costo ?? 3;
-  const precioCreditosARS = tokensCosto * 2000;          // 1 crédito = $2.000
+  const precioCreditosARS = tokensCosto * 2420;          // 1 crédito = $2.420 (con IVA incl.)
   // Valor del beneficio que otorga el cupón (siempre mayor al costo del crédito)
   const beneficioValor   = oferta.beneficioValor || 30000;
   const ahorro           = beneficioValor - precioCreditosARS;
@@ -538,7 +538,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                         </span>
                       </>
                     ) : (
-                      <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>${precioCreditosARS.toLocaleString('es-AR')}</span>
+                      <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>AR${precioCreditosARS.toLocaleString('es-AR')}</span>
                     )}
                   </div>
 
@@ -548,7 +548,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                     <InfoTooltip />
                   </div>
                   <div style={{ padding: '4px 14px 16px' }}>
-                    <span style={{ fontSize: 11, color: C.muted }}>{mostrarCreditos ? `(${precioCreditosARS.toLocaleString('es-AR')} + IVA)` : '+ IVA'}</span>
+                    <span style={{ fontSize: 11, color: C.muted }}>{mostrarCreditos ? `(AR$${precioCreditosARS.toLocaleString('es-AR')})` : 'IVA incluido'}</span>
                   </div>
 
                 </div>

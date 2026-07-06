@@ -358,11 +358,15 @@ function ThanksScreen({ onClose }) {
 function ChatPanel({ onMinimize, isClosing, initialBotMessage }) {
   const initialSuggestions = FAQS.filter(f => TOP_FAQS.includes(f.id));
 
-  const [messages, setMessages] = useState(() => {
-    const base = [{ id: 0, from: 'bot', text: '¡Hola! Soy Cuponix, tu asistente. Escribí tu consulta o elegí una de las preguntas más frecuentes.' }];
-    if (initialBotMessage) base.push({ id: 1, from: 'bot', text: initialBotMessage });
-    return base;
-  });
+  // El saludo inicial sólo aparece si el chat arranca "en limpio" (click directo
+  // en Cuponix) — si arranca desde un "Saber más", ese texto extendido es lo único
+  // que se muestra. ChatPanel se monta una sola vez (ver ChatBot), así que este
+  // estado inicial no se vuelve a recalcular al minimizar/reabrir.
+  const [messages, setMessages] = useState(() => (
+    initialBotMessage
+      ? [{ id: 1, from: 'bot', text: initialBotMessage }]
+      : [{ id: 0, from: 'bot', text: '¡Hola! Soy Cuponix, tu asistente. Escribí tu consulta o elegí una de las preguntas más frecuentes.' }]
+  ));
   const [input, setInput] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showInitial, setShowInitial] = useState(!initialBotMessage);
@@ -372,6 +376,17 @@ function ChatPanel({ onMinimize, isClosing, initialBotMessage }) {
   const [showThanks, setShowThanks] = useState(false);
   const endRef = useRef(null);
   const typedIdsRef = useRef(new Set());      // ids de mensajes ya "escritos"
+  const lastInitialRef = useRef(initialBotMessage || null); // último "Saber más" ya insertado
+
+  // Si el chat ya estaba montado y llega un "Saber más" nuevo (texto distinto
+  // al que se usó al abrir por primera vez), lo agrega a la conversación existente.
+  useEffect(() => {
+    if (initialBotMessage && initialBotMessage !== lastInitialRef.current) {
+      lastInitialRef.current = initialBotMessage;
+      setShowInitial(false);
+      setMessages(prev => [...prev, { id: Date.now(), from: 'bot', text: initialBotMessage }]);
+    }
+  }, [initialBotMessage]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -552,7 +567,7 @@ function MinimizedDot({ onClick }) {
 }
 
 // ─── Globito de texto con typewriter ─────────────────────────
-const BUBBLE_FONT = "'Patrick Hand', 'Comic Neue', cursive";
+const BUBBLE_FONT = "'Comic Neue', 'Inter', system-ui, sans-serif";
 const BUBBLE_PREFIX = '¡Hola! Soy ';
 const BUBBLE_NAME   = 'Cuponix';
 const BUBBLE_SUFFIX = '\nAvisame si necesitás ayuda :)';
@@ -570,13 +585,13 @@ function SpeechBubble({ onDismiss }) {
       border: `1.5px solid ${C.line}`,
       boxShadow: '0 6px 24px rgba(11,16,32,0.12)',
       padding: '10px 14px',
-      fontFamily: BUBBLE_FONT, fontSize: 13, fontWeight: 700, color: C.ink,
+      fontFamily: BUBBLE_FONT, fontSize: 15, fontWeight: 700, color: C.ink,
       whiteSpace: 'pre-line', lineHeight: 1.35,
       animation: 'bubbleIn .35s cubic-bezier(.34,1.56,.64,1) both',
     }}>
-      <span>{prefixShown}</span>
-      <span style={{ color: C.primary }}>{nameShown}</span>
-      <span style={{ fontWeight: 400 }}>{suffixShown}</span>
+      <span style={{ fontFamily: BUBBLE_FONT }}>{prefixShown}</span>
+      <span style={{ fontFamily: BUBBLE_FONT, color: C.primary }}>{nameShown}</span>
+      <span style={{ fontFamily: BUBBLE_FONT, fontWeight: 400 }}>{suffixShown}</span>
       {/* Caret triangular */}
       <span style={{
         position: 'absolute', bottom: -8, right: 28,
@@ -615,23 +630,27 @@ function RobotButton({ open, onClick }) {
       title={open ? 'Cerrar asistente' : 'Abrir asistente'}
       style={{ position: 'fixed', bottom: 20, right: 10, zIndex: 9001, cursor: 'pointer', animation: open ? undefined : 'robotIn .55s cubic-bezier(.34,1.56,.64,1) both' }}
     >
-      {open
-        ? <img src="/cuponix-work.svg" alt="Cuponix" style={{ width: 140, height: 140, display: 'block' }} />
-        : (
-          <iframe
-            src="/cuponix-base-animated.html"
-            title="Cuponix"
-            scrolling="no"
-            style={{ width: 140, height: 140, border: 'none', background: 'transparent', display: 'block', pointerEvents: 'none' }}
-          />
-        )
-      }
+      <iframe
+        src={open ? '/cuponix-busy-animated.html' : '/cuponix-base-animated.html'}
+        title="Cuponix"
+        scrolling="no"
+        style={{ width: 140, height: 140, border: 'none', background: 'transparent', display: 'block', pointerEvents: 'none' }}
+      />
     </div>
   );
 }
 
 // ─── Globito del circulito minimizado (contextual o "sigo por acá") ──
-function MiniBubble({ titulo, sub, onSaberMas, onClose, closing }) {
+const MINI_DURACION = 10; // segundos que dura abierto el globito
+
+function MiniBubble({ titulo, sub, onSaberMas, onClose, closing, duracion = MINI_DURACION }) {
+  const [restante, setRestante] = useState(duracion);
+  const [hover, setHover]       = useState(false);
+  useEffect(() => {
+    if (closing) return;
+    const t = setInterval(() => setRestante(r => (r > 1 ? r - 1 : 1)), 1000);
+    return () => clearInterval(t);
+  }, [closing]);
   return (
     <div style={{
       position: 'fixed', bottom: 74, right: 20, zIndex: 9003, width: 220,
@@ -640,24 +659,33 @@ function MiniBubble({ titulo, sub, onSaberMas, onClose, closing }) {
       fontFamily: BUBBLE_FONT, color: C.ink, lineHeight: 1.35,
       animation: closing ? 'bubbleOut .3s ease both' : 'bubbleIn .35s cubic-bezier(.34,1.56,.64,1) both',
     }}>
-      <div style={{ fontSize: 13.5, fontWeight: 700 }}>{titulo}</div>
-      {sub && <div style={{ fontSize: 12.5, fontWeight: 400, marginTop: 1 }}>{sub}</div>}
+      <div style={{ fontFamily: BUBBLE_FONT, fontSize: 15, fontWeight: 700 }}>{titulo}</div>
+      {sub && <div style={{ fontFamily: BUBBLE_FONT, fontSize: 15, fontWeight: 400, marginTop: 1 }}>{sub}</div>}
       {onSaberMas && (
-        <button onClick={onSaberMas} style={{ marginTop: 6, background: 'none', border: 'none', padding: 0, color: C.primary, fontFamily: BUBBLE_FONT, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+        <button onClick={onSaberMas} style={{ marginTop: 6, background: 'none', border: 'none', padding: 0, color: C.primary, fontFamily: BUBBLE_FONT, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
           Saber más →
         </button>
       )}
       {/* Caret hacia el circulito */}
       <span style={{ position: 'absolute', bottom: -8, right: 16, width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid #fff' }} />
       <span style={{ position: 'absolute', bottom: -10, right: 15, width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `9px solid ${C.line}`, zIndex: -1 }} />
-      <button onClick={onClose} style={{ position: 'absolute', top: -8, right: -8, width: 17, height: 17, borderRadius: '50%', background: C.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, lineHeight: 1 }}>✕</button>
+      {/* Círculo: muestra la cuenta regresiva y, al pasar el mouse, se convierte en la cruz para cerrar */}
+      <button
+        onClick={onClose}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{ position: 'absolute', top: -8, right: -8, width: 17, height: 17, borderRadius: '50%', background: C.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: BUBBLE_FONT, fontSize: hover ? 9 : 9.5, fontWeight: 700, lineHeight: 1 }}
+      >
+        {hover ? '✕' : restante}
+      </button>
     </div>
   );
 }
 
 // Mensajes contextuales según la pantalla (view) donde está el turista.
+// "home" no tiene entrada acá — ahí ya cubre el mensaje de bienvenida "Tsss! sigo por acá!"
+// del primer minimizado, y no queremos que los dos globitos se pisen.
 const MENSAJES_VIEW = {
-  home:                 { titulo: '¿Primera vez por acá?',            sub: 'Te muestro cómo aprovechar los cupones de Gesell.ar.', extendido: 'Gesell.ar es tu billetera de cupones para Villa Gesell y la zona. Sumás cupones de distintos socios a tu cuponera con créditos (1 crédito = $2.000 + IVA) y los activás cuando estás listo para consumir. Empezá por explorar las ofertas: cuando veas una que te gusta, tocá "Agregar a cuponera". ¿Querés que te explique cómo conseguir créditos?' },
   marketplace:          { titulo: 'Tocá cualquier cupón para activarlo.', sub: 'Con tus créditos lo sumás a tu cuponera en 1 clic.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Al tocarla ves el detalle y el botón para sumarla a tu cuponera (se descuenta el crédito indicado). Después la activás cuando estés en el local. ¿Te muestro cómo comprar créditos?' },
   'marketplace-ofertas':{ titulo: 'Tocá cualquier cupón para activarlo.', sub: 'Con tus créditos lo sumás a tu cuponera en 1 clic.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Al tocarla ves el detalle y el botón para sumarla a tu cuponera. Después la activás cuando estés en el local. ¿Te muestro cómo comprar créditos?' },
   ofertas:              { titulo: 'Tocá cualquier cupón para activarlo.', sub: 'Con tus créditos lo sumás a tu cuponera en 1 clic.', extendido: 'Cada tarjeta es un cupón de un socio. Tocala para ver el detalle y sumarla a tu cuponera; después la activás en el local. ¿Te muestro cómo comprar créditos?' },
@@ -677,10 +705,12 @@ export default function ChatBot({ view = 'home' }) {
   const [miniBubble, setMiniBubble]       = useState(null);   // { titulo, sub, extendido? }
   const [miniClosing, setMiniClosing]     = useState(false);
   const [initialBotMessage, setInitialBotMessage] = useState(null);
+  const [everOpened, setEverOpened]       = useState(false); // ChatPanel se monta una sola vez y no se destruye al minimizar
   const scrolledRef = useRef(false);
   const closingRef  = useRef(false);
   const miniTimers  = useRef([]);
   const shownViews  = useRef(new Set());
+  const tsssShown   = useRef(false); // "Tsss! sigo por acá!" — sólo la primera vez que se minimiza
 
   useEffect(() => {
     const handler = () => {
@@ -700,14 +730,14 @@ export default function ChatBot({ view = 'home' }) {
     return () => clearTimeout(t);
   }, [scrolledDown]);
 
-  // Muestra un globito del circulito por 4s y lo cierra con animación.
-  const openMini = useCallback((bubble) => {
+  // Muestra un globito del circulito por `duracion` segundos y lo cierra con animación.
+  const openMini = useCallback((bubble, duracion = MINI_DURACION) => {
     miniTimers.current.forEach(clearTimeout);
     miniTimers.current = [];
     setMiniClosing(false);
-    setMiniBubble(bubble);
-    miniTimers.current.push(setTimeout(() => setMiniClosing(true), 3700));
-    miniTimers.current.push(setTimeout(() => { setMiniBubble(null); setMiniClosing(false); }, 4000));
+    setMiniBubble({ ...bubble, duracion });
+    miniTimers.current.push(setTimeout(() => setMiniClosing(true), duracion * 1000 - 300));
+    miniTimers.current.push(setTimeout(() => { setMiniBubble(null); setMiniClosing(false); }, duracion * 1000));
   }, []);
 
   const closeMini = useCallback(() => {
@@ -727,6 +757,14 @@ export default function ChatBot({ view = 'home' }) {
     return () => clearTimeout(t);
   }, [view, minimized, open, openMini]);
 
+  // Muestra "Tsss! sigo por acá!" la primera vez que Cuponix se minimiza en la sesión,
+  // sea cerrando el chat abierto o descartando el globito de bienvenida.
+  const triggerTsssOnce = useCallback(() => {
+    if (tsssShown.current) return;
+    tsssShown.current = true;
+    openMini({ titulo: 'Tsss! sigo por acá!', sub: 'Cualquier cosa avisame...' }, 5);
+  }, [openMini]);
+
   const handleMinimize = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
@@ -737,12 +775,13 @@ export default function ChatBot({ view = 'home' }) {
       setMinimized(true);
       setBubbleVisible(false);
       closingRef.current = false;
-      openMini({ titulo: 'Tsss! sigo por acá!', sub: 'Cualquier cosa avisame...' });
+      triggerTsssOnce();
     }, 350);
-  }, [openMini]);
+  }, [triggerTsssOnce]);
 
   const handleOpen = () => {
     setOpen(true);
+    setEverOpened(true);
     setChatClosing(false);
     setBubbleVisible(false);
     miniTimers.current.forEach(clearTimeout);
@@ -789,38 +828,46 @@ export default function ChatBot({ view = 'home' }) {
 
   if (!scrolledDown && !minimized) return <style>{KEYFRAMES}</style>;
 
-  if (minimized) {
-    return (
-      <>
-        <style>{KEYFRAMES}</style>
-        {miniBubble && (
-          <MiniBubble
-            titulo={miniBubble.titulo} sub={miniBubble.sub} closing={miniClosing}
-            onSaberMas={miniBubble.extendido ? () => saberMas(miniBubble.extendido) : undefined}
-            onClose={closeMini}
-          />
-        )}
-        <MinimizedDot onClick={() => { setMinimized(false); handleOpen(); }} />
-      </>
-    );
-  }
-
   const showChat = open || chatClosing;
 
+  // ChatPanel se monta una única vez (la primera vez que se abre) y nunca se
+  // destruye — así la conversación (mensajes, typewriter ya visto) sobrevive
+  // a minimizar/reabrir. Se oculta con CSS, no desmontando el componente.
   return (
     <>
       <style>{KEYFRAMES}</style>
-      {showChat && <ChatPanel isClosing={chatClosing} onMinimize={handleMinimize} initialBotMessage={initialBotMessage} />}
-      {bubbleVisible && !open && !chatClosing && (
-        <SpeechBubble onDismiss={() => { setBubbleVisible(false); setMinimized(true); }} />
+      {everOpened && (
+        <div style={{ display: showChat ? undefined : 'none' }}>
+          <ChatPanel isClosing={chatClosing} onMinimize={handleMinimize} initialBotMessage={initialBotMessage} />
+        </div>
       )}
-      <RobotButton
-        open={open}
-        onClick={() => {
-          if (open || chatClosing) { handleMinimize(); }
-          else { handleOpen(); }
-        }}
-      />
+
+      {minimized ? (
+        <>
+          {miniBubble && (
+            <MiniBubble
+              titulo={miniBubble.titulo} sub={miniBubble.sub} closing={miniClosing}
+              duracion={miniBubble.duracion}
+              onSaberMas={miniBubble.extendido ? () => saberMas(miniBubble.extendido) : undefined}
+              onClose={closeMini}
+            />
+          )}
+          <MinimizedDot onClick={() => { setMinimized(false); handleOpen(); }} />
+        </>
+      ) : (
+        <>
+          {bubbleVisible && !open && !chatClosing && (
+            <SpeechBubble onDismiss={() => { setBubbleVisible(false); setMinimized(true); triggerTsssOnce(); }} />
+          )}
+          <RobotButton
+            open={open}
+            onClick={() => {
+              if (open || chatClosing) { handleMinimize(); }
+              else { handleOpen(); }
+            }}
+          />
+        </>
+      )}
     </>
   );
 }

@@ -98,7 +98,8 @@ function SeguirOfertasBtn({ negocioId, session, onLoginRequired }) {
 }
 
 // ─── Cálculo de créditos: 20%/15%/10% del ahorro, mínimo 1 ─
-const PRECIO_CREDITO = 2000; // pesos sin IVA
+const PRECIO_CREDITO = 2000; // pesos sin IVA (para el cálculo de cantidad de créditos)
+const PRECIO_CREDITO_IVA = 2420; // pesos con IVA incluido (para mostrar precios de cupón)
 function calcTokensCosto(ahorroEstimado) {
   if (!ahorroEstimado || ahorroEstimado <= 0) return 1;
   const pct = ahorroEstimado <= 10000 ? 0.20 : ahorroEstimado < 60000 ? 0.15 : 0.10;
@@ -633,12 +634,12 @@ function OfferCard({ promo, onAdd, onOpenOferta }) {
                   <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 10, color: C.muted }}>(${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>(${(tc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')})</span>
                   <CreditTooltip />
                 </div>
               </div>
             ) : (
-              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
             )}
           </div>
         ); })()}
@@ -758,7 +759,7 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
     'Guardalo en tu cuponera y canjealo durante tu estadía.';
 
   const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
-  const precioCreditos = `$${(tc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA`;
+  const precioCreditos = `$${(tc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', borderRadius: 16, overflow: 'hidden', border: `1px solid ${C.line}`, minHeight: 190 }}>
@@ -980,12 +981,12 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
                   <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{btc} crédito{btc !== 1 ? 's' : ''}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 10, color: C.muted }}>(${(btc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>(${(btc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')})</span>
                   <CreditTooltip />
                 </div>
               </div>
             ) : (
-              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(btc * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(btc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
             )}
           </div>
         ) : null; })()}
@@ -1544,11 +1545,11 @@ function CuponeraItem({ promo, onOpenOferta }) {
               <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tokens} crédito{tokens !== 1 ? 's' : ''}</span>
               <CreditTooltip />
             </div>
-            <span style={{ fontSize: 10, color: C.muted }}>(${(tokens * 2000).toLocaleString('es-AR')} + IVA)</span>
+            <span style={{ fontSize: 10, color: C.muted }}>(${(tokens * 2420).toLocaleString('es-AR')})</span>
           </div>
         ) : (
           <div style={{ marginTop: 2 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tokens * 2000).toLocaleString('es-AR')} + IVA</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tokens * 2420).toLocaleString('es-AR')}</span>
           </div>
         )}
       </div>
@@ -1670,7 +1671,7 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
                   <p style={{ fontSize: 16, fontWeight: 800, color: C.ink, margin: 0 }}>{tc} crédito{tc !== 1 ? 's' : ''}</p>
                   <CreditTooltip />
                 </div>
-                <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0' }}>(${(tc * 2000).toLocaleString('es-AR')} + IVA)</p>
+                <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0' }}>(${(tc * 2420).toLocaleString('es-AR')})</p>
               </div>
             </div>
 
@@ -1899,11 +1900,11 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
                     <CoinSVG size={12} />
                     <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
                   </div>
-                  <span style={{ fontSize: 11, color: C.muted }}>${(creditos * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+                  <span style={{ fontSize: 11, color: C.muted }}>${(creditos * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
                   <CreditTooltip />
                 </>
               ) : (
-                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>${(creditos * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>${(creditos * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
               )}
             </div>
           </>
@@ -2031,18 +2032,18 @@ function CuponeraCard({ alianzas, onOpenOferta, cuponeraSectionRef }) {
                           <CreditTooltip />
                         </div>
                       </div>
-                      <span style={{ fontSize: 10, color: C.muted }}>(${(totalTokensMitad * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA)</span>
+                      <span style={{ fontSize: 10, color: C.muted }}>(${(totalTokensMitad * PRECIO_CREDITO_IVA).toLocaleString('es-AR')})</span>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       {/* Precio normal tachado en pesos */}
                       <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>${(totalTokensNormal * PRECIO_CREDITO).toLocaleString('es-AR')}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>${(totalTokensNormal * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
                         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
                           <line x1="5" y1="95" x2="95" y2="5" stroke="#cc2020" strokeWidth="9" strokeLinecap="round" />
                         </svg>
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>${(totalTokensMitad * PRECIO_CREDITO).toLocaleString('es-AR')} + IVA</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>${(totalTokensMitad * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
                     </div>
                   )}
                 </div>
@@ -2105,10 +2106,10 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
                 <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0)} crédito{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) !== 1 ? 's' : ''}</span>
                 <CreditTooltip />
               </div>
-              <span style={{ fontSize: 10, color: C.muted }}>(${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2000).toLocaleString('es-AR')} + IVA)</span>
+              <span style={{ fontSize: 10, color: C.muted }}>(${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2420).toLocaleString('es-AR')})</span>
             </div>
           ) : (
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2000).toLocaleString('es-AR')} + IVA</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2420).toLocaleString('es-AR')}</span>
           )}
         </div>
         <div style={{ marginTop: 'auto', paddingTop: 10 }}>

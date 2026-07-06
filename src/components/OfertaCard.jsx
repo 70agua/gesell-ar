@@ -1,159 +1,291 @@
 // ============================================================
 //  src/components/OfertaCard.jsx
+//  Card canónica de oferta/cupón — usada en Favoritos, OfertasView,
+//  Marketplace (grid y lista), y las minifichas de HomeView.
+//  Estructura: header (avatar+nombre+localidad) → imagen con badge
+//  + heart → franja "Ahorrás/Ganás" → precio → botón "Ver oferta"
+//  → link "Agregar a cuponera".
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
-import { MapPin } from 'lucide-react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { secondsUntil } from '../lib/ofertas';
-import CuponIcon from './CuponIcon';
-import InfoTooltip, { CreditTooltip } from './InfoTooltip';
+import { CREDITO_TOTAL } from '../lib/cobros';
+import HeartButton from './HeartButton';
+import { CreditTooltip } from './InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
 
-// ─── Monedita SVG dorada ──────────────────────────────────────
-function CoinIcon({ size = 14 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}>
-      <circle cx="12" cy="12" r="10" fill="#FFD700" stroke="#B8860B" strokeWidth="1.5"/>
-      <ellipse cx="9" cy="9" rx="3" ry="1.5" fill="#FFE87C" opacity="0.6" transform="rotate(-20 9 9)"/>
-      <text x="12" y="16" textAnchor="middle" fontSize="9" fontWeight="700" fill="#7A5200" fontFamily="Arial, sans-serif"></text>
-    </svg>
-  );
+const A = {
+  primary: '#2545E6',
+  ink:     '#0B1020',
+  ink2:    '#3D4255',
+  muted:   '#6B7280',
+  line:    '#E7E9EE',
+  bg:      '#F7F7F8',
+  yellow:  '#FFC93C',
+  green:   '#10A36B',
+  greenSoft: '#EDFAF4',
+  font:    "'Inter', system-ui, sans-serif",
+};
+
+// Precio del cupón en pesos, con IVA (21%) ya incluido — 1 crédito = CREDITO_TOTAL ($2.420).
+const fmtPesos = n => 'AR$' + Math.round(n).toLocaleString('es-AR');
+const precioCupon = tc => (Number(tc) || 0) * CREDITO_TOTAL;
+// Puntos mostrados en la franja de ahorro: ahorroEstimado / 4
+const calcPts = ahorro => Math.round((ahorro || 0) / 4);
+
+function CoinSVG({ size = 13 }) {
+  return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }} />;
 }
 
-// ─── Countdown Flash ──────────────────────────────────────────
-function FlashTimer({ fechaFin }) {
-  const [secs, setSecs] = useState(() => secondsUntil(fechaFin));
+const IcoBolt = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
+
+function FlashPill({ fechaFinFlash, compact }) {
+  const [secs, setSecs] = useState(() => secondsUntil(fechaFinFlash));
   useEffect(() => {
     if (secs <= 0) return;
     const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, []);
   if (secs <= 0) return null;
+  const pad = n => String(n).padStart(2, '0');
+  const th = Math.floor(secs / 3600), tm = Math.floor((secs % 3600) / 60), ts = secs % 60;
   return (
-    <div className="flex items-center justify-center gap-0.5 mb-2">
-      {[Math.floor(secs/3600), Math.floor((secs%3600)/60), secs%60].map((val, i) => (
-        <React.Fragment key={i}>
-          <span className="bg-white text-red-600 text-xs font-black px-2 py-1 rounded-lg shadow-sm tabular-nums min-w-[2rem] text-center">
-            {String(val).padStart(2,'0')}
-          </span>
-          {i < 2 && <span className="text-white font-black text-sm leading-none">:</span>}
-        </React.Fragment>
-      ))}
+    <div style={{ position: 'absolute', top: 10, left: 10, right: compact ? undefined : 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', borderRadius: 999, padding: '4px 10px 4px 9px' }}>
+        <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
+        <span style={{ fontSize: 10, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
+        <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
+      </div>
+      {!compact && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          {[th, tm, ts].map((v, i) => (
+            <React.Fragment key={i}>
+              <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, minWidth: 26, padding: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {i === 0 ? v : pad(v)}
+              </div>
+              {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13 }}>:</span>}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Header: avatar + nombre + localidad ──────────────────────
+function ProveedorHeader({ promo, size = 44 }) {
+  const nombre = promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim();
+  const localidad = promo.negocioLocalidad || promo.negocioZone;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 12px' }}>
+      <div style={{ width: size, height: size, borderRadius: '50%', background: A.bg, border: `1px solid ${A.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {promo.proveedorImage
+          ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <span style={{ fontSize: size * 0.32, fontWeight: 700, color: A.muted }}>{(nombre || '?')[0]}</span>
+        }
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: A.ink, lineHeight: 1.25, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          {nombre}
+        </div>
+        {localidad && (
+          <div style={{ fontSize: 12, color: A.muted, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+            {localidad}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Imagen con badge, heart y overlays ───────────────────────
+function ImagenConBadge({ promo, imgHeight, inMarketplace }) {
+  const esFlash = promo.offerType === 'Flash';
+  return (
+    <div style={{ position: 'relative', overflow: 'hidden', flexShrink: 0, ...(imgHeight ? { height: imgHeight } : { aspectRatio: '4/3' }) }}>
+      <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }} />
+
+      {esFlash && <FlashPill fechaFinFlash={promo.fechaFinFlash} />}
+
+      {promo.exclusivoHuespedes && (
+        <>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+            </svg>
+            <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>Exclusivo huéspedes {promo.exclusivoHuespedes}</span>
+          </div>
+        </>
+      )}
+
+      {inMarketplace ? (
+        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3, background: '#d2e9f3', color: '#0c101f', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '3px 8px', borderRadius: 999 }}>
+          PROMOCIÓN
+        </div>
+      ) : (
+        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }}>
+          <HeartButton id={promo.id} />
+        </div>
+      )}
+
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 16px 15px' }}>
+        <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 30 : 42, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>{promo.badge}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3, marginTop: 6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Franja "Ahorrás $X aprox. · Ganás X pts." ────────────────
+//  Todo en una sola línea; si no entra, se achica proporcionalmente.
+function FranjaAhorro({ ahorroEstimado }) {
+  const pts = calcPts(ahorroEstimado);
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const fit = () => {
+      const o = outerRef.current, inn = innerRef.current;
+      if (!o || !inn) return;
+      const avail = o.clientWidth;
+      const need = inn.scrollWidth;
+      setScale(need > avail && need > 0 ? avail / need : 1);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    if (outerRef.current) ro.observe(outerRef.current);
+    return () => ro.disconnect();
+  }, [ahorroEstimado, pts]);
+
+  if (!(ahorroEstimado > 0)) return null;
+
+  return (
+    <div ref={outerRef} style={{ background: A.greenSoft, padding: '11px 16px', overflow: 'hidden' }}>
+      <div ref={innerRef} style={{ display: 'flex', width: 'max-content', minWidth: '100%', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, whiteSpace: 'nowrap', transform: `scale(${scale})`, transformOrigin: 'left center' }}>
+        <span style={{ color: A.green }}>
+          <span style={{ fontSize: 11, fontWeight: 700 }}>Ahorrás </span>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(ahorroEstimado)} </span>
+          <span style={{ fontSize: 11, fontWeight: 700 }}>aprox.</span>
+        </span>
+        {pts > 0 && (
+          <span style={{ fontSize: 11, fontStyle: 'italic', fontWeight: 600, color: A.green }}>Ganás {pts.toLocaleString('es-AR')} pts.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Texto "Activá este cupón por…" (reutilizable) ────────────
+export function PrecioCupon({ tokens_costo, color = A.ink, mutedColor = A.muted }) {
+  const mostrarCreditos = useMostrarCreditos();
+  const tc = tokens_costo;
+  const pesos = fmtPesos(precioCupon(tc));
+  if (tc == null) return null;
+  if (tc === 0) {
+    return (
+      <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, color: A.green }}>
+        Este cupón es GRATIS para vos
+      </div>
+    );
+  }
+  return (
+    <div style={{ textAlign: 'center', fontSize: 13, color, lineHeight: 1.4 }}>
+      {mostrarCreditos ? (
+        <>
+          Activá este cupón por{' '}
+          <CoinSVG size={13} />{' '}
+          <span style={{ fontWeight: 800 }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+          <CreditTooltip />
+          <span style={{ display: 'block', fontSize: 11, color: mutedColor, marginTop: 2 }}>({pesos})</span>
+        </>
+      ) : (
+        <>Activá este cupón por <span style={{ fontWeight: 800 }}>{pesos}</span></>
+      )}
+    </div>
+  );
+}
+
+// ─── Precio + CTAs ─────────────────────────────────────────────
+function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false }) {
+  return (
+    <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <PrecioCupon tokens_costo={promo.tokens_costo} />
+
+      {!hideActions && (
+        <>
+          <button
+            onClick={e => { e.stopPropagation(); onOpen && onOpen(promo); }}
+            style={{ alignSelf: 'center', background: '#fff', border: '1.5px solid #E8E9EE', borderRadius: 14, padding: '9px 40px', fontSize: 14.5, fontWeight: 800, color: A.ink, cursor: 'pointer', transition: 'border-color .15s, color .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E8E9EE'; e.currentTarget.style.color = A.ink; }}
+          >
+            Ver oferta
+          </button>
+
+          <button
+            onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'none', border: 'none', color: A.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font, padding: 0 }}
+          >
+            <img src="/ico-disc.svg" alt="" width={15} height={15} style={{ display: 'block' }} /> Agregar a cuponera
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════
-export default function OfertaCard({ promo, onClick, onAddToCuponera, onFilterLocalidad }) {
-  const esFlash    = promo.offerType === 'Flash';
-  const esSinCargo = promo.tokens_costo === 0;
-  const mostrarCreditos = useMostrarCreditos();
+export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, variant = 'grid', inMarketplace = false, reviewSlot = null, fixedHeight = null, hideActions = false }) {
+  const abrir = onOpen || onClick;
 
-  return (
+  if (variant === 'list') {
+    return (
+      <div
+        onClick={() => abrir && abrir(promo)}
+        style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 20, overflow: 'hidden', display: 'flex', cursor: 'pointer', transition: 'box-shadow 0.2s', fontFamily: A.font }}
+        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 8px 32px -12px rgba(11,16,32,0.18)'}
+        onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+      >
+        <div style={{ position: 'relative', width: 200, flexShrink: 0 }}>
+          <ImagenConBadge promo={promo} imgHeight="100%" inMarketplace={inMarketplace} />
+        </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <ProveedorHeader promo={promo} size={38} />
+          {reviewSlot}
+          <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} />
+          <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} />
+        </div>
+      </div>
+    );
+  }
+
+  const card = (
     <div
-      onClick={() => onClick && onClick(promo)}
-      className="group bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col"
+      onClick={() => abrir && abrir(promo)}
+      style={{ background: '#fff', border: inMarketplace ? 'none' : `1px solid ${A.line}`, borderRadius: inMarketplace ? 19 : 20, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s', fontFamily: A.font, ...(fixedHeight ? { height: fixedHeight } : { flex: 1 }) }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
     >
-      {/* ── Imagen 4:3 ── */}
-      <div className="relative overflow-hidden shrink-0" style={{ aspectRatio: '4/3' }}>
-        <img
-          src={promo.image}
-          alt={promo.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
-
-        {/* Badge Flash — arriba izquierda */}
-        {esFlash && (
-          <div className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[10px] font-black italic px-2 py-1 rounded-lg flex items-center gap-1">
-            ⚡ FLASH
-          </div>
-        )}
-
-        {/* Heart — arriba derecha */}
-        <div className="absolute top-2.5 right-2.5">
-          <CoinIcon size={12} />
-        </div>
-
-        {/* Badge + título — abajo izquierda */}
-        <div className="absolute bottom-0 left-0 right-0 px-3.5 pb-3 pt-6">
-          <p className="text-white font-black leading-none mb-1.5 drop-shadow-lg"
-             style={{ fontSize: (promo.badge?.length || 0) > 5 ? 28 : 36, letterSpacing: '-0.025em' }}>
-            {promo.badge}
-          </p>
-          <p className="text-white/88 text-[12px] font-bold leading-snug drop-shadow line-clamp-2">
-            {promo.title}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Cuerpo ── */}
-      <div className="flex flex-col flex-1" style={{ padding: '11px 13px 13px', gap: 10 }}>
-
-        {/* Fila proveedor */}
-        <div className="flex items-center gap-2.5">
-          <div className="shrink-0 rounded-full overflow-hidden border border-slate-100 bg-slate-100 flex items-center justify-center"
-               style={{ width: 34, height: 34 }}>
-            {promo.proveedorImage ? (
-              <img src={promo.proveedorImage} alt={promo.proveedorNombre} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-slate-400 text-xs font-black">
-                {(promo.proveedorNombre || '?')[0]}
-              </span>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-slate-900 text-[13px] font-extrabold leading-tight truncate">
-              {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-            </p>
-            {(promo.negocioLocalidad || promo.subtitle?.includes('·')) && (
-              <button
-                onClick={e => {
-                  e.stopPropagation();
-                  const loc = promo.negocioLocalidad || promo.subtitle?.split('·')[1]?.trim();
-                  onFilterLocalidad && onFilterLocalidad(loc);
-                }}
-                className="flex items-center gap-1 text-blue-500 hover:text-blue-700 text-[11px] font-semibold mt-0.5 transition-colors cursor-pointer"
-              >
-                <MapPin size={9} />
-                {promo.negocioLocalidad || promo.subtitle?.split('·')[1]?.trim()}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Botón */}
-        <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-          className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-extrabold py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer"
-        >
-          <CuponIcon size={14} />
-          Agregar a cuponera
-        </button>
-
-        {/* Info rows */}
-        {promo.tokens_costo != null && (
-          esSinCargo
-            ? <div className="flex items-center gap-1.5 bg-green-50 rounded-lg px-3 py-2 border border-green-200">
-                <span className="text-green-600 text-xs font-black">Cupón DE REGALO para vos</span>
-              </div>
-            : <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-2.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">Lo activás con</span>
-                  {mostrarCreditos ? (
-                    <div className="flex items-center gap-1">
-                      <CoinIcon size={13} />
-                      <span className="text-[13px] font-extrabold text-slate-800">{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                      <CreditTooltip />
-                      <span className="text-[10px] font-semibold text-slate-400">(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
-                    </div>
-                  ) : (
-                    <span className="text-[13px] font-extrabold text-slate-800">${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA</span>
-                  )}
-                </div>
-              </div>
-        )}
-      </div>
+      <ProveedorHeader promo={promo} />
+      <ImagenConBadge promo={promo} inMarketplace={inMarketplace} />
+      {/* Con alto fijo, la reseña se expande y empuja franja+precio al fondo */}
+      {fixedHeight
+        ? <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{reviewSlot}</div>
+        : reviewSlot}
+      <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} />
+      <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} hideActions={hideActions} />
     </div>
   );
+
+  if (inMarketplace) {
+    return (
+      <div style={{ background: 'linear-gradient(to bottom, #d2e9f3, #2d44dd)', borderRadius: 21, padding: 2, display: 'flex' }}>
+        {card}
+      </div>
+    );
+  }
+  return card;
 }

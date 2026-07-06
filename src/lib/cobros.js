@@ -178,3 +178,58 @@ export async function getComprasTokens(negocioId) {
     .order('creado_en', { ascending: false });
   return data || [];
 }
+
+// ─── Fecha legible para el historial de movimientos ───────────
+function formatFechaMov(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d)) return '';
+  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const hora = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const hoy = new Date();
+  const ayer = new Date(); ayer.setDate(hoy.getDate() - 1);
+  if (d.toDateString() === hoy.toDateString())  return `Hoy · ${hora}`;
+  if (d.toDateString() === ayer.toDateString()) return `Ayer · ${hora}`;
+  return `${d.getDate()} ${meses[d.getMonth()]}`;
+}
+
+// ─── Historial real de movimientos de la billetera del socio ──
+// Combina compras de créditos (token_compras) y cobros por canje
+// (ordenes_cobro) en la forma que espera <MovRow> del panel.
+export async function getMovimientos(negocioId) {
+  if (!negocioId) return [];
+  const [compras, ordenes] = await Promise.all([
+    supabase.from('token_compras').select('*').eq('negocio_id', negocioId),
+    supabase.from('ordenes_cobro').select('*, promociones(titulo)').eq('negocio_id', negocioId),
+  ]);
+
+  const movs = [];
+
+  (compras.data || []).forEach(c => {
+    const pagada = c.estado === 'pagada';
+    movs.push({
+      kind:  'pesos',
+      title: `Compra de ${c.cantidad} crédito${c.cantidad !== 1 ? 's' : ''}${pagada ? '' : ' · pendiente'}`,
+      _ts:   c.creado_en,
+      cred:  pagada ? c.cantidad : null,
+      pesos: c.total_con_iva != null ? -Number(c.total_con_iva) : null,
+    });
+  });
+
+  (ordenes.data || []).forEach(o => {
+    const tokens = o.tokens ?? o.creditos ?? 0;
+    const oferta = o.promociones?.titulo;
+    movs.push({
+      kind:  'cred-out',
+      title: oferta ? `Canje: ${oferta}` : 'Canje de una de tus ofertas',
+      _ts:   o.creado_en,
+      cred:  tokens ? -tokens : null,
+      pesos: null,
+    });
+  });
+
+  return movs
+    .filter(m => m._ts)
+    .sort((a, b) => new Date(b._ts) - new Date(a._ts))
+    .map(m => ({ ...m, date: formatFechaMov(m._ts) }));
+}

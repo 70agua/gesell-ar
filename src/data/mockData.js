@@ -405,7 +405,7 @@ export const mockDining = [
     image: "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=800&q=80",
     iconName: "Cookie",
     address: "Av. Buenos Aires 101, Villa Gesell",
-    menuUrl: "https://gesell.ar",
+    menuUrl: "https://cupone.ar",
   },
   {
     id: 3,
@@ -418,7 +418,7 @@ export const mockDining = [
     image: "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&w=800&q=80",
     iconName: "Beer",
     address: "Paseo 112 y Av. 3, Villa Gesell",
-    menuUrl: "https://gesell.ar",
+    menuUrl: "https://cupone.ar",
   },
   {
     id: 4,
@@ -444,7 +444,7 @@ export const mockDining = [
     image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80",
     iconName: "Wine",
     address: "Ruta 11 y Orión, Mar de las Pampas",
-    menuUrl: "https://gesell.ar",
+    menuUrl: "https://cupone.ar",
   },
   {
     id: 6,
@@ -496,7 +496,7 @@ export const mockDining = [
     image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80",
     iconName: "Coffee",
     address: "Acceso Mar de las Pampas s/n",
-    menuUrl: "https://gesell.ar",
+    menuUrl: "https://cupone.ar",
   },
   {
     id: 10,
@@ -587,7 +587,7 @@ export const mockDining = [
     image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&q=80",
     iconName: "Wine",
     address: "Paseo 120 y Av. 3, Villa Gesell",
-    menuUrl: "https://gesell.ar",
+    menuUrl: "https://cupone.ar",
   },
   {
     id: 17,
@@ -1078,7 +1078,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Hotel frente al mar con spa de última generación.',
-    email: 'lasolas@gesell.ar',
+    email: 'lasolas@cupone.ar',
   },
   {
     id: 'prov-2',
@@ -1089,7 +1089,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Complejo de cabañas en el pinar fundacional.',
-    email: 'pinar@gesell.ar',
+    email: 'pinar@cupone.ar',
   },
   {
     id: 'prov-3',
@@ -1100,7 +1100,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Departamentos modernos a metros del mar.',
-    email: 'solyarena@gesell.ar',
+    email: 'solyarena@cupone.ar',
   },
   {
     id: 'prov-4',
@@ -1111,7 +1111,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Diseño minimalista en el corazón del bosque.',
-    email: 'boutique@gesell.ar',
+    email: 'boutique@cupone.ar',
   },
   {
     id: 'prov-5',
@@ -1122,7 +1122,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Amplios departamentos con piscina y parque.',
-    email: 'residencias@gesell.ar',
+    email: 'residencias@cupone.ar',
   },
   {
     id: 'prov-6',
@@ -1133,7 +1133,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Hostería alpina a tres cuadras del mar.',
-    email: 'alpen@gesell.ar',
+    email: 'alpen@cupone.ar',
   },
   {
     id: 'prov-7',
@@ -1144,7 +1144,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Cabañas con jacuzzi privado y deck exterior.',
-    email: 'artico@gesell.ar',
+    email: 'artico@cupone.ar',
   },
   {
     id: 'prov-8',
@@ -1179,7 +1179,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Clásico geselino con desayuno buffet incluido.',
-    email: 'sanremo@gesell.ar',
+    email: 'sanremo@cupone.ar',
   },
 
   // ── GASTRONOMÍA (10) ──────────────────────────────────────
@@ -1192,7 +1192,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Bodegón clásico con las mejores minutas.',
-    email: 'hobby@gesell.ar',
+    email: 'hobby@cupone.ar',
   },
   {
     id: 'prov-12',
@@ -1203,7 +1203,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1624353365286-3f8d62daad51?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Un hito histórico de la Villa. Churros de dulce de leche.',
-    email: 'eltopo@gesell.ar',
+    email: 'eltopo@cupone.ar',
   },
   {
     id: 'prov-13',
@@ -1214,7 +1214,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1535958636474-b021ee887b13?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Cerveza artesanal tirada y las mejores papas con cheddar.',
-    email: 'dublin@gesell.ar',
+    email: 'dublin@cupone.ar',
   },
   {
     id: 'prov-14',
@@ -1225,7 +1225,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Almuerzos frente al mar y las mejores rabas.',
-    email: 'windy@gesell.ar',
+    email: 'windy@cupone.ar',
   },
   {
     id: 'prov-15',
@@ -1236,7 +1236,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Cocina de autor en ambiente íntimo rodeado de pinos.',
-    email: 'amarena@gesell.ar',
+    email: 'amarena@cupone.ar',
   },
   {
     id: 'prov-16',
@@ -1247,7 +1247,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Tortas artesanales y té de hierbas para tardes de lluvia.',
-    email: 'laholandesa@gesell.ar',
+    email: 'laholandesa@cupone.ar',
   },
   {
     id: 'prov-17',
@@ -1258,7 +1258,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Pescados y mariscos frescos con vista al Atlántico.',
-    email: 'esquinadelmar@gesell.ar',
+    email: 'esquinadelmar@cupone.ar',
   },
   {
     id: 'prov-18',
@@ -1269,7 +1269,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Pizzas a la piedra y empanadas geselinas desde 1987.',
-    email: 'donvito@gesell.ar',
+    email: 'donvito@cupone.ar',
   },
   {
     id: 'prov-19',
@@ -1280,7 +1280,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Desayunos y meriendas en el corazón del bosque.',
-    email: 'cafebosque@gesell.ar',
+    email: 'cafebosque@cupone.ar',
   },
   {
     id: 'prov-20',
@@ -1305,7 +1305,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1533481405265-e9ce0c044abb?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Safari 4x4, sandboard y travesías nocturnas por las dunas.',
-    email: 'medanos@gesell.ar',
+    email: 'medanos@cupone.ar',
   },
   {
     id: 'prov-22',
@@ -1316,7 +1316,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Clases de surf y bodyboard para todos los niveles.',
-    email: 'surf@gesell.ar',
+    email: 'surf@cupone.ar',
   },
   {
     id: 'prov-23',
@@ -1339,7 +1339,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Masajes, aromaterapia y tratamientos en el bosque.',
-    email: 'spapinar@gesell.ar',
+    email: 'spapinar@cupone.ar',
   },
   {
     id: 'prov-25',
@@ -1386,7 +1386,7 @@ export const mockProveedores = [
     esEmpresa: true,
     fotoPerfil: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=200&q=80',
     descripcion: 'Paseos en kayak por la laguna y la costa atlántica.',
-    email: 'kayak@gesell.ar',
+    email: 'kayak@cupone.ar',
   },
   {
     id: 'prov-29',

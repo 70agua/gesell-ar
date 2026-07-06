@@ -3,13 +3,10 @@
 //  Diseño: mismo sistema Aire que MarketplaceView
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { secondsUntil } from '../lib/ofertas';
 import { getPromos }    from '../lib/datos';
 import { ALL_PROMOS }   from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
-import HeartButton     from '../components/HeartButton';
-import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
-import { useMostrarCreditos } from '../lib/sesion';
+import OfertaCard from '../components/OfertaCard';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const A = {
@@ -127,12 +124,7 @@ const SUBCATS_SECONDARY = {
 // ─── SVG Icons ───────────────────────────────────────────────
 const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
 const IcoBolt    = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
-const IcoTicket  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>;
 const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>;
-
-function CoinSVG({ size = 13 }) {
-  return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
-}
 
 // ─── CheckRow (sidebar) — toda la fila es clickeable ─────────
 function CheckRow({ label, checked, onChange }) {
@@ -154,153 +146,6 @@ function CheckRow({ label, checked, onChange }) {
   );
 }
 
-
-const IcoPin = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>;
-
-// ─── Oferta Card (misma estética que Home) ───────────────────
-function OfertaCard({ promo, onAddToCuponera, onOpenOferta }) {
-  const mostrarCreditos = useMostrarCreditos();
-  const esFlash = promo.offerType === 'Flash';
-  const [secs, setSecs] = useState(() => esFlash ? secondsUntil(promo.fechaFinFlash) : 0);
-
-  useEffect(() => {
-    if (!esFlash) return;
-    const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, [esFlash]);
-
-  const pad = n => String(n).padStart(2, '0');
-  const th = Math.floor(secs / 3600);
-  const tm = Math.floor((secs % 3600) / 60);
-  const ts = secs % 60;
-
-  return (
-    <div
-      onClick={() => onOpenOferta && onOpenOferta(promo)}
-      style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'box-shadow 0.2s, transform 0.2s', fontFamily: A.font }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 16px 48px -16px rgba(11,16,32,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
-    >
-      {/* Imagen 4:3 */}
-      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
-        <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }} />
-
-        {/* Pill FLASH + timer — top */}
-        {esFlash && secs > 0 && (
-          <div style={{ position: 'absolute', top: 10, left: 10, right: 10, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ height: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', borderRadius: 999, padding: '0 10px 0 9px' }}>
-              <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
-              <span style={{ fontSize: 10, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
-              <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: '100%' }}>
-              {[th, tm, ts].map((v, i) => (
-                <React.Fragment key={i}>
-                  <div style={{ background: '#fff', color: A.ink, borderRadius: 6, fontSize: 13, fontWeight: 800, height: '100%', minWidth: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
-                    {i === 0 ? v : pad(v)}
-                  </div>
-                  {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 14 }}>:</span>}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Exclusivo huéspedes — top (sin flash) */}
-        {promo.exclusivoHuespedes && (
-          <>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: 'linear-gradient(to bottom, rgba(5,10,25,0.72) 0%, transparent 100%)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: 10, left: 10, right: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-              </svg>
-              <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>Exclusivo huéspedes {promo.exclusivoHuespedes}</span>
-            </div>
-          </>
-        )}
-
-        {/* Heart — top right */}
-        <div style={{ position: 'absolute', top: 10, right: 10 }}>
-          <HeartButton id={promo.id} />
-        </div>
-
-        {/* Badge + título — abajo */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 14px 13px' }}>
-          <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 28 : 38, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Proveedor */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: A.bg, border: `1px solid ${A.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {promo.proveedorImage
-              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontSize: 12, fontWeight: 700, color: A.muted }}>{(promo.proveedorNombre || '?')[0]}</span>
-            }
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-              {promo.proveedorNombre || promo.subtitle?.split('·')[0]?.trim()}
-            </div>
-            {promo.negocioLocalidad && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: A.primary, marginTop: 2 }}>
-                <IcoPin /> {promo.negocioLocalidad}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Botones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
-          <button
-            onClick={e => { e.stopPropagation(); onOpenOferta && onOpenOferta(promo); }}
-            style={{ width: '100%', background: '#fff', color: A.ink, border: `1px solid ${A.line}`, borderRadius: 11, padding: '9px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'border-color .13s, color .13s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.color = A.ink; }}
-          >
-            Ver oferta
-          </button>
-          <button
-            onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-            style={{ width: '100%', background: A.primary, color: '#fff', border: 'none', borderRadius: 11, padding: '9px 0', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-            onMouseLeave={e => e.currentTarget.style.background = A.primary}
-          >
-            <IcoTicket /> Agregar a cuponera
-          </button>
-        </div>
-
-        {/* Info rows */}
-        {promo.tokens_costo != null && (
-          promo.tokens_costo === 0
-            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', borderRadius: 9, padding: '8px 11px', border: '1px solid #BBF7D0', flexShrink: 0 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#10A36B' }}>Cupón GRATIS</span>
-              </div>
-            : <div style={{ borderTop: `1px solid ${A.line}`, paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: A.muted }}>Lo activás con</span>
-                  {mostrarCreditos ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <CoinSVG size={13} />
-                      <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>{promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}</span>
-                      <CreditTooltip />
-                      <span style={{ fontSize: 10, fontWeight: 600, color: A.muted }}>(${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA)</span>
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: 13, fontWeight: 800, color: A.ink }}>${(promo.tokens_costo * 2000).toLocaleString('es-AR')} + IVA</span>
-                  )}
-                </div>
-              </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Sección colapsable del sidebar ──────────────────────────
 function SideSection({ title, children, onLimpiar, bold }) {
@@ -364,7 +209,7 @@ function useWindowWidth() {
   return w;
 }
 
-export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [] }) {
+export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [], initialTipo = null }) {
   const [promos,      setPromos]      = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [busqueda,    setBusqueda]    = useState('');
@@ -381,7 +226,11 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   const [tipoExp,     setTipoExp]     = useState(initialCategoria === 'aventura_relax');
   const [soloFlash,       setSoloFlash]       = useState(false);
   const [localidades,     setLocalidades]     = useState(initialLocalidades);
-  const [subcatPrimaria,  setSubcatPrimaria]  = useState(new Set());
+  const [subcatPrimaria,  setSubcatPrimaria]  = useState(() => {
+    if (!initialCategoria || !initialTipo) return new Set();
+    const grupo = (SUBCATS_PRIMARY[initialCategoria] || []).find(sc => sc.tipos.includes(initialTipo));
+    return grupo ? new Set([grupo.label]) : new Set();
+  });
   const [subcatSecundaria,setSubcatSecundaria]= useState(new Set());
 
   useEffect(() => {
@@ -720,7 +569,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
               {visiblesPaged.map(promo => (
-                <OfertaCard key={promo.id} promo={promo} onAddToCuponera={addCupon} onOpenOferta={onOpenOferta} />
+                <OfertaCard key={promo.id} promo={promo} onAddToCuponera={addCupon} onOpen={onOpenOferta} />
               ))}
             </div>
           )}

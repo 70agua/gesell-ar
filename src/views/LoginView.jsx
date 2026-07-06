@@ -286,21 +286,34 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
 
   const confirmarPlus = async (datos) => {
     if (saving) return;
-    setPlan('plus');
     setSaving(true);
+    setErrors({});
     try {
+      if (!negocioId) throw new Error('No pudimos preparar tu cuenta. Reintentá en unos segundos.');
+
+      // El comprobante es secundario: si la subida falla, seguimos con el alta igual.
       let comprobanteUrl = null;
-      if (datos.comprobanteFile && negocioId) {
-        const ext = datos.comprobanteFile.name.split('.').pop().toLowerCase();
-        const { data: up } = await supabase.storage.from('negocios').upload(`comprobantes/${negocioId}.${ext}`, datos.comprobanteFile, { upsert: true });
-        if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); comprobanteUrl = ud.publicUrl; }
+      if (datos.comprobanteFile) {
+        try {
+          const ext = datos.comprobanteFile.name.split('.').pop().toLowerCase();
+          const { data: up } = await supabase.storage.from('negocios').upload(`comprobantes/${negocioId}.${ext}`, datos.comprobanteFile, { upsert: true });
+          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); comprobanteUrl = ud.publicUrl; }
+        } catch { /* comprobante opcional: no debe bloquear el alta Plus */ }
       }
-      if (negocioId) await registrarIntentoPagoTarjeta(negocioId, { ...datos, comprobanteUrl });
+
+      // registrarIntentoPagoTarjeta devuelve { error } — hay que chequearlo, no ignorarlo.
+      const { error } = await registrarIntentoPagoTarjeta(negocioId, { ...datos, comprobanteUrl });
+      if (error) throw new Error(typeof error === 'string' ? error : (error.message || 'No pudimos activar el plan Plus.'));
+
+      // Sólo marcamos el paso como completado si el alta realmente se guardó.
+      setPlan('plus');
       setDoneSteps(s => new Set([...s, 1]));
       setObStep(2);
       window.scrollTo(0, 0);
-    } catch { /* alta se completa igual, se puede reintentar Plus luego desde el panel */ }
-    finally { setSaving(false); }
+    } catch (err) {
+      setErrors({ _: err?.message || 'No pudimos activar el plan Plus. Reintentá.' });
+      window.scrollTo(0, 0);
+    } finally { setSaving(false); }
   };
 
   const handleOfImagenChange = (e) => {
@@ -487,6 +500,8 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
                 <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Elegí tu plan</h1>
                 <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Podés empezar gratis y actualizar cuando quieras. El cobro se activa cuando tu ficha sea aprobada.</p>
               </div>
+
+              {errors._ && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{errors._}</div>}
 
               {!negocioId ? (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'40px 0' }}>

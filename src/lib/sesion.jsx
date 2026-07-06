@@ -5,11 +5,11 @@
 //  o en PESOS.
 //
 //  Regla de negocio (Cuponear v2):
-//   - Anónimo, turista (no socio) y socio Gratis  → ven el precio en $ + IVA,
-//     sin ninguna mención a créditos (el sistema de créditos a la vista
-//     confunde al usuario que recién llega).
-//   - Socio Plus → ve el precio en créditos con el valor en $ + IVA entre
-//     paréntesis (los créditos son su moneda de cambio / billetera).
+//   - Anónimo, turista (no socio) y socio Gratis  → ven el precio en AR$
+//     (IVA ya incluido), sin ninguna mención a créditos (el sistema de
+//     créditos a la vista confunde al usuario que recién llega).
+//   - Socio Plus → ve el precio en créditos con el valor en AR$ (IVA incluido)
+//     entre paréntesis (los créditos son su moneda de cambio / billetera).
 //   - Superadmin → ve créditos en los paneles internos de gestión.
 //
 //  Este contexto SOLO cambia la presentación del precio. La lógica interna

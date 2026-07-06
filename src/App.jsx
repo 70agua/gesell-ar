@@ -47,8 +47,11 @@ function AppContent() {
   const [marketplaceTipo,     setMarketplaceTipo]     = useState('todos');
   const [ofertasCategoria, setOfertasCategoria] = useState(null);
   const [ofertasLocalidades, setOfertasLocalidades] = useState([]);
+  const [ofertasTipoInicial, setOfertasTipoInicial] = useState(null);
   const [gastroCategoria,   setGastroCategoria]   = useState('');
-  const [gastroAventura, setGastroAventura] = useState('');
+  const [gastroAventura,    setGastroAventura]    = useState('');
+  const [gastroInitialTipos, setGastroInitialTipos] = useState(null);
+  const [gastroModoAventura, setGastroModoAventura] = useState(false);
   const [gastroNavKey,      setGastroNavKey]      = useState(0);
   const [salidasModoRanking, setSalidasModoRanking] = useState(false);
   const [scrolled, setScrolled]         = useState(false);
@@ -129,13 +132,19 @@ function AppContent() {
   };
 
   // Navega a la sección correcta según categoría de oferta
+  // Siempre aterriza en el listado unificado de ofertas (OfertasView) —
+  // las minifichas de negocio sin oferta quedan reservadas al ranking de gastronomía.
   const handleOpenSeccion = (categoria) => {
-    if (categoria === 'salidas') {
-      setView('salidas');
+    if (categoria === 'salidas' || categoria === 'alojamiento' || categoria === 'aventura_relax') {
+      setOfertasCategoria(categoria);
+      setOfertasLocalidades([]);
+      setOfertasTipoInicial(null);
+      setView('ofertas');
     } else if (categoria === 'ofertas') {
-      // Desde OfertaDetailView — siempre va al listado de ofertas
-      setMarketplaceLocalidad('');
-      setView('marketplace-ofertas');
+      setOfertasCategoria(null);
+      setOfertasLocalidades([]);
+      setOfertasTipoInicial(null);
+      setView('ofertas');
     } else {
       setMarketplaceLocalidad('');
       setView('marketplace');
@@ -198,12 +207,22 @@ function AppContent() {
             onNavbarNav={(targetView, opts = {}) => {
               if (opts.localidades !== undefined) {
                 setMarketplaceLocalidad('__multi__:' + opts.localidades.join(','));
+                if (targetView === 'ofertas') setOfertasLocalidades(opts.localidades || []);
               } else if (opts.localidad !== undefined) {
                 setMarketplaceLocalidad(opts.localidad === 'Todos los destinos' ? '' : (opts.localidad || ''));
+                if (targetView === 'ofertas') {
+                  setOfertasLocalidades(opts.localidad && opts.localidad !== 'Todos los destinos' ? [opts.localidad] : []);
+                }
               } else if (opts.tipo !== undefined) {
                 setMarketplaceLocalidad('');
+                if (targetView === 'ofertas') setOfertasLocalidades([]);
+              } else if (targetView === 'ofertas') {
+                setOfertasLocalidades([]);
               }
               if (opts.tipo !== undefined) setMarketplaceTipo(opts.tipo || 'todos');
+              if (targetView === 'ofertas') {
+                setOfertasTipoInicial(opts.tipo || opts.gastroCategoria || opts.aventuraTipo || null);
+              }
               if (opts.gastroCategoria !== undefined || opts.gastroAventura !== undefined) {
                 setGastroCategoria(opts.gastroCategoria || '');
                 setGastroAventura(opts.gastroAventura || '');
@@ -213,6 +232,8 @@ function AppContent() {
               }
               if (targetView === 'salidas') {
                 setSalidasModoRanking(false);
+                setGastroModoAventura(false);
+                setGastroInitialTipos(null);
                 setGastroNavKey(k => k + 1);
               }
               setView(targetView);
@@ -228,22 +249,63 @@ function AppContent() {
               dining={salidas}
               aventura={aventura}
               onOpenDetail={handleOpenDetail}
-              onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setView('ofertas'); } window.scrollTo(0, 0); }}
+              onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setOfertasTipoInicial(null); setView('ofertas'); } window.scrollTo(0, 0); }}
               onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
-              onVerMarketplace={() => { setView('marketplace'); window.scrollTo(0, 0); }}
+              onVerMarketplace={(destino) => {
+                setOfertasCategoria(null);
+                setOfertasLocalidades(destino && destino !== 'Todos los destinos' ? [destino] : []);
+                setOfertasTipoInicial(null);
+                setView('ofertas');
+                window.scrollTo(0, 0);
+              }}
               onOpenPack={handleOpenPack}
               onOpenOferta={handleOpenOferta}
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
               onNavMarketplaceTipo={(filtro) => { setMarketplaceTipo(filtro || 'todos'); setView('marketplace'); window.scrollTo(0, 0); }}
+              onNavCuponear={(target) => {
+                const TIEMPOS_EXPERIENCIA = ['Excursion', 'Actividad', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'];
+                const TIEMPOS_MIMO = ['Spa', 'Yoga / Bienestar', 'Masajes a domicilio'];
+                if (target === 'alojamientos') {
+                  setOfertasCategoria('alojamiento');
+                  setOfertasTipoInicial(null);
+                  setView('ofertas');
+                } else if (target === 'comer') {
+                  setSalidasModoRanking(false);
+                  setGastroModoAventura(false);
+                  setGastroInitialTipos(null);
+                  setGastroNavKey(k => k + 1);
+                  setView('salidas');
+                } else if (target === 'compras') {
+                  setSalidasModoRanking(false);
+                  setGastroModoAventura(false);
+                  setGastroInitialTipos(['Compras']);
+                  setGastroNavKey(k => k + 1);
+                  setView('salidas');
+                } else if (target === 'experiencia') {
+                  setSalidasModoRanking(false);
+                  setGastroModoAventura(true);
+                  setGastroInitialTipos(TIEMPOS_EXPERIENCIA);
+                  setGastroNavKey(k => k + 1);
+                  setView('salidas');
+                } else if (target === 'mimo') {
+                  setSalidasModoRanking(false);
+                  setGastroModoAventura(true);
+                  setGastroInitialTipos(TIEMPOS_MIMO);
+                  setGastroNavKey(k => k + 1);
+                  setView('salidas');
+                }
+                window.scrollTo(0, 0);
+              }}
             />
           )}
           {view === 'ofertas' && (
             <OfertasView
-              key={ofertasCategoria + '|' + ofertasLocalidades.join(',')}
-              onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setView('home'); }}
+              key={ofertasCategoria + '|' + ofertasLocalidades.join(',') + '|' + ofertasTipoInicial}
+              onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setOfertasTipoInicial(null); setView('home'); }}
               onOpenOferta={handleOpenOferta}
               initialCategoria={ofertasCategoria}
               initialLocalidades={ofertasLocalidades}
+              initialTipo={ofertasTipoInicial}
             />
           )}
           {view === 'marketplace' && (
@@ -253,11 +315,12 @@ function AppContent() {
               onOpenDetail={handleOpenDetail}
               initialFiltro={marketplaceTipo}
               initialLocalidad={marketplaceLocalidad}
-              onVerOfertas={(locs) => { setOfertasLocalidades(locs); setOfertasCategoria(null); setView('ofertas'); window.scrollTo(0, 0); }}
+              onVerOfertas={(locs) => { setOfertasLocalidades(locs); setOfertasCategoria(null); setOfertasTipoInicial(null); setView('ofertas'); window.scrollTo(0, 0); }}
+              onOpenOferta={handleOpenOferta}
             />
           )}
           {view === 'marketplace-ofertas' && (
-            <MarketplaceView onBack={() => { setView('home'); window.scrollTo(0, 0); }} onOpenDetail={handleOpenDetail} initialFiltro="oferta" />
+            <MarketplaceView onBack={() => { setView('home'); window.scrollTo(0, 0); }} onOpenDetail={handleOpenDetail} initialFiltro="oferta" onOpenOferta={handleOpenOferta} />
           )}
           {view === 'detail' && (
             <DetailView
@@ -357,13 +420,15 @@ function AppContent() {
           {view === 'salidas' && (
             <GastronomyView
               key={gastroNavKey}
-              onBack={() => { setGastroCategoria(''); setGastroAventura(''); setView('home'); }}
+              onBack={() => { setGastroCategoria(''); setGastroAventura(''); setGastroInitialTipos(null); setGastroModoAventura(false); setView('home'); }}
               session={session}
               onLoginClick={() => setView('login')}
               onOpenDetail={handleOpenDetail}
-              onVerOfertas={() => { setOfertasCategoria(null); setView('ofertas'); window.scrollTo(0,0); }}
+              onVerOfertas={() => { setOfertasCategoria(null); setOfertasTipoInicial(null); setView('ofertas'); window.scrollTo(0,0); }}
               initialCategoria={gastroCategoria}
               initialAventura={gastroAventura}
+              initialTipos={gastroInitialTipos}
+              modoAventura={gastroModoAventura}
               modoRanking={salidasModoRanking}
             />
           )}
