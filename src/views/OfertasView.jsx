@@ -7,6 +7,7 @@ import { getPromos }    from '../lib/datos';
 import { ALL_PROMOS }   from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
 import OfertaCard from '../components/OfertaCard';
+import { getPublicidades, elegirPublicidad } from '../lib/publicidad';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const A = {
@@ -25,51 +26,6 @@ const A = {
 
 const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul', 'Chacras del Mar', 'El Salvaje'];
 
-const TITULOS = {
-  alojamiento: [
-    '¡Alquilá por menos! Es la que va',
-    'No escatimes, acá conseguís el mejor precio',
-    'Más barato que el colchón que tenés en casa y nunca cambiaste',
-    'Llegá, tirate al mar y desconectate de todo',
-    '¡Un buen descuento no se le niega a nadie!',
-    'Pedí ese descuento que te merecés (no se lo contamos a tu vecino)',
-    'Más estadía y menos "cuánto me alcanza"',
-    'El mejor precio para quedarte... y quedarte un día más!',
-  ],
-  salidas: [
-    'Salí y ahorrá (pero no en diversión)',
-    'Esa serie mala puede esperar, salí a pasarla bien!',
-    'Salís con cupones, volvés con historias para contar',
-    'Soltá la culpa, salí que te lo merecés',
-    '¡Cupones, cupones, calentitos los cupones!',
-    'Comé, bailá y ahorrá. En ese orden',
-    'Tu billetera también quiere salir!',
-    'La vida es demasiado corta, come el postre primero',
-  ],
-  aventura_relax: [
-    '¡Viví la experiencia, pagá menos!',
-    'Usar gafas de sol no quita que uses bronceador. Sino te podés convertir en mapache',
-    'Relax sin gastar de más, ni en ansiolíticos',
-    'Explorá y ahorrá',
-    'Tu próxima aventura tiene cupón y todo',
-    'Descubrí más por menos (el mar sigue siendo gratis)',
-    'La experiencia vale, la cuenta no tanto',
-    'Transpirá la camiseta, no la tarjeta',
-  ],
-  default: [
-    '¡Alquilá por menos! Es la que va',
-    'Salí y ahorrá (pero no en diversión)',
-    '¡Viví la experiencia, pagá menos!',
-    '¡Un buen descuento no se le niega a nadie!',
-  ],
-};
-
-// Elige un título de la lista rotando por día (estable durante la sesión)
-const _tituloIdx = Math.floor(Date.now() / 86400000); // cambia cada día
-function getTitulo(cat) {
-  const lista = TITULOS[cat] || TITULOS.default;
-  return lista[_tituloIdx % lista.length];
-}
 
 // Subcategorías primarias (tipo de negocio agrupado)
 const SUBCATS_PRIMARY = {
@@ -209,12 +165,25 @@ function useWindowWidth() {
   return w;
 }
 
+// ─── Ficha publicitaria (primera celda de la grilla) ──────────
+function PubliCard({ publi }) {
+  const img = <img src={publi.imagen_url} alt="Publicidad" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
+  // height:100% para igualar el alto de las cards vecinas; minHeight evita que
+  // colapse cuando queda sola en su fila (mobile, 1 columna).
+  const base = { position: 'relative', borderRadius: 20, overflow: 'hidden', border: `1px solid ${A.line}`, height: '100%', minHeight: 420, background: A.bg, display: 'block' };
+  if (publi.link) {
+    return <a href={publi.link} target="_blank" rel="noopener noreferrer" style={{ ...base, cursor: 'pointer' }}>{img}</a>;
+  }
+  return <div style={base}>{img}</div>;
+}
+
 export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [], initialTipo = null }) {
   const [promos,      setPromos]      = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [busqueda,    setBusqueda]    = useState('');
   const [drawerOpen,  setDrawerOpen]  = useState(false);
   const [shownCount,  setShownCount]  = useState(10);
+  const [publi,       setPubli]       = useState(null);
   const sentinelRef = useRef(null);
   const { addCupon }                  = useCuponera();
   const winW    = useWindowWidth();
@@ -268,6 +237,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
           fechaFinFlash:    p.fecha_fin_flash,
           tokens_costo:     p.tokens_costo,
           ahorroEstimado:   p.ahorro_estimado || 0,
+          ahorroModalidad:  p.ahorro_modalidad || null,
           categoria:        catDe(p.negocios?.tipo, p.negocio_id),
           negocioTipo:      p.negocios?.tipo || '',
           negocioTags:      p.negocios?.tags || [],
@@ -297,6 +267,18 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
 
   // ── Categoría activa (single-select) ─────────────────────────
   const catActiva = tipoAloj ? 'alojamiento' : tipoSalidas ? 'salidas' : tipoExp ? 'aventura_relax' : null;
+
+  // Publicidad de la primera ficha — rota sin repetir por categoría
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const cat = catActiva || 'general';
+      const lista = await getPublicidades(cat);
+      if (cancel) return;
+      setPubli(elegirPublicidad(lista, cat));
+    })();
+    return () => { cancel = true; };
+  }, [catActiva]);
 
   const seleccionarCategoria = (cat) => {
     const ya = catActiva === cat;
@@ -385,6 +367,20 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
 
   // Cols responsive
   const cols = isMobile ? 1 : winW < 1024 ? 2 : 3;
+
+  // ── Título dinámico según categoría + destino(s) seleccionados ──
+  const destinoTexto = (() => {
+    const locs = localidades.filter(l => l && l !== '__otros__');
+    if (locs.length === 0) return 'Villa Gesell y alrededores';
+    return `${locs.join(', ')} y alrededores`;
+  })();
+  const tituloPrincipal = catActiva === 'salidas'
+    ? `Salí y ahorrá en ${destinoTexto}`
+    : catActiva === 'aventura_relax'
+    ? `Experiencias inolvidables en ${destinoTexto}`
+    : catActiva === 'alojamiento'
+    ? `Elegí tu alojamiento en ${destinoTexto}`
+    : `Ofertas en ${destinoTexto}`;
 
   const SidebarContent = (
     <>
@@ -531,11 +527,21 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
           {/* Header: título + [filtros mobile] + search */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: A.ink, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>
-                {getTitulo(catActiva || 'default')}
+              <h1 style={{ fontSize: isMobile ? 22 : 30, fontStyle: 'italic', fontWeight: 500, color: A.ink, letterSpacing: '-0.01em', margin: '25px 0 0', lineHeight: 1.2 }}>
+                {tituloPrincipal}
               </h1>
-              <p style={{ fontSize: 13, color: A.muted, margin: '4px 0 0' }}>
-                {loading ? 'Cargando...' : `${visibles.length} oferta${visibles.length !== 1 ? 's' : ''} disponible${visibles.length !== 1 ? 's' : ''} en Villa Gesell y alrededores`}
+              <p style={{ fontSize: 13, color: A.muted, margin: '6px 0 0' }}>
+                {loading ? 'Cargando...' : (
+                  <>
+                    {visibles.length} oferta{visibles.length !== 1 ? 's' : ''} disponible{visibles.length !== 1 ? 's' : ''}
+                    <button
+                      onClick={() => setLocalidades([])}
+                      style={{ background: 'none', border: 'none', padding: 0, marginLeft: 8, color: A.primary, textDecoration: 'underline', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}
+                    >
+                      Buscar en el resto del país
+                    </button>
+                  </>
+                )}
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
@@ -545,7 +551,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
                   Filtros{hayFiltros ? ` (${[tipoAloj,tipoSalidas,tipoExp,soloFlash].filter(Boolean).length + localidades.length + subcatPrimaria.size + subcatSecundaria.size})` : ''}
                 </button>
               )}
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', marginTop: 25 }}>
                 <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar en ofertas"
                   style={{ width: isMobile ? 170 : 260, paddingLeft: 14, paddingRight: 40, paddingTop: 10, paddingBottom: 10, border: `1.5px solid ${A.line}`, borderRadius: 12, fontSize: 14, fontFamily: A.font, background: '#fff', color: A.ink, outline: 'none', boxSizing: 'border-box' }}
                   onFocus={e => e.target.style.borderColor = A.primary} onBlur={e => e.target.style.borderColor = A.line}
@@ -568,6 +574,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
+              {publi && <PubliCard key="publi" publi={publi} />}
               {visiblesPaged.map(promo => (
                 <OfertaCard key={promo.id} promo={promo} onAddToCuponera={addCupon} onOpen={onOpenOferta} />
               ))}

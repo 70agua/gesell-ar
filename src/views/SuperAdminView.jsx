@@ -9,6 +9,7 @@ const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', 
 import { descontarToken, debeUsarTokens, CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
 import { getPlanesConfig, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
+import { PUBLI_CATEGORIAS, listarPublicidadesAdmin, crearPublicidad, actualizarPublicidad, eliminarPublicidad } from '../lib/publicidad';
 
 // ─── Aire tokens ─────────────────────────────────────────────
 const A = {
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'resumen',   label: 'Resumen'   },
   { id: 'negocios',  label: 'Socios'    },
   { id: 'ofertas',   label: 'Ofertas'   },
+  { id: 'publicidad',label: 'Publicidad'},
   { id: 'ventas',    label: 'Ventas'    },
   { id: 'usuarios',  label: 'Usuarios'  },
   { id: 'consultas', label: 'Consultas' },
@@ -220,6 +222,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
             {tab === 'resumen'   && <TabResumen stats={stats} negocios={negocios} consultas={consultas} ofertas={ofertas} ventas={ventas} onEditarSocio={onEditarSocio} setTab={setTab} setOfertas={setOfertas} showToast={showToast} />}
             {tab === 'negocios'  && <TabNegocios negocios={negocios} onAprobar={aprobar} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} onAprobarComprobante={aprobarComprobante} />}
             {tab === 'ofertas'   && <TabOfertas ofertas={ofertas} setOfertas={setOfertas} showToast={showToast} />}
+            {tab === 'publicidad'&& <TabPublicidad showToast={showToast} />}
             {tab === 'ventas'    && <TabVentas ventas={ventas} />}
             {tab === 'usuarios'  && <TabUsuarios usuarios={usuarios} />}
             {tab === 'consultas' && <TabConsultas consultas={consultas} onLeer={marcarLeida} />}
@@ -760,6 +763,116 @@ function TabOfertas({ ofertas, setOfertas, showToast }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB: PUBLICIDAD
+// ═══════════════════════════════════════════════════════════
+function TabPublicidad({ showToast }) {
+  const [items, setItems]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [categoria, setCategoria] = useState('alojamiento');
+  const [imagenUrl, setImagenUrl] = useState('');
+  const [link, setLink]     = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  async function cargar() {
+    setLoading(true);
+    setItems(await listarPublicidadesAdmin());
+    setLoading(false);
+  }
+  useEffect(() => { cargar(); }, []);
+
+  const labelCat = v => PUBLI_CATEGORIAS.find(c => c.value === v)?.label || v;
+
+  async function agregar() {
+    if (!imagenUrl.trim()) return showToast('Pegá la URL de la imagen', 'error');
+    setGuardando(true);
+    const { error } = await crearPublicidad({ categoria, imagen_url: imagenUrl.trim(), link: link.trim() || null });
+    setGuardando(false);
+    if (error) return showToast('Error al guardar la publicidad', 'error');
+    setImagenUrl(''); setLink('');
+    showToast('Publicidad agregada');
+    cargar();
+  }
+
+  async function toggle(p) {
+    const { error } = await actualizarPublicidad(p.id, { activa: !p.activa });
+    if (error) return showToast('Error al actualizar', 'error');
+    setItems(prev => prev.map(x => x.id === p.id ? { ...x, activa: !x.activa } : x));
+  }
+
+  async function borrar(p) {
+    if (!window.confirm('¿Eliminar esta publicidad?')) return;
+    const { error } = await eliminarPublicidad(p.id);
+    if (error) return showToast('Error al eliminar', 'error');
+    setItems(prev => prev.filter(x => x.id !== p.id));
+    showToast('Publicidad eliminada');
+  }
+
+  const inputStyle = { padding:'10px 12px', borderRadius:10, border:`1px solid ${A.line}`, fontFamily:A.font, fontSize:13, outline:'none', background:'#fff', width:'100%', boxSizing:'border-box' };
+
+  return (
+    <div>
+      <h2 style={{ fontFamily:A.font, fontSize:20, fontWeight:800, color:A.ink, margin:'0 0 6px' }}>Publicidad</h2>
+      <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:'0 0 20px' }}>
+        Imágenes que ocupan la primera ficha del listado. Rotan al azar, sin repetir, dentro de cada categoría.
+      </p>
+
+      {/* Alta */}
+      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:16, padding:18, marginBottom:24, display:'flex', flexDirection:'column', gap:12 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'200px 1fr', gap:12 }}>
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:A.muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Categoría</label>
+            <select value={categoria} onChange={e => setCategoria(e.target.value)} style={{ ...inputStyle, cursor:'pointer' }}>
+              {PUBLI_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:A.muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>URL de la imagen</label>
+            <input value={imagenUrl} onChange={e => setImagenUrl(e.target.value)} placeholder="https://… o /bg-aloja.jpg" style={inputStyle} />
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 160px', gap:12, alignItems:'end' }}>
+          <div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:A.muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Link (opcional)</label>
+            <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://… adónde lleva al hacer click" style={inputStyle} />
+          </div>
+          <ABtn variant="primary" onClick={agregar} style={{ justifyContent:'center', padding:'11px 0', opacity: guardando ? 0.6 : 1 }}>
+            {guardando ? 'Guardando…' : 'Agregar publicidad'}
+          </ABtn>
+        </div>
+        {imagenUrl.trim() && (
+          <div style={{ width:200, aspectRatio:'3/4', borderRadius:12, overflow:'hidden', border:`1px solid ${A.line}` }}>
+            <img src={imagenUrl} alt="preview" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+          </div>
+        )}
+      </div>
+
+      {/* Listado */}
+      {loading ? <MiniLoader /> : items.length === 0 ? (
+        <p style={{ fontFamily:A.font, fontSize:14, color:A.muted }}>Todavía no hay publicidades cargadas.</p>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:16 }}>
+          {items.map(p => (
+            <div key={p.id} style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden', display:'flex', flexDirection:'column', opacity: p.activa ? 1 : 0.55 }}>
+              <div style={{ aspectRatio:'3/4', overflow:'hidden', background:A.bg }}>
+                <img src={p.imagen_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+              </div>
+              <div style={{ padding:'10px 12px', display:'flex', flexDirection:'column', gap:8 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:A.primary, textTransform:'uppercase', letterSpacing:'0.04em' }}>{labelCat(p.categoria)}</span>
+                {p.link && <span style={{ fontSize:11, color:A.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.link}</span>}
+                <div style={{ display:'flex', gap:8 }}>
+                  <ABtn onClick={() => toggle(p)} style={{ fontSize:12, padding:'6px 10px' }}>{p.activa ? 'Pausar' : 'Activar'}</ABtn>
+                  <ABtn variant="danger" onClick={() => borrar(p)} style={{ fontSize:12, padding:'6px 10px' }}>Eliminar</ABtn>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -71,6 +71,7 @@ function normalizePromo(p) {
     tokens_costo:     p.tokens_costo,
     ahorroEstimado:   p.ahorro_estimado  || 0,
     ahorroMax:        p.ahorro_max       || null,
+    ahorroModalidad:  p.ahorro_modalidad || null,
     aprobada:         p.aprobada,
     categoria:        categoriaDeNegocio(p.negocios?.tipo, p.negocio_id),
     negocioTipo:      p.negocios?.tipo   || '',

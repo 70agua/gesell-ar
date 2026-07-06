@@ -33,6 +33,18 @@ const precioCupon = tc => (Number(tc) || 0) * CREDITO_TOTAL;
 // Puntos mostrados en la franja de ahorro: ahorroEstimado / 4
 const calcPts = ahorro => Math.round((ahorro || 0) / 4);
 
+// Leyenda del ahorro. Los alojamientos SIEMPRE la muestran (evita confusión
+// sobre a qué corresponde el ahorro); default seguro = "en toda la estadía".
+const MODALIDAD_AHORRO = {
+  por_persona:        'por persona',
+  por_noche:          'por noche',
+  en_toda_la_estadia: 'en toda la estadía',
+};
+function ahorroLegend(promo) {
+  if (promo.categoria !== 'alojamiento') return null;
+  return MODALIDAD_AHORRO[promo.ahorroModalidad] || 'en toda la estadía';
+}
+
 function CoinSVG({ size = 13 }) {
   return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }} />;
 }
@@ -139,8 +151,9 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace }) {
 }
 
 // ─── Franja "Ahorrás $X aprox. · Ganás X pts." ────────────────
-//  Todo en una sola línea; si no entra, se achica proporcionalmente.
-function FranjaAhorro({ ahorroEstimado }) {
+//  Fila principal en una sola línea (se achica si no entra). Si hay
+//  leyenda (alojamientos) va en un renglón aparte, agrandando el recuadro.
+function FranjaAhorro({ ahorroEstimado, legend }) {
   const pts = calcPts(ahorroEstimado);
   const outerRef = useRef(null);
   const innerRef = useRef(null);
@@ -163,17 +176,22 @@ function FranjaAhorro({ ahorroEstimado }) {
   if (!(ahorroEstimado > 0)) return null;
 
   return (
-    <div ref={outerRef} style={{ background: A.greenSoft, padding: '11px 16px', overflow: 'hidden' }}>
-      <div ref={innerRef} style={{ display: 'flex', width: 'max-content', minWidth: '100%', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, whiteSpace: 'nowrap', transform: `scale(${scale})`, transformOrigin: 'left center' }}>
-        <span style={{ color: A.green }}>
-          <span style={{ fontSize: 11, fontWeight: 700 }}>Ahorrás </span>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(ahorroEstimado)} </span>
-          <span style={{ fontSize: 11, fontWeight: 700 }}>aprox.</span>
-        </span>
-        {pts > 0 && (
-          <span style={{ fontSize: 11, fontStyle: 'italic', fontWeight: 600, color: A.green }}>Ganás {pts.toLocaleString('es-AR')} pts.</span>
-        )}
+    <div style={{ background: A.greenSoft, padding: '11px 16px' }}>
+      <div ref={outerRef} style={{ overflow: 'hidden' }}>
+        <div ref={innerRef} style={{ display: 'flex', width: 'max-content', minWidth: '100%', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, whiteSpace: 'nowrap', transform: `scale(${scale})`, transformOrigin: 'left center' }}>
+          <span style={{ color: A.green }}>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>Ahorrás </span>
+            <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(ahorroEstimado)} </span>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>aprox.</span>
+          </span>
+          {pts > 0 && (
+            <span style={{ fontSize: 11, fontStyle: 'italic', fontWeight: 600, color: A.green }}>Ganás {pts.toLocaleString('es-AR')} pts.</span>
+          )}
+        </div>
       </div>
+      {legend && (
+        <div style={{ fontSize: 11, fontWeight: 700, color: A.green }}>{legend}</div>
+      )}
     </div>
   );
 }
@@ -192,7 +210,7 @@ export function PrecioCupon({ tokens_costo, color = A.ink, mutedColor = A.muted 
     );
   }
   return (
-    <div style={{ textAlign: 'center', fontSize: 13, color, lineHeight: 1.4 }}>
+    <div style={{ textAlign: 'center', fontSize: 14.5, color, lineHeight: 1.4 }}>
       {mostrarCreditos ? (
         <>
           Activá este cupón por{' '}
@@ -255,7 +273,7 @@ export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, va
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <ProveedorHeader promo={promo} size={38} />
           {reviewSlot}
-          <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} />
+          <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
           <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} />
         </div>
       </div>
@@ -275,7 +293,7 @@ export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, va
       {fixedHeight
         ? <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{reviewSlot}</div>
         : reviewSlot}
-      <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} />
+      <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
       <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} hideActions={hideActions} />
     </div>
   );

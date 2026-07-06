@@ -412,11 +412,11 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
               <div style={{ position: 'absolute', top: -5, right: -5, width: 14, height: 14, borderRadius: '50%', background: 'rgb(230, 57, 70)', border: '3px solid #fff' }} />
               <div style={{ position: 'absolute', left: -9, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '8px solid transparent', borderBottom: '8px solid transparent', borderRight: `8px solid #c7cdf5` }} />
               <div style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderRight: `7px solid ${A.primarySoft}` }} />
-              <p style={{ fontSize: 12, color: A.ink, fontWeight: 400, lineHeight: 1.5, margin: 0 }}>
+              <p style={{ fontSize: 14.5, color: A.ink, fontWeight: 400, lineHeight: 1.5, margin: 0 }}>
                 🎁 Hay <span style={{ fontWeight: 700 }}>2 descuentos de regalo</span> esperándote.{' '}
                 <button
                   onClick={() => onVerOfertasRegalo?.()}
-                  style={{ background: 'none', border: 'none', padding: 0, color: A.primary, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: A.font, textDecoration: 'underline' }}
+                  style={{ background: 'none', border: 'none', padding: 0, color: A.primary, fontWeight: 700, fontSize: 14.5, cursor: 'pointer', fontFamily: A.font, textDecoration: 'underline' }}
                 >¡Reclamalos ahora!</button>{' '}
               </p>
             </div>

@@ -16,7 +16,7 @@ const IcoFacebook = () => (
 );
 
 const P     = '#475be1';
-const NAVY  = '#0f172a';
+const NAVY  = 'rgb(11, 23, 51)';
 const INK2  = '#64748b';
 const MUTED = '#94a3b8';
 const LINE  = '#1e293b';

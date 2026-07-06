@@ -8,6 +8,13 @@ import { supabase } from '../lib/supabase';
 import { calcularPrecioCupon, CREDITO_TOTAL } from '../lib/cobros';
 
 const TIPOS_ALOJ = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
+// Set más amplio para detectar si el negocio actual es un alojamiento
+const ES_ALOJ_TIPOS = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi','Domo','Carpa','Glamping']);
+const MODALIDADES_AHORRO = [
+  { value: 'por_noche',          label: 'por noche' },
+  { value: 'por_persona',        label: 'por persona' },
+  { value: 'en_toda_la_estadia', label: 'en toda la estadía' },
+];
 
 export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave }) {
   const esNueva = !oferta?.id;
@@ -20,12 +27,14 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
     imagen_url:      oferta?.imagen_url      || '',
     offer_type:      oferta?.offer_type      || 'Normal',
     ahorro_estimado: oferta?.ahorro_estimado || '',
+    ahorro_modalidad: oferta?.ahorro_modalidad || '',
     fecha_vencimiento: oferta?.fecha_vencimiento ? oferta.fecha_vencimiento.split('T')[0] : '',
   });
 
   // Alianzas: array de { negocio_id, nombre, beneficio_mejorado }
   const [alianzas, setAlianzas]         = useState([]);
   const [alojamientos, setAlojamientos] = useState([]);
+  const [esAlojamiento, setEsAlojamiento] = useState(false);
   const [saving, setSaving]             = useState(false);
   const [error, setError]               = useState('');
 
@@ -40,6 +49,12 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
         .eq('aprobado', true)
         .order('nombre');
       setAlojamientos(data || []);
+
+      // ¿El negocio de esta oferta es un alojamiento? (define si pedimos modalidad de ahorro)
+      if (negocioId) {
+        const { data: negActual } = await supabase.from('negocios').select('tipo').eq('id', negocioId).single();
+        setEsAlojamiento(!negActual?.tipo || ES_ALOJ_TIPOS.has(negActual.tipo));
+      }
 
       if (oferta?.id) {
         const { data: al } = await supabase
@@ -81,6 +96,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
   async function guardar() {
     if (!form.titulo) return setError('El título es obligatorio');
     if (!(Number(form.ahorro_estimado) > 0)) return setError('Ingresá el ahorro estimado para el usuario (mayor a $0)');
+    if (esAlojamiento && !form.ahorro_modalidad) return setError('Elegí a qué corresponde el ahorro (por noche, por persona o toda la estadía)');
     setSaving(true); setError('');
 
     const payload = {
@@ -91,6 +107,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
       imagen_url:      form.imagen_url,
       offer_type:      form.offer_type,
       ahorro_estimado: form.ahorro_estimado ? Number(form.ahorro_estimado) : null,
+      ahorro_modalidad: esAlojamiento ? (form.ahorro_modalidad || null) : null,
       fecha_vencimiento: form.fecha_vencimiento ? new Date(form.fecha_vencimiento).toISOString() : null,
       negocio_id:      negocioId,
       activa:          false,
@@ -216,6 +233,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
                 <div className="mt-2 flex flex-col gap-1 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2.5">
                   <span className="text-xs font-semibold text-emerald-700">
                     En la tarjeta: “Ahorrás ${Number(form.ahorro_estimado).toLocaleString('es-AR')} aprox. · Ganás {Math.round(Number(form.ahorro_estimado) / 4).toLocaleString('es-AR')} pts.”
+                    {esAlojamiento && form.ahorro_modalidad ? ` (${MODALIDADES_AHORRO.find(m => m.value === form.ahorro_modalidad)?.label})` : ''}
                   </span>
                   <span className="text-[11px] font-medium text-emerald-600">
                     Precio de cupón sugerido: {Math.max(1, Math.round(calcularPrecioCupon(Number(form.ahorro_estimado)) / CREDITO_TOTAL))} crédito(s) · AR${(Math.max(1, Math.round(calcularPrecioCupon(Number(form.ahorro_estimado)) / CREDITO_TOTAL)) * CREDITO_TOTAL).toLocaleString('es-AR')} (IVA incl.)
@@ -225,6 +243,19 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
                 <p className="text-slate-400 text-xs font-medium mt-1">Se muestra en la tarjeta como “Ahorrás $X aprox.” y define los puntos que gana el turista.</p>
               )}
             </div>
+
+            {esAlojamiento && (
+              <div>
+                <label className="block text-xs font-black text-slate-500 mb-1.5">¿A qué corresponde el ahorro? *</label>
+                <select value={form.ahorro_modalidad} onChange={set('ahorro_modalidad')}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="">Elegí una opción…</option>
+                  {MODALIDADES_AHORRO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <p className="text-slate-400 text-xs font-medium mt-1">Se muestra debajo del ahorro (ej. “por noche”). Obligatorio en alojamientos.</p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-black text-slate-500 mb-1.5">Fecha de vencimiento (opcional)</label>
