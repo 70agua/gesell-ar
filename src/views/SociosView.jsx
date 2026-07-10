@@ -6,6 +6,8 @@ import React, { useState, useEffect } from 'react';
 import { Check, Zap, X, Store, Mail, Lock, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getPlanesConfig, registrarIntentoPagoTarjeta } from '../lib/planes';
+import { existeNegocioConNombre } from '../lib/validacionRegistro';
+import { DESC_MIN } from '../lib/perfilNegocio';
 import PlanPicker from '../components/PlanPicker';
 
 const PLUS_COLOR = '#2563eb'; // blue-600, mismo azul que ya usan los CTA de este archivo
@@ -125,12 +127,13 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
   const [sectorGastro, setSectorGastro] = useState(sectorInicial);
   const [datosTarjetaPlus, setDatosTarjetaPlus] = useState(null);
   const [form, setForm] = useState({
-    nombre:    '',
-    tipo:      tipoInicial,
-    localidad: 'Villa Gesell',
-    email:     '',
-    password:  '',
-    plan:      planInicial === 'plus' ? null : 'free', // Plus recién queda confirmado tras cargar los datos de tarjeta
+    nombre:      '',
+    descripcion: '',
+    tipo:        tipoInicial,
+    localidad:   'Villa Gesell',
+    email:       '',
+    password:    '',
+    plan:        planInicial === 'plus' ? null : 'free', // Plus recién queda confirmado tras cargar los datos de tarjeta
   });
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -143,17 +146,27 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
   async function registrar() {
     if (!form.plan) return setError('Elegí un plan para continuar');
     if (!form.nombre || !form.email || !form.password) return setError('Completá todos los campos');
+    if (!form.descripcion.trim()) return setError('Contanos brevemente de qué se trata tu negocio.');
+    if (form.descripcion.trim().length < DESC_MIN) return setError(`La descripción debe tener al menos ${DESC_MIN} caracteres.`);
     if (form.password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres');
     setLoading(true); setError('');
+
+    if (await existeNegocioConNombre(form.nombre)) {
+      setLoading(false);
+      return setError('Ya existe un negocio registrado con ese nombre.');
+    }
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: form.email, password: form.password,
     });
-    if (authError) { setLoading(false); return setError(authError.message); }
+    if (authError) {
+      setLoading(false);
+      return setError(authError.message?.includes('already') ? 'Ese email ya está registrado. Probá ingresando.' : authError.message);
+    }
 
     const { data: negocio, error: negError } = await supabase
       .from('negocios')
-      .insert({ nombre: form.nombre, tipo: form.tipo, localidad: form.localidad, plan: 'free', aprobado: false, activo: false })
+      .insert({ nombre: form.nombre, descripcion: form.descripcion.trim(), tipo: form.tipo, localidad: form.localidad, plan: 'free', aprobado: false, activo: false })
       .select().single();
     if (negError) { setLoading(false); return setError('Error al crear el perfil'); }
 
@@ -215,6 +228,17 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
               placeholder={esAlojamiento ? 'Ej: Hotel Las Olas' : 'Ej: La Pizzería del Mar'}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
             />
+          </div>
+
+          {/* Descripción */}
+          <div>
+            <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Acerca de tu negocio</label>
+            <textarea
+              value={form.descripcion} onChange={set('descripcion')} rows={3}
+              placeholder="Contanos brevemente qué ofrecés, qué te distingue..."
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+            />
+            <p className="text-xs text-slate-400 font-medium mt-1">{form.descripcion.length} / mínimo {DESC_MIN}</p>
           </div>
 
           {/* ── ALOJAMIENTO: tipo dropdown + localidad ── */}

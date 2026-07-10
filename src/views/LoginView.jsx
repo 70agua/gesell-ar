@@ -1,7 +1,7 @@
 // ============================================================
 //  src/views/LoginView.jsx
 // ============================================================
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Coins, Trash2 } from 'lucide-react';
 import { login, registrarTurista, loginConGoogle } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -15,6 +15,8 @@ import PlanPicker from '../components/PlanPicker';
 import GaleriaFotos from '../components/GaleriaFotos';
 import PerfilNegocioForm from '../components/PerfilNegocioForm';
 import { perfilDesdeNegocio, perfilAPayload, validarPerfil } from '../lib/perfilNegocio';
+import { existePersonaConNombre, existeNegocioConNombre } from '../lib/validacionRegistro';
+import { TabOfertas } from './AdminNegocioView';
 
 // ─── Helpers ─────────────────────────────────────────────────
 function getSiteName() {
@@ -170,7 +172,7 @@ const BtnNext = ({ onClick, disabled, label, saving }) => (
   </button>
 );
 
-function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete }) {
+export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete }) {
   const [obStep,    setObStep]    = useState(1);
   const [doneSteps, setDoneSteps] = useState(new Set());
   // Perfil del negocio — objeto único manejado por PerfilNegocioForm
@@ -178,15 +180,13 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
   const [fotos, setFotos] = useState([]);
   // Cuenta
   const [plan, setPlan] = useState(null);
-  // Oferta
-  const [ofTitulo, setOfTitulo] = useState('');
-  const [ofPct,    setOfPct]    = useState('');
-  const [ofDesc,   setOfDesc]   = useState('');
-  const [ofTipo,   setOfTipo]   = useState('Normal'); // 'Normal' | 'Flash'
-  const [ofFechaFinFlash, setOfFechaFinFlash] = useState('');
-  const [ofImagenFile, setOfImagenFile]       = useState(null);
-  const [ofImagenPreview, setOfImagenPreview] = useState(null);
-  const ofImagenRef = useRef();
+  // Oferta (paso 3) — se carga con el editor real del panel (TabOfertas).
+  // Toast mínimo para el feedback que emite TabOfertas.
+  const [toast, setToast] = useState(null);
+  const showToast = (msg, tipo = 'ok') => {
+    setToast({ msg, tipo });
+    setTimeout(() => setToast(null), 2600);
+  };
   // Cuponera regalo (paso 4, solo Plus)
   const [cuponeraId, setCuponeraId]   = useState(null);
   const [saldoCreditos, setSaldoCreditos] = useState(0);
@@ -208,7 +208,6 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
 
   // Estilos compartidos por los pasos 3 y 4 (el paso 2 los trae PerfilNegocioForm)
   const inp = { width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:10, border:`1px solid ${OBLINE}`, fontFamily:OBFONT, fontSize:13, color:OBINK, outline:'none', background:'#fff', transition:'border-color .15s' };
-  const lbl = { fontFamily:OBFONT, fontSize:11, fontWeight:700, color:OBINK2, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
 
   // Se crea un negocio "borrador" apenas arranca el wizard (con datos provisorios)
   // para que el paso 1 (Cuenta) ya tenga un negocioId real donde atar el plan,
@@ -226,10 +225,12 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
         tipo: 'alojamiento', plan: 'free', aprobado: false, activo: false,
       }).select().single();
       if (negErr) throw negErr;
-      await supabase.from('perfiles').insert({
+      // upsert (no insert): si el usuario ya tenía perfil (p. ej. un turista que se
+      // está convirtiendo en socio), esto lo actualiza en vez de chocar contra la PK.
+      await supabase.from('perfiles').upsert({
         id: regUserId, nombre: `${rNombre} ${rApellido}`.trim(), email: rEmail,
         negocio_id: neg.id, rol: 'socio', es_superadmin: false,
-      });
+      }, { onConflict: 'id' });
       setNegocioId(neg.id);
     } catch (err) {
       setStubError(err?.message || 'No pudimos preparar tu cuenta. Reintentá.');
@@ -242,6 +243,11 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
     if (Object.keys(errs).length) { setErrors(errs); window.scrollTo(0, 0); return; }
     setSaving(true);
     try {
+      if (await existeNegocioConNombre(perfil.nombre, { excluirId: negocioId })) {
+        setErrors({ nombre: 'Ya existe un negocio registrado con ese nombre.' });
+        window.scrollTo(0, 0);
+        return;
+      }
       let imagenUrl = perfil.logoPreview || null;
       if (perfil.logoFile && negocioId) {
         try {
@@ -316,40 +322,11 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
     } finally { setSaving(false); }
   };
 
-  const handleOfImagenChange = (e) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    setOfImagenFile(f);
-    const reader = new FileReader();
-    reader.onload = ev => setOfImagenPreview(ev.target.result);
-    reader.readAsDataURL(f);
-  };
-
-  const step3Save = async () => {
-    if (saving || !ofTitulo.trim() || !ofPct) return;
-    setSaving(true);
-    try {
-      let imagenUrl = null;
-      if (ofImagenFile && negocioId) {
-        try {
-          const ext = ofImagenFile.name.split('.').pop().toLowerCase();
-          const { data: up } = await supabase.storage.from('negocios').upload(`promos/${negocioId}-${Date.now()}.${ext}`, ofImagenFile, { upsert: true });
-          if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); imagenUrl = ud.publicUrl; }
-        } catch { /* imagen se puede subir más tarde */ }
-      }
-      if (negocioId) await supabase.from('promociones').insert({
-        negocio_id: negocioId, titulo: ofTitulo.trim(),
-        descripcion: ofDesc.trim() || null, badge: `-${ofPct}%`,
-        offer_type: ofTipo, fecha_fin_flash: ofTipo === 'Flash' && ofFechaFinFlash ? ofFechaFinFlash : null,
-        imagen_url: imagenUrl, aprobada: false, activa: false,
-      });
-      setDoneSteps(s => new Set([...s, 3]));
-      if (plan === 'plus') { setObStep(4); window.scrollTo(0, 0); }
-      else onComplete();
-    } catch {
-      if (plan === 'plus') { setDoneSteps(s => new Set([...s, 3])); setObStep(4); window.scrollTo(0, 0); }
-      else onComplete();
-    }
-    finally { setSaving(false); }
+  // Paso 3: se omite/continúa. Las ofertas ya las persiste TabOfertas contra `promociones`.
+  const step3Continuar = () => {
+    setDoneSteps(s => new Set([...s, 3]));
+    if (plan === 'plus') { setObStep(4); window.scrollTo(0, 0); }
+    else onComplete();
   };
 
   // ── Paso 4 (solo Plus): armar la primera cuponera regalo ──
@@ -425,7 +402,7 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
   const NAV_STEPS = [
     { n:1, label:'Cuenta',       sub:'Planes para socios' },
     { n:2, label:'Mi Empresa',   sub:'Perfil del negocio' },
-    { n:3, label:'Crear oferta', sub:'Captá clientes desde el día 1' },
+    { n:3, label:'Crear cupón', sub:'Captá clientes desde el día 1' },
     ...(plan === 'plus' ? [{ n:4, label:'Cuponera regalo', sub:'Regalale a tus huéspedes' }] : []),
   ];
 
@@ -468,6 +445,19 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
 
       {/* ── Contenido (mismo ancho/padding que el panel) ── */}
       <div style={{ flex:1, overflow:'auto', padding:28 }}>
+        {obStep === 3 ? (
+          /* Paso 3: el editor real de ofertas (el mismo del panel), a ancho completo. */
+          <TabOfertas
+            onboarding
+            onSkip={step3Continuar}
+            negocioId={negocioId}
+            plan={plan || 'free'}
+            showToast={showToast}
+            saldoTokens={saldoCreditos}
+            setSaldoTokens={setSaldoCreditos}
+            onUpgrade={() => {}}
+          />
+        ) : (
         <div style={{ maxWidth:740 }}>
           <div style={{ fontSize:11, fontWeight:700, color:OBMUTED, letterSpacing:'0.08em', marginBottom:8 }}>PASO {obStep} DE {NAV_STEPS.length}</div>
 
@@ -524,73 +514,6 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
                   onConfirmPlus={confirmarPlus}
                 />
               )}
-            </div>
-          )}
-
-          {/* ── Paso 3: Crear oferta ── */}
-          {obStep === 3 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-              <div>
-                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Cargá tu primera oferta</h1>
-                <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Las ofertas aparecen en tu ficha y en el marketplace cuando tu cuenta sea aprobada. Podés editarlas en cualquier momento.</p>
-              </div>
-
-              <OBCard>
-                <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, flexShrink:0 }}>
-                    <div onClick={() => ofImagenRef.current?.click()} style={{ width:140, height:140, borderRadius:20, border:`2px dashed ${ofImagenPreview?OBP:OBLINE}`, cursor:'pointer', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', background:OBBG }}>
-                      {ofImagenPreview
-                        ? <img src={ofImagenPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        : <span style={{ fontSize:12, fontWeight:700, color:OBMUTED, fontFamily:OBFONT }}>Foto</span>
-                      }
-                    </div>
-                    <button type="button" onClick={() => ofImagenRef.current?.click()} style={{ fontSize:11, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>{ofImagenPreview?'Cambiar foto':'Subir foto'}</button>
-                    <input ref={ofImagenRef} type="file" accept="image/*" onChange={handleOfImagenChange} style={{ display:'none' }} />
-                  </div>
-
-                  <div style={{ flex:1, display:'flex', flexDirection:'column', gap:14 }}>
-                    <div>
-                      <label style={lbl}>Título de la oferta <span style={{ color:'#ef4444' }}>*</span></label>
-                      <input value={ofTitulo} onChange={e => setOfTitulo(e.target.value)} style={inp} placeholder="Ej: Noche + desayuno para 2 personas" />
-                    </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-                      <div>
-                        <label style={lbl}>Descuento <span style={{ color:'#ef4444' }}>*</span></label>
-                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                          <input type="number" min={1} max={99} value={ofPct} onChange={e => setOfPct(e.target.value)} style={{ ...inp, width:110 }} placeholder="20" />
-                          <span style={{ fontSize:22, fontWeight:700, color:OBINK2 }}>%</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label style={lbl}>Tipo de oferta</label>
-                        <select value={ofTipo} onChange={e => setOfTipo(e.target.value)} style={{ ...inp, cursor:'pointer' }}>
-                          <option value="Normal">Normal</option>
-                          <option value="Flash">Flash (con cuenta regresiva)</option>
-                        </select>
-                      </div>
-                    </div>
-                    {ofTipo === 'Flash' && (
-                      <div>
-                        <label style={lbl}>Vence el <span style={{ color:'#ef4444' }}>*</span></label>
-                        <input type="datetime-local" value={ofFechaFinFlash} onChange={e => setOfFechaFinFlash(e.target.value)} style={{ ...inp, maxWidth:220 }} />
-                      </div>
-                    )}
-                    <div>
-                      <label style={lbl}>Descripción breve <span style={{ textTransform:'none', fontWeight:400, color:OBMUTED }}>— opcional</span></label>
-                      <textarea value={ofDesc} onChange={e => setOfDesc(e.target.value)} rows={3}
-                        placeholder="Qué incluye, condiciones, vigencia..."
-                        style={{ ...inp, resize:'vertical', minHeight:70 }} />
-                    </div>
-                  </div>
-                </div>
-              </OBCard>
-
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, paddingBottom:40 }}>
-                <BtnNext onClick={step3Save} saving={saving} disabled={!ofTitulo.trim() || !ofPct} label={plan === 'plus' ? 'Guardar y seguir' : 'Guardar y terminar'} />
-                <button onClick={() => (plan === 'plus' ? setObStep(4) : onComplete())} style={{ fontSize:13, color:OBMUTED, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT, fontWeight:600 }}>
-                  Lo haré más tarde →
-                </button>
-              </div>
             </div>
           )}
 
@@ -716,7 +639,14 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
           )}
 
         </div>
+        )}
       </div>
+
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:10000, background: toast.tipo === 'err' ? '#ef4444' : OBINK, color:'#fff', padding:'11px 20px', borderRadius:12, fontFamily:OBFONT, fontSize:13, fontWeight:600, boxShadow:'0 12px 32px rgba(0,0,0,0.28)' }}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }
@@ -724,7 +654,7 @@ function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete
 // ═══════════════════════════════════════════════════════════════
 //  PANTALLA LOGIN
 // ═══════════════════════════════════════════════════════════════
-export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete, initialTab = 'ingresar' }) {
+export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete, onTuristaRegistrada, initialTab = 'ingresar' }) {
   const [tab,       setTab]       = useState(initialTab);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
@@ -738,7 +668,6 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
   // ── Registro: paso (1 = cuenta · 2 = ficha comercial) ──
   const [regStep,   setRegStep]   = useState(1);
-  const [exitoTipo, setExitoTipo] = useState(null);     // 'visitante' | 'comercial'
 
   // ── Datos de cuenta (común a visitante y comercial) ──
   const [rNombre,   setRNombre]   = useState('');
@@ -781,6 +710,12 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
     setLoading(true);
     try {
+      // No permitimos dos cuentas con el mismo nombre y apellido (no se valida
+      // de nuevo si ya se creó la cuenta y sólo estamos volviendo del paso 2).
+      if (!regUserId) {
+        const yaExiste = await existePersonaConNombre(`${rNombre} ${rApellido}`);
+        if (yaExiste) { setError('Ya existe una cuenta registrada con ese nombre y apellido.'); setLoading(false); return; }
+      }
       if (esComercial) {
         // Crear cuenta ahora — Supabase envía el mail de verificación automáticamente
         // Si ya creamos la cuenta (volvió del paso 2), reutilizamos el userId
@@ -795,9 +730,9 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
         setRegStep(2);
         window.scrollTo(0, 0);
       } else {
-        // Visitante: crear cuenta
+        // Visitante: crear cuenta y pasar directo a la home ya logueado
         await registrarTurista({ nombre: rNombre, apellido: rApellido, email: rEmail, password: rPass });
-        setExitoTipo('visitante');
+        await onTuristaRegistrada?.();
       }
     } catch (err) {
       const msg = err?.message || '';
@@ -816,13 +751,13 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
   };
 
   const switchTab = (t) => {
-    setTab(t); setError(''); setExito(''); setExitoTipo(null); setRegStep(1);
+    setTab(t); setError(''); setExito(''); setRegStep(1);
     setEsComercial(false); setRegUserId(null);
   };
 
   // ─── Render ──────────────────────────────────────────────────
   // Onboarding comercial — paso 2 → wizard de 3 pasos en pantalla completa
-  if (tab === 'registrarse' && regStep === 2 && esComercial && !exitoTipo) {
+  if (tab === 'registrarse' && regStep === 2 && esComercial) {
     return (
       <OnboardingComercial
         regUserId={regUserId}
@@ -887,6 +822,8 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
           {/* ══ INGRESAR ══ */}
           {tab === 'ingresar' && (
             <form onSubmit={handleIngresar} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <BtnGoogle onClick={handleGoogle} loading={loading} />
+              <Divisor />
               <Campo label="Email" type="email" value={email} onChange={setEmail} placeholder="tu@email.com" icon={<Mail size={15} />} required />
               <Campo label="Contraseña" type={showPass ? 'text' : 'password'} value={password} onChange={setPassword} placeholder="••••••••"
                 icon={<Lock size={15} />} required
@@ -902,8 +839,6 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
                 <button type="button" style={{ background: 'none', border: 'none', fontSize: 13, color: A.primary, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>¿Olvidaste tu contraseña?</button>
               </div>
               <BtnSubmit loading={loading} label="Ingresar" loadingLabel="Ingresando..." />
-              <Divisor />
-              <BtnGoogle onClick={handleGoogle} loading={loading} />
             </form>
           )}
 
@@ -912,8 +847,14 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
             <div>
 
               {/* ── PASO 1 — Datos de cuenta (común a todos) ── */}
-              {!exitoTipo && regStep === 1 && (
+              {regStep === 1 && (
                 <form onSubmit={handleAccountSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {!esComercial && (
+                    <>
+                      <BtnGoogle onClick={handleGoogle} loading={loading} label="Registrarse con Google" />
+                      <Divisor />
+                    </>
+                  )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <Campo label="Nombre" value={rNombre} onChange={setRNombre} placeholder="Sofía" icon={<User size={15} />} required />
                     <Campo label="Apellido" value={rApellido} onChange={setRApellido} placeholder="García" required />
@@ -945,40 +886,11 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
                   <Terminos checked={terminos} onChange={setTerminos} />
                   <BtnSubmit loading={loading} label={esComercial ? 'Continuar' : 'Crear mi cuenta'} loadingLabel={esComercial ? 'Continuando...' : 'Creando cuenta...'} />
-                  {!esComercial && (
-                    <>
-                      <Divisor />
-                      <BtnGoogle onClick={handleGoogle} loading={loading} label="Registrarse con Google" />
-                    </>
-                  )}
                 </form>
               )}
 
               {/* ── PASO 2 — Ficha del negocio (comercial) ── */}
               {/* paso 2 → se renderiza como OnboardingComercial antes del return */}
-
-              {/* ── Éxito ── */}
-              {exitoTipo && (
-                <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <Check size={28} color={A.green} />
-                  </div>
-                  <h2 style={{ fontSize: 20, fontWeight: 700, color: A.ink, margin: '0 0 8px', fontFamily: A.font }}>¡Bienvenido/a a Cuponear!</h2>
-                  <p style={{ fontSize: 14, color: A.muted, lineHeight: 1.6, fontFamily: A.font, margin: '0 0 24px' }}>
-                    {exitoTipo === 'visitante'
-                      ? 'Te enviamos un email de confirmación. Una vez confirmado vas a poder explorar todas las ofertas.'
-                      : 'Revisamos tu ficha y te avisamos por email cuando esté activa — generalmente en menos de 48 hs.'}
-                  </p>
-                  {exitoTipo === 'visitante'
-                    ? <button onClick={() => onBack && onBack()} style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>
-                        Empezar a explorar
-                      </button>
-                    : <button onClick={() => switchTab('ingresar')} style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>
-                        Ingresar
-                      </button>
-                  }
-                </div>
-              )}
 
             </div>
           )}

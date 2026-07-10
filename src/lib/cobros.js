@@ -57,12 +57,15 @@ export function debeUsarTokens(tipo, plan) {
 
 // ─── Obtener saldo de tokens ──────────────────────────────────
 export async function getSaldo(negocioId) {
+  // Sin .single()/.maybeSingle(): esos piden un objeto único (header especial) y Postgrest
+  // responde 406 igual cuando hay 0 filas (un negocio sin créditos comprados todavía es normal).
+  // limit(1) + array evita el 406 por completo: 0 filas → [] con 200 OK.
   const { data } = await supabase
     .from('socio_tokens')
     .select('saldo')
     .eq('negocio_id', negocioId)
-    .single();
-  return data?.saldo || 0;
+    .limit(1);
+  return data?.[0]?.saldo || 0;
 }
 
 // ─── Descontar 1 token al publicar ───────────────────────────

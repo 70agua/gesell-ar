@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Editor de imágenes de cupones — gesell.ar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f4f5f7;
+    margin: 0;
+    padding: 24px;
+    color: #1f2430;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #666; margin: 0 0 20px; font-size: 13px; }
+
+  #login-box {
+    max-width: 380px;
+    margin: 80px auto;
+    background: #fff;
+    padding: 28px;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+  #login-box h1 { margin-bottom: 16px; }
+  #login-box input {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  #login-box button, .btn {
+    background: #1f6feb;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  #login-box button:hover, .btn:hover { background: #1758c4; }
+  #login-error { color: #c0392b; font-size: 13px; margin-top: 8px; min-height: 16px; }
+
+  #app { display: none; }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  #filtro {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    width: 320px;
+    max-width: 60vw;
+    font-size: 14px;
+  }
+  #estado-global { font-size: 13px; color: #666; }
+  #logout { background: transparent; color: #666; border: 1px solid #ddd; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  thead th {
+    text-align: left;
+    background: #eceff3;
+    padding: 10px 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #555;
+    position: sticky;
+    top: 0;
+  }
+  tbody tr { border-top: 1px solid #eee; }
+  tbody tr.guardado-ok { background: #f0fbf4; }
+  td { padding: 10px 12px; vertical-align: middle; font-size: 14px; }
+  td.negocio { font-weight: 600; white-space: nowrap; }
+  td.negocio .rubro { display: block; font-weight: 400; font-size: 11px; color: #888; text-transform: capitalize; }
+  td.titulo { max-width: 260px; }
+  td.foto img {
+    width: 90px;
+    height: 68px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background: #f0f0f0;
+    display: block;
+  }
+  td.foto img.rota { outline: 2px solid #e0554c; }
+  td.buscar a {
+    display: inline-block;
+    font-size: 12px;
+    color: #1f6feb;
+    text-decoration: none;
+    border: 1px solid #cfe0fb;
+    background: #eef4ff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  td.buscar a:hover { background: #dbe9ff; }
+  td.url input {
+    width: 260px;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  td.guardar { white-space: nowrap; }
+  td.guardar button {
+    background: #1f6feb;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  td.guardar button:disabled { background: #aac2ee; cursor: default; }
+  td.guardar .ok { color: #1c8a4b; font-size: 12px; margin-left: 6px; }
+  td.guardar .err { color: #c0392b; font-size: 12px; margin-left: 6px; }
+  #vacio { padding: 40px; text-align: center; color: #888; }
+</style>
+</head>
+<body>
+
+<div id="login-box">
+  <h1>Editor de imágenes de cupones</h1>
+  <p class="sub">Ingresá con tu cuenta de superadmin de gesell.ar</p>
+  <input id="login-email" type="email" placeholder="Email" autocomplete="username" />
+  <input id="login-pass" type="password" placeholder="Contraseña" autocomplete="current-password" />
+  <button id="login-btn">Ingresar</button>
+  <div id="login-error"></div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div>
+      <h1>Imágenes de cupones</h1>
+      <p class="sub">Pegá la URL de la foto que mejor represente cada cupón y guardá. Los cambios se reflejan al instante en el sitio.</p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <input id="filtro" type="text" placeholder="Filtrar por negocio o título..." />
+      <button id="logout">Salir</button>
+    </div>
+  </div>
+  <div id="estado-global"></div>
+  <br/>
+  <table>
+    <thead>
+      <tr>
+        <th>Negocio</th>
+        <th>Título del cupón</th>
+        <th>Foto actual</th>
+        <th>Buscar</th>
+        <th>Nueva URL de imagen</th>
+        <th>Guardar</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div id="vacio" style="display:none;">No se encontraron cupones que coincidan.</div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://wxuvexwcypgzlboasdvx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_vRei2o9O5s_d3Bf8z3daSA_GwlBNO46';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const loginBox = document.getElementById('login-box');
+const app = document.getElementById('app');
+const loginError = document.getElementById('login-error');
+const tbody = document.getElementById('tbody');
+const filtro = document.getElementById('filtro');
+const estadoGlobal = document.getElementById('estado-global');
+const vacio = document.getElementById('vacio');
+
+let promos = [];
+
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  loginError.textContent = '';
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value;
+  if (!email || !password) { loginError.textContent = 'Completá email y contraseña.'; return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { loginError.textContent = 'No se pudo ingresar: ' + error.message; return; }
+  await afterLogin();
+}
+
+document.getElementById('logout').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+async function afterLogin() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const { data: perfil, error: perfilErr } = await sb
+    .from('perfiles')
+    .select('es_superadmin, nombre')
+    .eq('id', user.id)
+    .single();
+  if (perfilErr || !perfil?.es_superadmin) {
+    loginError.textContent = 'Esta cuenta no es superadmin, no puede editar imágenes.';
+    await sb.auth.signOut();
+    return;
+  }
+  loginBox.style.display = 'none';
+  app.style.display = 'block';
+  await cargarPromos();
+}
+
+async function cargarPromos() {
+  estadoGlobal.textContent = 'Cargando cupones...';
+  const { data, error } = await sb
+    .from('promociones')
+    .select('id, titulo, imagen_url, negocios(nombre, tipo)')
+    .order('titulo');
+  if (error) {
+    estadoGlobal.textContent = 'Error cargando cupones: ' + error.message;
+    return;
+  }
+  promos = data || [];
+  estadoGlobal.textContent = `${promos.length} cupones.`;
+  render();
+}
+
+function render() {
+  const q = filtro.value.trim().toLowerCase();
+  const filtrados = promos.filter(p => {
+    if (!q) return true;
+    const negocio = p.negocios?.nombre || '';
+    return (p.titulo || '').toLowerCase().includes(q) || negocio.toLowerCase().includes(q);
+  });
+
+  tbody.innerHTML = '';
+  vacio.style.display = filtrados.length ? 'none' : 'block';
+
+  for (const p of filtrados) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = p.id;
+
+    const negocioNombre = p.negocios?.nombre || '(sin negocio)';
+    const rubro = p.negocios?.tipo || '';
+    const query = encodeURIComponent(`${negocioNombre} ${p.titulo || ''}`.trim());
+
+    tr.innerHTML = `
+      <td class="negocio">${escapeHtml(negocioNombre)}<span class="rubro">${escapeHtml(rubro)}</span></td>
+      <td class="titulo">${escapeHtml(p.titulo || '')}</td>
+      <td class="foto"><img src="${escapeAttr(p.imagen_url || '')}" onerror="this.classList.add('rota'); this.src='https://placehold.co/90x68?text=sin+foto';" /></td>
+      <td class="buscar"><a href="https://www.google.com/search?tbm=isch&q=${query}" target="_blank" rel="noopener">🔍 Google Imágenes</a></td>
+      <td class="url"><input type="text" value="${escapeAttr(p.imagen_url || '')}" placeholder="https://..." /></td>
+      <td class="guardar"><button>Guardar</button><span class="msg"></span></td>
+    `;
+
+    const img = tr.querySelector('td.foto img');
+    const input = tr.querySelector('td.url input');
+    const btn = tr.querySelector('td.guardar button');
+    const msg = tr.querySelector('td.guardar .msg');
+
+    input.addEventListener('input', () => {
+      img.classList.remove('rota');
+      img.src = input.value || 'https://placehold.co/90x68?text=sin+foto';
+    });
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      msg.textContent = '';
+      msg.className = 'msg';
+      const nuevaUrl = input.value.trim();
+      const { error } = await sb.from('promociones').update({ imagen_url: nuevaUrl }).eq('id', p.id);
+      btn.disabled = false;
+      if (error) {
+        msg.textContent = '✗ ' + error.message;
+        msg.className = 'msg err';
+        tr.classList.remove('guardado-ok');
+      } else {
+        msg.textContent = '✓ Guardado';
+        msg.className = 'msg ok';
+        tr.classList.add('guardado-ok');
+        p.imagen_url = nuevaUrl;
+      }
+    });
+
+    tbody.appendChild(tr);
+  }
+}
+
+filtro.addEventListener('input', render);
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+// Si ya había sesión activa (recarga de página), entrar directo.
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) afterLogin();
+});
+</script>
+</body>
+</html>

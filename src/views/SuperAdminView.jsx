@@ -130,8 +130,10 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     if (usrRes.data) setUsuarios(usrRes.data);
     if (conRes.data) setConsultas(conRes.data);
     if (ofRes.data) {
-      setOfertas(ofRes.data);
-      const vencidas = ofRes.data.filter(o => o.activa && o.fecha_vencimiento && new Date(o.fecha_vencimiento) < new Date());
+      // Los borradores (autosave del socio) no entran al panel del superadmin.
+      const publicables = ofRes.data.filter(o => !o.borrador);
+      setOfertas(publicables);
+      const vencidas = publicables.filter(o => o.activa && o.fecha_vencimiento && new Date(o.fecha_vencimiento) < new Date());
       if (vencidas.length > 0) {
         await supabase.from('promociones').update({ activa: false, motivo_inactiva: 'vencida' }).in('id', vencidas.map(v => v.id));
         setOfertas(prev => prev.map(o => vencidas.find(v => v.id === o.id) ? { ...o, activa: false, motivo_inactiva: 'vencida' } : o));

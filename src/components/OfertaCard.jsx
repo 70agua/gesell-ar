@@ -13,6 +13,8 @@ import { CREDITO_TOTAL } from '../lib/cobros';
 import HeartButton from './HeartButton';
 import { CreditTooltip } from './InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
+import GroupBadge from './GroupBadge';
+import { descuentoMaximo } from '../lib/grupos';
 
 const A = {
   primary: '#2545E6',
@@ -51,7 +53,7 @@ function CoinSVG({ size = 13 }) {
 
 const IcoBolt = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
 
-function FlashPill({ fechaFinFlash, compact }) {
+function FlashPill({ fechaFinFlash }) {
   const [secs, setSecs] = useState(() => secondsUntil(fechaFinFlash));
   useEffect(() => {
     if (secs <= 0) return;
@@ -62,24 +64,24 @@ function FlashPill({ fechaFinFlash, compact }) {
   const pad = n => String(n).padStart(2, '0');
   const th = Math.floor(secs / 3600), tm = Math.floor((secs % 3600) / 60), ts = secs % 60;
   return (
-    <div style={{ position: 'absolute', top: 10, left: 10, right: compact ? undefined : 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EF4444', borderRadius: 999, padding: '4px 10px 4px 9px' }}>
-        <span style={{ fontSize: 10, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
-        <span style={{ fontSize: 10, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
+    // right:52 reserva el espacio del corazón (top-right) — si chip+contador
+    // no entran en el ancho disponible, el contador baja a un renglón nuevo.
+    <div style={{ position: 'absolute', top: 10, left: 10, right: 52, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, zIndex: 2 }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#EF4444', borderRadius: 999, padding: '5px 12px 5px 11px', flexShrink: 0 }}>
+        <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', letterSpacing: '0.05em' }}>OFERTA</span>
+        <span style={{ fontSize: 11, fontWeight: 900, color: A.yellow, fontStyle: 'italic', letterSpacing: '0.05em' }}>FLASH</span>
         <span style={{ color: A.yellow, display: 'flex', alignItems: 'center' }}><IcoBolt /></span>
       </div>
-      {!compact && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          {[th, tm, ts].map((v, i) => (
-            <React.Fragment key={i}>
-              <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, minWidth: 26, padding: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {i === 0 ? v : pad(v)}
-              </div>
-              {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13 }}>:</span>}
-            </React.Fragment>
-          ))}
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+        {[th, tm, ts].map((v, i) => (
+          <React.Fragment key={i}>
+            <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, minWidth: 26, padding: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {i === 0 ? v : pad(v)}
+            </div>
+            {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13 }}>:</span>}
+          </React.Fragment>
+        ))}
+      </div>
     </div>
   );
 }
@@ -132,6 +134,12 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace }) {
         </>
       )}
 
+      {promo.esGrupal && (
+        <div style={{ position: 'absolute', top: esFlash ? 44 : 10, left: 10, zIndex: 3 }}>
+          <GroupBadge descuentoMax={descuentoMaximo(promo.grupoTramos)} compact />
+        </div>
+      )}
+
       {inMarketplace ? (
         <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3, background: '#d2e9f3', color: '#0c101f', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '3px 8px', borderRadius: 999 }}>
           PROMOCIÓN
@@ -143,7 +151,7 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace }) {
       )}
 
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 16px 15px' }}>
-        <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 30 : 42, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>{promo.badge}</div>
+        <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 30 : 42, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{promo.badge}</div>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3, marginTop: 6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title}</div>
       </div>
     </div>

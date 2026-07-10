@@ -19,6 +19,29 @@ export const TIPOS_ALOJ   = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departa
 const TIPOS_GASTRO = new Set(['salidas', 'Restaurante', 'Restaurantes', 'Bar', 'Bares', 'Café', 'Cafés & Dulces', 'Cafés y Dulces', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Heladerías', 'Bodegón', 'Panadería', 'Panaderías', 'Discoteca', 'Discotecas', 'Cine y Teatro', 'Cines y Teatros', 'Show y Recital', 'Shows y Recitales', 'Centro Cultural', 'Centros Culturales', 'Otro', 'Otros']);
 const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos']);
 
+// Categorías reales que un socio puede elegir al dar de alta su negocio
+// (fuente única — `negocios.categoria` guarda uno o dos de estos valores,
+// separados por ' / ' si son dos). Navbar y los filtros de OfertasView
+// deben usar exactamente estos strings para que coincidan con los datos reales.
+export const CATS_RUBRO = {
+  alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
+  salidas:        ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
+  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
+};
+
+// "Tipo de experiencia" — el socio de Salidas lo elige al darse de alta
+// (PerfilNegocioForm) y queda guardado en `negocios.tags`. El filtro de
+// "Tipo de experiencia" en OfertasView y el dropdown del Navbar usan esta
+// misma lista. Pensada para cruzar TODAS las subcategorías de Salidas
+// (restaurantes, bares, cafeterías, heladerías, panaderías, discotecas,
+// cines y teatros, shows y recitales, centros culturales, otros) — no solo
+// gastronomía.
+export const EXPERIENCIAS_SALIDAS = [
+  'En pareja', 'Plan familiar', 'Con amigos', 'Para grupos grandes',
+  'Al aire libre', 'Vista al mar', 'De día', 'De noche',
+  'Con música / shows en vivo', 'Cultural / arte',
+];
+
 export function categoriaDeNegocio(tipo, negocioId) {
   if (!tipo && negocioId)  return 'alojamiento';
   if (!tipo && !negocioId) return 'aventura_relax';
@@ -40,11 +63,18 @@ function normalizeNegocio(n) {
     packNoches:        n.pack_noches         || null,
     packAclaracion:    n.pack_aclaracion     || '',
     rating:            n.rating              || 4.5,
-    image:             n.imagen_url          || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
-    location:          n.ubicacion           || n.localidad || 'Villa Gesell',
+    // Galería cargada por el socio (columna text[] `galeria`). La ficha de detalle la usa
+    // como `item.fotos`; si no hay logo, el hero cae a la primera foto de la galería.
+    fotos:             Array.isArray(n.galeria) ? n.galeria.filter(Boolean) : [],
+    image:             n.imagen_url          || (Array.isArray(n.galeria) && n.galeria.filter(Boolean)[0]) || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+    location:          n.localidad           || 'Villa Gesell',
     localidad:         n.localidad           || '',
     zona:              n.zona                || '',
-    address:           n.direccion           || n.ubicacion || '',
+    // `direccion` es una columna legacy que ningún flujo de alta actual completa —
+    // la dirección real vive en `calle`/`numero`/`piso`/`depto` desde que se agregó
+    // el mapa con autocompletado. Se arma acá para no perder el dato.
+    address:           n.direccion || [n.calle, n.numero].filter(Boolean).join(' ') || '',
+    tieneLocalFisico:  n.tiene_local_fisico   !== false,
     category:          n.tipo                || '',
     priceRange:        n.precio_rango        || null,
     tags:              n.tags                || [],
@@ -72,12 +102,20 @@ function normalizePromo(p) {
     ahorroEstimado:   p.ahorro_estimado  || 0,
     ahorroMax:        p.ahorro_max       || null,
     ahorroModalidad:  p.ahorro_modalidad || null,
+    // Cupones grupales
+    esGrupal:         p.is_group          || false,
+    grupoMinPax:      p.group_min_pax     || null,
+    grupoMaxPax:      p.group_max_pax     || null,
+    basePricePp:      p.base_price_pp     != null ? Number(p.base_price_pp) : null,
+    grupoTramos:      Array.isArray(p.group_tiers) ? p.group_tiers : [],
+    // Impulso publicitario
+    impulsoActivo:    p.impulso_activo    || false,
     aprobada:         p.aprobada,
     categoria:        categoriaDeNegocio(p.negocios?.tipo, p.negocio_id),
     negocioTipo:      p.negocios?.tipo   || '',
     proveedorNombre:  p.negocios?.nombre || '',
     proveedorImage:   p.negocios?.foto_perfil || p.negocios?.imagen_url || null,
-    negocioLocalidad: p.negocios?.localidad  || p.negocios?.ubicacion || '',
+    negocioLocalidad: p.negocios?.localidad  || '',
     negocioZone:      p.negocios?.zona       || '',
     esReal:           true,
   };
@@ -111,7 +149,7 @@ export async function getGastronomia() {
 
 // ─── Aventura & Relax ──────────────────────────────────────────
 export async function getAventura() {
-  const tiposExp = [...TIPOS_EXP].filter(t => t !== 'aventura_relax');
+  const tiposExp = [...TIPOS_EXP];
   const { data } = await supabase
     .from('negocios')
     .select('*')
@@ -127,7 +165,7 @@ export async function getAventura() {
 export async function getPromos(limit = 8) {
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, ubicacion, localidad, zona, foto_perfil, imagen_url)')
+    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
     .eq('activa', true)
     .eq('aprobada', true)
     .order('creado_en', { ascending: false })
@@ -135,6 +173,7 @@ export async function getPromos(limit = 8) {
 
   const now = Date.now();
   return (data || [])
+    .filter(p => p.negocios?.activo !== false)
     .map(normalizePromo)
     .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash).getTime() > now));
 }
@@ -143,39 +182,41 @@ export async function getPromos(limit = 8) {
 export async function getOfertasDestacadas() {
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, ubicacion, localidad, zona, foto_perfil, imagen_url)')
+    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
     .eq('activa', true)
     .eq('aprobada', true)
     .eq('destacada_home', true)
     .order('creado_en', { ascending: false });
 
-  return (data || []).map(normalizePromo);
+  return (data || []).filter(p => p.negocios?.activo !== false).map(normalizePromo);
 }
 
 // ─── Promos propias de un negocio ─────────────────────────────
 export async function getPromosDeNegocio(negocioId) {
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, ubicacion, localidad, zona, foto_perfil, imagen_url)')
+    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
     .eq('negocio_id', negocioId)
     .eq('aprobada', true)
     .eq('activa', true);
 
-  return (data || []).map(normalizePromo);
+  return (data || []).filter(p => p.negocios?.activo !== false).map(normalizePromo);
 }
 
 // ─── Alianzas de un negocio ───────────────────────────────────
 export async function getAlianzasPorNegocio(negocioId) {
   const { data } = await supabase
     .from('alianzas')
-    .select('*, promociones(*, negocios(nombre, localidad, foto_perfil, imagen_url))')
+    .select('*, promociones(*, negocios(nombre, localidad, foto_perfil, imagen_url, activo))')
     .eq('negocio_id', negocioId)
     .eq('aprobada', true);
 
-  return (data || []).map(a => ({
-    ...a,
-    promo: a.promociones ? normalizePromo({ ...a.promociones, negocios: a.promociones.negocios }) : null,
-  }));
+  return (data || [])
+    .filter(a => a.promociones?.negocios?.activo !== false)
+    .map(a => ({
+      ...a,
+      promo: a.promociones ? normalizePromo({ ...a.promociones, negocios: a.promociones.negocios }) : null,
+    }));
 }
 
 // ─── Promos de la localidad (salidas + aventura & relax) ───────────
@@ -185,12 +226,13 @@ export async function getPromosLocalidad(localidad, excludeNegocioId = null) {
 
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, ubicacion, localidad, zona, foto_perfil, imagen_url)')
+    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
     .eq('activa', true)
     .eq('aprobada', true)
     .in('negocios.localidad', localidades);
 
   return (data || [])
+    .filter(p => p.negocios?.activo !== false)
     .map(normalizePromo)
     .filter(p =>
       p.categoria !== 'alojamiento' &&

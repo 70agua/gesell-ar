@@ -14,11 +14,16 @@ const ACCENT_BY_CAT = {
 };
 
 function ofertaToCupon(oferta) {
+  // Cupón grupal: precio y descuento ya congelados al agregar a la cuponera.
+  const grupal = oferta._grupal || null;
+
   const ahorro = oferta.ahorroEstimado || oferta.savings || 0;
-  // Precio por la tabla escalonada; fallback a tokens_costo si no hay ahorro declarado
-  const precio = ahorro > 0
-    ? calcularPrecioCupon(ahorro)
-    : (oferta.tokens_costo ?? 0) * CREDITO_TOTAL;
+  // Grupal → total congelado; si no, tabla escalonada; fallback a tokens_costo.
+  const precio = grupal
+    ? grupal.total_paid
+    : ahorro > 0
+      ? calcularPrecioCupon(ahorro)
+      : (oferta.tokens_costo ?? 0) * CREDITO_TOTAL;
 
   let exp = 'Sin vencimiento';
   if (oferta.fechaVencimiento) {
@@ -27,16 +32,22 @@ function ofertaToCupon(oferta) {
     exp = 'Vence ' + new Date(oferta.fechaFinFlash).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   }
 
+  // Un cupón grupal es único por cantidad declarada: distinguimos su id.
+  const baseId = oferta.id ? `oferta-${oferta.id}` : `tmp-${Date.now()}`;
+
   return {
-    id:     oferta.id ? `oferta-${oferta.id}` : `tmp-${Date.now()}`,
+    id:     grupal ? `${baseId}-g${grupal.declared_pax}` : baseId,
     d:      oferta.badge || '-',
-    t:      oferta.title || oferta.titulo || 'Oferta',
+    t:      grupal
+              ? `${oferta.title || oferta.titulo || 'Oferta'} · ${grupal.declared_pax} personas`
+              : (oferta.title || oferta.titulo || 'Oferta'),
     p:      oferta.proveedorNombre || oferta.negocios?.nombre || 'Socio Cuponear',
     price:  precio,
     ahorro,
     exp,
     accent: ACCENT_BY_CAT[oferta.categoria] || '#2545E6',
     categoria: oferta.categoria || 'alojamiento',
+    grupal, // { declared_pax, applied_discount_pct, total_paid, qr_token }
     _oferta: oferta,
   };
 }

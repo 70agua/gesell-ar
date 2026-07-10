@@ -36,7 +36,7 @@ const A = {
 const TIPOS_GASTRO = [
   { label: 'Restaurantes',      val: 'Restaurante' },
   { label: 'Bares',             val: 'Bar' },
-  { label: 'Cafés & Dulces',    val: 'Café' },
+  { label: 'Cafeterías',        val: 'Café' },
   { label: 'Heladerías',        val: 'Heladería' },
   { label: 'Panaderías',        val: 'Panadería' },
   { label: 'Compras',           val: 'Compras' },
@@ -78,7 +78,7 @@ const PRECIO_OPTS  = [{ id:'$', label:'$ — Económico' },{ id:'$$', label:'$$ 
 const ORDEN_OPTS   = [{ id:'relevancia', label:'Más relevantes' },{ id:'az', label:'A → Z' }];
 
 const TIPO_COLORS = {
-  'Restaurante': '#EF4444', 'Bar': '#F59E0B', 'Café & Dulces': '#8B5CF6',
+  'Restaurante': '#EF4444', 'Bar': '#F59E0B', 'Cafeterías': '#8B5CF6',
   'Café': '#8B5CF6', 'Balneario': '#0EA5E9', 'Gourmet': '#10B981',
   'Pastelería': '#EC4899', 'Parrilla': '#F97316', 'Heladería': '#06B6D4',
 };

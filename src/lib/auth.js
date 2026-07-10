@@ -38,14 +38,40 @@ export async function getPerfil() {
   const session = await getSession();
   if (!session) return null;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('perfiles')
     .select('*, negocios(*)')
     .eq('id', session.user.id)
     .single();
 
-  if (error) return null;
+  if (error) {
+    // No hay fila en `perfiles` — típico de un alta por Google, que no pasa por
+    // registrarTurista(). Se crea un perfil turista al vuelo y se reintenta.
+    await crearPerfilTuristaSiFalta(session);
+    ({ data, error } = await supabase
+      .from('perfiles')
+      .select('*, negocios(*)')
+      .eq('id', session.user.id)
+      .single());
+    if (error) return null;
+  }
   return data;
+}
+
+// Crea un perfil turista para una sesión sin fila en `perfiles` (alta vía OAuth).
+// Usa insert (no upsert): si dos llamadas concurrentes chocan, la segunda falla
+// por PK duplicada y no vuelve a otorgar créditos de bienvenida.
+async function crearPerfilTuristaSiFalta(session) {
+  const meta = session.user.user_metadata || {};
+  const nombre = meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Usuario';
+  const { error } = await supabase.from('perfiles').insert({
+    id:     session.user.id,
+    nombre,
+    email:  session.user.email,
+    rol:    'turista',
+    es_superadmin: false,
+  });
+  if (!error) await otorgarTokens(session.user.id, 'registro');
 }
 
 // Registrar turista (usuario público)

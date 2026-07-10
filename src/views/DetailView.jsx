@@ -121,8 +121,8 @@ const PLAN_CFG = {
 
 // ─── Tipos ──────────────────────────────────────────────────
 const TIPOS_ALOJ   = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi']);
-const TIPOS_GASTRO = new Set(['Restaurante','Bar','Café','Balneario','Gourmet','Pastelería','Parrilla','Heladería','Bodegón','Café & Dulces']);
-const TIPO_COLORS  = { Restaurante:'#EF4444', Bar:'#F59E0B', 'Café & Dulces':'#8B5CF6', Café:'#8B5CF6', Balneario:'#0EA5E9', Gourmet:'#10B981', Pastelería:'#EC4899', Parrilla:'#F97316' };
+const TIPOS_GASTRO = new Set(['Restaurante','Bar','Café','Balneario','Gourmet','Pastelería','Parrilla','Heladería','Bodegón','Cafeterías']);
+const TIPO_COLORS  = { Restaurante:'#EF4444', Bar:'#F59E0B', Cafeterías:'#8B5CF6', Café:'#8B5CF6', Balneario:'#0EA5E9', Gourmet:'#10B981', Pastelería:'#EC4899', Parrilla:'#F97316' };
 
 function detectarTipo(item) {
   if (item.itemType) return item.itemType;
@@ -800,7 +800,7 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
             </div>
             {/* Badge + desc + timer — centrado */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
-              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
+              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
                 {promo.badge}
               </span>
               {promo.badgeDesc && (
@@ -821,7 +821,7 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
             </div>
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
-              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
+              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
                 {promo.badge}
               </span>
               {promo.badgeDesc && (
@@ -926,7 +926,7 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
         {/* Badge + título — abajo izquierda */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 13px 12px' }}>
           {promo.badge && (
-            <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 27 : 36, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1 }}>{promo.badge}</div>
+            <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 27 : 36, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{promo.badge}</div>
           )}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title || promo.titulo}</div>
         </div>
@@ -1571,7 +1571,6 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
   const [error,     setError]     = useState('');
 
   const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
-  const disponibilidad = negocio?.disponibilidad_estimada;
 
   async function confirmar() {
     const checkin  = toDateStr(fechas.desde);
@@ -1646,18 +1645,6 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
           </div>
         ) : (
           <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Disponibilidad */}
-            {disponibilidad && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10,
-                background: disponibilidad === 'amplia' ? '#EDFAF4' : disponibilidad === 'limitada' ? '#FFF7ED' : '#F3F4F6',
-                border: `1px solid ${disponibilidad === 'amplia' ? '#6EE7B7' : disponibilidad === 'limitada' ? '#FED7AA' : C.line}` }}>
-                <span style={{ fontSize: 13, fontWeight: 700,
-                  color: disponibilidad === 'amplia' ? '#059669' : disponibilidad === 'limitada' ? '#D97706' : C.muted }}>
-                  {disponibilidad === 'amplia' ? '✓ Disponibilidad amplia' : disponibilidad === 'limitada' ? '⚠ Disponibilidad limitada' : 'Consultá disponibilidad'}
-                </span>
-              </div>
-            )}
 
             {/* Resumen oferta */}
             <div style={{ background: C.bg, borderRadius: 12, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

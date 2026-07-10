@@ -2,12 +2,13 @@
 //  src/App.jsx
 // ============================================================
 import React, { useState, useEffect } from 'react';
+import { Mail } from 'lucide-react';
 
 import Navbar           from './components/Navbar';
 import Footer           from './components/Footer';
 import HomeView         from './views/HomeView';
 import DetailView       from './views/DetailView';
-import LoginView        from './views/LoginView';
+import LoginView, { OnboardingComercial } from './views/LoginView';
 import SuperAdminView   from './views/SuperAdminView';
 import AdminNegocioView from './views/AdminNegocioView';
 import OfertasView      from './views/OfertasView';
@@ -34,6 +35,7 @@ import CuponeraDrawer                     from './components/CuponeraDrawer';
 import { FavoritosProvider }             from './lib/favoritos';
 import { SesionProvider }                from './lib/sesion';
 import ChatBot                           from './components/ChatBot';
+import BienvenidaTuristaWizard           from './components/BienvenidaTuristaWizard';
 
 // ─── Contenido de la app (necesita el contexto de loading) ───
 function AppContent() {
@@ -48,6 +50,7 @@ function AppContent() {
   const [ofertasCategoria, setOfertasCategoria] = useState(null);
   const [ofertasLocalidades, setOfertasLocalidades] = useState([]);
   const [ofertasTipoInicial, setOfertasTipoInicial] = useState(null);
+  const [ofertasExperienciaInicial, setOfertasExperienciaInicial] = useState(null);
   const [gastroCategoria,   setGastroCategoria]   = useState('');
   const [gastroAventura,    setGastroAventura]    = useState('');
   const [gastroInitialTipos, setGastroInitialTipos] = useState(null);
@@ -153,6 +156,23 @@ function AppContent() {
   };
 
   const [wizardTip, setWizardTip] = useState(null); // null | 1 | 2
+  const [turistaWizardOpen, setTuristaWizardOpen] = useState(false);
+  const [emailToastOpen, setEmailToastOpen] = useState(false);
+
+  useEffect(() => {
+    if (!emailToastOpen) return;
+    const t = setTimeout(() => setEmailToastOpen(false), 5000);
+    return () => clearTimeout(t);
+  }, [emailToastOpen]);
+
+  const handleTuristaRegistroComplete = async () => {
+    const s = await getSession();
+    const p = await getPerfil();
+    setSession(s); setPerfil(p);
+    setView('home');
+    window.scrollTo(0, 0);
+    setTuristaWizardOpen(true);
+  };
 
   const handleLoginSuccess = async () => {
     const s = await getSession();
@@ -203,7 +223,12 @@ function AppContent() {
             onLoginClick={(tab = 'ingresar') => { setLoginInitialTab(tab); setView('login'); }}
             onRegisterClick={(tab = 'registrarse') => { setLoginInitialTab(tab); setView('login'); }}
             onLogout={handleLogout}
-            onPublicarOferta={() => { setView('publicar-oferta'); window.scrollTo(0, 0); }}
+            onPublicarOferta={() => {
+              // Turista logueado sin negocio: primero convierte su cuenta a comercial.
+              if (session && perfil && !perfil.negocio_id && !perfil.es_superadmin) setView('convertir-comercial');
+              else setView('publicar-oferta');
+              window.scrollTo(0, 0);
+            }}
             onNavbarNav={(targetView, opts = {}) => {
               if (opts.localidades !== undefined) {
                 setMarketplaceLocalidad('__multi__:' + opts.localidades.join(','));
@@ -222,6 +247,7 @@ function AppContent() {
               if (opts.tipo !== undefined) setMarketplaceTipo(opts.tipo || 'todos');
               if (targetView === 'ofertas') {
                 setOfertasTipoInicial(opts.tipo || opts.gastroCategoria || opts.aventuraTipo || null);
+                setOfertasExperienciaInicial(opts.gastroExperiencia || null);
               }
               if (opts.gastroCategoria !== undefined || opts.gastroAventura !== undefined) {
                 setGastroCategoria(opts.gastroCategoria || '');
@@ -300,12 +326,13 @@ function AppContent() {
           )}
           {view === 'ofertas' && (
             <OfertasView
-              key={ofertasCategoria + '|' + ofertasLocalidades.join(',') + '|' + ofertasTipoInicial}
-              onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setOfertasTipoInicial(null); setView('home'); }}
+              key={ofertasCategoria + '|' + ofertasLocalidades.join(',') + '|' + ofertasTipoInicial + '|' + ofertasExperienciaInicial}
+              onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setOfertasTipoInicial(null); setOfertasExperienciaInicial(null); setView('home'); }}
               onOpenOferta={handleOpenOferta}
               initialCategoria={ofertasCategoria}
               initialLocalidades={ofertasLocalidades}
               initialTipo={ofertasTipoInicial}
+              initialExperiencia={ofertasExperienciaInicial}
             />
           )}
           {view === 'marketplace' && (
@@ -411,7 +438,17 @@ function AppContent() {
               onLoginSuccess={handleLoginSuccess}
               onBack={() => setView('home')}
               onOnboardingComplete={handleOnboardingComplete}
+              onTuristaRegistrada={handleTuristaRegistroComplete}
               initialTab={loginInitialTab}
+            />
+          )}
+          {view === 'convertir-comercial' && session && (
+            <OnboardingComercial
+              regUserId={session.user.id}
+              rNombre={(perfil?.nombre || '').trim().split(' ')[0] || ''}
+              rApellido={(perfil?.nombre || '').trim().split(' ').slice(1).join(' ')}
+              rEmail={perfil?.email || session.user.email || ''}
+              onComplete={handleOnboardingComplete}
             />
           )}
           {view === 'socios' && (
@@ -456,6 +493,34 @@ function AppContent() {
 
         <CuponeraDrawer />
         <ChatBot view={view} />
+
+        {/* ── Wizard de bienvenida post-registro de turista ── */}
+        <BienvenidaTuristaWizard
+          open={turistaWizardOpen}
+          onClose={() => { setTuristaWizardOpen(false); setEmailToastOpen(true); }}
+        />
+
+        {/* ── Globito: recordatorio de confirmar el email ── */}
+        {emailToastOpen && (
+          <div
+            onClick={() => setEmailToastOpen(false)}
+            style={{
+              position: 'fixed', top: 78, right: 22, zIndex: 9990, width: 300, background: '#fff',
+              borderRadius: 16, boxShadow: '0 20px 50px rgba(0,0,0,0.18)', padding: '14px 16px',
+              display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer',
+              fontFamily: "'Inter', system-ui, sans-serif",
+              animation: 'wizard-in 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards',
+            }}
+          >
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Mail size={17} color="#10b981" />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 2 }}>No te olvides de confirmar tu email</div>
+              <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.5 }}>Te enviamos un correo con un link para activar tu cuenta.</div>
+            </div>
+          </div>
+        )}
 
         {/* ── Wizard tip post-onboarding ── */}
         {wizardTip && (() => {

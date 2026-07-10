@@ -758,10 +758,13 @@ export default function ChatBot({ view = 'home' }) {
   }, [view, minimized, open, openMini]);
 
   // Muestra "Tsss! sigo por acá!" la primera vez que Cuponix se minimiza en la sesión,
-  // sea cerrando el chat abierto o descartando el globito de bienvenida.
-  const triggerTsssOnce = useCallback(() => {
+  // sea cerrando el chat abierto, descartando el globito de bienvenida o al entrar
+  // a una sección nueva. Si se dispara por un cambio de sección, esa view queda
+  // marcada como "ya mostrada" para que el mensaje contextual no la pise enseguida.
+  const triggerTsssOnce = useCallback((currentView) => {
     if (tsssShown.current) return;
     tsssShown.current = true;
+    if (currentView) shownViews.current.add(currentView);
     openMini({ titulo: 'Tsss! sigo por acá!', sub: 'Cualquier cosa avisame...' }, 5);
   }, [openMini]);
 
@@ -788,6 +791,35 @@ export default function ChatBot({ view = 'home' }) {
     setMiniBubble(null);
     setMiniClosing(false);
   };
+
+  // Refs espejo de estado, para leer el valor más reciente dentro del efecto de
+  // cambio de sección sin tener que declararlos como dependencia (eso dispararía
+  // el efecto de nuevo cada vez que el usuario abre/cierra el chat manualmente).
+  const openRef = useRef(open);
+  useEffect(() => { openRef.current = open; }, [open]);
+  const minimizedRef = useRef(minimized);
+  useEffect(() => { minimizedRef.current = minimized; }, [minimized]);
+
+  // Apenas se entra a una sección que NO es la home, Cuponix se minimiza (si no lo
+  // estaba ya) mostrando "Tsss! sigo por acá!". En la home queda grande, como
+  // siempre (comportamiento normal disparado por scroll) — si volvía minimizado
+  // de otra sección, se restaura acá. No corre en el montaje inicial.
+  const firstViewRef = useRef(true);
+  useEffect(() => {
+    if (firstViewRef.current) { firstViewRef.current = false; return; }
+    if (view === 'home') {
+      if (minimizedRef.current) setMinimized(false);
+      return;
+    }
+    if (minimizedRef.current) return;
+    if (openRef.current) {
+      handleMinimize();
+    } else {
+      setBubbleVisible(false);
+      setMinimized(true);
+      triggerTsssOnce(view);
+    }
+  }, [view, handleMinimize, triggerTsssOnce]);
 
   const saberMas = (extendido) => {
     setInitialBotMessage(extendido);

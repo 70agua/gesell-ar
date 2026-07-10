@@ -5,16 +5,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import {
   LayoutDashboard, MessageSquare, Bell, Tag, CreditCard, Puzzle,
-  LogOut, ArrowLeft, TrendingUp, Eye, MousePointerClick, Users, ChevronRight,
+  LogOut, ArrowLeft, TrendingUp, Eye, EyeOff, MousePointerClick, Users, ChevronRight,
   Plus, X, Save, ToggleLeft, ToggleRight, Send, Check, Archive,
   Clock, Star, Trash2, Upload, Image, AlertCircle, CheckCircle2, Zap, Crown,
-  Store, Coins, ShoppingBag, Utensils, Map, MapPin, Smartphone, Globe, Calendar, Gift,
+  Store, Coins, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar, Gift,
   MessageCircle, Edit2, RefreshCw, Package, BarChart2, Home, Search,
   Inbox, CalendarDays, Minus, Megaphone, Download, Mail, Link2, Wallet,
-  CloudRain, Share2, Route, Disc3,
+  Disc3, Info, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos } from '../lib/cobros';
+import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos, calcularPrecio, registrarCompra } from '../lib/cobros';
 import { contarSeguidores } from '../lib/seguir';
 import {
   getCuponerasRegalo, crearCuponeraRegalo, renombrarCuponera, cambiarEstadoCuponera, toggleModoInteligente,
@@ -22,7 +22,11 @@ import {
 } from '../lib/cuponerasRegalo';
 import { LOCALIDADES } from '../lib/localidades';
 import { FOTOS_GALERIA_MAX, getPlanesConfig } from '../lib/planes';
+import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
+import { impulsarOferta, costoPorAcceso, costoPorVenta, costoPorResultado } from '../lib/impulso';
+import { sanitizeTituloOferta } from '../lib/ofertas';
 import ComprarTokensModal from '../components/ComprarTokensModal';
+import SimuladorImpulso, { CREDITOS_MIN, DIAS_REF, VALOR_CREDITO } from '../components/SimuladorImpulso';
 import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import LoadingScreen from '../components/LoadingScreen';
 import GaleriaFotos from '../components/GaleriaFotos';
@@ -730,104 +734,290 @@ const MOCK_OFERTAS_ASOCIADAS = [
   { id: 'as2', titulo: 'Alquiler de bicicletas — día completo', tipo: 'Actividades', descuento: 15, socio: 'BiciAventura', img: 'https://images.unsplash.com/photo-1558981033-0f0309284409?w=400&h=220&fit=crop' },
 ];
 
-// ─── Mini date range picker (used in offer editor panel) ────────
-const MESES_CAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const DIAS_CAL  = ['L','M','X','J','V','S','D'];
-function getMonthCells(y, m) {
-  const first = new Date(y, m, 1).getDay();
-  const off = first === 0 ? 6 : first - 1;
-  const total = new Date(y, m + 1, 0).getDate();
-  const cells = [];
-  for (let i = 0; i < off; i++) cells.push(null);
-  for (let d = 1; d <= total; d++) cells.push(new Date(y, m, d));
-  return cells;
-}
-function MiniDateRange({ value, onChange }) {
-  const [open, setOpen]   = useState(false);
-  const [hover, setHover] = useState(null);
-  const [base, setBase]   = useState(() => {
-    const d = value?.desde || new Date();
-    return { y: d.getFullYear(), m: d.getMonth() };
-  });
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, [open]);
-  function handleDay(day) {
-    const { desde, hasta } = value || {};
-    if (!desde || (desde && hasta)) { onChange({ desde: day, hasta: null }); return; }
-    if (day < desde)                 { onChange({ desde: day, hasta: null }); return; }
-    onChange({ desde, hasta: day }); setOpen(false);
-  }
-  const isSt = d => value?.desde && d.getTime() === value.desde.getTime();
-  const isEn = d => value?.hasta && d.getTime() === value.hasta.getTime();
-  const isIn = d => {
-    if (!value?.desde) return false;
-    const end = value.hasta || hover; if (!end) return false;
-    const [lo, hi] = value.desde <= end ? [value.desde, end] : [end, value.desde];
-    return d > lo && d < hi;
+// ¿Es un id real de promociones (uuid) o un id local/mock (numérico)?
+const esUuid = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+// Fila cruda de `promociones` → item del editor (incluye formatos + config grupal).
+function dbRowToItem(p) {
+  const src = p.imagen_url || p.imagen || p.img || null;
+  return {
+    id:        p.id,
+    titulo:    p.titulo || p.nombre || '',
+    badge:     p.badge || '',
+    desc:      p.descripcion || p.descripcion_larga || '',
+    activa:    p.activa !== false,
+    borrador:  p.borrador === true,
+    descuentos: Array.isArray(p.descuentos) && p.descuentos.length ? p.descuentos : (p.badge ? [{ tarifa: 'todas', valor: p.badge }] : []),
+    img:       src,
+    imagenes:  src ? [{ src, file: null }] : [],
+    formatos:  [...(p.offer_type === 'Flash' ? ['flash'] : []), ...(p.is_group ? ['grupal'] : [])],
+    flashFechaFin: p.fecha_fin_flash ? new Date(p.fecha_fin_flash) : null,
+    fechaDesde: p.fecha_inicio ? new Date(p.fecha_inicio) : null,
+    fechaHasta: p.fecha_fin ? new Date(p.fecha_fin) : null,
+    // Modelo A (grupal)
+    grupoMinPax: p.group_min_pax ?? 2,
+    grupoMaxPax: p.group_max_pax ?? 12,
+    basePricePp: p.base_price_pp ?? '',
+    tramos:      Array.isArray(p.group_tiers) && p.group_tiers.length ? p.group_tiers : DEFAULT_TIERS,
+    // Impulso publicitario
+    impulsoActivo:   p.impulso_activo || false,
+    impulsoTotal:    Number(p.impulso_creditos_total || 0),
+    impulsoRestante: Number(p.impulso_creditos_restante || 0),
+    _db: true,
   };
-  const fmt = d => d ? d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : null;
-  const label = value?.desde && value?.hasta
-    ? `${fmt(value.desde)} → ${fmt(value.hasta)}`
-    : value?.desde ? `Desde ${fmt(value.desde)}` : 'Sin fechas definidas';
-  const cells = getMonthCells(base.y, base.m);
-  const prevM = () => setBase(b => b.m === 0 ? { y: b.y - 1, m: 11 } : { ...b, m: b.m - 1 });
-  const nextM = () => setBase(b => b.m === 11 ? { y: b.y + 1, m: 0 } : { ...b, m: b.m + 1 });
+}
+
+// ─── Ilustración: "falso website" con el primer bloque destacado ──
+function FakeSitePreview() {
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" onClick={() => setOpen(v => !v)}
-        style={{ width: '100%', padding: '9px 12px', border: `1px solid ${open ? P : LINE}`, borderRadius: 9, background: CARD, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT, fontSize: 12, color: value?.desde ? INK : MUTED, textAlign: 'left', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' }}>
-        <Calendar size={12} style={{ flexShrink: 0, color: value?.desde ? P : MUTED }}/>
-        <span style={{ flex: 1, fontWeight: value?.desde ? 600 : 400 }}>{label}</span>
-      </button>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, padding: '12px 10px 10px', zIndex: 9999, boxShadow: '0 16px 48px -16px rgba(11,16,32,0.25)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <button onClick={prevM} style={{ width: 26, height: 26, border: `1px solid ${LINE}`, borderRadius: 7, background: 'none', cursor: 'pointer', fontSize: 15, display: 'grid', placeItems: 'center', color: INK }}>‹</button>
-            <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: INK }}>{MESES_CAL[base.m]} {base.y}</span>
-            <button onClick={nextM} style={{ width: 26, height: 26, border: `1px solid ${LINE}`, borderRadius: 7, background: 'none', cursor: 'pointer', fontSize: 15, display: 'grid', placeItems: 'center', color: INK }}>›</button>
+    <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${LINE}`, boxShadow: '0 14px 34px -14px rgba(11,16,32,0.22)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderBottom: `1px solid ${LINE}`, background: '#f8fafc' }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444' }}/>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }}/>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }}/>
+        <div style={{ flex: 1, height: 12, borderRadius: 6, background: LINE, marginLeft: 6 }}/>
+      </div>
+      <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {/* Primer bloque = tu oferta, destacado */}
+        <div style={{ position: 'relative', borderRadius: 10, border: `2px solid ${P}`, background: PS, padding: '12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: P, flexShrink: 0 }}/>
+          <div style={{ flex: 1 }}>
+            <div style={{ height: 9, width: '70%', borderRadius: 5, background: P, opacity: 0.85, marginBottom: 6 }}/>
+            <div style={{ height: 7, width: '45%', borderRadius: 5, background: P, opacity: 0.4 }}/>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 4 }}>
-            {DIAS_CAL.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: MUTED, padding: '2px 0' }}>{d}</div>)}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1 }}>
-            {cells.map((day, i) => {
-              if (!day) return <div key={`n${i}`}/>;
-              const st = isSt(day), en = isEn(day), rng = isIn(day);
-              return (
-                <button key={day.getTime()} onClick={() => handleDay(day)}
-                  onMouseEnter={() => { if (value?.desde && !value?.hasta) setHover(day); }}
-                  onMouseLeave={() => setHover(null)}
-                  style={{ padding: '5px 2px', border: 'none', borderRadius: (st || en) ? '50%' : rng ? 0 : 3, background: (st || en) ? P : rng ? PS : 'transparent', color: (st || en) ? '#fff' : rng ? P : INK, fontSize: 11, fontWeight: (st || en) ? 700 : 400, cursor: 'pointer', fontFamily: FONT, transition: 'background 0.1s' }}>
-                  {day.getDate()}
-                </button>
-              );
-            })}
-          </div>
-          {(value?.desde || value?.hasta) && (
-            <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 8, paddingTop: 8, textAlign: 'right' }}>
-              <button onClick={() => { onChange({ desde: null, hasta: null }); setOpen(false); }}
-                style={{ background: 'none', border: 'none', color: P, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>Borrar fechas</button>
-            </div>
-          )}
+          <span style={{ position: 'absolute', top: -9, right: 10, background: P, color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 999, letterSpacing: '0.05em' }}>TU OFERTA</span>
         </div>
-      )}
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ borderRadius: 10, border: `1px solid ${LINE}`, background: '#fff', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, opacity: 1 - i * 0.18 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e2e8f0', flexShrink: 0 }}/>
+            <div style={{ flex: 1 }}>
+              <div style={{ height: 8, width: '60%', borderRadius: 5, background: '#e2e8f0', marginBottom: 5 }}/>
+              <div style={{ height: 6, width: '40%', borderRadius: 5, background: '#eef2f7' }}/>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }) {
-  const [ofertas, setOfertas] = useState(() => {
-    if (dbPromos.length > 0) {
-      return dbPromos.map(p => {
-        const src = p.imagen || p.img || null;
-        return { id: p.id, titulo: p.titulo || p.nombre, desc: p.descripcion || '', descuento: p.descuento || 0, tipo: p.tipo || 'Descuento Directo', activa: p.activo !== false, img: src, imagenes: src ? [{ src, file: null }] : [] };
-      });
+// ─── Costos de referencia (CPC/CPV/CPR), sólo en pesos — va debajo de la ilustración,
+// a la izquierda. Caja sutil, sin negritas: es sólo contexto, no el foco de la pantalla.
+function CostosImpulso({ dias, creditos }) {
+  const filas = [
+    { label: 'Costo por click',          valor: costoPorVenta(dias, creditos) },
+    { label: 'Costo por visualización',  valor: costoPorAcceso(dias, creditos) },
+    { label: 'Costo por resultado',      valor: costoPorResultado(dias, creditos) },
+  ];
+  return (
+    <div>
+      <div style={{ border: `1px solid ${LINE}`, borderRadius: 10, overflow: 'hidden' }}>
+        {filas.map((fila, i) => (
+          <div key={fila.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderTop: i > 0 ? `1px solid ${LINE}` : 'none' }}>
+            <span style={{ fontFamily: FONT, fontSize: 11.5, fontWeight: 400, color: MUTED }}>{fila.label}</span>
+            <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 400, color: INK2 }}>
+              ${Math.round(fila.valor * VALOR_CREDITO).toLocaleString('es-AR')}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 400, color: MUTED, marginTop: 8 }}>Referencia antes de publicar.</div>
+    </div>
+  );
+}
+
+// ─── Invitación post-publicación: impulsá tu cupón (pantalla principal) ──
+const FORMAS_PAGO_IMPULSO = [
+  { id: 'mercadopago', label: 'Mercado Pago', Icon: Smartphone },
+  { id: 'tarjeta',     label: 'Tarjeta',      Icon: CreditCard },
+];
+
+function ImpulsoInvitacion({ oferta, negocioId, saldo, onClose, onImpulsada, showToast }) {
+  const [creditos, setCreditos] = useState(CREDITOS_MIN);
+  const [dias, setDias]         = useState(DIAS_REF); // se comparte con la tabla de costos, a la izquierda
+  const [paso, setPaso]         = useState('simulador'); // 'simulador' | 'checkout'
+  const [fromWallet, setFromWallet] = useState(0); // créditos que se cubren con el saldo actual
+  const [formaPago, setFormaPago]   = useState('mercadopago');
+  const [enviando, setEnviando]     = useState(false);
+  const [mostrarTip, setMostrarTip] = useState(false); // tooltip propio del ícono de info (no el title nativo)
+
+  const maxWallet = Math.max(0, Math.min(saldo, creditos));
+  const aPagar    = Math.max(0, creditos - fromWallet);
+  const precio    = calcularPrecio(aPagar, 0);
+  // Cuánto de lo elegido en el simulador (antes de llegar al checkout) no cubre el saldo actual.
+  const faltanteSimulado = Math.max(0, creditos - saldo);
+  const precioFaltante   = calcularPrecio(faltanteSimulado, 0);
+
+  function irAlCheckout() {
+    setFromWallet(Math.min(saldo, creditos));
+    setPaso('checkout');
+  }
+
+  async function pagarImpulso() {
+    if (enviando) return;
+    setEnviando(true);
+    try {
+      if (aPagar > 0) {
+        const { error } = await registrarCompra({ negocioId, cantidad: aPagar, descuentoPct: 0, formaPago });
+        if (error) { showToast('No se pudo procesar el pago', 'err'); setEnviando(false); return; }
+      }
+      const { ok, error, restante } = await impulsarOferta(oferta.id, negocioId, creditos);
+      setEnviando(false);
+      if (!ok) { showToast(error || 'No se pudo impulsar', 'err'); return; }
+      showToast('¡Listo! Tu oferta se mostrará primero.', 'ok');
+      onImpulsada(oferta.id, { monto: creditos, restante, fromWallet });
+    } catch {
+      setEnviando(false);
+      showToast('No se pudo procesar el pago', 'err');
     }
+  }
+
+  return ReactDOM.createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,16,32,0.6)', zIndex: 99999, display: 'grid', placeItems: 'center', backdropFilter: 'blur(5px)', padding: 20 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 24, width: 960, maxWidth: '96vw', maxHeight: '92vh', overflow: 'auto', fontFamily: FONT, boxShadow: '0 30px 80px rgba(0,0,0,0.3)', display: 'grid', gridTemplateColumns: '420px 1fr' }}>
+        {/* Izquierda: ilustración + costos de referencia */}
+        <div style={{ background: 'linear-gradient(160deg, #eef0fd 0%, #f8fafc 100%)', padding: '34px 30px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: INK, lineHeight: 1.1 }}>¡Tu cupón ya está publicado!</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: INK2, marginTop: 6, lineHeight: 1.4, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+              <span>¿Qué te parece si le das un impulso para mejorar su visibilidad en <b><i>Cuponear?</i></b></span>
+              <span
+                onMouseEnter={() => setMostrarTip(true)}
+                onMouseLeave={() => setMostrarTip(false)}
+                style={{ position: 'relative', flexShrink: 0, marginTop: 3, color: MUTED, cursor: 'pointer', display: 'inline-flex' }}>
+                <Info size={15}/>
+                {mostrarTip && (
+                  <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 22, width: 220, background: INK, color: '#fff', fontSize: 11.5, fontWeight: 500, lineHeight: 1.45, padding: '9px 11px', borderRadius: 9, boxShadow: '0 10px 28px rgba(0,0,0,0.25)', zIndex: 10 }}>
+                    Comprá crédito publicitario, se consumirá sólo cuando tengas resultados. Cada acceso y cada venta lo van descontando.
+                  </div>
+                )}
+              </span>
+            </div>
+          </div>
+          <FakeSitePreview/>
+          <CostosImpulso dias={dias} creditos={creditos}/>
+        </div>
+        {/* Derecha: simulador o checkout */}
+        <div style={{ padding: '30px 34px 26px', display: 'flex', flexDirection: 'column' }}>
+          {paso === 'simulador' ? (
+            <>
+              <div style={{ fontSize: 20, fontWeight: 800, color: INK, marginBottom: 16 }}>Hacé que más gente lo vea</div>
+
+              <SimuladorImpulso value={creditos} onChange={setCreditos} dias={dias} onChangeDias={setDias}/>
+
+              <div style={{ fontSize: 12.5, color: INK2, textAlign: 'center', marginTop: 22 }}>
+                Tenés <b style={{ color: INK }}>{saldo}</b> crédito{saldo !== 1 ? 's' : ''} disponible{saldo !== 1 ? 's' : ''}.{' '}
+                {faltanteSimulado > 0
+                  ? <>Vas a pagar <b style={{ color: '#ea580c' }}>${precioFaltante.total.toLocaleString('es-AR')}</b> por los {faltanteSimulado} créd. que faltan.</>
+                  : 'Se cubre entero con tu saldo actual.'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+                <button onClick={onClose}
+                  style={{ background: '#fff', color: INK2, border: `1.5px solid ${LINE}`, borderRadius: 12, padding: '12px 20px', fontFamily: FONT, fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
+                  No, gracias
+                </button>
+                <button onClick={irAlCheckout}
+                  style={{ background: '#ea580c', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 26px', fontFamily: FONT, fontSize: 14, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                  <TrendingUp size={16}/> Aumentar visibilidad
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setPaso('simulador')} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: MUTED, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 10 }}>
+                ← Volver
+              </button>
+              <div style={{ fontSize: 20, fontWeight: 800, color: INK, marginBottom: 16 }}>Confirmá tu impulso</div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: BG, border: `1px solid ${LINE}`, borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+                <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK2 }}>Total del impulso</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 16, fontWeight: 900, color: INK }}>
+                  <img src="/cuponera-coin.svg" alt="" style={{ width: 18, height: 18 }}/> {creditos} créd.
+                </span>
+              </div>
+
+              {maxWallet > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: INK2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>De tu billetera</span>
+                    <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 800, color: P }}>{fromWallet} créd.</span>
+                  </div>
+                  <input type="range" min={0} max={maxWallet} step={1} value={fromWallet}
+                    onChange={e => setFromWallet(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: P, cursor: 'pointer' }}/>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: MUTED }}>
+                    <span>0</span>
+                    <span>{maxWallet} disponibles</span>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ background: aPagar > 0 ? PS : '#f0fdf4', border: `1px solid ${aPagar > 0 ? '#c7d2fe' : '#bbf7d0'}`, borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK }}>
+                  <span>A pagar</span>
+                  <span>{aPagar} créd.</span>
+                </div>
+                {aPagar > 0 ? (
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: INK2, marginTop: 4 }}>≈ ${precio.total.toLocaleString('es-AR')} (IVA incluido)</div>
+                ) : (
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: '#15803d', marginTop: 4 }}>Se cubre entero con tu saldo actual.</div>
+                )}
+              </div>
+
+              {aPagar > 0 && (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: INK2, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Forma de pago</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {FORMAS_PAGO_IMPULSO.map(f => {
+                      const sel = formaPago === f.id;
+                      return (
+                        <button key={f.id} onClick={() => setFormaPago(f.id)}
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 0', borderRadius: 10, border: `1.5px solid ${sel ? P : LINE}`, background: sel ? PS : '#fff', color: sel ? P : INK2, fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                          <f.Icon size={15}/> {f.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+                <button onClick={pagarImpulso} disabled={enviando}
+                  style={{ width: '100%', background: enviando ? LINE : P, color: enviando ? MUTED : '#fff', border: 'none', borderRadius: 12, padding: '13px 0', fontFamily: FONT, fontSize: 14, fontWeight: 800, cursor: enviando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                  <TrendingUp size={16}/> {enviando ? 'Procesando…' : 'Pagar impulso'}
+                </button>
+                <button onClick={onClose} style={{ width: '100%', background: 'transparent', color: MUTED, border: 'none', borderRadius: 12, padding: '8px 0', fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  No, gracias
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Ícono de autoguardado a la derecha de un campo: nada mientras se escribe/espera el
+// debounce, disco gris mientras autoguarda, tilde verde apenas termina. Se usa en pares
+// con `paddingRight` en el input para no tapar el texto.
+function EstadoGuardadoIcono({ activo, status, style }) {
+  if (!activo || status === 'idle') return null;
+  return (
+    <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', display: 'grid', placeItems: 'center', pointerEvents: 'none', ...style }}>
+      {status === 'saving'
+        ? <Loader2 size={15} color={MUTED} style={{ animation: 'girar 0.9s linear infinite' }}/>
+        : <Check size={15} color={GREEN}/>}
+    </div>
+  );
+}
+
+export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free', onUpgrade, saldoTokens = 0, setSaldoTokens, onboarding = false, onSkip }) {
+  const [ofertas, setOfertas] = useState(() => {
+    if (dbPromos.length > 0) return dbPromos.map(dbRowToItem);
+    // En el onboarding arrancamos sin ninguna oferta (sólo el placeholder), sin datos de ejemplo.
+    if (onboarding) return [];
     return MOCK_OFERTAS.map((o, i) => {
       const src = PLACEHOLDER_IMGS[i % PLACEHOLDER_IMGS.length];
       return { ...o, img: src, imagenes: [{ src, file: null }] };
@@ -836,39 +1026,158 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
   const ofertasAsociadas = MOCK_OFERTAS_ASOCIADAS;
   const [vistaGrid, setVistaGrid]         = useState(true);
   const [editingOferta, setEditingOferta] = useState('new');
+  const [editorAbierto, setEditorAbierto] = useState(true); // panel derecho de carga/edición
   const EMPTY_FORM = {
-    titulo: '', badge: '', desc: '',
+    tipoDescuento: 'porcentaje',   // 'porcentaje' | 'multiplicador' | 'extra'
+    titulo: '', desc: '',
+    // Descuentos por tarifa: 1+ entradas { tarifa: 'todas'|'comunes'|'especiales', valor }.
+    // El primero (descuentos[0].valor) es el badge que se ve sobre la foto.
+    descuentos: [{ tarifa: 'todas', valor: '' }],
     formatos: [],           // formatos no-base activos (estándar es la base implícita)
-    flashFechaFin: null,
-    grupalN: '10', grupalTrampa: true,
+    flashHoras: 24,          // FLASH: se publica por N horas (máx. 72)
+    // Ruleta de descuentos: opciones que giran + su probabilidad (%).
+    ruletaOpciones: [{ premio: '', prob: '' }],
+    // Modelo A (grupal): el socio sólo define cómo varía el % por cantidad (tramos).
+    // El mín/máx de personas se derivan de los tramos al guardar (primer/último rango).
+    basePricePp: '', tramos: [{ min_pax: 2, max_pax: 4, discount_pct: 10 }],
     happyDesde: '15:00', happyHasta: '18:00',
+    // Período activo: modo 'hoy'/'manual' (default) o 'especifica' (habilita el datetime).
+    desdeModo: 'hoy', hastaModo: 'manual',
     activa: true, imagenes: [], fechaDesde: null, fechaHasta: null,
   };
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [isDirty, setIsDirty]   = useState(false);
+  const [savingOferta, setSavingOferta] = useState(false);
+  // Ícono de autoguardado por campo: 'idle' (nada) mientras se escribe o se espera el
+  // debounce, 'saving' (disco gris) mientras autoguarda, 'saved' (tilde verde) al terminar.
+  // `campoActivo` es qué campo lo muestra; el ref evita aplicar un resultado tardío a un
+  // campo distinto si el socio ya se movió a escribir otra cosa antes de que resuelva.
+  const [saveStatus, setSaveStatus]   = useState('idle');
+  const [campoActivo, setCampoActivoState] = useState(null);
+  const campoActivoRef = useRef(null);
+  const setCampoActivo = (v) => { campoActivoRef.current = v; setCampoActivoState(v); };
+  // Cuánto espera el autoguardado antes de disparar: 3s para campos de texto (dan tiempo a
+  // seguir escribiendo), 0 para selects/on-off (no hay nada que "esperar", se guardan ya).
+  const [saveDelayMs, setSaveDelayMs] = useState(3000);
+  function setCampoTexto(key, value) {
+    setEditForm(f => ({ ...f, [key]: value }));
+    setIsDirty(true);
+    setCampoActivo(key);
+    setSaveStatus('idle');
+    setSaveDelayMs(3000);
+  }
+  // Selects y toggles on/off: se guardan al instante, sin el debounce de 3s de los campos de texto.
+  function setFInstante(updater) {
+    setEditForm(updater);
+    setIsDirty(true);
+    setCampoActivo(null);
+    setSaveStatus('idle');
+    setSaveDelayMs(0);
+  }
   const [unsavedModal, setUnsavedModal] = useState(false);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+  // "Aumentar visibilidad" (header fijo al editar un cupón publicado) y post-publicación reutilizan la misma invitación.
+  const [invitacionTarget, setInvitacionTarget] = useState(null);
   const pendingNav = useRef(null);
   const fileInputRef = useRef(null);
+  // Autosave de borrador (se dispara al subir la foto y en cada cambio, con debounce).
+  const draftTimerRef   = useRef(null);   // id del setTimeout del debounce
+  const draftSavingRef  = useRef(false);  // hay un autosave en vuelo
+  const manualSavingRef = useRef(false);  // hay un guardado manual en curso
+  const lastFileRef     = useRef(null);   // último File subido (para no re-subir)
+  const lastUrlRef      = useRef(null);   // URL pública del último File subido
+  const borradorIdRef   = useRef(null);   // id del borrador en curso (evita insertar duplicados)
 
-  const setF = updater => { setEditForm(updater); setIsDirty(true); };
+  // Cambios que no pasan por setCampoTexto (selects, checkboxes, tramos, etc.) no tienen ícono
+  // propio: limpiamos campoActivo para que un guardado disparado por uno de estos campos no
+  // "reencienda" la tilde verde de un campo de texto que el socio ya no está mirando.
+  const setF = updater => { setEditForm(updater); setIsDirty(true); setCampoActivo(null); setSaveStatus('idle'); setSaveDelayMs(3000); };
 
-  // Los 9 formatos de oferta (ver reference_formatos_oferta en memoria del proyecto).
+  // Formatos que el socio puede elegir al crear un cupón (ver reference_formatos_oferta).
+  // Geo-Ofertas y Tormenta de cupones NO están acá: las arma Cuponear (superadmin), el socio no tiene injerencia.
+  // Cupón Viral y Circuitos Cuponear fueron anulados.
   const FORMATOS = [
     { id: 'flash',     label: 'FLASH Sale!',           Icon: Zap,       color: '#ef4444', grupo: 'combinable', desc: 'Cuenta regresiva visible; al vencer, se desactiva.' },
-    { id: 'happyhour', label: 'Happy Hour',            Icon: Clock,     color: '#0ea5e9', grupo: 'combinable', desc: 'Canjeable sólo dentro de un rango horario.' },
-    { id: 'geo',       label: 'Geo Oferta',            Icon: MapPin,    color: '#059669', grupo: 'combinable', desc: 'Se activa cuando el turista entra a 0,2 km del local.' },
-    { id: 'tormenta',  label: 'Oferta Tormenta',       Icon: CloudRain, color: '#6366f1', grupo: 'combinable', desc: 'Se activa cuando llueve en tu localidad.' },
-    { id: 'viral',     label: 'Cupón Viral',           Icon: Share2,    color: '#db2777', grupo: 'combinable', desc: 'El descuento sube +2% por cada vez que se comparte (tope +30%).' },
-    { id: 'grupal',    label: 'Oferta Grupal',         Icon: Users,     color: '#7c3aed', grupo: 'exclusivo',  desc: 'Se activa al sumar N compradores.' },
-    { id: 'circuitos', label: 'Circuitos Cuponear',    Icon: Route,     color: '#ea580c', grupo: 'exclusivo',  desc: 'Parte de un circuito de varios socios.' },
-    { id: 'ruleta',    label: 'Jugá y ganá (Ruleta)',  Icon: Disc3,     color: '#ca8a04', grupo: 'exclusivo',  desc: 'El turista gira una ruleta que define el precio final.' },
+    { id: 'happyhour', label: 'Happy Hour',            Icon: Clock,     color: '#0ea5e9', grupo: 'combinable', desc: 'A qué hora pueden canjearlo.' },
+    { id: 'ruleta',    label: 'Ruleta de descuentos',  Icon: Disc3,     color: '#ca8a04', grupo: 'combinable', desc: 'El descuento queda a la suerte del usuario.' },
+    { id: 'grupal',    label: 'Oferta Grupal',         Icon: Users,     color: '#7c3aed', grupo: 'exclusivo',  desc: 'A más personas beneficiadas, mayor el descuento.' },
   ];
   const formatoDe = (id) => FORMATOS.find(f => f.id === id);
   const exclusivoActivo = editForm.formatos.map(formatoDe).find(f => f?.grupo === 'exclusivo');
 
+  // Tipo de oferta (se elige con la foto ya subida). La oferta grupal sólo aplica a "porcentaje".
+  const TIPOS_DESCUENTO = [
+    // Los ejemplos de porcentaje son sólo números (el "%" es fijo en el campo).
+    { id: 'porcentaje',    label: 'Por porcentaje',  ejemplos: ['25', '30', '40'] },
+    { id: 'multiplicador', label: 'Multiplicador (2x1 en tragos, 3x2 en alojamiento)',   ejemplos: ['2x1', '3x2', '2x1 en tragos'] },
+    { id: 'extra',         label: 'Beneficio extra', ejemplos: ['Postre gratis', 'Copa de bienvenida', 'Late check-out'] },
+  ];
+  const TARIFAS = [
+    { id: 'todas',      label: 'Aplica a todas las tarifas' },
+    { id: 'comunes',    label: 'Sólo tarifas comunes' },
+    { id: 'especiales', label: 'Sólo tarifas de días especiales' },
+  ];
+  const tipoActual = TIPOS_DESCUENTO.find(t => t.id === editForm.tipoDescuento) || TIPOS_DESCUENTO[0];
+  const ejemplosPlaceholder = `Ej: ${tipoActual.ejemplos.join(' · ')}`;
+  const setTipoDescuento = (tipo) => setFInstante(f => ({
+    ...f,
+    tipoDescuento: tipo,
+    // Al cambiar de tipo se limpian los valores (cambia el formato de carga).
+    descuentos: f.descuentos.map(d => ({ ...d, valor: '' })),
+    // Grupal sólo tiene sentido con porcentaje: si cambian de tipo, se desactiva.
+    formatos: tipo !== 'porcentaje' ? f.formatos.filter(x => x !== 'grupal') : f.formatos,
+  }));
+  // El badge (etiqueta sobre la foto) y el piso grupal salen del primer descuento cargado.
+  const badgeValor = editForm.descuentos?.[0]?.valor || '';
+  const pisoPctGrupal = parseInt(String(badgeValor).replace(/[^\d]/g, ''), 10);
+  // Campos obligatorios para publicar: foto, título y al menos un descuento cargado.
+  const camposFaltantes = [
+    !editForm.imagenes[0]?.src && 'foto',
+    !editForm.titulo.trim() && 'título',
+    !editForm.descuentos.some(d => (d.valor || '').trim()) && 'un descuento cargado',
+  ].filter(Boolean);
+  const camposCompletos = camposFaltantes.length === 0;
+  // El resto del formulario se oculta hasta subir una foto SÓLO para una oferta nueva (fuerza
+  // el flujo "foto primero"). Una oferta ya existente sin foto (datos viejos, de antes de que
+  // la foto fuera obligatoria) tiene que poder verse y editarse igual — si no, quedaba atrapada:
+  // no se veían sus campos y "Guardar cambios" seguía deshabilitado sin forma de arreglarlo.
+  const mostrarRestoForm = !!editForm.imagenes[0]?.src || editingOferta !== 'new';
+
+  // ── Descuentos por tarifa (repetibles) ──
+  const actualizarDescuento = (i, key, value) => {
+    const updater = f => ({ ...f, descuentos: f.descuentos.map((d, idx) => idx === i ? { ...d, [key]: value } : d) });
+    // "tarifa" es un <select> (instantáneo); "valor" se escribe (debounce de texto).
+    if (key === 'tarifa') setFInstante(updater); else setF(updater);
+  };
+  const agregarDescuento = () =>
+    setF(f => {
+      // El segundo descuento cae en la tarifa complementaria (comunes ↔ especiales).
+      const nueva = f.descuentos[0]?.tarifa === 'comunes' ? 'especiales' : 'comunes';
+      return { ...f, descuentos: [...f.descuentos, { tarifa: nueva, valor: '' }] };
+    });
+  const eliminarDescuento = (i) =>
+    setF(f => ({ ...f, descuentos: f.descuentos.filter((_, idx) => idx !== i) }));
+  // "Todas las tarifas" anula agregar; comunes/especiales lo habilitan si aún hay una fila sola.
+  const puedeAgregarDescuento = editForm.descuentos.length === 1 && editForm.descuentos[0].tarifa !== 'todas';
+  // Opciones de tarifa deshabilitadas por fila: "todas" no convive con 2 filas; no duplicar la otra.
+  const tarifaOpcionDisabled = (i, tarifaId) => {
+    const otras = editForm.descuentos.filter((_, idx) => idx !== i).map(d => d.tarifa);
+    return (tarifaId === 'todas' && editForm.descuentos.length > 1) || otras.includes(tarifaId);
+  };
+
+  // ── Período activo (Desde / Hasta) ──
+  const toLocalDT = d => d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+  const setDesdeModo = (m) => setFInstante(f => ({ ...f, desdeModo: m, fechaDesde: m === 'especifica' ? (f.fechaDesde || new Date()) : null }));
+  const setHastaModo = (m) => setFInstante(f => ({ ...f, hastaModo: m, fechaHasta: m === 'especifica' ? (f.fechaHasta || new Date()) : null }));
+
+  // Saneadores según el tipo de oferta.
+  const soloNum = s => String(s ?? '').replace(/[^\d]/g, '');
+  const sanitizarExtra = s => String(s ?? '').replace(/[^\p{L}\p{N} ]/gu, ''); // letras, números y espacios
+  const partesMult = v => { const [a = '', b = ''] = String(v || '').split('x'); return [soloNum(a), soloNum(b)]; };
+
   const toggleFormato = (id) => {
     const f = formatoDe(id);
-    setF(prev => {
+    setFInstante(prev => {
       const activos = prev.formatos;
       if (f.grupo === 'exclusivo') {
         // exclusivo: reemplaza todo lo demás; volver a tocarlo lo apaga
@@ -881,6 +1190,27 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
   };
   const formatoDisabled = (f) => f.grupo === 'combinable' && !!exclusivoActivo && !editForm.formatos.includes(f.id);
 
+  // ── Tramos del cupón grupal (Modelo A) ──
+  const actualizarTramo = (i, key, value) =>
+    setF(f => ({ ...f, tramos: f.tramos.map((t, idx) => idx === i ? { ...t, [key]: value === '' ? '' : Number(value) } : t) }));
+  const agregarTramo = () =>
+    setF(f => {
+      const ult = f.tramos[f.tramos.length - 1];
+      const desde = ult ? Number(ult.max_pax) + 1 : 2;
+      return { ...f, tramos: [...f.tramos, { min_pax: desde, max_pax: desde + 1, discount_pct: (Number(ult?.discount_pct) || 0) + 5 }] };
+    });
+  const eliminarTramo = (i) =>
+    setF(f => ({ ...f, tramos: f.tramos.filter((_, idx) => idx !== i) }));
+
+  // ── Opciones de la Ruleta de descuentos ──
+  const actualizarOpcRuleta = (i, key, value) =>
+    setF(f => ({ ...f, ruletaOpciones: f.ruletaOpciones.map((o, idx) => idx === i ? { ...o, [key]: value } : o) }));
+  const agregarOpcRuleta = () =>
+    setF(f => ({ ...f, ruletaOpciones: [...f.ruletaOpciones, { premio: '', prob: '' }] }));
+  const eliminarOpcRuleta = (i) =>
+    setF(f => ({ ...f, ruletaOpciones: f.ruletaOpciones.filter((_, idx) => idx !== i) }));
+  const probTotalRuleta = editForm.ruletaOpciones.reduce((s, o) => s + (Number(o.prob) || 0), 0);
+
   function handleImageFiles(files) {
     files.filter(f => f.type.startsWith('image/')).forEach(file => {
       const reader = new FileReader();
@@ -891,26 +1221,50 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
 
   function doStartEdit(o) {
     setEditingOferta(o);
+    const badgeStr = o.badge || (o.descuento ? `${o.descuento}%` : '');
+    // Inferimos el tipo de descuento a partir del badge (no se persiste todavía).
+    const tipoInferido = o.esGrupal || o.is_group ? 'porcentaje'
+      : /x\s*\d|\d\s*x/i.test(badgeStr) ? 'multiplicador'
+      : /%/.test(badgeStr) ? 'porcentaje'
+      : badgeStr ? 'extra' : 'porcentaje';
+    // FLASH: reconstruimos las horas restantes a partir de la fecha límite guardada.
+    const horasRestantes = o.flashFechaFin
+      ? Math.min(72, Math.max(1, Math.ceil((new Date(o.flashFechaFin).getTime() - Date.now()) / 3600000)))
+      : 24;
     setEditForm({
+      tipoDescuento: tipoInferido,
       titulo: o.titulo || '',
-      badge: o.badge || (o.descuento ? `${o.descuento}%` : ''),
+      // Sólo persiste el badge (primer descuento); las tarifas extra no se guardan aún.
+      descuentos: Array.isArray(o.descuentos) && o.descuentos.length ? o.descuentos : [{ tarifa: 'todas', valor: badgeStr }],
       desc: o.desc || '',
       formatos: Array.isArray(o.formatos) ? o.formatos : (o.tipo === 'flash' ? ['flash'] : []),
-      flashFechaFin: o.flashFechaFin || null,
-      grupalN: String(o.grupalN || '10'), grupalTrampa: o.grupalTrampa ?? true,
+      flashHoras: horasRestantes,
+      ruletaOpciones: Array.isArray(o.ruletaOpciones) && o.ruletaOpciones.length ? o.ruletaOpciones : [{ premio: '', prob: '' }],
+      basePricePp: o.basePricePp ?? '',
+      tramos: Array.isArray(o.tramos) && o.tramos.length ? o.tramos : [{ min_pax: 2, max_pax: 4, discount_pct: 10 }],
       happyDesde: o.happyDesde || '15:00', happyHasta: o.happyHasta || '18:00',
       activa: o.activa !== false,
       imagenes: o.imagenes?.length > 0 ? o.imagenes : o.img ? [{ src: o.img, file: null }] : [],
+      desdeModo: o.fechaDesde ? 'especifica' : 'hoy',
+      hastaModo: o.fechaHasta ? 'especifica' : 'manual',
       fechaDesde: o.fechaDesde || null,
       fechaHasta: o.fechaHasta || null,
     });
+    lastFileRef.current = null; lastUrlRef.current = null;
+    // Si reabrimos un borrador, sus cambios siguen actualizando esa misma fila.
+    borradorIdRef.current = (o.borrador && esUuid(o.id)) ? o.id : null;
     setIsDirty(false);
+    setCampoActivo(null); setSaveStatus('idle'); setSaveDelayMs(3000);
   }
 
   function doStartNew() {
     setEditingOferta('new');
     setEditForm(EMPTY_FORM);
+    lastFileRef.current = null; lastUrlRef.current = null;
+    borradorIdRef.current = null;
+    clearTimeout(draftTimerRef.current);
     setIsDirty(false);
+    setCampoActivo(null); setSaveStatus('idle'); setSaveDelayMs(3000);
   }
 
   function tryNav(action) {
@@ -918,45 +1272,294 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
     else action();
   }
 
-  function startEdit(o) { tryNav(() => doStartEdit(o)); }
-  function startNew()   { tryNav(doStartNew); }
+  function startEdit(o) { tryNav(() => { doStartEdit(o); setEditorAbierto(true); }); }
+  function startNew()   { tryNav(() => { doStartNew(); setEditorAbierto(true); }); }
 
-  function saveEdit(thenRun) {
-    if (!editForm.titulo.trim()) { showToast('El título es obligatorio', 'err'); return false; }
-    const data = { ...editForm };
-    if (editingOferta === 'new') {
-      const o = { id: Date.now(), ...data, img: data.imagenes[0]?.src || null };
-      setOfertas(prev => [...prev, o]);
-      setEditingOferta(o);
-    } else {
-      const updated = { ...data, img: data.imagenes[0]?.src || editingOferta.img || null };
-      setOfertas(prev => prev.map(o => o.id === editingOferta.id ? { ...o, ...updated } : o));
-      setEditingOferta(prev => ({ ...prev, ...updated }));
+  // Sube la foto a storage una sola vez (cachea por File) y devuelve la URL pública.
+  async function subirImagenOferta() {
+    const primera = editForm.imagenes[0];
+    if (!primera) return editingOferta !== 'new' ? (editingOferta?.img || null) : null;
+    if (primera.file) {
+      if (primera.file === lastFileRef.current && lastUrlRef.current) return lastUrlRef.current;
+      try {
+        const ext = (primera.file.name.split('.').pop() || 'jpg').toLowerCase();
+        const { data: up } = await supabase.storage.from('negocios')
+          .upload(`promos/${negocioId}/${Date.now()}.${ext}`, primera.file, { upsert: true });
+        if (up) { const { data: ud } = supabase.storage.from('negocios').getPublicUrl(up.path); lastFileRef.current = primera.file; lastUrlRef.current = ud.publicUrl; return ud.publicUrl; }
+      } catch { /* reintentable en el próximo guardado */ }
+      return editingOferta !== 'new' ? (editingOferta?.img || null) : null;
     }
+    return primera.src;
+  }
+
+  // Arma el payload de `promociones` a partir del form (sin validar; sirve para borrador y final).
+  function construirBasePayload(imagenUrl) {
+    const esGrupal = editForm.formatos.includes('grupal');
+    const esFlash  = editForm.formatos.includes('flash');
+    const tramosOrden = [...editForm.tramos]
+      .map(t => ({ min_pax: Number(t.min_pax), max_pax: Number(t.max_pax), discount_pct: Number(t.discount_pct) }))
+      .sort((a, b) => a.min_pax - b.min_pax);
+    if (esGrupal && tramosOrden.length && Number.isFinite(pisoPctGrupal)) tramosOrden[0].discount_pct = pisoPctGrupal;
+    const grupoPayload = esGrupal
+      ? { is_group: true, group_min_pax: tramosOrden[0]?.min_pax, group_max_pax: tramosOrden[tramosOrden.length - 1]?.max_pax, base_price_pp: editForm.basePricePp ? Number(editForm.basePricePp) : null, group_tiers: tramosOrden }
+      : { is_group: false, group_min_pax: null, group_max_pax: null, base_price_pp: null, group_tiers: null };
+    return {
+      titulo:          sanitizeTituloOferta(editForm.titulo).trim(), // NOT NULL en DB → string vacío si aún no escribió
+      badge:           badgeValor || null,
+      descuentos:      editForm.descuentos,               // desglose por tarifa (jsonb)
+      descripcion:     editForm.desc || null,
+      imagen_url:      imagenUrl,
+      offer_type:      esFlash ? 'Flash' : 'Normal',
+      fecha_fin_flash: esFlash && Number(editForm.flashHoras) > 0 ? new Date(Date.now() + Math.min(72, Number(editForm.flashHoras)) * 3600000).toISOString() : null,
+      fecha_fin:       !esFlash && editForm.fechaHasta ? editForm.fechaHasta.toISOString() : null,
+      fecha_inicio:    !esFlash && editForm.fechaDesde ? editForm.fechaDesde.toISOString() : null,
+      negocio_id:      negocioId,
+      ...grupoPayload,
+    };
+  }
+
+  // Guarda/actualiza el borrador (autosave). Requiere foto; no valida ni muestra toasts.
+  // Devuelve true sólo si de verdad persistió algo (para el ícono de guardado por campo).
+  async function guardarBorrador() {
+    if (manualSavingRef.current || draftSavingRef.current || savingOferta) return false;
+    if (!negocioId) return false;
+    if (!editForm.imagenes[0]?.src) return false;                 // sin foto no se guarda borrador
+    const esDraftActual = editingOferta === 'new' || editingOferta?.borrador;
+    if (!esDraftActual) return false;                             // no autosalvar ofertas ya enviadas/aprobadas
+    draftSavingRef.current = true;
+    try {
+      const imagenUrl = await subirImagenOferta();
+      if (!imagenUrl) return false;                               // la foto no llegó a persistir
+      const payload = { ...construirBasePayload(imagenUrl), borrador: true, activa: false, aprobada: false };
+      // Usamos un ref (no el closure de editingOferta) para no insertar dos veces el mismo borrador.
+      const draftId = borradorIdRef.current || (esUuid(editingOferta?.id) ? editingOferta.id : null);
+      // Sin .single()/.maybeSingle() (piden un objeto único y Postgrest devuelve 406 igual con 0 filas).
+      // Con el array: si el borrador ya no existe (borrado en otro lado) el update devuelve [] con 200 OK,
+      // no es un error — se reinserta uno nuevo para que el autosave se auto-repare.
+      let row = null;
+      if (draftId) {
+        const { data } = await supabase.from('promociones').update(payload).eq('id', draftId).select();
+        row = data?.[0] || null;
+        if (!row) borradorIdRef.current = null;
+      }
+      if (!row) {
+        const { data } = await supabase.from('promociones').insert(payload).select();
+        row = data?.[0] || null;
+      }
+      if (row) {
+        borradorIdRef.current = row.id;
+        const item = dbRowToItem(row);
+        setOfertas(prev => prev.some(o => o.id === item.id) ? prev.map(o => o.id === item.id ? item : o) : [...prev, item]);
+        setEditingOferta(item);   // a partir de acá, los cambios actualizan este borrador
+        setIsDirty(false);
+        return true;
+      }
+      return false;
+    } catch { return false; /* se reintenta en el próximo cambio */ }
+    finally { draftSavingRef.current = false; }
+  }
+
+  // Autoguardado de una oferta ya persistida (enviada o publicada): guarda los cambios in-place,
+  // sin tocar `aprobada` (mismo comportamiento que "Guardar cambios" manual sobre una oferta existente).
+  async function autosaveExistente() {
+    if (manualSavingRef.current || draftSavingRef.current || savingOferta) return false;
+    if (!negocioId || !esUuid(editingOferta?.id)) return false;
+    // No autoguardar un estado a medio escribir sobre una oferta ya pública (ej. título vacío
+    // mientras lo está reescribiendo): esperamos a que vuelva a cumplir lo mínimo publicable.
+    if (!editForm.titulo.trim() || !editForm.descuentos.some(d => (d.valor || '').trim())) return false;
+    draftSavingRef.current = true;
+    try {
+      const imagenUrl = await subirImagenOferta();
+      if (!imagenUrl) return false;
+      const payload = { ...construirBasePayload(imagenUrl), activa: editForm.activa };
+      const { data } = await supabase.from('promociones').update(payload).eq('id', editingOferta.id).select();
+      const row = data?.[0];
+      if (row) {
+        const item = dbRowToItem(row);
+        setOfertas(prev => prev.map(o => o.id === item.id ? item : o));
+        setEditingOferta(item);
+        setIsDirty(false);
+        return true;
+      }
+      return false;
+    } catch { return false; /* se reintenta en el próximo cambio */ }
+    finally { draftSavingRef.current = false; }
+  }
+
+  // Autoguardado unificado: borrador/nueva (requiere foto) u oferta ya persistida (in-place).
+  // Devuelve si realmente guardó, para que el ícono por campo sepa si mostrar la tilde o no.
+  async function autosave() {
+    if (editingOferta === 'new' || editingOferta?.borrador) {
+      if (!editForm.imagenes[0]?.src) return false;
+      return guardarBorrador();
+    }
+    return autosaveExistente();
+  }
+
+  // Corre el autoguardado mostrando el ícono de estado en el campo que lo disparó: gris
+  // mientras está en vuelo, tilde verde si terminó bien. Si para cuando resuelve el socio
+  // ya se movió a escribir otro campo, no le pisamos el ícono a ese campo nuevo.
+  async function autosaveConIcono() {
+    const campoDeEsteGuardado = campoActivoRef.current;
+    setSaveStatus('saving');
+    const ok = await autosave();
+    if (campoActivoRef.current === campoDeEsteGuardado) setSaveStatus(ok ? 'saved' : 'idle');
+  }
+
+  // Debounce: los campos de texto esperan 3s de inactividad (además del flush inmediato al
+  // salir del campo, ver onBlur del panel más abajo); selects y on/off (saveDelayMs = 0, ver
+  // setFInstante) se autoguardan ya, sin esperar nada.
+  useEffect(() => {
+    if (!isDirty) return;
+    draftTimerRef.current = setTimeout(() => { autosaveConIcono(); }, saveDelayMs);
+    return () => clearTimeout(draftTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editForm, editingOferta, isDirty, saveDelayMs]);
+
+  // Flush inmediato: al salir de cualquier campo del panel (blur), si hay cambios pendientes,
+  // se guarda al instante en vez de esperar el debounce de 3s.
+  function handlePanelBlur() {
+    if (!isDirty) return;
+    clearTimeout(draftTimerRef.current);
+    autosaveConIcono();
+  }
+
+  async function saveEdit(thenRun) {
+    if (savingOferta) return false;
+    if (!editForm.imagenes[0]?.src) { showToast('Subí una foto para la oferta', 'err'); return false; }
+    if (!sanitizeTituloOferta(editForm.titulo).trim()) { showToast('El título es obligatorio y solo puede tener letras y números', 'err'); return false; }
+    if (!editForm.descuentos.some(d => (d.valor || '').trim())) { showToast('Cargá al menos un descuento', 'err'); return false; }
+
+    const esGrupal = editForm.formatos.includes('grupal');
+
+    // El mín/máx de personas se derivan del primer y último tramo (ya no se piden aparte).
+    const tramosOrden = [...editForm.tramos]
+      .map(t => ({ min_pax: Number(t.min_pax), max_pax: Number(t.max_pax), discount_pct: Number(t.discount_pct) }))
+      .sort((a, b) => a.min_pax - b.min_pax);
+    // El % del primer rango (piso) lo fija la etiqueta, no es editable.
+    if (esGrupal && tramosOrden.length && Number.isFinite(pisoPctGrupal)) {
+      tramosOrden[0].discount_pct = pisoPctGrupal;
+    }
+    const grupoMin = tramosOrden[0]?.min_pax;
+    const grupoMax = tramosOrden[tramosOrden.length - 1]?.max_pax;
+
+    if (esGrupal) {
+      if (!Number.isFinite(pisoPctGrupal)) { showToast('Poné el % en la etiqueta (arriba) para la oferta grupal', 'err'); return false; }
+      const { ok, errores } = validarTramos({
+        minPax: grupoMin, maxPax: grupoMax,
+        basePricePp: editForm.basePricePp, tramos: tramosOrden,
+      });
+      if (!ok) { showToast(errores[0], 'err'); return false; }
+    }
+
+    // Sin negocio asociado (no debería pasar para un socio logueado): guardado local.
+    if (!negocioId) {
+      const data = { ...editForm };
+      if (editingOferta === 'new') {
+        const o = { id: Date.now(), ...data, img: data.imagenes[0]?.src || null };
+        setOfertas(prev => [...prev, o]); setEditingOferta(o);
+      } else {
+        const updated = { ...data, img: data.imagenes[0]?.src || editingOferta.img || null };
+        setOfertas(prev => prev.map(o => o.id === editingOferta.id ? { ...o, ...updated } : o));
+        setEditingOferta(prev => ({ ...prev, ...updated }));
+      }
+      setIsDirty(false); showToast('Cambios guardados', 'ok');
+      if (thenRun) thenRun();
+      return true;
+    }
+
+    // Un guardado manual cancela el autosave pendiente y bloquea el borrador durante el envío.
+    manualSavingRef.current = true;
+    clearTimeout(draftTimerRef.current);
+    setSavingOferta(true);
+
+    const eraBorrador = editingOferta !== 'new' && editingOferta?.borrador;
+    const editingIsDb = editingOferta !== 'new' && esUuid(editingOferta.id);
+    let itemGuardado = null;
+
+    try {
+      const imagenUrl = await subirImagenOferta();
+      const base = construirBasePayload(imagenUrl);
+      let row;
+      if (!editingIsDb) {
+        // Alta directa (sin borrador previo): queda pendiente de aprobación.
+        const { data, error } = await supabase.from('promociones')
+          .insert({ ...base, borrador: false, activa: false, aprobada: false }).select().single();
+        if (error) throw error;
+        row = data;
+      } else {
+        // Edición o finalización de un borrador → deja de ser borrador; se envía para aprobación.
+        const { data, error } = await supabase.from('promociones')
+          .update({ ...base, borrador: false, activa: editForm.activa }).eq('id', editingOferta.id).select().single();
+        if (error) throw error;
+        row = data;
+      }
+      itemGuardado = dbRowToItem(row);
+      setOfertas(prev => editingOferta === 'new'
+        ? [...prev, itemGuardado]
+        : prev.map(o => o.id === editingOferta.id ? itemGuardado : o));
+      setEditingOferta(itemGuardado);
+    } catch (err) {
+      setSavingOferta(false);
+      manualSavingRef.current = false;
+      showToast(err?.message || 'Error al guardar la oferta', 'err');
+      return false;
+    }
+
+    setSavingOferta(false);
+    manualSavingRef.current = false;
+    borradorIdRef.current = null;   // ya dejó de ser borrador
     setIsDirty(false);
-    showToast('Cambios guardados', 'ok');
+    // Un borrador finalizado o una alta directa → "enviada para aprobación".
+    const enviadaAprobacion = eraBorrador || !editingIsDb;
+    showToast(enviadaAprobacion ? 'Oferta enviada para aprobación' : 'Cambios guardados', 'ok');
     if (thenRun) thenRun();
+    if (enviadaAprobacion && itemGuardado) setInvitacionTarget(itemGuardado);
     return true;
   }
 
+  // Ambos botones de eliminar (el del header y el de Acciones) abren la misma advertencia;
+  // la baja real recién ocurre si el socio confirma en el modal.
   function deleteEditing() {
     if (!editingOferta || editingOferta === 'new') return;
-    if (!window.confirm('¿Eliminar esta oferta?')) return;
+    setDeleteConfirmModal(true);
+  }
+
+  async function confirmarEliminar() {
+    setDeleteConfirmModal(false);
+    if (!editingOferta || editingOferta === 'new') return;
+    if (esUuid(editingOferta.id)) {
+      const { error } = await supabase.from('promociones').delete().eq('id', editingOferta.id);
+      if (error) { showToast('No se pudo eliminar la oferta', 'err'); return; }
+    }
     setOfertas(prev => prev.filter(o => o.id !== editingOferta.id));
     doStartNew();
     showToast('Oferta eliminada', 'ok');
   }
 
-  function toggleActiva(id) {
-    setOfertas(prev => prev.map(o => o.id === id ? { ...o, activa: !o.activa } : o));
-    if (editingOferta?.id === id) setEditForm(f => ({ ...f, activa: !f.activa }));
+  async function toggleActiva(id) {
+    const target = ofertas.find(o => o.id === id);
+    const next = !(target?.activa);
+    if (esUuid(id)) {
+      const { error } = await supabase.from('promociones').update({ activa: next }).eq('id', id);
+      if (error) { showToast('No se pudo actualizar el estado', 'err'); return; }
+    }
+    setOfertas(prev => prev.map(o => o.id === id ? { ...o, activa: next } : o));
+    if (editingOferta?.id === id) setEditForm(f => ({ ...f, activa: next }));
     showToast('Estado actualizado', 'ok');
   }
 
-  // Etiqueta de formato para mostrar en las tarjetas de la lista.
+  // Descuentos por tarifa de una oferta (con fallback al badge para datos viejos/mock).
+  const tarifaLabel = (id) => TARIFAS.find(t => t.id === id)?.label || 'Todas las tarifas';
+  const descuentosDeOferta = (o) => {
+    if (Array.isArray(o.descuentos) && o.descuentos.length) return o.descuentos.filter(d => d && d.valor);
+    const b = o.badge || (o.descuento ? `${o.descuento}%` : '');
+    return b ? [{ tarifa: 'todas', valor: b }] : [];
+  };
+  // Etiqueta corta (grilla): formato activo o, si no, la tarifa del primer descuento.
   const etiquetaFormato = (o) => {
-    if (Array.isArray(o.formatos) && o.formatos.length) return formatoDe(o.formatos[0])?.label || 'Ahorro estándar';
-    return o.tipo || 'Ahorro estándar';
+    if (Array.isArray(o.formatos) && o.formatos.length) return formatoDe(o.formatos[0])?.label || '';
+    return descuentosDeOferta(o)[0] ? tarifaLabel(descuentosDeOferta(o)[0].tarifa) : '';
   };
 
   function OfertaCardGrid({ o, idx }) {
@@ -971,40 +1574,74 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
           <img src={img} alt={o.titulo} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.7) 0%, rgba(11,16,32,0.1) 55%, transparent 100%)' }}/>
           <div style={{ position: 'absolute', bottom: 10, left: 12 }}>
-            <div style={{ color: '#fff', fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1 }}>{o.badge || (o.descuento ? `${o.descuento}%` : '')}</div>
+            <div style={{ color: '#fff', fontSize: 28, fontWeight: 800, lineHeight: 1 }}>{o.badge || (o.descuento ? `${o.descuento}%` : '')}</div>
           </div>
-          <div style={{ position: 'absolute', top: 10, left: 10, background: o.activa ? 'rgba(16,185,129,0.85)' : 'rgba(100,116,139,0.7)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999 }}>
-            {o.activa ? 'Activa' : 'Inactiva'}
+          <div style={{ position: 'absolute', top: 10, left: 10, background: o.borrador ? 'rgba(245,158,11,0.92)' : o.activa ? 'rgba(16,185,129,0.85)' : 'rgba(100,116,139,0.7)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, letterSpacing: o.borrador ? '0.06em' : 'normal' }}>
+            {o.borrador ? 'BORRADOR' : o.activa ? 'Activa' : 'Inactiva'}
           </div>
+          {o.impulsoActivo && (
+            <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(124,58,237,0.9)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999 }}>
+              <TrendingUp size={11}/> Impulsada
+            </div>
+          )}
         </div>
         <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>{etiquetaFormato(o)}</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: INK, lineHeight: 1.3, flex: 1 }}>{o.titulo}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div onClick={e => e.stopPropagation()}>
-              <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 600, color: o.activa ? GREEN : MUTED, flex: 1 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
+            {o.borrador ? (
+              <span style={{ fontSize: 11, fontWeight: 700, color: YELLOW, flex: 1 }}>Borrador · seguí editando</span>
+            ) : (
+              <>
+                <div onClick={e => e.stopPropagation()}>
+                  <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 600, color: o.activa ? GREEN : MUTED, flex: 1 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
+              </>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
-  function OfertaRowList({ o }) {
+  function OfertaRowList({ o, idx }) {
     const isSel = editingOferta && editingOferta !== 'new' && editingOferta.id === o.id;
+    const img = o.img || PLACEHOLDER_IMGS[(idx || 0) % PLACEHOLDER_IMGS.length];
+    const descs = descuentosDeOferta(o);
+    const badge = descs[0]?.valor || '';
     return (
-      <div style={{ background: CARD, border: `1px solid ${isSel ? P : LINE}`, borderRadius: 12, padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 14, fontFamily: FONT }}>
-        <div style={{ width: 46, height: 46, borderRadius: 12, background: isSel ? PS : '#f1f5f9', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: isSel ? P : MUTED }}>−{o.descuento}%</span>
+      <div onClick={() => startEdit(o)} style={{ background: CARD, border: `1px solid ${isSel ? P : LINE}`, borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 13, fontFamily: FONT, cursor: 'pointer', boxShadow: isSel ? `0 0 0 3px ${PS}` : 'none' }}>
+        {/* Foto con el badge de descuento (bold, fondo negro) */}
+        <div style={{ position: 'relative', width: 66, height: 66, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: BG }}>
+          <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+          {badge && (
+            <div style={{ position: 'absolute', bottom: 4, left: 4, background: '#0b1020', color: '#fff', fontSize: 12, fontWeight: 900, padding: '2px 6px', borderRadius: 6, lineHeight: 1.15, maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{badge}</div>
+          )}
         </div>
+        {/* Título + desglose por tarifa (uno abajo del otro si hay varios) */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: INK }}>{o.titulo}</div>
-          <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{etiquetaFormato(o)}{o.desc && ` · ${o.desc}`}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {o.titulo || <span style={{ color: MUTED, fontWeight: 600 }}>Sin título</span>}
+          </div>
+          <div style={{ marginTop: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {descs.length ? descs.map((d, i) => (
+              <div key={i} style={{ fontSize: 11.5, color: INK2 }}>
+                <b style={{ color: INK }}>{d.valor}</b> <span style={{ color: MUTED }}>· {tarifaLabel(d.tarifa)}</span>
+              </div>
+            )) : <div style={{ fontSize: 11.5, color: MUTED }}>Sin descuento cargado</div>}
+          </div>
         </div>
-        <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
-        <span style={{ fontSize: 11, fontWeight: 600, color: o.activa ? GREEN : MUTED, minWidth: 44 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
-        <button onClick={() => startEdit(o)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${isSel ? P : LINE}`, background: isSel ? PS : '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', color: isSel ? P : INK2 }}>
+        {/* Estado */}
+        {o.borrador ? (
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: YELLOW, padding: '3px 9px', borderRadius: 999, letterSpacing: '0.06em', flexShrink: 0 }}>BORRADOR</span>
+        ) : (
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <Toggle on={o.activa} onChange={() => toggleActiva(o.id)}/>
+            <span style={{ fontSize: 11, fontWeight: 600, color: o.activa ? GREEN : MUTED, minWidth: 44 }}>{o.activa ? 'Activa' : 'Inactiva'}</span>
+          </div>
+        )}
+        <button onClick={e => { e.stopPropagation(); startEdit(o); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${isSel ? P : LINE}`, background: isSel ? PS : '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', color: isSel ? P : INK2, flexShrink: 0 }}>
           <Edit2 size={13}/>
         </button>
       </div>
@@ -1076,15 +1713,11 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
     );
   }
 
-  const SectionHeader = ({ title, subtitle }) => (
-    <div style={{ marginTop:8, marginBottom:4 }}>
-      <div style={{ fontFamily:FONT, fontSize:15, fontWeight:700, color:INK }}>{title}</div>
-      {subtitle && <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, marginTop:2 }}>{subtitle}</div>}
-    </div>
-  );
-
   const inputSt = { width: '100%', padding: '9px 12px', borderRadius: 9, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box', background: '#fff' };
   const labelSt = { fontFamily: FONT, fontSize: 10, fontWeight: 700, color: INK2, textTransform: 'uppercase', letterSpacing: '0.06em' };
+  // Caja neutra que se despliega bajo cada opción activa (estilo minimalista, sin colores fuera del sistema).
+  const cfgBox = { marginTop: 4, marginBottom: 6, marginLeft: 30, padding: '12px 14px', background: BG, border: `1px solid ${LINE}`, borderRadius: 12 };
+  const cfgLabel = { ...labelSt, display: 'block', marginBottom: 8 };
 
   const FieldLabel = ({ label, val, max }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
@@ -1095,23 +1728,41 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
 
   return (
     <>
-    <div style={{ display: 'flex', alignItems: 'stretch', margin: -28, minHeight: '100vh' }}>
+    <div style={{ display: 'flex', alignItems: 'stretch', margin: -28, height: '100vh', overflow: 'hidden' }}>
 
-      {/* ─── Left: lista ─── */}
-      <div style={{ flex: 1, minWidth: 0, padding: 28, paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ─── Left: lista (scroll propio) ─── */}
+      <div style={{ flex: 1, minWidth: 0, padding: 28, paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: INK, margin: 0, flex: 1 }}>Ofertas</h2>
-          <div style={{ display: 'flex', border: `1px solid ${LINE}`, borderRadius: 10, overflow: 'hidden' }}>
-            {[{ grid: true, icon: <IcoGrid/> }, { grid: false, icon: <IcoList/> }].map(({ grid, icon }) => (
-              <button key={String(grid)} onClick={() => setVistaGrid(grid)} style={{ width: 34, height: 34, border: 'none', background: vistaGrid === grid ? PS : 'transparent', color: vistaGrid === grid ? P : MUTED, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
-                {icon}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <SectionHeader title="Creadas por mí" subtitle="Hacé clic en una oferta para editarla en el panel."/>
+        {onboarding ? (
+          <>
+            <div>
+              <h2 style={{ fontFamily: FONT, fontSize: 22, fontWeight: 800, color: INK, margin: '0 0 6px' }}>Cargá tu primera oferta</h2>
+              <p style={{ fontFamily: FONT, fontSize: 13, color: INK2, margin: 0, lineHeight: 1.5 }}>
+                Tiene las mismas opciones que después vas a tener en tu panel. Completala a la derecha, o dejalo para más tarde.
+              </p>
+            </div>
+            <button onClick={onSkip}
+              style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 10, padding: '10px 16px', fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK2, cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = P; e.currentTarget.style.color = P; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.color = INK2; }}
+            >
+              {ofertas.length > 0 ? 'Continuar →' : 'Omitir este paso por ahora →'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: INK, margin: 0, flex: 1 }}>Ofertas creadas por mí</h2>
+              <div style={{ display: 'flex', border: `1px solid ${LINE}`, borderRadius: 10, overflow: 'hidden' }}>
+                {[{ grid: true, icon: <IcoGrid/> }, { grid: false, icon: <IcoList/> }].map(({ grid, icon }) => (
+                  <button key={String(grid)} onClick={() => setVistaGrid(grid)} style={{ width: 34, height: 34, border: 'none', background: vistaGrid === grid ? PS : 'transparent', color: vistaGrid === grid ? P : MUTED, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
         {vistaGrid ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
             <button onClick={startNew}
@@ -1120,229 +1771,404 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
               onMouseLeave={e => { if (editingOferta !== 'new') { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = MUTED; } }}
             >
               <div style={{ width: 44, height: 44, borderRadius: '50%', border: '2px dashed currentColor', display: 'grid', placeItems: 'center' }}><Plus size={20}/></div>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Crear oferta</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Crear cupón</span>
             </button>
             {ofertas.length > 0 && <RendimientoCard plan={plan} onUpgrade={onUpgrade} />}
             {[...ofertas].reverse().map((o, idx) => <OfertaCardGrid key={o.id} o={o} idx={idx}/>)}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[...ofertas].reverse().map(o => <OfertaRowList key={o.id} o={o}/>)}
+            {[...ofertas].reverse().map((o, idx) => <OfertaRowList key={o.id} o={o} idx={idx}/>)}
             <button onClick={startNew} style={{ background: 'transparent', border: `2px dashed ${LINE}`, borderRadius: 12, padding: '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', color: MUTED, fontFamily: FONT, fontSize: 13, fontWeight: 600 }}>
-              <Plus size={16} color={MUTED}/> Crear oferta
+              <Plus size={16} color={MUTED}/> Crear cupón de oferta
             </button>
           </div>
         )}
 
       </div>
 
-      {/* ─── Separator ─── */}
-      <div style={{ width: 1, background: LINE, flexShrink: 0 }}/>
+      {/* ─── Separator + panel de edición (se puede cerrar con la X) ─── */}
+      {editorAbierto && <div style={{ width: 1, background: LINE, flexShrink: 0 }}/>}
 
-      {/* ─── Right: panel edición — full height, sin recuadro ─── */}
-      <div style={{ width: '36%', flexShrink: 0, position: 'sticky', top: -28, height: '100vh', background: CARD, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+      {editorAbierto && (
+      <div style={{ width: '36%', flexShrink: 0, height: '100%', background: CARD, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header panel */}
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${LINE}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: PS, flexShrink: 0 }}>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: P }}>
-            {editingOferta === 'new' ? 'Crear oferta' : 'Editar oferta'}
+            {editingOferta === 'new' ? 'Crear cupón' : 'Editar oferta'}
           </span>
-          {editingOferta !== 'new' && (
-            <button onClick={startNew} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: `1px solid ${LINE}`, borderRadius: 8, cursor: 'pointer', color: MUTED, padding: '4px 10px', fontFamily: FONT, fontSize: 11, fontWeight: 600 }}>
-              <Plus size={11}/> Crear oferta
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {editingOferta !== 'new' && (
+              <button onClick={deleteEditing} title="Eliminar oferta" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #fecaca', background: '#fff', cursor: 'pointer', color: '#ef4444', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <Trash2 size={13}/>
+              </button>
+            )}
+            <button onClick={() => tryNav(() => setEditorAbierto(false))} title="Cerrar panel" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', cursor: 'pointer', color: INK2, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <X size={15}/>
             </button>
-          )}
+          </div>
         </div>
 
-        {/* Contenido del panel */}
-        <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-
-          {/* ── 1) Tipo de oferta (primero de todo) ── */}
-          <div>
-            <FieldLabel label="Tipo de oferta"/>
-            <div style={{ fontFamily: FONT, fontSize: 11, color: MUTED, marginBottom: 8 }}>
-              <b style={{ color: INK2 }}>Ahorro estándar</b> es la base. Sumale uno o más formatos:
+        {/* Header fijo "Aumentar visibilidad": sólo al editar un cupón ya publicado (no en alta ni en borrador) */}
+        {editingOferta !== 'new' && !editingOferta.borrador && esUuid(editingOferta.id) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', background: '#fff7ed', borderBottom: '1px solid #fed7aa', flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: '#ffedd5', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <TrendingUp size={16} color="#ea580c"/>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-              {FORMATOS.map(t => {
-                const sel = editForm.formatos.includes(t.id);
-                const dis = formatoDisabled(t);
-                return (
-                  <div key={t.id}
-                    onClick={() => !dis && toggleFormato(t.id)}
-                    title={dis ? `No se combina con ${exclusivoActivo?.label}` : t.desc}
-                    style={{ border: `1.5px solid ${sel ? t.color : LINE}`, borderRadius: 10, padding: '9px 10px', cursor: dis ? 'not-allowed' : 'pointer', background: sel ? `${t.color}0f` : '#fff', opacity: dis ? 0.4 : 1, transition: 'all 0.12s' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <div style={{ width: 24, height: 24, borderRadius: 7, background: sel ? t.color : `${t.color}18`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                        <t.Icon size={13} color={sel ? '#fff' : t.color}/>
-                      </div>
-                      <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: sel ? t.color : INK, lineHeight: 1.15 }}>{t.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Sub-config de los formatos activos */}
-            {editForm.formatos.includes('flash') && (
-              <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 9 }}>
-                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>FLASH · fecha y hora límite</div>
-                <input type="datetime-local"
-                  value={editForm.flashFechaFin ? new Date(editForm.flashFechaFin.getTime() - editForm.flashFechaFin.getTimezoneOffset()*60000).toISOString().slice(0,16) : ''}
-                  onChange={e => setF(f => ({ ...f, flashFechaFin: e.target.value ? new Date(e.target.value) : null }))}
-                  style={{ ...inputSt, fontSize: 12, accentColor: '#ef4444' }}/>
-              </div>
-            )}
-            {editForm.formatos.includes('happyhour') && (
-              <div style={{ marginTop: 10, padding: '10px 12px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 9 }}>
-                <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: '#0ea5e9', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Happy Hour · rango horario</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input type="time" value={editForm.happyDesde} onChange={e => setF(f => ({ ...f, happyDesde: e.target.value }))} style={{ ...inputSt, fontSize: 12, width: 'auto', flex: 1 }}/>
-                  <span style={{ fontFamily: FONT, fontSize: 12, color: MUTED }}>a</span>
-                  <input type="time" value={editForm.happyHasta} onChange={e => setF(f => ({ ...f, happyHasta: e.target.value }))} style={{ ...inputSt, fontSize: 12, width: 'auto', flex: 1 }}/>
-                </div>
-              </div>
-            )}
-            {editForm.formatos.includes('geo') && (
-              <div style={{ marginTop: 10, padding: '9px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#065f46', lineHeight: 1.45 }}>
-                Se activa automáticamente cuando un turista con la app abierta entra en un radio de <b>0,2 km</b> de tu local (dispara notificación push).
-              </div>
-            )}
-            {editForm.formatos.includes('tormenta') && (
-              <div style={{ marginTop: 10, padding: '9px 12px', background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#3730a3', lineHeight: 1.45 }}>
-                Se activa vía API de clima cuando <b>llueve</b> en tu localidad, y avisa por push a los turistas de la zona.
-              </div>
-            )}
-            {editForm.formatos.includes('viral') && (
-              <div style={{ marginTop: 10, padding: '9px 12px', background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#9d174d', lineHeight: 1.45 }}>
-                El descuento sube <b>+2%</b> por cada vez que el turista comparte la oferta, con tope de <b>+30%</b> sobre el descuento base.
-              </div>
-            )}
-            {editForm.formatos.includes('grupal') && (
-              <div style={{ marginTop: 10, padding: '10px 12px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 9 }}>
-                <div style={{ fontFamily: FONT, fontSize: 11, color: '#7c3aed', fontWeight: 700, marginBottom: 6 }}>Compradores necesarios para activarla:</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <button onClick={() => setF(f => ({ ...f, grupalN: String(Math.max(2, Number(f.grupalN)-1)) }))} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #ddd6fe', background: '#ede9fe', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, color: '#7c3aed', fontSize: 16, display: 'grid', placeItems: 'center' }}>−</button>
-                  <input type="number" min="2" max="999" value={editForm.grupalN} onChange={e => setF(f => ({ ...f, grupalN: e.target.value }))} style={{ width: 56, padding: '5px 8px', borderRadius: 7, border: '1px solid #ddd6fe', fontFamily: FONT, fontSize: 15, fontWeight: 800, color: '#7c3aed', outline: 'none', textAlign: 'center', background: '#fff' }}/>
-                  <button onClick={() => setF(f => ({ ...f, grupalN: String(Number(f.grupalN)+1) }))} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #ddd6fe', background: '#ede9fe', cursor: 'pointer', fontFamily: FONT, fontWeight: 700, color: '#7c3aed', fontSize: 16, display: 'grid', placeItems: 'center' }}>+</button>
-                  <span style={{ fontFamily: FONT, fontSize: 11, color: MUTED }}>personas</span>
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={editForm.grupalTrampa} onChange={e => setF(f => ({ ...f, grupalTrampa: e.target.checked }))} style={{ accentColor: '#7c3aed', width: 15, height: 15 }}/>
-                  <span style={{ fontFamily: FONT, fontSize: 11.5, color: INK2 }}>Mostrar como "activada" al llegar al 50% (incentivo visual)</span>
-                </label>
-              </div>
-            )}
-            {editForm.formatos.includes('circuitos') && (
-              <div style={{ marginTop: 10, padding: '9px 12px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#9a3412', lineHeight: 1.45 }}>
-                Este cupón formará parte de un <b>circuito</b> de varios socios. El turista canjea en cada local y, al completar todos los QR, desbloquea un cupón de recompensa. <i>La configuración del circuito se define con el equipo de Cuponear.</i>
-              </div>
-            )}
-            {editForm.formatos.includes('ruleta') && (
-              <div style={{ marginTop: 10, padding: '9px 12px', background: '#fefce8', border: '1px solid #fef08a', borderRadius: 9, fontFamily: FONT, fontSize: 11.5, color: '#854d0e', lineHeight: 1.45 }}>
-                En el detalle del cupón, el turista gira una <b>ruleta</b> (un giro por persona) que define el precio y el descuento final. Reemplaza el precio fijo.
-              </div>
-            )}
+            <span style={{ flex: 1, fontFamily: FONT, fontSize: 12.5, fontWeight: 700, color: '#9a3412', lineHeight: 1.3 }}>
+              {editingOferta.impulsoActivo
+                ? <>Impulsada · {Math.round((editingOferta.impulsoRestante || 0) * 100) / 100} créd. restantes</>
+                : 'Aumentá la visibilidad de este cupón'}
+            </span>
+            <button onClick={() => setInvitacionTarget(editingOferta)}
+              style={{ flexShrink: 0, background: '#ea580c', color: '#fff', border: 'none', borderRadius: 9, padding: '7px 12px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              {editingOferta.impulsoActivo ? 'Sumar más' : 'Dar impulso'}
+            </button>
           </div>
+        )}
 
-          {/* ── 2) Vista previa editable (minificha) ── */}
+        {/* Contenido del panel */}
+        <div className="oferta-editor-form" onBlur={handlePanelBlur} style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+
+          {/* ── 1) Foto de la oferta (arriba de todo, proporción 4/3 como el frontend) ── */}
           <div>
-            <FieldLabel label="Así se va a ver tu cupón — editalo acá"/>
-            <div style={{ border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden', background: CARD }}>
-              {/* Foto + ribbons + badge inline */}
-              <div style={{ position: 'relative', height: 150, overflow: 'hidden', background: BG }}>
-                {editForm.imagenes[0]?.src ? (
-                  <img src={editForm.imagenes[0].src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-                ) : (
-                  <div onClick={() => fileInputRef.current?.click()}
-                    onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleImageFiles(Array.from(e.dataTransfer.files)); }}
-                    style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', color: MUTED }}>
-                    <Upload size={20} style={{ opacity: 0.5 }}/>
-                    <span style={{ fontFamily: FONT, fontSize: 12 }}>Subí la foto del cupón</span>
-                  </div>
-                )}
-                <div style={{ position: 'absolute', inset: 0, background: editForm.imagenes[0]?.src ? 'linear-gradient(to top, rgba(11,16,32,0.72) 0%, rgba(11,16,32,0.1) 55%, transparent 100%)' : 'none', pointerEvents: 'none' }}/>
-
-                {/* Ribbons de formatos activos */}
-                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: '75%' }}>
-                  {editForm.formatos.map(fid => {
+            <FieldLabel label=""/>
+            {editForm.imagenes[0]?.src ? (
+              <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', border: `1px solid ${LINE}`, aspectRatio: '4 / 3', background: BG }}>
+                <img src={editForm.imagenes[0].src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
+                {/* Preview en vivo — mismo formato/posición que la minificha (OfertaCard):
+                    sin título, el descuento queda abajo del todo; al escribir el título, sube. */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)', pointerEvents: 'none' }}/>
+                {/* Chips de las opciones activas (Happy Hour no se muestra: va sólo en el detalle) */}
+                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: '70%', pointerEvents: 'none' }}>
+                  {editForm.formatos.filter(fid => fid !== 'happyhour').map(fid => {
                     const f = formatoDe(fid);
+                    if (!f) return null;
                     return (
-                      <div key={fid} style={{ display: 'flex', alignItems: 'center', gap: 4, background: f.color, borderRadius: 6, padding: '3px 8px 3px 6px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                      <div key={fid} style={{ display: 'flex', alignItems: 'center', gap: 4, background: f.color, borderRadius: 6, padding: '3px 8px 3px 6px', boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
                         <f.Icon size={11} color="#fff"/>
                         <span style={{ fontFamily: FONT, fontSize: 10.5, fontWeight: 800, color: '#fff', letterSpacing: '0.02em' }}>{f.label}</span>
                       </div>
                     );
                   })}
                 </div>
-
-                {/* Badge inline (grande, sobre el gradiente) */}
-                <input
-                  value={editForm.badge}
-                  onChange={e => e.target.value.length <= 10 && setF(f => ({ ...f, badge: e.target.value }))}
-                  placeholder="20%" maxLength={10}
-                  style={{ position: 'absolute', bottom: 8, left: 12, width: '60%', background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontFamily: FONT, fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1, padding: 0 }}/>
-
-                {editForm.imagenes[0]?.src && (
-                  <button onClick={() => fileInputRef.current?.click()} title="Cambiar foto"
-                    style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }}>
-                    <Upload size={12}/>
-                  </button>
-                )}
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 16px 15px', pointerEvents: 'none' }}>
+                  {badgeValor && (
+                    <div style={{ fontFamily: FONT, fontSize: badgeValor.length > 5 ? 30 : 42, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{badgeValor}</div>
+                  )}
+                  {editForm.titulo && (
+                    <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3, marginTop: 6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{editForm.titulo}</div>
+                  )}
+                </div>
+                <button onClick={() => setF(f => ({ ...f, imagenes: [] }))} title="Eliminar foto"
+                  style={{ position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: '50%', background: 'rgba(15,23,42,0.6)', border: 'none', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0 }}>
+                  <X size={15}/>
+                </button>
               </div>
-
-              {/* Título + descripción inline */}
-              <div style={{ padding: '11px 13px 13px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <input
-                  value={editForm.titulo}
-                  onChange={e => e.target.value.length <= 80 && setF(f => ({ ...f, titulo: e.target.value }))}
-                  placeholder="Título del cupón (ej: Noche + desayuno para 2)" maxLength={80}
-                  style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontFamily: FONT, fontSize: 15, fontWeight: 700, color: INK, padding: 0 }}/>
-                <textarea
-                  value={editForm.desc}
-                  onChange={e => e.target.value.length <= 300 && setF(f => ({ ...f, desc: e.target.value }))}
-                  placeholder="Descripción: qué incluye, condiciones, vigencia…" maxLength={300} rows={2}
-                  style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', resize: 'vertical', fontFamily: FONT, fontSize: 12.5, color: INK2, lineHeight: 1.5, padding: 0 }}/>
+            ) : (
+              <div onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleImageFiles(Array.from(e.dataTransfer.files)); }}
+                style={{ border: `1.5px dashed ${LINE}`, borderRadius: 14, aspectRatio: '4 / 3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', color: MUTED, background: BG }}>
+                <Upload size={22} style={{ opacity: 0.6 }}/>
+                <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK2 }}>Imagen de la oferta</span>
+                <span style={{ fontFamily: FONT, fontSize: 11.5, fontStyle: 'italic' }}>(Formato .jpg ó .png))</span>
               </div>
-            </div>
+            )}
             <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
               onChange={e => { handleImageFiles(Array.from(e.target.files)); e.target.value = ''; }}/>
           </div>
 
-          {/* ── 3) Período activo (debajo de la descripción; FLASH usa su propia fecha) ── */}
-          <div style={{ opacity: editForm.formatos.includes('flash') ? 0.38 : 1, pointerEvents: editForm.formatos.includes('flash') ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
-            <FieldLabel label="Período activo"/>
-            {editForm.formatos.includes('flash') ? (
-              <div style={{ fontFamily: FONT, fontSize: 11, color: MUTED, padding: '8px 10px', background: '#fff5f5', borderRadius: 8, border: '1px solid #fecaca' }}>
-                Las ofertas FLASH usan su propia fecha límite.
-              </div>
-            ) : (
-              <>
-                <MiniDateRange
-                  value={{ desde: editForm.fechaDesde, hasta: editForm.fechaHasta }}
-                  onChange={({ desde, hasta }) => setF(f => ({ ...f, fechaDesde: desde, fechaHasta: hasta }))}
-                />
-                {editForm.fechaDesde && editForm.fechaHasta && (
-                  <div style={{ fontFamily: FONT, fontSize: 10, color: MUTED, marginTop: 4 }}>
-                    Activa {Math.round((editForm.fechaHasta - editForm.fechaDesde) / 86400000) + 1} días
+          {/* El resto del formulario se habilita recién al subir la foto (sólo para una oferta nueva) */}
+          {!mostrarRestoForm ? (
+            <div style={{ fontFamily: FONT, fontSize: 12.5, color: MUTED, fontStyle: 'italic', textAlign: 'center', padding: '2px 0' }}>
+              Subí una foto para cargar el resto de la oferta.
+            </div>
+          ) : (
+          <>
+          {/* ── 2) Tipo de oferta ── */}
+          <div>
+            <FieldLabel label="Tipo de oferta"/>
+            <select value={editForm.tipoDescuento} onChange={e => setTipoDescuento(e.target.value)}
+              style={{ ...inputSt, cursor: 'pointer' }}>
+              {TIPOS_DESCUENTO.map(td => <option key={td.id} value={td.id}>{td.label}</option>)}
+            </select>
+          </div>
+
+          {/* ── 3) Descuento por tarifa (repetible) ── */}
+          <div>
+            <FieldLabel label="Descuento por tarifa"/>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {editForm.descuentos.map((d, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <select value={d.tarifa} onChange={e => actualizarDescuento(i, 'tarifa', e.target.value)}
+                      style={{ ...inputSt, cursor: 'pointer' }}>
+                      {TARIFAS.map(t => <option key={t.id} value={t.id} disabled={tarifaOpcionDisabled(i, t.id)}>{t.label}</option>)}
+                    </select>
+                    {editForm.descuentos.length > 1 && (
+                      <button onClick={() => eliminarDescuento(i)} title="Quitar descuento"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 4, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <Trash2 size={15}/>
+                      </button>
+                    )}
                   </div>
-                )}
-              </>
+                  {editForm.tipoDescuento === 'porcentaje' ? (
+                    // Porcentaje: campo compacto, sólo números y el "%" fijo al lado.
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input value={soloNum(d.valor)} inputMode="numeric"
+                        onChange={e => { const n = soloNum(e.target.value).slice(0, 3); actualizarDescuento(i, 'valor', n ? `${n}%` : ''); }}
+                        placeholder={ejemplosPlaceholder} style={{ ...inputSt, width: 150, flex: 'none' }}/>
+                      <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 800, color: INK2 }}>%</span>
+                    </div>
+                  ) : editForm.tipoDescuento === 'multiplicador' ? (
+                    // Multiplicador: dos números con la "x" fija en el medio.
+                    (() => {
+                      const [a, b] = partesMult(d.valor);
+                      const set = (na, nb) => actualizarDescuento(i, 'valor', (na || nb) ? `${na}x${nb}` : '');
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input value={a} inputMode="numeric" onChange={e => set(soloNum(e.target.value).slice(0, 2), b)}
+                            placeholder="2" style={{ ...inputSt, textAlign: 'center', width: 72, flex: 'none' }}/>
+                          <span style={{ fontFamily: FONT, fontSize: 17, fontWeight: 800, color: INK2 }}>x</span>
+                          <input value={b} inputMode="numeric" onChange={e => set(a, soloNum(e.target.value).slice(0, 2))}
+                            placeholder="1" style={{ ...inputSt, textAlign: 'center', width: 72, flex: 'none' }}/>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    // Beneficio extra: texto/números, sin signos ni caracteres especiales.
+                    <input value={d.valor}
+                      onChange={e => actualizarDescuento(i, 'valor', sanitizarExtra(e.target.value).slice(0, 24))}
+                      placeholder={ejemplosPlaceholder} style={inputSt}/>
+                  )}
+                </div>
+              ))}
+            </div>
+            {puedeAgregarDescuento && (
+              <button onClick={agregarDescuento}
+                style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                <Plus size={15}/> Agregar descuento a otra tarifa
+              </button>
             )}
           </div>
 
-          {/* ── Estado ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: BG, borderRadius: 9 }}>
-            <Toggle on={editForm.activa} onChange={v => setF(f => ({ ...f, activa: v }))}/>
-            <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 600, color: editForm.activa ? GREEN : MUTED }}>{editForm.activa ? 'Activa' : 'Inactiva'}</span>
+          {/* ── 4) Título ── */}
+          <div>
+            <FieldLabel label="En qué será el descuento" val={editForm.titulo} max={80}/>
+            <div style={{ position: 'relative' }}>
+              <input value={editForm.titulo}
+                onChange={e => {
+                  const v = sanitizeTituloOferta(e.target.value);
+                  if (v.length <= 80) setCampoTexto('titulo', v);
+                }}
+                placeholder="Ej. En cenas para dos personas" maxLength={80} style={{ ...inputSt, paddingRight: 34 }}/>
+              <EstadoGuardadoIcono activo={campoActivo === 'titulo'} status={saveStatus}/>
+            </div>
+            <p style={{ marginTop: 4, fontSize: 11, color: '#94a3b8' }}>Solo letras y números, sin puntuación ni símbolos (%, -, etc.).</p>
           </div>
+
+          {/* ── 5) Descripción ── */}
+          <div>
+            <FieldLabel label="Descripción completa" val={editForm.desc} max={300}/>
+            <div style={{ position: 'relative' }}>
+              <textarea value={editForm.desc}
+                onChange={e => e.target.value.length <= 300 && setCampoTexto('desc', e.target.value)}
+                placeholder="Condiciones, qué incluye, detalles extra..." maxLength={300} rows={3}
+                style={{ ...inputSt, resize: 'vertical', lineHeight: 1.5, paddingRight: 34 }}/>
+              <EstadoGuardadoIcono activo={campoActivo === 'desc'} status={saveStatus} style={{ top: 14, transform: 'none' }}/>
+            </div>
+          </div>
+          </>
+          )}
+
+          {/* ── 3) y 4) también se habilitan recién al subir la foto (sólo para una oferta nueva) ── */}
+          {mostrarRestoForm && (
+          <>
+          {/* ── 3) Opciones para incluir a tu oferta (segundo en importancia) ── */}
+          <div>
+            <FieldLabel label="Opciones para incluir a tu oferta"/>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {FORMATOS.map((t, idx) => {
+                const on = editForm.formatos.includes(t.id);
+                const grupalPorTipo = t.id === 'grupal' && editForm.tipoDescuento !== 'porcentaje';
+                const dis = formatoDisabled(t) || grupalPorTipo;
+                const descTxt = grupalPorTipo ? 'Disponible sólo para descuentos por porcentaje.'
+                  : (dis && exclusivoActivo) ? `No se combina con ${exclusivoActivo.label}.`
+                  : t.desc;
+                return (
+                  <div key={t.id}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 2px', borderTop: idx > 0 ? `1px solid ${LINE}` : 'none', opacity: dis ? 0.45 : 1 }}>
+                      <t.Icon size={18} color={on ? P : INK2} style={{ flexShrink: 0 }}/>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK }}>{t.label}</div>
+                        <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 1, lineHeight: 1.4 }}>{descTxt}</div>
+                      </div>
+                      <div style={{ flexShrink: 0, pointerEvents: dis ? 'none' : 'auto' }}>
+                        <Toggle on={on} onChange={() => toggleFormato(t.id)}/>
+                      </div>
+                    </div>
+
+                    {/* Config neutra desplegable */}
+                    {on && t.id === 'flash' && (
+                      <div style={cfgBox}>
+                        <label style={cfgLabel}>Publicar por</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input type="number" min={1} max={72} value={editForm.flashHoras}
+                            onChange={e => setF(f => ({ ...f, flashHoras: e.target.value === '' ? '' : Math.min(72, Math.max(1, Number(e.target.value))) }))}
+                            style={{ ...inputSt, width: 90, flex: 'none' }}/>
+                          <span style={{ fontFamily: FONT, fontSize: 13, color: INK2 }}>horas</span>
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 8, lineHeight: 1.4 }}>Máximo 72 horas.</div>
+                      </div>
+                    )}
+                    {on && t.id === 'happyhour' && (
+                      <div style={cfgBox}>
+                        <label style={cfgLabel}>Rango en que se podrá canjear</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input type="time" value={editForm.happyDesde} onChange={e => setF(f => ({ ...f, happyDesde: e.target.value }))} style={{ ...inputSt, flex: 1 }}/>
+                          <span style={{ fontFamily: FONT, fontSize: 13, color: MUTED }}>a</span>
+                          <input type="time" value={editForm.happyHasta} onChange={e => setF(f => ({ ...f, happyHasta: e.target.value }))} style={{ ...inputSt, flex: 1 }}/>
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 8, lineHeight: 1.4 }}>Se muestra sólo en el detalle del cupón.</div>
+                      </div>
+                    )}
+                    {on && t.id === 'ruleta' && (
+                      <div style={cfgBox}>
+                        <div style={{ fontFamily: FONT, fontSize: 12, color: INK2, lineHeight: 1.5, marginBottom: 14 }}>
+                          Se puede girar <b>una vez por semana, por usuario</b>. Elegí las opciones aparecen y con qué frecuencia salen.
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <span style={{ ...cfgLabel, marginBottom: 0, flex: 1 }}>Opción</span>
+                          <span style={{ ...cfgLabel, marginBottom: 0, width: 78, textAlign: 'center' }}>Probabilidad</span>
+                          <span style={{ width: 18 }}/>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {editForm.ruletaOpciones.map((op, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <input value={op.premio} onChange={e => actualizarOpcRuleta(i, 'premio', e.target.value)}
+                                placeholder="Ej. 30% off" maxLength={40} style={{ ...inputSt, flex: 1 }}/>
+                              <div style={{ position: 'relative', width: 78 }}>
+                                <input type="number" min={0} max={100} value={op.prob}
+                                  onChange={e => actualizarOpcRuleta(i, 'prob', e.target.value)}
+                                  placeholder="0" style={{ ...inputSt, paddingRight: 22, textAlign: 'center', fontWeight: 700, color: P }}/>
+                                <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: MUTED, fontFamily: FONT, fontSize: 12, fontWeight: 700 }}>%</span>
+                              </div>
+                              <button onClick={() => eliminarOpcRuleta(i)} disabled={editForm.ruletaOpciones.length <= 1} title="Quitar opción" style={{ background: 'none', border: 'none', cursor: editForm.ruletaOpciones.length <= 1 ? 'not-allowed' : 'pointer', color: MUTED, opacity: editForm.ruletaOpciones.length <= 1 ? 0.3 : 1, padding: 2, display: 'grid', placeItems: 'center', width: 18 }}>
+                                <Trash2 size={14}/>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+                          <button onClick={agregarOpcRuleta} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                            <Plus size={15}/> Agregar opción
+                          </button>
+                          <span style={{ fontFamily: FONT, fontSize: 11.5, fontWeight: 600, color: probTotalRuleta === 100 ? GREEN : MUTED }}>
+                            Suma: {probTotalRuleta}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {on && t.id === 'grupal' && (
+                      <div style={cfgBox}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {editForm.tramos.map((t2, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 12.5, color: INK2 }}>
+                              <span>De</span>
+                              <input type="number" min={1} value={t2.min_pax} onChange={e => actualizarTramo(i, 'min_pax', e.target.value)} style={{ width: 42, padding: '7px 4px', borderRadius: 8, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 12.5, textAlign: 'center', outline: 'none' }}/>
+                              <span>a</span>
+                              <input type="number" min={1} value={t2.max_pax} onChange={e => actualizarTramo(i, 'max_pax', e.target.value)} style={{ width: 42, padding: '7px 4px', borderRadius: 8, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 12.5, textAlign: 'center', outline: 'none' }}/>
+                              <span style={{ marginRight: 'auto' }}>pers.</span>
+                              {i === 0 ? (
+                                <input type="number" value={Number.isFinite(pisoPctGrupal) ? pisoPctGrupal : ''} disabled
+                                  title="Piso: es el % de la etiqueta de arriba (no editable)"
+                                  style={{ width: 50, padding: '7px 4px', borderRadius: 8, border: `1px solid ${LINE}`, background: BG, fontFamily: FONT, fontSize: 12.5, fontWeight: 700, color: MUTED, textAlign: 'center', outline: 'none', cursor: 'not-allowed' }}/>
+                              ) : (
+                                <input type="number" min={0} max={100} value={t2.discount_pct} onChange={e => actualizarTramo(i, 'discount_pct', e.target.value)} style={{ width: 50, padding: '7px 4px', borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', fontFamily: FONT, fontSize: 12.5, fontWeight: 700, color: P, textAlign: 'center', outline: 'none' }}/>
+                              )}
+                              <span style={{ fontWeight: 600, color: MUTED }}>% off</span>
+                              <button onClick={() => eliminarTramo(i)} disabled={editForm.tramos.length <= 1} title="Quitar rango" style={{ background: 'none', border: 'none', cursor: editForm.tramos.length <= 1 ? 'not-allowed' : 'pointer', color: MUTED, opacity: editForm.tramos.length <= 1 ? 0.3 : 1, padding: 2, display: 'grid', placeItems: 'center' }}>
+                                <Trash2 size={14}/>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 11, color: MUTED, marginTop: 8, lineHeight: 1.4 }}>
+                          El primer rango usa el <b>{Number.isFinite(pisoPctGrupal) ? `${pisoPctGrupal}%` : '%'}</b> de la etiqueta como piso; los siguientes deben ser mayores.
+                        </div>
+                        <button onClick={agregarTramo} style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                          <Plus size={15}/> Agregar rango
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── 4) Mantener oferta activa: Desde / Hasta (FLASH usa su propia fecha) ── */}
+          <div style={{ opacity: editForm.formatos.includes('flash') ? 0.38 : 1, pointerEvents: editForm.formatos.includes('flash') ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
+            <FieldLabel label="Mantener oferta activa"/>
+            {editForm.formatos.includes('flash') ? (
+              <div style={{ fontFamily: FONT, fontSize: 12, color: MUTED, padding: '10px 12px', background: BG, borderRadius: 10, border: `1px solid ${LINE}` }}>
+                Las ofertas FLASH usan su propia fecha límite.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ ...labelSt, width: 44, flexShrink: 0, paddingTop: 11 }}>Desde</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <select value={editForm.desdeModo} onChange={e => setDesdeModo(e.target.value)} style={{ ...inputSt, cursor: 'pointer' }}>
+                      <option value="hoy">Hoy</option>
+                      <option value="especifica">Fecha y hora específica</option>
+                    </select>
+                    {editForm.desdeModo === 'especifica' && (
+                      <input type="datetime-local" value={toLocalDT(editForm.fechaDesde)}
+                        onChange={e => setF(f => ({ ...f, fechaDesde: e.target.value ? new Date(e.target.value) : null }))}
+                        style={{ ...inputSt, marginTop: 8, accentColor: P }}/>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ ...labelSt, width: 44, flexShrink: 0, paddingTop: 11 }}>Hasta</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <select value={editForm.hastaModo} onChange={e => setHastaModo(e.target.value)} style={{ ...inputSt, cursor: 'pointer' }}>
+                      <option value="manual">Que la desactive manualmente</option>
+                      <option value="especifica">Fecha y hora específica</option>
+                    </select>
+                    {editForm.hastaModo === 'especifica' && (
+                      <input type="datetime-local" value={toLocalDT(editForm.fechaHasta)}
+                        onChange={e => setF(f => ({ ...f, fechaHasta: e.target.value ? new Date(e.target.value) : null }))}
+                        style={{ ...inputSt, marginTop: 8, accentColor: P }}/>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          </>
+          )}
 
           {/* ── Acciones ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 8 }}>
-            <button onClick={() => saveEdit()} style={{ width: '100%', background: isDirty ? P : `${P}88`, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 0', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s' }}>
-              <Save size={14}/> {editingOferta === 'new' ? 'Crear oferta' : 'Guardar cambios'}
-              {isDirty && <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.25)', borderRadius: 4, padding: '1px 5px', marginLeft: 2 }}>sin guardar</span>}
+            {/* Sólo para una oferta ya publicada (no "new"/borrador, donde el CTA sigue siendo
+                "Publicar cupón"): si el autoguardado ya se llevó todos los cambios, el botón
+                queda en verde, con la tilde, y deshabilitado — no hay nada que volver a guardar. */}
+            {(() => { const yaGuardado = editingOferta !== 'new' && !editingOferta?.borrador && !isDirty && !savingOferta && camposCompletos; return (
+            <button onClick={() => saveEdit()} disabled={savingOferta || !camposCompletos || yaGuardado}
+              style={{ width: '100%', background: yaGuardado ? GREENS : (camposCompletos && !savingOferta) ? P : LINE, color: yaGuardado ? GREEN : (camposCompletos && !savingOferta) ? '#fff' : MUTED, border: yaGuardado ? `1.5px solid ${GREEN}` : 'none', borderRadius: 10, padding: '12px 0', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: (savingOferta || !camposCompletos || yaGuardado) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'background 0.15s' }}>
+              {yaGuardado
+                ? <><CheckCircle2 size={14}/> Guardado</>
+                : savingOferta ? 'Guardando…' : (editingOferta === 'new' || editingOferta?.borrador) ? 'Publicar cupón' : 'Guardar cambios'}
+              {isDirty && !savingOferta && camposCompletos && !yaGuardado && <span style={{ fontSize: 10, background: 'rgba(255,255,255,0.25)', borderRadius: 4, padding: '1px 5px', marginLeft: 2 }}>sin guardar</span>}
             </button>
+            ); })()}
+            {!camposCompletos && (
+              <div style={{ fontSize: 11, color: MUTED, textAlign: 'center', marginTop: -2 }}>Faltan: {camposFaltantes.join(', ')}.</div>
+            )}
             {editingOferta !== 'new' && (
               <button onClick={deleteEditing} style={{ width: '100%', background: 'transparent', color: '#ef4444', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 0', fontFamily: FONT, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <Trash2 size={13}/> Eliminar oferta
@@ -1352,6 +2178,7 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
 
         </div>
       </div>
+      )}
 
     </div>
 
@@ -1369,7 +2196,7 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
             }
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-            <button onClick={() => { const ok = saveEdit(); if (ok) { setUnsavedModal(false); pendingNav.current?.(); pendingNav.current = null; } }}
+            <button onClick={() => saveEdit(() => { setUnsavedModal(false); pendingNav.current?.(); pendingNav.current = null; })}
               style={{ width: '100%', background: P, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
               <Save size={15}/> Guardar y continuar
             </button>
@@ -1385,6 +2212,58 @@ function TabOfertas({ dbPromos, negocioId, showToast, plan = 'free', onUpgrade }
         </div>
       </div>,
       document.body
+    )}
+
+    {/* ── Modal: confirmar eliminación (no se puede deshacer) ── */}
+    {deleteConfirmModal && ReactDOM.createPortal(
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,16,32,0.55)', zIndex: 99999, display: 'grid', placeItems: 'center', backdropFilter: 'blur(4px)' }}
+        onClick={() => setDeleteConfirmModal(false)}>
+        <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 24, width: 360, padding: '28px 28px 24px', fontFamily: FONT, boxShadow: '0 24px 64px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 0 }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#fef2f2', display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+            <Trash2 size={24} color="#ef4444"/>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: INK, marginBottom: 6 }}>¿Eliminar esta oferta?</div>
+          <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.55, marginBottom: 22 }}>
+            {editForm.titulo
+              ? <>Vas a borrar <strong style={{ color: INK2 }}>"{editForm.titulo}"</strong> para siempre. <strong style={{ color: '#ef4444' }}>Esta acción no se puede deshacer.</strong></>
+              : <>Esta acción <strong style={{ color: '#ef4444' }}>no se puede deshacer</strong>: la oferta se borra para siempre.</>
+            }
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+            <button onClick={confirmarEliminar}
+              style={{ width: '100%', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              <Trash2 size={15}/> Eliminar definitivamente
+            </button>
+            <button onClick={() => setDeleteConfirmModal(false)}
+              style={{ width: '100%', background: 'transparent', color: MUTED, border: `1px solid ${LINE}`, borderRadius: 12, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+
+    {/* ── Impulsá tu oferta: post-publicación y "Aumentar visibilidad" del header fijo ── */}
+    {invitacionTarget && (
+      <ImpulsoInvitacion
+        oferta={invitacionTarget}
+        negocioId={negocioId}
+        saldo={saldoTokens}
+        showToast={showToast}
+        onClose={() => setInvitacionTarget(null)}
+        onImpulsada={(id, { monto, restante, fromWallet }) => {
+          setOfertas(prev => prev.map(o => o.id === id
+            ? { ...o, impulsoActivo: true, impulsoTotal: (o.impulsoTotal || 0) + monto, impulsoRestante: restante ?? (o.impulsoRestante || 0) + monto }
+            : o));
+          setEditingOferta(prev => (prev && prev.id === id
+            ? { ...prev, impulsoActivo: true, impulsoTotal: (prev.impulsoTotal || 0) + monto, impulsoRestante: restante ?? (prev.impulsoRestante || 0) + monto }
+            : prev));
+          // Del saldo local sólo se descuenta lo que realmente salió de la billetera (el resto se compró, no se resta).
+          setSaldoTokens?.(s => Math.max(0, (s || 0) - fromWallet));
+          setInvitacionTarget(null);
+        }}
+      />
     )}
     </>
   );
@@ -1647,10 +2526,24 @@ function ModalEliminarCuenta({ nombreNegocio, onClose, onEliminada }) {
   );
 }
 
-function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, onCuentaEliminada }) {
+function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNegocio, showToast, onCuentaEliminada }) {
   const [filtroMov, setFiltroMov] = useState('todo');
   const [showEliminar, setShowEliminar] = useState(false);
+  const [cambiandoVisibilidad, setCambiandoVisibilidad] = useState(false);
   const movRef = useRef(null);
+
+  const negocioActivo = negocio?.activo !== false;
+
+  async function toggleVisibilidad() {
+    if (!negocio?.id || cambiandoVisibilidad) return;
+    const nuevoEstado = !negocioActivo;
+    setCambiandoVisibilidad(true);
+    const { error } = await supabase.from('negocios').update({ activo: nuevoEstado }).eq('id', negocio.id);
+    setCambiandoVisibilidad(false);
+    if (error) { showToast?.('No se pudo actualizar la visibilidad', 'err'); return; }
+    setNegocio?.(prev => (prev ? { ...prev, activo: nuevoEstado } : prev));
+    showToast?.(nuevoEstado ? 'Tu negocio volvió a estar visible' : 'Tu negocio quedó oculto de listados y búsquedas', 'ok');
+  }
 
   // Plan real del negocio + precio real del plan Plus (fuente de verdad: tabla `planes`)
   const esPlusReal = negocio?.plan === 'plus';
@@ -1912,6 +2805,35 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, onCue
           )}
         </div>
       </Card>
+
+      {/* ── Visibilidad del negocio ── */}
+      {!perfil?.es_superadmin && negocio?.aprobado && (
+        <Card style={{ border: `1px solid ${negocioActivo ? LINE : '#F3D9A8'}`, background: negocioActivo ? CARD : '#FFFBF0' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:14, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ width:38, height:38, borderRadius:11, background: negocioActivo ? GREENS : '#FDF0DA', display:'grid', placeItems:'center', color: negocioActivo ? GREEN : '#b45309', flexShrink:0 }}>
+                {negocioActivo ? <Eye size={17}/> : <EyeOff size={17}/>}
+              </div>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:4 }}>
+                  {negocioActivo ? 'Tu negocio está visible' : 'Tu negocio está inactivo'}
+                </div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>
+                  {negocioActivo
+                    ? 'Aparece en listados, búsquedas y ofertas para los turistas.'
+                    : 'No aparece en listados, búsquedas ni ofertas hasta que lo reactivés.'}
+                </div>
+              </div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+              <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color: negocioActivo ? GREEN : MUTED }}>
+                {negocioActivo ? 'Activo' : 'Inactivo'}
+              </span>
+              <Toggle on={negocioActivo} onChange={toggleVisibilidad} />
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* ── Zona de peligro ── */}
       {!perfil?.es_superadmin && (
@@ -2844,9 +3766,9 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       />
 
       <main style={{ flex:1, padding:28, overflowY:'auto', maxWidth:'100%' }}>
-        {tab === 'cuenta'      && <TabCuenta credits={credits} addonTotal={addonTotal} setShowComprar={setShowComprar} perfil={perfil} negocio={negocio} onCuentaEliminada={handleLogout}/>}
+        {tab === 'cuenta'      && <TabCuenta credits={credits} addonTotal={addonTotal} setShowComprar={setShowComprar} perfil={perfil} negocio={negocio} setNegocio={setNegocio} showToast={showToast} onCuentaEliminada={handleLogout}/>}
         {tab === 'notif'       && <TabNovedades credits={credits} setCredits={setCredits} onGoToVentas={() => setTab('solicitudes')}/>}
-        {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')}/>}
+        {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens}/>}
         {tab === 'stats'       && <TabEstadisticas/>}
         {tab === 'solicitudes' && <TabVentas negocioId={perfil?.negocio_id} showToast={showToast}/>}
         {tab === 'empresa' && <TabEmpresa negocio={negocio} showToast={showToast}/>}
@@ -2866,6 +3788,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       <style>{`
         * { box-sizing: border-box; }
         input:focus, textarea:focus, select:focus { border-color: ${P} !important; box-shadow: 0 0 0 3px ${PS}; }
+        @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );

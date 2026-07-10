@@ -3,9 +3,11 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Trash2, CheckCircle2, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { calcularPrecioCupon, CREDITO_TOTAL } from '../lib/cobros';
+import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
+import { sanitizeTituloOferta } from '../lib/ofertas';
 
 const TIPOS_ALOJ = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
 // Set más amplio para detectar si el negocio actual es un alojamiento
@@ -30,6 +32,26 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
     ahorro_modalidad: oferta?.ahorro_modalidad || '',
     fecha_vencimiento: oferta?.fecha_vencimiento ? oferta.fecha_vencimiento.split('T')[0] : '',
   });
+
+  // ── Cupón grupal ──
+  const [esGrupal, setEsGrupal] = useState(oferta?.is_group || false);
+  const [grupo, setGrupo]       = useState({
+    group_min_pax: oferta?.group_min_pax ?? 2,
+    group_max_pax: oferta?.group_max_pax ?? 12,
+    base_price_pp: oferta?.base_price_pp ?? '',
+  });
+  const [tramos, setTramos]     = useState(
+    Array.isArray(oferta?.group_tiers) && oferta.group_tiers.length ? oferta.group_tiers : DEFAULT_TIERS
+  );
+  const setGrupoField = k => e => setGrupo(g => ({ ...g, [k]: e.target.value }));
+  const actualizarTramo = (i, key, value) =>
+    setTramos(prev => prev.map((t, idx) => idx === i ? { ...t, [key]: value === '' ? '' : Number(value) } : t));
+  const agregarTramo = () => setTramos(prev => {
+    const ult = prev[prev.length - 1];
+    const desde = ult ? Number(ult.max_pax) + 1 : Number(grupo.group_min_pax) || 2;
+    return [...prev, { min_pax: desde, max_pax: desde + 1, discount_pct: (Number(ult?.discount_pct) || 0) + 5 }];
+  });
+  const eliminarTramo = (i) => setTramos(prev => prev.filter((_, idx) => idx !== i));
 
   // Alianzas: array de { negocio_id, nombre, beneficio_mejorado }
   const [alianzas, setAlianzas]         = useState([]);
@@ -94,13 +116,23 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
   }
 
   async function guardar() {
-    if (!form.titulo) return setError('El título es obligatorio');
+    const tituloLimpio = sanitizeTituloOferta(form.titulo).trim();
+    if (!tituloLimpio) return setError('El título es obligatorio y solo puede tener letras y números');
     if (!(Number(form.ahorro_estimado) > 0)) return setError('Ingresá el ahorro estimado para el usuario (mayor a $0)');
     if (esAlojamiento && !form.ahorro_modalidad) return setError('Elegí a qué corresponde el ahorro (por noche, por persona o toda la estadía)');
+    if (esGrupal) {
+      const { ok, errores } = validarTramos({
+        minPax: grupo.group_min_pax,
+        maxPax: grupo.group_max_pax,
+        basePricePp: grupo.base_price_pp,
+        tramos,
+      });
+      if (!ok) return setError(errores[0]);
+    }
     setSaving(true); setError('');
 
     const payload = {
-      titulo:          form.titulo,
+      titulo:          tituloLimpio,
       subtitulo:       form.subtitulo,
       badge:           form.badge,
       descripcion:     form.descripcion,
@@ -112,6 +144,16 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
       negocio_id:      negocioId,
       activa:          false,
       aprobada:        false,
+      // Cupón grupal
+      is_group:        esGrupal,
+      group_min_pax:   esGrupal ? Number(grupo.group_min_pax) : null,
+      group_max_pax:   esGrupal ? Number(grupo.group_max_pax) : null,
+      base_price_pp:   esGrupal ? Number(grupo.base_price_pp) : null,
+      group_tiers:     esGrupal
+        ? [...tramos]
+            .map(t => ({ min_pax: Number(t.min_pax), max_pax: Number(t.max_pax), discount_pct: Number(t.discount_pct) }))
+            .sort((a, b) => a.min_pax - b.min_pax)
+        : null,
     };
 
     let result;
@@ -174,9 +216,10 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
 
             <div>
               <label className="block text-xs font-black text-slate-500 mb-1.5">Título *</label>
-              <input value={form.titulo} onChange={set('titulo')} placeholder="Ej: 2x1 en la mítica tarde de churros."
+              <input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: sanitizeTituloOferta(e.target.value) }))} placeholder="Ej: 2x1 en la mítica tarde de churros."
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
               />
+              <p className="mt-1 text-[11px] text-slate-400">Solo letras y números, sin puntuación ni símbolos (%, -, etc.).</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -264,6 +307,72 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
               />
               <p className="text-slate-400 text-xs font-medium mt-1">Sin fecha: se desactiva automáticamente a los 45 días de aprobarse.</p>
             </div>
+          </section>
+
+          {/* Cupón grupal */}
+          <section className="space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer p-4 rounded-2xl border border-slate-200 bg-slate-50/60">
+              <input type="checkbox" checked={esGrupal} onChange={e => setEsGrupal(e.target.checked)}
+                className="mt-0.5 w-5 h-5 accent-violet-600 cursor-pointer" />
+              <span>
+                <span className="flex items-center gap-2 font-black text-slate-900 text-sm">
+                  <Users size={16} className="text-violet-600" /> Más ahorro viajando en grupo
+                </span>
+                <span className="block text-slate-500 text-xs font-medium mt-0.5">
+                  El organizador declara cuántos van y paga una sola persona. A más beneficiarios, mayor descuento por persona.
+                </span>
+              </span>
+            </label>
+
+            {esGrupal && (
+              <div className="space-y-4 pl-1">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 mb-1.5">Mín. personas</label>
+                    <input type="number" min={2} value={grupo.group_min_pax} onChange={setGrupoField('group_min_pax')}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 mb-1.5">Máx. personas</label>
+                    <input type="number" min={2} value={grupo.group_max_pax} onChange={setGrupoField('group_max_pax')}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 mb-1.5">Precio p/persona</label>
+                    <input type="number" min={0} value={grupo.base_price_pp} onChange={setGrupoField('base_price_pp')} placeholder="$"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-slate-500 mb-1">Tramos de descuento por persona</label>
+                  <p className="text-slate-400 text-[11px] font-medium mb-2.5">Rangos contiguos sin huecos, descuento creciente. Arrancan en el mínimo y terminan en el máximo.</p>
+                  <div className="space-y-2">
+                    {tramos.map((t, i) => (
+                      <div key={i} className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-xl p-2">
+                        <span className="text-[11px] font-black text-slate-400 w-4 text-center shrink-0">{i + 1}</span>
+                        <input type="number" min={1} value={t.min_pax} onChange={e => actualizarTramo(i, 'min_pax', e.target.value)}
+                          className="w-12 px-1.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-center focus:outline-none" />
+                        <span className="text-slate-400 text-xs">a</span>
+                        <input type="number" min={1} value={t.max_pax} onChange={e => actualizarTramo(i, 'max_pax', e.target.value)}
+                          className="w-12 px-1.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-center focus:outline-none" />
+                        <span className="text-slate-500 text-[11px] font-medium mr-auto">pers.</span>
+                        <input type="number" min={0} max={100} value={t.discount_pct} onChange={e => actualizarTramo(i, 'discount_pct', e.target.value)}
+                          className="w-14 px-1.5 py-2 bg-violet-50 border border-violet-200 rounded-lg text-sm font-black text-violet-700 text-center focus:outline-none" />
+                        <span className="text-slate-500 text-[11px] font-bold">%</span>
+                        <button onClick={() => eliminarTramo(i)} disabled={tramos.length <= 1}
+                          className="text-red-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0 p-1">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={agregarTramo} className="flex items-center gap-2 text-violet-600 hover:text-violet-700 font-bold text-sm cursor-pointer mt-2.5">
+                    <Plus size={15} /> Agregar tramo
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Alianzas */}

@@ -6,11 +6,11 @@
 // ============================================================
 
 // Sólo estas subsecciones de Salidas piden "tipo de cocina / bebidas".
-export const CATEGORIAS_GASTRO = new Set(['Restaurantes', 'Bares', 'Cafés & Dulces']);
+export const CATEGORIAS_GASTRO = new Set(['Restaurantes', 'Bares', 'Cafeterías']);
 
 const TIPOS_ALOJ_DB = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Casa', 'Hostel', 'Dormi', 'Domo', 'Carpa', 'Glamping']);
 
-const DESC_MIN = 40;
+export const DESC_MIN = 40;
 
 // ─── Value inicial desde una fila `negocios` (o vacío) ────────
 export function perfilDesdeNegocio(negocio, emailSemilla = '') {
@@ -29,7 +29,8 @@ export function perfilDesdeNegocio(negocio, emailSemilla = '') {
     telFijoCod: n.tel_fijo_cod || '+54', telFijoNum: n.tel_fijo_num || '',
     telMovilCod: n.tel_movil_cod || '+54', telMovilNum: n.tel_movil_num || '',
     sitioWeb: n.sitio_web || '', instagram: n.instagram || '', facebook: n.facebook || '', tiktok: n.tiktok || '',
-    pais: n.pais || 'Argentina', provincia: n.provincia || '', localidad: n.localidad || '', codPostal: n.cod_postal || '',
+    pais: n.pais || 'Argentina', provincia: n.provincia || 'Buenos Aires', localidad: n.localidad || '', codPostal: n.cod_postal || '7165',
+    tieneLocalFisico: n.tiene_local_fisico !== false,
     calle: n.calle || '', piso: n.piso || '', depto: n.depto || '', entreCalles: n.entre_calles || '',
     latLng: (n.lat != null && n.lng != null) ? [Number(n.lat), Number(n.lng)] : null,
     tamMinM2: n.tam_min_m2?.toString() || '', tamMaxM2: n.tam_max_m2?.toString() || '',
@@ -38,6 +39,7 @@ export function perfilDesdeNegocio(negocio, emailSemilla = '') {
     aceptaMascotas: n.acepta_mascotas || false, aceptaNinos: n.acepta_ninos ?? true,
     capacidad: n.capacidad?.toString() || '',
     tiposCocina: n.tipo_cocina ? n.tipo_cocina.split(',').map(s => s.trim()).filter(Boolean) : [],
+    tags: Array.isArray(n.tags) ? n.tags : [],
     reservaObligatoria: n.reserva_obligatoria || false,
     duracion: n.duracion || '', maxPax: n.max_pax?.toString() || '', sedeFija: n.sede_fija || '',
   };
@@ -53,9 +55,13 @@ export function perfilAPayload(v) {
     sitio_web: v.sitioWeb.trim() || null, instagram: v.instagram.trim() || null,
     facebook: v.facebook.trim() || null, tiktok: v.tiktok.trim() || null,
     pais: v.pais, provincia: v.provincia, localidad: v.localidad, cod_postal: v.codPostal.trim() || null,
-    calle: v.calle.trim() || null, piso: v.piso.trim() || null, depto: v.depto.trim() || null,
-    entre_calles: v.entreCalles.trim() || null,
-    lat: v.latLng?.[0] ?? null, lng: v.latLng?.[1] ?? null,
+    tiene_local_fisico: v.tieneLocalFisico,
+    calle: v.tieneLocalFisico ? (v.calle.trim() || null) : null,
+    piso: v.tieneLocalFisico ? (v.piso.trim() || null) : null,
+    depto: v.tieneLocalFisico ? (v.depto.trim() || null) : null,
+    entre_calles: v.tieneLocalFisico ? (v.entreCalles.trim() || null) : null,
+    lat: v.tieneLocalFisico ? (v.latLng?.[0] ?? null) : null,
+    lng: v.tieneLocalFisico ? (v.latLng?.[1] ?? null) : null,
     descripcion: v.descripcion.trim(),
   };
   if (v.tipo === 'alojamiento') {
@@ -72,6 +78,7 @@ export function perfilAPayload(v) {
     payload.reserva_obligatoria = v.reservaObligatoria;
     const esGastro = v.cats.some(c => CATEGORIAS_GASTRO.has(c));
     payload.tipo_cocina = esGastro ? v.tiposCocina.join(', ') : null;
+    payload.tags = v.tags;
   } else if (v.tipo === 'aventura_relax') {
     payload.duracion = v.duracion;
     payload.max_pax = v.maxPax ? parseInt(v.maxPax) : null;
@@ -93,7 +100,8 @@ export function validarPerfil(v) {
   else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.email.trim())) e.email = 'Email inválido';
   if (!v.telMovilNum.trim()) e.telMovil  = 'Campo requerido';
   if (!v.codPostal.trim()) e.codPostal   = 'Campo requerido';
-  if (!v.calle.trim())     e.calle       = 'Campo requerido';
+  // La dirección exacta (calle/mapa) sólo aplica si el partner atiende en un local físico.
+  if (v.tieneLocalFisico && !v.calle.trim()) e.calle = 'Campo requerido';
   if (!v.descripcion.trim()) e.descripcion = 'Campo requerido';
   else if (v.descripcion.length < DESC_MIN) e.descripcion = `Mínimo ${DESC_MIN} caracteres (${v.descripcion.length} escritos)`;
   return e;

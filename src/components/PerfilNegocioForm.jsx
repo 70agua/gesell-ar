@@ -10,6 +10,7 @@ import { useRef, useState } from 'react';
 import { Hotel, UtensilsCrossed, Sparkles } from 'lucide-react';
 import UbicacionMap from './UbicacionMap';
 import { CATEGORIAS_GASTRO } from '../lib/perfilNegocio';
+import { CATS_RUBRO, EXPERIENCIAS_SALIDAS } from '../lib/datos';
 
 // Tokens (idénticos a los del wizard y el panel)
 const P = '#475be1', PS = '#eef0fd', INK = '#0f172a', INK2 = '#475569';
@@ -24,12 +25,6 @@ const TIPOS_RUBRO = [
   { id: 'salidas',        label: 'Salidas',          Icon: UtensilsCrossed },
   { id: 'aventura_relax', label: 'Aventura & Relax', Icon: Sparkles },
 ];
-
-const CATS_RUBRO = {
-  alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
-  salidas:        ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
-  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
-};
 
 const SERVICIOS_ALOJ = [
   'WiFi', 'Estacionamiento', 'Pileta', 'Desayuno incluido',
@@ -272,6 +267,13 @@ export default function PerfilNegocioForm({ value: v, onChange, errors = {} }) {
       {/* ── Ubicación ── */}
       <Card>
         <CardTitle label="Ubicación" />
+        <div style={{ marginBottom: 14 }}>
+          <label style={lbl}>¿Atendés en un local físico?</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Checkbox label="Sí, tengo local / punto de atención" checked={v.tieneLocalFisico} onChange={() => set('tieneLocalFisico', true)} />
+            <Checkbox label="No, trabajo a domicilio / sin local" checked={!v.tieneLocalFisico} onChange={() => set('tieneLocalFisico', false)} />
+          </div>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div>
             <label style={lbl}>País <Req /></label>
@@ -301,33 +303,37 @@ export default function PerfilNegocioForm({ value: v, onChange, errors = {} }) {
             <ErrMsg msg={errors.codPostal} />
           </div>
         </div>
-        <label style={lbl}>Dirección (calle y número) <Req /></label>
-        <div style={{ position: 'relative', marginBottom: 2 }}>
-          <input value={v.calle} onChange={e => handleDireccion(e.target.value)} style={inpE('calle')} placeholder="Ej: Av. 3 1200" autoComplete="off" />
-          <ErrMsg msg={errors.calle} />
-          {(sugerencias.length > 0 || buscando) && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 10, marginTop: 4, boxShadow: '0 8px 24px rgba(11,16,32,0.12)', overflow: 'hidden' }}>
-              {buscando ? (
-                <div style={{ padding: '10px 14px', fontSize: 12, color: MUTED, fontFamily: FONT }}>Buscando…</div>
-              ) : sugerencias.map(s => (
-                <div key={s.place_id} onClick={() => elegirSugerencia(s)}
-                  style={{ padding: '10px 14px', fontSize: 12.5, color: INK2, fontFamily: FONT, cursor: 'pointer', borderBottom: `1px solid ${LINE}` }}
-                  onMouseEnter={e => e.currentTarget.style.background = BG}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                  {s.display_name}
+        {v.tieneLocalFisico && (
+          <>
+            <label style={lbl}>Dirección (calle y número) <Req /></label>
+            <div style={{ position: 'relative', marginBottom: 2 }}>
+              <input value={v.calle} onChange={e => handleDireccion(e.target.value)} style={inpE('calle')} placeholder="Ej: Av. 3 1200" autoComplete="off" />
+              <ErrMsg msg={errors.calle} />
+              {(sugerencias.length > 0 || buscando) && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 10, marginTop: 4, boxShadow: '0 8px 24px rgba(11,16,32,0.12)', overflow: 'hidden' }}>
+                  {buscando ? (
+                    <div style={{ padding: '10px 14px', fontSize: 12, color: MUTED, fontFamily: FONT }}>Buscando…</div>
+                  ) : sugerencias.map(s => (
+                    <div key={s.place_id} onClick={() => elegirSugerencia(s)}
+                      style={{ padding: '10px 14px', fontSize: 12.5, color: INK2, fontFamily: FONT, cursor: 'pointer', borderBottom: `1px solid ${LINE}` }}
+                      onMouseEnter={e => e.currentTarget.style.background = BG}
+                      onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                      {s.display_name}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
-        <div style={{ marginBottom: 8 }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 14, marginBottom: 14 }}>
-          <input value={v.piso} onChange={e => set('piso', e.target.value)} style={inp} placeholder="Piso" />
-          <input value={v.depto} onChange={e => set('depto', e.target.value)} style={inp} placeholder="Depto" />
-          <input value={v.entreCalles} onChange={e => set('entreCalles', e.target.value)} style={inp} placeholder="Entre calles" />
-        </div>
-        <label style={lbl}>Ubicación en el mapa <span style={{ textTransform: 'none', fontWeight: 400, color: MUTED }}>— arrastrá el pin si no coincide con tu dirección</span></label>
-        <UbicacionMap position={v.latLng} onChange={ll => set('latLng', ll)} />
+            <div style={{ marginBottom: 8 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 14, marginBottom: 14 }}>
+              <input value={v.piso} onChange={e => set('piso', e.target.value)} style={inp} placeholder="Piso" />
+              <input value={v.depto} onChange={e => set('depto', e.target.value)} style={inp} placeholder="Depto" />
+              <input value={v.entreCalles} onChange={e => set('entreCalles', e.target.value)} style={inp} placeholder="Entre calles" />
+            </div>
+            <label style={lbl}>Ubicación en el mapa <span style={{ textTransform: 'none', fontWeight: 400, color: MUTED }}>— arrastrá el pin si no coincide con tu dirección</span></label>
+            <UbicacionMap position={v.latLng} onChange={ll => set('latLng', ll)} />
+          </>
+        )}
       </Card>
 
       {/* ── Características (condicional por rubro) ── */}
@@ -381,6 +387,10 @@ export default function PerfilNegocioForm({ value: v, onChange, errors = {} }) {
                     <Chips opciones={TIPOS_COCINA} selected={v.tiposCocina} onToggle={t => toggle('tiposCocina', t)} />
                   </div>
                 )}
+                <div>
+                  <label style={lbl}>Tipo de experiencia</label>
+                  <Chips opciones={EXPERIENCIAS_SALIDAS} selected={v.tags} onToggle={t => toggle('tags', t)} />
+                </div>
                 <Checkbox label="Requiere reserva obligatoria" checked={v.reservaObligatoria} onChange={b => set('reservaObligatoria', b)} />
               </>
             )}

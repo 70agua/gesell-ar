@@ -4,6 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { locations } from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
+import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
 
 const A = {
   ink:         '#0B1020',
@@ -166,8 +167,11 @@ const ALOJ_UBICACIONES = [
 const ALOJ_TIPOS_LIST = [
   { label: 'Hoteles',          val: 'Hotel' },
   { label: 'Cabañas',          val: 'Cabaña' },
-  { label: 'Casas',            val: 'Casa' },
   { label: 'Departamentos',    val: 'Departamento' },
+  { label: 'Aparts',           val: 'Apart' },
+  { label: 'Complejos',        val: 'Complejo' },
+  { label: 'Hosterías',        val: 'Hostería' },
+  { label: 'Resorts',          val: 'Resort' },
   { label: 'Dormis / Camping', val: 'Dormi' },
 ];
 
@@ -296,17 +300,6 @@ const GASTRO_QUE_COME = [
   'Cocina internacional',
 ];
 
-const GASTRO_EXPERIENCIA = [
-  'Cita de a dos',
-  'Plan familiar',
-  'Pies en la arena',
-  'Desayuno & Brunch',
-  'Noche de bares',
-  'Después de la playa',
-  'Para grupos grandes',
-  'Vista al mar',
-];
-
 function GastroDrop({ onNavigate }) {
   return (
     <div style={{ display: 'flex', gap: 0, padding: '24px 24px 20px' }}>
@@ -314,16 +307,16 @@ function GastroDrop({ onNavigate }) {
       {/* Col 1: Categoría */}
       <DropCol title="Categoría">
         {[
-          { label: 'Restaurantes',        val: 'Restaurante' },
-          { label: 'Bares',               val: 'Bar' },
-          { label: 'Cafés & Dulces',      val: 'Café & Dulces' },
-          { label: 'Heladerías',          val: 'Heladería' },
-          { label: 'Panaderías',          val: 'Panadería' },
-          { label: 'Discotecas',          val: 'Discoteca' },
-          { label: 'Cines y Teatros',     val: 'Cine y Teatro' },
-          { label: 'Shows y Recitales',   val: 'Show y Recital' },
-          { label: 'Centros Culturales',  val: 'Centro Cultural' },
-          { label: 'Otros',               val: 'Otro' },
+          { label: 'Restaurantes',        val: 'Restaurantes' },
+          { label: 'Bares',               val: 'Bares' },
+          { label: 'Cafeterías',          val: 'Cafeterías' },
+          { label: 'Heladerías',          val: 'Heladerías' },
+          { label: 'Panaderías',          val: 'Panaderías' },
+          { label: 'Discotecas',          val: 'Discotecas' },
+          { label: 'Cines y Teatros',     val: 'Cines y Teatros' },
+          { label: 'Shows y Recitales',   val: 'Shows y Recitales' },
+          { label: 'Centros Culturales',  val: 'Centros Culturales' },
+          { label: 'Otros',               val: 'Otros' },
         ].map(({ label, val }) => (
           <DropLink key={val} label={label} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas', gastroCategoria: val })} />
         ))}
@@ -335,7 +328,7 @@ function GastroDrop({ onNavigate }) {
 
       {/* Col 2: Tipo de experiencia */}
       <DropCol title="Tipo de experiencia">
-        {GASTRO_EXPERIENCIA.map(l => (
+        {EXPERIENCIAS_SALIDAS.map(l => (
           <DropLink key={l} label={l} onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas', gastroExperiencia: l })} />
         ))}
         <DropDivider />
@@ -404,13 +397,15 @@ function GastroDrop({ onNavigate }) {
 // ─── DROPDOWN AVENTURA & RELAX ──────────────────────────────
 // ═══════════════════════════════════════════════════════════
 const AVENT_CATS_LIST = [
-  { label: 'Excursiones & Paseos',    tipo: 'Excursion' },
   { label: 'Deportes acuáticos',      tipo: 'Deportes acuáticos' },
-  { label: 'Senderismo & Naturaleza', tipo: 'Senderismo' },
-  { label: 'Spa & Masajes',           tipo: 'Spa' },
   { label: 'Cabalgatas',              tipo: 'Cabalgatas' },
-  { label: 'Yoga & Mindfulness',      tipo: 'Yoga / Bienestar' },
   { label: 'Kitesurf & Viento',       tipo: 'Kitesurf' },
+  { label: 'Yoga & Mindfulness',      tipo: 'Yoga / Bienestar' },
+  { label: 'Masajes a domicilio',     tipo: 'Masajes a domicilio' },
+  { label: 'Tour fotográfico',        tipo: 'Tour fotográfico' },
+  { label: 'Pesca deportiva',         tipo: 'Pesca deportiva' },
+  { label: 'Senderismo & Naturaleza', tipo: 'Senderismo' },
+  { label: 'Espectáculos',            tipo: 'Espectáculos' },
 ];
 
 function AventDrop({ onNavigate }) {
@@ -591,6 +586,9 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const navVerOferta = () => nav('marketplace', {});
 
   const esSocioOAdmin = session && (perfil?.negocio_id || perfil?.es_superadmin);
+  // Turista logueado (sin negocio): también ve "Publicar oferta", que lo lleva a
+  // convertir su cuenta en comercial en vez de al editor de ofertas existente.
+  const mostrarPublicarOferta = session && !!perfil;
   const nombreDisplay = esSocioOAdmin
     ? (perfil?.negocios?.nombre || perfil?.nombre || session?.user?.email || 'Mi cuenta')
     : (perfil?.nombre || session?.user?.email || 'Mi cuenta');
@@ -665,7 +663,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               </button>
               {(openMenu === 'aventura' || closingMenu === 'aventura') && (
                 <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'aventura' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
-                  <AventDrop onNavigate={(v) => nav(v)} />
+                  <AventDrop onNavigate={(v, opts) => nav(v, opts)} />
                 </div>
               )}
             </div>
@@ -714,7 +712,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           {/* ── Derecha ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
 
-            {esSocioOAdmin && (
+            {mostrarPublicarOferta && (
               <button
                 onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
                 className="navbar-publicar-btn"
@@ -749,7 +747,10 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                     {esSocioOAdmin ? (
                       <UserMenuItem icon={DashIco} label="Mi panel" onClick={() => { setView(perfil?.es_superadmin ? 'superadmin' : 'admin'); setUserMenuOpen(false); }} />
                     ) : (
-                      <UserMenuItem icon={PersonIco} label="Mi cuenta" onClick={() => { setView('home'); setUserMenuOpen(false); }} />
+                      <>
+                        <UserMenuItem icon={PersonIco} label="Mi cuenta" onClick={() => { setView('home'); setUserMenuOpen(false); }} />
+                        <UserMenuItem icon={StoreIco} label="Convertite en socio" onClick={() => { onPublicarOferta && onPublicarOferta(); setUserMenuOpen(false); }} />
+                      </>
                     )}
                     <div style={{ height: 1, background: A.line, margin: '6px 0' }} />
                     <button onClick={() => { onLogout(); setUserMenuOpen(false); }}
@@ -806,7 +807,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               </button>
             ))}
             <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {esSocioOAdmin && (
+              {mostrarPublicarOferta && (
                 <button onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
                   style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 14, background: A.primary, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: A.font }}>
                   Publicar oferta
@@ -897,3 +898,4 @@ const CuponeraIco = () => <img src="/ico-disc.svg" alt="" style={{ width: 20, he
 const PersonIco   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>;
 const DashIco     = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
 const LogoutIco   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
+const StoreIco    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/></svg>;

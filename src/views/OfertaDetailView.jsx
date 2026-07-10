@@ -13,6 +13,12 @@ import InfoTooltip from '../components/InfoTooltip';
 import HeartButton from '../components/HeartButton';
 import { useFavoritos } from '../lib/favoritos';
 import { useMostrarCreditos } from '../lib/sesion';
+import { grupoConfig, useGroupPricing, descuentoMaximo } from '../lib/grupos';
+import { consumirImpulso } from '../lib/impulso';
+import GroupBadge from '../components/GroupBadge';
+import PaxSelector from '../components/PaxSelector';
+import DiscountTiers from '../components/DiscountTiers';
+import GroupPriceBreakdown from '../components/GroupPriceBreakdown';
 
 // ─── Design tokens ───────────────────────────────────────────
 const C = {
@@ -269,8 +275,39 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   const [added, setAdded]           = useState(false);
   const [consultarOpen, setConsultarOpen] = useState(false);
 
+  // ── Cupón grupal ──
+  const grupoCfg = grupoConfig(oferta);
+  const [pax, setPax] = useState(grupoCfg?.minPax || 1);
+  const pricing = useGroupPricing(oferta, pax);
+
+  // Agregar a la cuponera. Para grupales, congelamos pax/descuento/total/QR.
+  const handleAgregar = () => {
+    if (grupoCfg && pricing) {
+      const qr = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `qr-${oferta.id}-${Date.now()}`;
+      addCupon({
+        ...oferta,
+        _grupal: {
+          declared_pax:        pax,
+          applied_discount_pct: pricing.discountPct,
+          total_paid:          pricing.total,
+          qr_token:            qr,
+        },
+      });
+    } else {
+      addCupon(oferta);
+    }
+    setAdded(true);
+  };
+
   const isFlash  = oferta.offerType === 'Flash';
   const categoria = oferta.categoria || 'oferta';
+
+  // Impulso publicitario: un acceso consume presupuesto (best-effort, una vez por apertura).
+  useEffect(() => {
+    if (oferta.impulsoActivo && oferta.id) consumirImpulso(oferta.id, 'acceso');
+  }, [oferta.id]);
 
   // Calcular "otras ofertas del mismo socio" (o aleatorias si no hay negocioId)
   const otrasOfertas = allPromos
@@ -397,7 +434,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
               {/* Badge + Título en la parte inferior de la imagen */}
               <div className="absolute bottom-0 left-0 right-0 px-7 pb-7">
                 {oferta.badge && (
-                  <div style={{ fontSize: 52, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: 6 }}>
+                  <div style={{ fontSize: 52, fontWeight: 800, color: '#fff', lineHeight: 1, marginBottom: 6 }}>
                     {oferta.badge}
                   </div>
                 )}
@@ -504,8 +541,18 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                 </div>
               )}
 
-              {/* Ahorro + Costo — dos columnas con divisor vertical */}
-              {tokensCosto === 0 ? (
+              {/* Cupón grupal: selector de pax + tramos + desglose */}
+              {grupoCfg ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <GroupBadge descuentoMax={descuentoMaximo(grupoCfg.tramos)} />
+                  <PaxSelector minPax={grupoCfg.minPax} maxPax={grupoCfg.maxPax} value={pax} onChange={setPax} />
+                  <DiscountTiers tramos={grupoCfg.tramos} n={pax} />
+                  <GroupPriceBreakdown pricing={pricing} />
+                  <p style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.5, margin: 0 }}>
+                    Paga una sola persona. El total se congela al agregar el cupón: si finalmente van menos, no se reajusta.
+                  </p>
+                </div>
+              ) : tokensCosto === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F0FDF4', borderRadius: 14, padding: '14px 16px', border: '1px solid #BBF7D0' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10A36B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
                   <span style={{ fontSize: 15, fontWeight: 700, color: '#10A36B' }}>Cupón DE REGALO para vos</span>
@@ -556,7 +603,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
 
               {/* CTA principal */}
               <button
-                onClick={() => { addCupon(oferta); setAdded(true); }}
+                onClick={handleAgregar}
                 className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white cursor-pointer border-0 flex items-center justify-center gap-2 transition-colors"
                 style={{ background: added ? C.green : C.primary, boxShadow: `0 8px 24px ${added ? 'rgba(16,163,107,0.25)' : 'rgba(37,69,230,0.25)'}` }}
                 onMouseEnter={e => { if (!added) e.currentTarget.style.background = C.primaryDark; }}

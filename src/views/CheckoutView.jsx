@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCuponera } from '../lib/cuponera';
 import { getWallet } from '../lib/gamificacion';
+import { consumirImpulso } from '../lib/impulso';
 
 const A = {
   ink:         '#0B1020',
@@ -244,6 +245,12 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
 
     // Simular latencia de procesamiento
     await new Promise(r => setTimeout(r, 1200));
+
+    // Impulso: cada cupón vendido de una oferta impulsada consume presupuesto.
+    cupones.forEach(c => {
+      const of = c._oferta;
+      if (of?.impulsoActivo && of?.id) consumirImpulso(of.id, 'venta');
+    });
 
     if (metodoPago === 'tarjeta') {
       clearCuponera();

@@ -318,7 +318,7 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
                   onClick={() => { busqueda.setFechas(fechas.desde, fechas.hasta); onVerMarketplace && onVerMarketplace(destino); }}
                   style={{ background: A.primary, color: '#fff', border: 'none', padding: '0 28px', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, borderRadius: '0 16px 16px 0', flexShrink: 0, fontFamily: A.font }}
                 >
-                  <IcoSearch /> Buscá ofertas
+                  <IcoSearch /> Buscar ofertas
                 </button>
               </div>
             </div>
@@ -1483,8 +1483,6 @@ function PacksSection({ onArmarPack, onOpenPack }) {
 // ═══════════════════════════════════════════════════════════
 //  GASTRONOMÍA
 // ═══════════════════════════════════════════════════════════
-const NIDO_RESENA = 'Cocina de autor en el corazón del bosque. El Nido Bistró combina ingredientes locales con técnica contemporánea en un ambiente íntimo y cálido. La experiencia preferida de quienes visitan Mar de las Pampas.';
-
 const GASTRO_FALLBACKS = [
   'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=400&q=60',
   'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=400&q=60',
@@ -1493,15 +1491,15 @@ const GASTRO_FALLBACKS = [
 ];
 
 function GastronomySection({ dining, onOpenDetail, onVerTodas }) {
-  const segundo = dining[0] || null;
-  const tercero = dining[1] || null;
+  // #2 a #6 en la grilla de la derecha; el resto vive detrás de "Ver todo el ranking".
+  const negociosGrid = dining.slice(0, 5);
 
   return (
-    <section id="salidas" style={{ background: '#fff', padding: '72px 0', borderTop: `1px solid ${A.line}` }}>
+    <section id="salidas" style={{ background: '#fff', padding: '56px 0', borderTop: `1px solid ${A.line}` }}>
       <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 36 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
             <IcoBolt /> GASTRONOMÍA
           </div>
@@ -1510,13 +1508,14 @@ function GastronomySection({ dining, onOpenDetail, onVerTodas }) {
           </h2>
         </div>
 
-        {/* Layout: #1 grande a la izquierda + columna de thumbs a la derecha */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'stretch' }}>
+        {/* Layout: #1 grande a la izquierda + grilla 3×2 (5 negocios + "ver todo") a la derecha —
+            7 miniaturas en total, mucho menos alto que la columna apilada de antes. */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 14, alignItems: 'stretch' }}>
 
           {/* ── #1 El Nido Bistró ── */}
           <div
             onClick={() => onOpenDetail && onOpenDetail({ id: 'nido', name: 'El Nido Bistró', localidad: 'Mar de las Pampas', image: '/nido.jpg', category: 'Restaurante' }, 'salidas')}
-            style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', cursor: 'pointer', minHeight: 480 }}
+            style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', cursor: 'pointer', minHeight: 320 }}
             onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.04)'; }}
             onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
           >
@@ -1527,84 +1526,55 @@ function GastronomySection({ dining, onOpenDetail, onVerTodas }) {
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }}
             />
             {/* Gradiente inferior */}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.88) 0%, rgba(8,12,24,0.3) 50%, transparent 75%)' }} />
-
-            {/* Label tipo — arriba izquierda */}
-            <div style={{ position: 'absolute', top: 18, left: 18 }}>
-              <span style={{ background: 'rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(8px)', color: '#fff', fontStyle: 'italic',borderRadius: 999, padding: '7px 18px', fontSize: 15, fontWeight: 600, letterSpacing: '0.04em', border: '1px solid rgba(255, 255, 255, 0.35)' }}>
-                "Cocina inspirada en el bosque y el mar"
-              </span>
-            </div>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.88) 0%, rgba(8,12,24,0.3) 55%, transparent 80%)' }} />
 
             {/* Info abajo */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '28px 28px 28px' }}>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '22px 24px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
                 Mar de las Pampas
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                <div style={{ background: A.yellow, color: A.navy, width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1, flexShrink: 0, boxShadow: '0 3px 12px rgba(255,201,60,0.45)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+                <div style={{ background: A.yellow, color: A.navy, width: 42, height: 42, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1, flexShrink: 0, boxShadow: '0 3px 12px rgba(255,201,60,0.45)' }}>
                   #1
                 </div>
-                <div style={{ fontSize: 32, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                   El Nido Bistró
                 </div>
               </div>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.78)', lineHeight: 1.6, margin: '0 0 20px', maxWidth: 480 }}>
-                {NIDO_RESENA}
-              </p>
+              <div style={{ fontSize: 13.5, fontStyle: 'italic', color: 'rgba(255,255,255,0.82)', lineHeight: 1.4, marginBottom: 14 }}>
+                Cocina inspirada en el bosque y el mar. El restaurante de la chef Laura Casentini.
+              </div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: A.primary, color: '#fff', borderRadius: 999, padding: '9px 20px', fontSize: 13, fontWeight: 700 }}>
                 Ver restaurante <IcoArrowR />
               </div>
             </div>
           </div>
 
-          {/* ── Columna derecha: #2, #3, CTA Ver más ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* ── Grilla derecha: #2 a #6 + "Ver todo el ranking" (3 columnas × 2 filas) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)', gap: 10 }}>
 
-            {/* #2 */}
-            {segundo && (
-              <div
-                onClick={() => onOpenDetail(segundo, 'salidas')}
-                style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', flex: 1 }}
+            {negociosGrid.map((n, i) => (
+              <div key={n.id}
+                onClick={() => onOpenDetail(n, 'salidas')}
+                style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}
                 onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.06)'; }}
                 onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
               >
-                <img src={segundo.image} alt={segundo.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.7) 0%, transparent 60%)' }} />
-                <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12 }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{segundo.localidad || 'Villa Gesell'}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{ background: A.yellow, color: A.navy, width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, flexShrink: 0, letterSpacing: '-0.02em' }}>#2</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{segundo.name}</div>
+                <img src={n.image} alt={n.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.75) 0%, transparent 65%)' }} />
+                <div style={{ position: 'absolute', bottom: 8, left: 9, right: 9 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ background: A.yellow, color: A.navy, width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0, letterSpacing: '-0.02em' }}>#{i + 2}</div>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.name}</div>
                   </div>
                 </div>
               </div>
-            )}
+            ))}
 
-            {/* #3 */}
-            {tercero && (
-              <div
-                onClick={() => onOpenDetail(tercero, 'salidas')}
-                style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', flex: 1 }}
-                onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.06)'; }}
-                onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
-              >
-                <img src={tercero.image} alt={tercero.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.7) 0%, transparent 60%)' }} />
-                <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12 }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{tercero.localidad || 'Villa Gesell'}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{ background: A.yellow, color: A.navy, width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, flexShrink: 0, letterSpacing: '-0.02em' }}>#3</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{tercero.name}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* CTA "Ver más" — thumbnail con fotos desenfocadas atrás */}
+            {/* Última celda: "Ver todo el ranking" — no es un negocio */}
             <div
               onClick={onVerTodas}
-              style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', flex: 1, minHeight: 120 }}
+              style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}
               onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
               onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
             >
@@ -1614,12 +1584,11 @@ function GastronomySection({ dining, onOpenDetail, onVerTodas }) {
                   <img key={i} src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(3px) brightness(0.5)', display: 'block' }} />
                 ))}
               </div>
-              {/* Overlay oscuro */}
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)' }} />
+              {/* Overlay claro */}
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.88)' }} />
               {/* Texto centrado */}
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'rgb(41, 41, 41)', letterSpacing: '-0.01em' }}>Ver todo el ranking</div>
-                <div style={{ fontSize: 12, color: 'rgba(41, 41, 41)', fontWeight: 500 }}>Top #10 de gastronomía en la zona</div>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgb(41, 41, 41)', letterSpacing: '-0.01em', lineHeight: 1.25 }}>Ver todo<br/>el ranking</div>
               </div>
             </div>
 

@@ -181,3 +181,11 @@
     display: grid !important;
   }
 }
+
+/* Editor de ofertas del socio: texto de ejemplo (placeholder) en cursiva y gris apenas más claro. */
+.oferta-editor-form input::placeholder,
+.oferta-editor-form textarea::placeholder {
+  font-style: italic;
+  color: #adb8c5;
+  opacity: 1;
+}

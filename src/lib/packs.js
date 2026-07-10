@@ -150,7 +150,7 @@ export async function marcarCuponeraPageada(cuponeraId) {
 export async function getCuponeraByToken(qrToken) {
   const { data, error } = await supabase
     .from('cuponeras')
-    .select('*, cuponera_items(*, negocios(nombre, tipo, imagen_url, ubicacion))')
+    .select('*, cuponera_items(*, negocios(nombre, tipo, imagen_url, localidad))')
     .eq('qr_token', qrToken)
     .single();
   if (error) return null;

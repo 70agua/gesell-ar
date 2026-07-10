@@ -8,6 +8,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../lib/supabase';
 import { login } from '../lib/auth';
+import { CATS_RUBRO as CATS } from '../lib/datos';
 
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -34,12 +35,6 @@ const A = {
 };
 
 // ─── Datos estáticos ────────────────────────────────────────
-const CATS = {
-  alojamiento:   ['Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
-  salidas:       ['Restaurantes', 'Bares', 'Cafés & Dulces', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
-  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
-};
-
 const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
 
 const CONDICIONES_BASE = [

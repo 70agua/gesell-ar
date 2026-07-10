@@ -41,3 +41,9 @@ export function formatCountdown(seconds) {
   const s = String(seconds % 60).padStart(2, '0');
   return `${h}:${m}:${s}`;
 }
+
+// ─── Título de oferta ──────────────────────────────────────────
+// Solo letras (con acentos/ñ), números y espacios — sin puntuación ni símbolos (incluido %).
+export function sanitizeTituloOferta(value) {
+  return (value || '').replace(/[^\p{L}\p{N}\s]/gu, '');
+}

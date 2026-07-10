@@ -397,7 +397,7 @@ export const mockDining = [
   {
     id: 2,
     name: "Churros El Topo",
-    category: "Café & Dulces",
+    category: "Cafeterías",
     localidad: "Villa Gesell",
     zona: "Casco histórico",
     priceRange: "$",
@@ -488,7 +488,7 @@ export const mockDining = [
   {
     id: 9,
     name: "Café del Bosque",
-    category: "Café & Dulces",
+    category: "Cafeterías",
     localidad: "Mar de las Pampas",
     zona: "Acceso principal",
     priceRange: "$$",
@@ -566,7 +566,7 @@ export const mockDining = [
   {
     id: 15,
     name: "Café Bosque Negro",
-    category: "Café & Dulces",
+    category: "Cafeterías",
     localidad: "Mar Azul",
     zona: "Centro",
     priceRange: "$",

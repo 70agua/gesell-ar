@@ -3,7 +3,7 @@
 //  Diseño: mismo sistema Aire que MarketplaceView
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getPromos }    from '../lib/datos';
+import { getPromos, categoriaDeNegocio, EXPERIENCIAS_SALIDAS } from '../lib/datos';
 import { ALL_PROMOS }   from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
 import OfertaCard from '../components/OfertaCard';
@@ -29,27 +29,42 @@ const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar A
 
 
 // Subcategorías primarias (tipo de negocio agrupado)
+// Subcategorías = CATS_RUBRO (src/lib/datos.js), los valores reales que un socio
+// elige al darse de alta y que quedan guardados en `negocios.categoria`. Cada
+// grupo acá corresponde 1:1 a un link del Navbar (mismo label, mismo valor).
 const SUBCATS_PRIMARY = {
   alojamiento: [
     { label: 'Hoteles',          tipos: ['Hotel'] },
     { label: 'Cabañas',          tipos: ['Cabaña'] },
-    { label: 'Casas',            tipos: ['Casa'] },
     { label: 'Departamentos',    tipos: ['Departamento'] },
-    { label: 'Dormis / Camping', tipos: ['Dormi', 'Carpa', 'Hostel', 'Domo', 'Glamping'] },
+    { label: 'Aparts',           tipos: ['Apart'] },
+    { label: 'Complejos',        tipos: ['Complejo'] },
+    { label: 'Hosterías',        tipos: ['Hostería'] },
+    { label: 'Resorts',          tipos: ['Resort'] },
+    { label: 'Dormis / Camping', tipos: ['Dormi', 'Carpa', 'Domo', 'Glamping'] },
   ],
   salidas: [
-    { label: 'Restaurantes',   tipos: ['Restaurante', 'Bodegón', 'Gourmet', 'Parrilla'] },
-    { label: 'Bares',          tipos: ['Bar'] },
-    { label: 'Cafés & Dulces', tipos: ['Café', 'Pastelería', 'Heladería', 'Panadería'] },
-    { label: 'Balnearios',     tipos: ['Balneario'] },
-    { label: 'Espectáculos',   tipos: ['Discoteca', 'Cine y Teatro', 'Show y Recital', 'Centro Cultural'] },
+    { label: 'Restaurantes',       tipos: ['Restaurantes'] },
+    { label: 'Bares',              tipos: ['Bares'] },
+    { label: 'Cafeterías',         tipos: ['Cafeterías'] },
+    { label: 'Heladerías',         tipos: ['Heladerías'] },
+    { label: 'Panaderías',         tipos: ['Panaderías'] },
+    { label: 'Discotecas',         tipos: ['Discotecas'] },
+    { label: 'Cines y Teatros',    tipos: ['Cines y Teatros'] },
+    { label: 'Shows y Recitales',  tipos: ['Shows y Recitales'] },
+    { label: 'Centros Culturales', tipos: ['Centros Culturales'] },
+    { label: 'Otros',              tipos: ['Otros'] },
   ],
   aventura_relax: [
-    { label: 'Spa & Bienestar',    tipos: ['Spa', 'Masajes a domicilio', 'Yoga / Bienestar'] },
-    { label: 'Deportes acuáticos', tipos: ['Deportes acuáticos', 'Kitesurf'] },
-    { label: 'Excursiones',        tipos: ['Excursion', 'Tour fotográfico', 'Cabalgatas', 'Senderismo'] },
-    { label: 'Pesca deportiva',    tipos: ['Pesca deportiva'] },
-    { label: 'Espectáculos',       tipos: ['Espectáculos'] },
+    { label: 'Deportes acuáticos',      tipos: ['Deportes acuáticos'] },
+    { label: 'Cabalgatas',              tipos: ['Cabalgatas'] },
+    { label: 'Kitesurf & Viento',       tipos: ['Kitesurf'] },
+    { label: 'Yoga & Mindfulness',      tipos: ['Yoga / Bienestar'] },
+    { label: 'Masajes a domicilio',     tipos: ['Masajes a domicilio'] },
+    { label: 'Tour fotográfico',        tipos: ['Tour fotográfico'] },
+    { label: 'Pesca deportiva',         tipos: ['Pesca deportiva'] },
+    { label: 'Senderismo & Naturaleza', tipos: ['Senderismo'] },
+    { label: 'Espectáculos',            tipos: ['Espectáculos'] },
   ],
 };
 
@@ -62,13 +77,9 @@ const SUBCATS_SECONDARY = {
     { label: 'Spa',             tag: 'spa' },
     { label: 'Acepta mascotas', tag: 'mascotas' },
   ],
-  salidas: [
-    { label: 'Al aire libre',      tag: 'aire-libre' },
-    { label: 'Con música en vivo', tag: 'musica-en-vivo' },
-    { label: 'Para grupos',        tag: 'grupos' },
-    { label: 'Menú vegano',        tag: 'vegano' },
-    { label: 'Con reserva',        tag: 'reserva' },
-  ],
+  // "Tipo de experiencia": lo elige el socio en su alta/edición (PerfilNegocioForm)
+  // y queda en `negocios.tags` — mismo listado que el dropdown del Navbar.
+  salidas: EXPERIENCIAS_SALIDAS.map(e => ({ label: e, tag: e })),
   aventura_relax: [
     { label: 'Para niños',    tag: 'ninos' },
     { label: 'En grupo',      tag: 'grupos' },
@@ -178,7 +189,7 @@ function PubliCard({ publi }) {
   return <div style={base}>{img}</div>;
 }
 
-export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [], initialTipo = null }) {
+export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [], initialTipo = null, initialExperiencia = null }) {
   const [promos,      setPromos]      = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [busqueda,    setBusqueda]    = useState('');
@@ -196,13 +207,18 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   const [tipoSalidas,  setTipoGastro]  = useState(initialCategoria === 'salidas');
   const [tipoExp,     setTipoExp]     = useState(initialCategoria === 'aventura_relax');
   const [soloFlash,       setSoloFlash]       = useState(false);
+  const [soloGrupales,    setSoloGrupales]    = useState(false);
   const [localidades,     setLocalidades]     = useState(initialLocalidades);
   const [subcatPrimaria,  setSubcatPrimaria]  = useState(() => {
     if (!initialCategoria || !initialTipo) return new Set();
     const grupo = (SUBCATS_PRIMARY[initialCategoria] || []).find(sc => sc.tipos.includes(initialTipo));
     return grupo ? new Set([grupo.label]) : new Set();
   });
-  const [subcatSecundaria,setSubcatSecundaria]= useState(new Set());
+  const [subcatSecundaria,setSubcatSecundaria]= useState(() => {
+    if (!initialExperiencia) return new Set();
+    const grupo = (SUBCATS_SECONDARY[initialCategoria] || []).find(sc => sc.tag === initialExperiencia);
+    return grupo ? new Set([grupo.label]) : new Set();
+  });
 
   useEffect(() => {
     async function cargar() {
@@ -212,20 +228,10 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
 
       const { data } = await supabase
         .from('promociones')
-        .select('*, negocios(nombre, tipo, ubicacion, localidad, zona, foto_perfil, imagen_url)')
+        .select('*, negocios(nombre, tipo, categoria, tags, localidad, zona, foto_perfil, imagen_url)')
         .eq('activa', true)
         .eq('aprobada', true)
         .order('creado_en', { ascending: false });
-
-      const TIPOS_ALOJ   = new Set(['Hotel', 'Cabaña', 'Departamento', 'Casa', 'Hostel', 'Dormi']);
-      const TIPOS_GASTRO = new Set(['Restaurante', 'Bar', 'Café', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Bodegón', 'Café & Dulces']);
-      const catDe = (tipo, nid) => {
-        if (!tipo && nid)        return 'alojamiento';
-        if (!tipo)               return 'aventura_relax';
-        if (TIPOS_ALOJ.has(tipo))   return 'alojamiento';
-        if (TIPOS_GASTRO.has(tipo)) return 'salidas';
-        return nid ? 'alojamiento' : 'aventura_relax';
-      };
 
       const reales = (data || [])
         .map(p => ({
@@ -240,11 +246,18 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
           tokens_costo:     p.tokens_costo,
           ahorroEstimado:   p.ahorro_estimado || 0,
           ahorroModalidad:  p.ahorro_modalidad || null,
-          categoria:        catDe(p.negocios?.tipo, p.negocio_id),
-          negocioTipo:      p.negocios?.tipo || '',
+          esGrupal:         p.is_group || false,
+          grupoMinPax:      p.group_min_pax || null,
+          grupoMaxPax:      p.group_max_pax || null,
+          basePricePp:      p.base_price_pp != null ? Number(p.base_price_pp) : null,
+          grupoTramos:      Array.isArray(p.group_tiers) ? p.group_tiers : [],
+          impulsoActivo:    p.impulso_activo || false,
+          categoria:        categoriaDeNegocio(p.negocios?.tipo, p.negocio_id),
+          // negocios.categoria guarda 1 o 2 subcategorías separadas por ' / ' (ver CATS_RUBRO en datos.js)
+          negocioCategorias: (p.negocios?.categoria || '').split(' / ').map(s => s.trim()).filter(Boolean),
           negocioTags:      p.negocios?.tags || [],
           proveedorNombre:  p.negocios?.nombre || '',
-          negocioLocalidad: p.negocios?.localidad || p.negocios?.ubicacion || '',
+          negocioLocalidad: p.negocios?.localidad || '',
           negocioZone:      p.negocios?.zona || '',
           esReal:           true,
         }))
@@ -323,7 +336,8 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
 
   // ── Aplicar filtros ─────────────────────────────────────────
   const hayTipo = tipoAloj || tipoSalidas || tipoExp;
-  const visibles = promos.filter(p => {
+  const visibles = promos
+    .filter(p => {
     if (busqueda && !p.title.toLowerCase().includes(busqueda.toLowerCase()) &&
         !(p.proveedorNombre || p.subtitle || '').toLowerCase().includes(busqueda.toLowerCase())) return false;
     if (hayTipo) {
@@ -332,28 +346,31 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
                  (tipoExp && p.categoria === 'aventura_relax');
       if (!ok) return false;
     }
-    if (tiposValidos && !tiposValidos.has(p.negocioTipo)) return false;
+    if (tiposValidos && !(p.negocioCategorias || []).some(c => tiposValidos.has(c))) return false;
     if (tagsRequeridos && !tagsRequeridos.some(t => (p.negocioTags || []).includes(t))) return false;
     if (soloFlash && p.offerType !== 'Flash') return false;
+    if (soloGrupales && !p.esGrupal) return false;
     if (localidades.length > 0) {
       const enDestino = localidades.filter(l => l !== '__otros__').includes(p.negocioLocalidad);
       const esOtro = localidades.includes('__otros__') && !destinosValidos.includes(p.negocioLocalidad);
       if (!enDestino && !esOtro) return false;
     }
     return true;
-  });
+    })
+    // Ofertas impulsadas primero (más visibilidad); el resto conserva su orden.
+    .sort((a, b) => (b.impulsoActivo ? 1 : 0) - (a.impulsoActivo ? 1 : 0));
 
   const hayOtrosFiltros = subcatPrimaria.size > 0 || subcatSecundaria.size > 0;
   const limpiarFiltros = () => {
     setTipoAloj(false); setTipoGastro(false); setTipoExp(false);
-    setSoloFlash(false); setLocalidades([]);
+    setSoloFlash(false); setSoloGrupales(false); setLocalidades([]);
     setSubcatPrimaria(new Set()); setSubcatSecundaria(new Set());
     setBusqueda('');
   };
-  const hayFiltros = hayTipo || soloFlash || localidades.length > 0 || hayOtrosFiltros || busqueda;
+  const hayFiltros = hayTipo || soloFlash || soloGrupales || localidades.length > 0 || hayOtrosFiltros || busqueda;
 
   // Infinite scroll
-  const filterKey = `${busqueda}|${tipoAloj}|${tipoSalidas}|${tipoExp}|${soloFlash}|${localidades.join()}|${[...subcatPrimaria].join()}|${[...subcatSecundaria].join()}`;
+  const filterKey = `${busqueda}|${tipoAloj}|${tipoSalidas}|${tipoExp}|${soloFlash}|${soloGrupales}|${localidades.join()}|${[...subcatPrimaria].join()}|${[...subcatSecundaria].join()}`;
   useEffect(() => { setShownCount(10); }, [filterKey]);
   useEffect(() => {
     if (!sentinelRef.current) return;
@@ -440,6 +457,16 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
             checked={soloFlash}
             onChange={() => setSoloFlash(v => !v)}
           />
+          <CheckRow
+            label={
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Solo <span style={{ fontWeight: 800, color: '#7C3AED' }}>grupales</span>
+              </span>
+            }
+            checked={soloGrupales}
+            onChange={() => setSoloGrupales(v => !v)}
+          />
         </SideSection>
 
         {/* ── Separador + OTROS FILTROS ── */}
@@ -478,7 +505,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
             {SUBCATS_SECONDARY[catActiva] && (
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: A.muted, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>
-                  {catActiva === 'alojamiento' ? 'Servicios incluidos' : catActiva === 'salidas' ? 'Características' : 'Modalidad'}
+                  {catActiva === 'alojamiento' ? 'Servicios incluidos' : catActiva === 'salidas' ? 'Tipo de experiencia' : 'Modalidad'}
                 </div>
                 {SUBCATS_SECONDARY[catActiva].map(sc => (
                   <CheckRow
@@ -555,7 +582,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
               {isMobile && (
                 <button onClick={() => setDrawerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: hayFiltros ? A.primary : '#fff', color: hayFiltros ? '#fff' : A.ink, border: `1.5px solid ${hayFiltros ? A.primary : A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-                  Filtros{hayFiltros ? ` (${[tipoAloj,tipoSalidas,tipoExp,soloFlash].filter(Boolean).length + localidades.length + subcatPrimaria.size + subcatSecundaria.size})` : ''}
+                  Filtros{hayFiltros ? ` (${[tipoAloj,tipoSalidas,tipoExp,soloFlash,soloGrupales].filter(Boolean).length + localidades.length + subcatPrimaria.size + subcatSecundaria.size})` : ''}
                 </button>
               )}
               <div style={{ position: 'relative', marginTop: 25 }}>

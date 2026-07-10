@@ -120,7 +120,7 @@ async function recalcularCostoCache(cuponeraId) {
 export async function buscarPromosDisponibles({ categoria, localidad, texto } = {}) {
   let query = supabase
     .from('promociones')
-    .select('id, titulo, badge, imagen_url, ahorro_estimado, negocio_id, negocios(nombre, tipo, categoria, localidad, plan)')
+    .select('id, titulo, badge, imagen_url, ahorro_estimado, negocio_id, negocios(nombre, tipo, categoria, localidad, plan, activo)')
     .eq('aprobada', true)
     .eq('activa', true)
     .limit(40);
@@ -130,10 +130,11 @@ export async function buscarPromosDisponibles({ categoria, localidad, texto } = 
   const { data, error } = await query;
   if (error) return [];
 
-  // categoria/localidad viven en negocios — se filtran en el cliente tras el join.
+  // categoria/localidad/activo viven en negocios — se filtran en el cliente tras el join.
   // categoria es un string con hasta 2 valores unidos ("Restaurantes / Bares"), por
   // eso se compara con includes en vez de igualdad exacta.
   return (data || []).filter(p => {
+    if (p.negocios?.activo === false) return false;
     if (categoria && !(p.negocios?.categoria || '').includes(categoria)) return false;
     if (localidad && p.negocios?.localidad !== localidad) return false;
     return true;
