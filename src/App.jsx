@@ -61,6 +61,9 @@ function AppContent() {
   const [session, setSession]           = useState(null);
   const [perfil, setPerfil]             = useState(null);
   const [authLoading, setAuthLoading]   = useState(true);
+  // Si viene de "Publicá GRATIS" (menú de usuario), el wizard de alta comercial
+  // salta el paso de elegir plan y entra directo en Free.
+  const [convertirPlanDirecto, setConvertirPlanDirecto] = useState(null);
   const [alojamientos, setAlojamientos] = useState([]);
   const [salidas, setSalidas]   = useState([]);
   const [aventura, setAventura] = useState([]);
@@ -227,6 +230,11 @@ function AppContent() {
               // Turista logueado sin negocio: primero convierte su cuenta a comercial.
               if (session && perfil && !perfil.negocio_id && !perfil.es_superadmin) setView('convertir-comercial');
               else setView('publicar-oferta');
+              window.scrollTo(0, 0);
+            }}
+            onConvertirseSocio={() => {
+              setConvertirPlanDirecto('free');
+              setView('convertir-comercial');
               window.scrollTo(0, 0);
             }}
             onNavbarNav={(targetView, opts = {}) => {
@@ -448,7 +456,8 @@ function AppContent() {
               rNombre={(perfil?.nombre || '').trim().split(' ')[0] || ''}
               rApellido={(perfil?.nombre || '').trim().split(' ').slice(1).join(' ')}
               rEmail={perfil?.email || session.user.email || ''}
-              onComplete={handleOnboardingComplete}
+              planDirecto={convertirPlanDirecto}
+              onComplete={() => { setConvertirPlanDirecto(null); handleOnboardingComplete(); }}
             />
           )}
           {view === 'socios' && (

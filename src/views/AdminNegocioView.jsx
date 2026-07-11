@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos, calcularPrecio, registrarCompra } from '../lib/cobros';
-import { contarSeguidores } from '../lib/seguir';
+import { getWallet } from '../lib/gamificacion';
 import {
   getCuponerasRegalo, crearCuponeraRegalo, renombrarCuponera, cambiarEstadoCuponera, toggleModoInteligente,
   eliminarCuponeraRegalo, agregarCupon, quitarCupon, buscarPromosDisponibles, costoCreditosDePromo, sugerirCupones,
@@ -2921,24 +2921,28 @@ function TabAddons({ addonTotal, setAddonTotal, showToast }) {
 // ════════════════════════════════════════════════════════════
 //  RENDIMIENTO WIDGET
 // ════════════════════════════════════════════════════════════
-// Bloque de seguidores — queda en el sidebar (estilo oscuro)
-function SeguidoresWidget({ seguidores = 0 }) {
-  return (
-    <div style={{ margin: '0 8px 8px', background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <svg width="44" height="36" viewBox="0 0 44 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-          <circle cx="11" cy="10" r="6" fill="rgba(177,187,255,0.4)"/>
-          <path d="M2 36c0-5 4.03-9 9-9s9 4 9 9" fill="rgba(177,187,255,0.4)"/>
-          <circle cx="33" cy="10" r="6" fill="rgba(177,187,255,0.4)"/>
-          <path d="M24 36c0-5 4.03-9 9-9s9 4 9 9" fill="rgba(177,187,255,0.4)"/>
-          <circle cx="22" cy="9" r="7" fill="#b1bbff"/>
-          <path d="M12 36c0-5.5 4.48-10 10-10s10 4.5 10 10" fill="#b1bbff"/>
-        </svg>
-        <div style={{ lineHeight: 1.25 }}>
-          <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{seguidores}</div>
-          <div style={{ fontFamily: FONT, fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>siguen tus ofertas</div>
-        </div>
+// Bloque de saldos — créditos publicitarios + puntos, en el sidebar (estilo oscuro)
+function SaldosWidget({ creditos = 0, puntos = 0 }) {
+  const fila = (icon, valor, label) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {icon}
+      <div style={{ lineHeight: 1.15 }}>
+        <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{valor}</div>
+        <div style={{ fontFamily: FONT, fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>{label}</div>
       </div>
+    </div>
+  );
+  return (
+    <div style={{ margin: '0 8px 8px', background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {fila(<CreditCoin size={26} />, creditos, 'créditos publicitarios')}
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
+      {fila(
+        <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(245,158,11,0.18)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          <Star size={14} color={YELLOW} fill={YELLOW} />
+        </div>,
+        puntos,
+        'puntos',
+      )}
     </div>
   );
 }
@@ -3056,7 +3060,7 @@ function RendimientoCard({ plan = 'free', onUpgrade }) {
 // ════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ════════════════════════════════════════════════════════════
-function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, seguidores = 0, setShowComprar, onVolver, onGoHome, onLogout, navCounts = {} }) {
+function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, puntos = 0, setShowComprar, onVolver, onGoHome, onLogout, navCounts = {} }) {
   const esAloj = negocio?.tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
   const plan   = negocio?.plan || 'free';
 
@@ -3122,18 +3126,14 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, seguid
         {NAV_BOTTOM.map(t => navItem(t, false))}
       </nav>
 
-      {/* Seguidores (el rendimiento se muestra dentro de "Creadas por mí") */}
-      <SeguidoresWidget seguidores={seguidores} />
+      {/* Saldos: créditos publicitarios + puntos */}
+      <SaldosWidget creditos={saldoTokens} puntos={puntos} />
 
-      {/* Tokens (solo plan free con alojamiento) */}
+      {/* Comprar créditos (solo plan free con alojamiento) */}
       {negocio && debeUsarTokens(negocio.tipo, negocio.plan) && (
-        <div style={{ margin: '0 8px 8px', background: 'rgba(255,255,255,0.07)', borderRadius: 10, padding: '8px 10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-            <span style={{ fontFamily: FONT, fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Tokens</span>
-            <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700 }}>🪙 {saldoTokens}</span>
-          </div>
-          <button onClick={() => setShowComprar(true)} style={{ width: '100%', background: P, color: '#fff', border: 'none', borderRadius: 7, padding: '6px 0', fontFamily: FONT, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-            Comprar tokens
+        <div style={{ margin: '0 8px 8px' }}>
+          <button onClick={() => setShowComprar(true)} style={{ width: '100%', background: P, color: '#fff', border: 'none', borderRadius: 7, padding: '7px 0', fontFamily: FONT, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            Comprar créditos
           </button>
         </div>
       )}
@@ -3694,7 +3694,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
   const [toast, setToast]         = useState(null);
   const [credits, setCredits]     = useState(7);
   const [addonTotal, setAddonTotal] = useState(0);
-  const [seguidores, setSeguidores] = useState(0);
+  const [puntos, setPuntos] = useState(0);
 
   const notifCount = MOCK_NOTIFS.length;
   const ofertasActivasCount = promos.length > 0
@@ -3711,14 +3711,14 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       const { data } = await supabase.from('negocios').select('*').eq('id', perfil.negocio_id).single();
       if (data) setNegocio(data);
     }
-    const [proRes, saldoRes, segRes] = await Promise.all([
+    const [proRes, saldoRes, walletRes] = await Promise.all([
       supabase.from('promociones').select('*').eq('negocio_id', perfil.negocio_id).order('creado_en', { ascending: false }),
       getSaldo(perfil.negocio_id),
-      contarSeguidores(perfil.negocio_id),
+      perfil?.id ? getWallet(perfil.id) : Promise.resolve({ balance: 0 }),
     ]);
     if (proRes.data) setPromos(proRes.data);
     setSaldoTokens(typeof saldoRes === 'number' ? saldoRes : 0);
-    setSeguidores(typeof segRes === 'number' ? segRes : 0);
+    setPuntos(Number(walletRes?.balance) || 0);
     setLoading(false);
   }
 
@@ -3760,7 +3760,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
     <div style={{ display:'flex', minHeight:'100vh', background:BG, fontFamily:FONT }}>
       <Sidebar
         tab={tab} setTab={setTab} negocio={negocio} perfil={perfil}
-        notifCount={notifCount} saldoTokens={saldoTokens} seguidores={seguidores} navCounts={navCounts}
+        notifCount={notifCount} saldoTokens={saldoTokens} puntos={puntos} navCounts={navCounts}
         setShowComprar={setShowComprar} onVolver={onVolver}
         onGoHome={onGoHome} onLogout={handleLogout}
       />

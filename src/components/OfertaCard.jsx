@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { secondsUntil } from '../lib/ofertas';
-import { CREDITO_TOTAL } from '../lib/cobros';
+import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 import HeartButton from './HeartButton';
 import { CreditTooltip } from './InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
@@ -29,9 +29,7 @@ const A = {
   font:    "'Inter', system-ui, sans-serif",
 };
 
-// Precio del cupón en pesos, con IVA (21%) ya incluido — 1 crédito = CREDITO_TOTAL ($2.420).
 const fmtPesos = n => 'AR$' + Math.round(n).toLocaleString('es-AR');
-const precioCupon = tc => (Number(tc) || 0) * CREDITO_TOTAL;
 // Puntos mostrados en la franja de ahorro: ahorroEstimado / 4
 const calcPts = ahorro => Math.round((ahorro || 0) / 4);
 
@@ -205,11 +203,10 @@ function FranjaAhorro({ ahorroEstimado, legend }) {
 }
 
 // ─── Texto "Activá este cupón por…" (reutilizable) ────────────
-export function PrecioCupon({ tokens_costo, color = A.ink, mutedColor = A.muted }) {
+export function PrecioCupon({ tokens_costo, ahorro = 0, color = A.ink, mutedColor = A.muted }) {
   const mostrarCreditos = useMostrarCreditos();
   const tc = tokens_costo;
-  const pesos = fmtPesos(precioCupon(tc));
-  if (tc == null) return null;
+  if (tc == null && !(ahorro > 0)) return null;
   if (tc === 0) {
     return (
       <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, color: A.green }}>
@@ -217,13 +214,15 @@ export function PrecioCupon({ tokens_costo, color = A.ink, mutedColor = A.muted 
       </div>
     );
   }
+  const pesos = fmtPesos(precioActivacionARS({ ahorro, tokensCosto: tc }));
+  const creds = creditosActivacion({ ahorro, tokensCosto: tc });
   return (
     <div style={{ textAlign: 'center', fontSize: 14.5, color, lineHeight: 1.4 }}>
       {mostrarCreditos ? (
         <>
           Activá este cupón por{' '}
           <CoinSVG size={13} />{' '}
-          <span style={{ fontWeight: 800 }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
+          <span style={{ fontWeight: 800 }}>{creds} crédito{creds !== 1 ? 's' : ''}</span>
           <CreditTooltip />
           <span style={{ display: 'block', fontSize: 11, color: mutedColor, marginTop: 2 }}>({pesos})</span>
         </>
@@ -238,7 +237,7 @@ export function PrecioCupon({ tokens_costo, color = A.ink, mutedColor = A.muted 
 function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false }) {
   return (
     <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <PrecioCupon tokens_costo={promo.tokens_costo} />
+      <PrecioCupon tokens_costo={promo.tokens_costo} ahorro={promo.ahorroEstimado} />
 
       {!hideActions && (
         <>

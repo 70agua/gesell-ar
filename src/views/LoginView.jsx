@@ -172,7 +172,7 @@ const BtnNext = ({ onClick, disabled, label, saving }) => (
   </button>
 );
 
-export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete }) {
+export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete, planDirecto }) {
   const [obStep,    setObStep]    = useState(1);
   const [doneSteps, setDoneSteps] = useState(new Set());
   // Perfil del negocio — objeto único manejado por PerfilNegocioForm
@@ -217,11 +217,21 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Entrada directa "Publicá GRATIS" (dropdown de usuario): salta el paso 1
+  // (elegir plan) y va directo al formulario de la empresa en plan Free.
+  useEffect(() => {
+    if (negocioId && planDirecto === 'free' && !doneSteps.has(1)) confirmarFree();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [negocioId]);
+
   async function crearNegocioStub() {
     setStubError(null);
     try {
+      // Nombre provisorio genérico — nunca el nombre y apellido de la persona:
+      // negocio y persona son dos entidades distintas (como una página de empresa
+      // vs. un perfil personal), aunque queden vinculadas por negocio_id.
       const { data: neg, error: negErr } = await supabase.from('negocios').insert({
-        nombre: `${rNombre} ${rApellido}`.trim() || 'Nuevo negocio',
+        nombre: 'Mi negocio (completar datos)',
         tipo: 'alojamiento', plan: 'free', aprobado: false, activo: false,
       }).select().single();
       if (negErr) throw negErr;

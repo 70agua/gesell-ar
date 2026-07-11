@@ -24,8 +24,12 @@ import DateRangePicker from '../components/DateRangePicker';
 import { socialProof } from '../lib/socialProof';
 import HeartButton from '../components/HeartButton';
 import { esSiguiendo, toggleSeguir } from '../lib/seguir';
+import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 
 const toDateStr = d => d instanceof Date ? d.toISOString().split('T')[0] : '';
+
+// Precio de activación de un cupón (pesos, IVA incl.) desde la tabla oficial.
+const cuponARS = p => precioActivacionARS({ ahorro: p?.ahorroEstimado ?? p?.ahorro_estimado ?? 0, tokensCosto: p?.tokens_costo });
 
 // ─── Design tokens (para inline styles puntuales) ───────────
 const C = {
@@ -97,14 +101,7 @@ function SeguirOfertasBtn({ negocioId, session, onLoginRequired }) {
   );
 }
 
-// ─── Cálculo de créditos: 20%/15%/10% del ahorro, mínimo 1 ─
-const PRECIO_CREDITO = 2000; // pesos sin IVA (para el cálculo de cantidad de créditos)
-const PRECIO_CREDITO_IVA = 2420; // pesos con IVA incluido (para mostrar precios de cupón)
-function calcTokensCosto(ahorroEstimado) {
-  if (!ahorroEstimado || ahorroEstimado <= 0) return 1;
-  const pct = ahorroEstimado <= 10000 ? 0.20 : ahorroEstimado < 60000 ? 0.15 : 0.10;
-  return Math.max(1, Math.ceil((ahorroEstimado * pct) / PRECIO_CREDITO));
-}
+const PRECIO_CREDITO_IVA = 2420; // pesos con IVA incluido (usado sólo en el pack a mitad de precio)
 // Formatea el ahorro para mostrar en UI. ahorroMax presente → rango.
 function formatAhorro(estimado, max) {
   if (!estimado || estimado <= 0) return null;
@@ -624,7 +621,7 @@ function OfferCard({ promo, onAdd, onOpenOferta }) {
           <Send size={11} /> Solicitar este cupón
         </button>
         {/* Activalo con — debajo del CTA */}
-        {(() => { const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return (
+        {(() => { const tc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }); return (
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted, lineHeight: '18px' }}>Activalo con</span>
             {mostrarCreditos ? (
@@ -634,12 +631,12 @@ function OfferCard({ promo, onAdd, onOpenOferta }) {
                   <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 10, color: C.muted }}>(${(tc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')})</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>(${(cuponARS(promo)).toLocaleString('es-AR')})</span>
                   <CreditTooltip />
                 </div>
               </div>
             ) : (
-              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(cuponARS(promo)).toLocaleString('es-AR')}</span>
             )}
           </div>
         ); })()}
@@ -758,8 +755,8 @@ function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
     (promo.subtitle ? promo.subtitle.split('·').slice(1).join('·').trim() || promo.subtitle : '') ||
     'Guardalo en tu cuponera y canjealo durante tu estadía.';
 
-  const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
-  const precioCreditos = `$${(tc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}`;
+  const tc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
+  const precioCreditos = `$${(cuponARS(promo)).toLocaleString('es-AR')}`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', borderRadius: 16, overflow: 'hidden', border: `1px solid ${C.line}`, minHeight: 190 }}>
@@ -953,7 +950,7 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
         </div>
 
         {/* Cupón gratis */}
-        {(() => { const btc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return btc === 0 ? (
+        {(() => { const btc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }); return btc === 0 ? (
             <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
               <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>Cupón DE REGALO para vos</span>
@@ -971,7 +968,7 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
         </button>
 
         {/* Activalo con — debajo del CTA */}
-        {(() => { const btc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado); return btc > 0 ? (
+        {(() => { const btc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }); return btc > 0 ? (
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: '18px' }}>Activalo con</span>
             {mostrarCreditos ? (
@@ -981,12 +978,12 @@ function BigOfferCard({ promo, onAdd, onOpenOferta }) {
                   <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{btc} crédito{btc !== 1 ? 's' : ''}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 10, color: C.muted }}>(${(btc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')})</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>(${(cuponARS(promo)).toLocaleString('es-AR')})</span>
                   <CreditTooltip />
                 </div>
               </div>
             ) : (
-              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(btc * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(cuponARS(promo)).toLocaleString('es-AR')}</span>
             )}
           </div>
         ) : null; })()}
@@ -1496,7 +1493,7 @@ function AlojamientoGallery({ item, plan }) {
 // ═══════════════════════════════════════════════════════════
 function CuponeraItem({ promo, onOpenOferta }) {
   const mostrarCreditos = useMostrarCreditos();
-  const tokens = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
+  const tokens = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
   const tokensMitad = Math.max(1, Math.floor(tokens / 2));
   return (
     <div
@@ -1545,11 +1542,11 @@ function CuponeraItem({ promo, onOpenOferta }) {
               <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tokens} crédito{tokens !== 1 ? 's' : ''}</span>
               <CreditTooltip />
             </div>
-            <span style={{ fontSize: 10, color: C.muted }}>(${(tokens * 2420).toLocaleString('es-AR')})</span>
+            <span style={{ fontSize: 10, color: C.muted }}>(${(cuponARS(promo)).toLocaleString('es-AR')})</span>
           </div>
         ) : (
           <div style={{ marginTop: 2 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(tokens * 2420).toLocaleString('es-AR')}</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(cuponARS(promo)).toLocaleString('es-AR')}</span>
           </div>
         )}
       </div>
@@ -1570,7 +1567,7 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
   const [exito,     setExito]     = useState(false);
   const [error,     setError]     = useState('');
 
-  const tc = promo.tokens_costo || calcTokensCosto(promo.ahorroEstimado);
+  const tc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
 
   async function confirmar() {
     const checkin  = toDateStr(fechas.desde);
@@ -1658,7 +1655,7 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
                   <p style={{ fontSize: 16, fontWeight: 800, color: C.ink, margin: 0 }}>{tc} crédito{tc !== 1 ? 's' : ''}</p>
                   <CreditTooltip />
                 </div>
-                <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0' }}>(${(tc * 2420).toLocaleString('es-AR')})</p>
+                <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0' }}>(${(cuponARS(promo)).toLocaleString('es-AR')})</p>
               </div>
             </div>
 
@@ -1728,7 +1725,7 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
   const p       = activos[safeIdx];
   const total   = activos.length;
   const isFlash = p.offerType === 'Flash';
-  const creditos = calcTokensCosto(p.ahorroEstimado);
+  const creditos = creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
 
   const prev = () => setIdx(i => (i - 1 + total) % total);
   const next = () => setIdx(i => (i + 1) % total);
@@ -1887,11 +1884,11 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
                     <CoinSVG size={12} />
                     <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
                   </div>
-                  <span style={{ fontSize: 11, color: C.muted }}>${(creditos * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
+                  <span style={{ fontSize: 11, color: C.muted }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
                   <CreditTooltip />
                 </>
               ) : (
-                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>${(creditos * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
               )}
             </div>
           </>
@@ -1958,11 +1955,11 @@ function CuponeraCard({ alianzas, onOpenOferta, cuponeraSectionRef }) {
   const total = alianzas.length;
   // Total de créditos a mitad de precio para todos los items visibles
   const totalTokensMitad = items.reduce((acc, p) => {
-    const t = p.tokens_costo || calcTokensCosto(p.ahorroEstimado);
+    const t = creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
     return acc + Math.max(1, Math.floor(t / 2));
   }, 0);
   const totalTokensNormal = items.reduce((acc, p) => {
-    return acc + (p.tokens_costo || calcTokensCosto(p.ahorroEstimado));
+    return acc + creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
   }, 0);
 
   return (
@@ -2090,13 +2087,13 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <CoinSVG size={12} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0)} crédito{calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{creditosActivacion({ ahorro: p.ahorroEstimado || p.ahorro_estimado || 0, tokensCosto: p.tokens_costo })} crédito{creditosActivacion({ ahorro: p.ahorroEstimado || p.ahorro_estimado || 0, tokensCosto: p.tokens_costo }) !== 1 ? 's' : ''}</span>
                 <CreditTooltip />
               </div>
-              <span style={{ fontSize: 10, color: C.muted }}>(${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2420).toLocaleString('es-AR')})</span>
+              <span style={{ fontSize: 10, color: C.muted }}>(${cuponARS(p).toLocaleString('es-AR')})</span>
             </div>
           ) : (
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(calcTokensCosto(p.ahorroEstimado || p.ahorro_estimado || 0) * 2420).toLocaleString('es-AR')}</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${cuponARS(p).toLocaleString('es-AR')}</span>
           )}
         </div>
         <div style={{ marginTop: 'auto', paddingTop: 10 }}>

@@ -13,6 +13,7 @@ import InfoTooltip from '../components/InfoTooltip';
 import HeartButton from '../components/HeartButton';
 import { useFavoritos } from '../lib/favoritos';
 import { useMostrarCreditos } from '../lib/sesion';
+import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 import { grupoConfig, useGroupPricing, descuentoMaximo } from '../lib/grupos';
 import { consumirImpulso } from '../lib/impulso';
 import GroupBadge from '../components/GroupBadge';
@@ -323,12 +324,11 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   const stockRestante = stockTotal - stockUsado;
   const stockPct      = Math.round((stockUsado / stockTotal) * 100);
 
-  // Precio del cupón en créditos y en pesos
-  const tokensCosto      = oferta.tokens_costo ?? 3;
-  const precioCreditosARS = tokensCosto * 2420;          // 1 crédito = $2.420 (con IVA incl.)
-  // Valor del beneficio que otorga el cupón (siempre mayor al costo del crédito)
-  const beneficioValor   = oferta.beneficioValor || 30000;
-  const ahorro           = beneficioValor - precioCreditosARS;
+  // Precio del cupón: SIEMPRE desde la tabla escalonada (calcularPrecioCupon)
+  // aplicada sobre el ahorro declarado. Fuente única en src/lib/cobros.js.
+  const beneficioValor   = oferta.ahorroEstimado || oferta.beneficioValor || 0;
+  const precioCreditosARS = precioActivacionARS({ ahorro: beneficioValor, tokensCosto: oferta.tokens_costo });
+  const tokensCosto      = creditosActivacion({ ahorro: beneficioValor, tokensCosto: oferta.tokens_costo });
 
   // El primer item del breadcrumb siempre es "Ofertas" en esta vista
   const categoryLabel = 'Ofertas';

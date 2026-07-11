@@ -5,6 +5,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import InfoTooltip, { CreditTooltip } from './InfoTooltip';
 import HeartButton from './HeartButton';
+import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 
 const C = {
   primary:  '#2545E6',
@@ -61,10 +62,11 @@ function makeMarkerHtml(promo, active) {
 // ─── Minificha mapa — mínima expresión ──────────────────────
 function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
   const titulo = promo.title || promo.titulo;
+  const creds  = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
   const precioCreditos = promo.tokens_precio != null
     ? `AR$${Math.round(promo.tokens_precio * 1.21).toLocaleString('es-AR')}`
-    : promo.tokens_costo != null
-    ? `AR$${(promo.tokens_costo * 2420).toLocaleString('es-AR')}`
+    : (promo.ahorroEstimado > 0 || promo.tokens_costo != null)
+    ? `AR$${precioActivacionARS({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }).toLocaleString('es-AR')}`
     : null;
 
   return (
@@ -134,13 +136,13 @@ function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
       </button>
 
       {/* Activalo con — debajo del CTA */}
-      {promo.tokens_costo != null && (
+      {(promo.ahorroEstimado > 0 || promo.tokens_costo != null) && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4 }}>
           <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Activalo con</span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: C.ink }}>
               <CoinSVGSmall />
-              {promo.tokens_costo} crédito{promo.tokens_costo !== 1 ? 's' : ''}
+              {creds} crédito{creds !== 1 ? 's' : ''}
             </span>
             {precioCreditos && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 400, color: C.muted }}>

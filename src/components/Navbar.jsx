@@ -14,6 +14,8 @@ const A = {
   primary:     '#2545E6',
   primarySoft: '#EEF1FF',
   bg:          '#F7F7F8',
+  green:       '#10A36B',
+  greenSoft:   '#E7F9F0',
   font:        "'Inter', system-ui, sans-serif",
 };
 
@@ -529,7 +531,7 @@ const PACKS_ICONS = {
 const PACKS_TIPOS = ['Todos los packs', 'Románticos', 'Familias', 'Aventura', 'Relax & Bienestar', 'Salidas + alojamiento'];
 
 // ═══════════════════════════════════════════════════════════
-export default function Navbar({ scrolled, view, setView, session, perfil, onLoginClick, onRegisterClick, onLogout, onPublicarOferta, onNavbarNav }) {
+export default function Navbar({ scrolled, view, setView, session, perfil, onLoginClick, onRegisterClick, onLogout, onPublicarOferta, onConvertirseSocio, onNavbarNav }) {
   const [openMenu,    setOpenMenu]    = useState(null);
   const [closingMenu, setClosingMenu] = useState(null);
   const animTimer = useRef(null);
@@ -586,9 +588,10 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const navVerOferta = () => nav('marketplace', {});
 
   const esSocioOAdmin = session && (perfil?.negocio_id || perfil?.es_superadmin);
-  // Turista logueado (sin negocio): también ve "Publicar oferta", que lo lleva a
-  // convertir su cuenta en comercial en vez de al editor de ofertas existente.
-  const mostrarPublicarOferta = session && !!perfil;
+  // Solo socios/admins ya existentes ven "Publicar oferta" en la nav. Al turista
+  // logueado (sin negocio) no se le muestra ese botón como anzuelo — su camino
+  // para hacerse socio es "Publicá GRATIS" dentro del menú de usuario.
+  const mostrarPublicarOferta = esSocioOAdmin;
   const nombreDisplay = esSocioOAdmin
     ? (perfil?.negocios?.nombre || perfil?.nombre || session?.user?.email || 'Mi cuenta')
     : (perfil?.nombre || session?.user?.email || 'Mi cuenta');
@@ -749,7 +752,8 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                     ) : (
                       <>
                         <UserMenuItem icon={PersonIco} label="Mi cuenta" onClick={() => { setView('home'); setUserMenuOpen(false); }} />
-                        <UserMenuItem icon={StoreIco} label="Convertite en socio" onClick={() => { onPublicarOferta && onPublicarOferta(); setUserMenuOpen(false); }} />
+                        <UserMenuItem icon={StoreIco} label="Publicá una oferta" badge="GRATIS" sub="Es una cuenta de negocio, separada de tu perfil"
+                          onClick={() => { onConvertirseSocio && onConvertirseSocio(); setUserMenuOpen(false); }} />
                       </>
                     )}
                     <div style={{ height: 1, background: A.line, margin: '6px 0' }} />
@@ -811,6 +815,12 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                 <button onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
                   style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 14, background: A.primary, fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: A.font }}>
                   Publicar oferta
+                </button>
+              )}
+              {session && !esSocioOAdmin && (
+                <button onClick={() => { onConvertirseSocio && onConvertirseSocio(); closeAll(); }}
+                  style={{ width: '100%', padding: '14px', border: `1.5px solid ${A.green}`, borderRadius: 14, background: A.greenSoft, fontSize: 15, fontWeight: 700, color: A.green, cursor: 'pointer', fontFamily: A.font }}>
+                  Publicá GRATIS una oferta
                 </button>
               )}
               {session ? (
@@ -880,15 +890,24 @@ const mobileBtnSt = () => ({
   cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif",
 });
 
-function UserMenuItem({ icon: Icon, label, onClick }) {
+function UserMenuItem({ icon: Icon, label, sub, badge, onClick }) {
   const [hov, setHov] = useState(false);
   return (
     <button onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{ ...menuItemSt(), background: hov ? '#F7F7F8' : 'none' }}
+      style={{ ...menuItemSt(), alignItems: sub ? 'flex-start' : 'center', background: hov ? '#F7F7F8' : 'none' }}
     >
-      <Icon /> {label}
+      <Icon />
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {label}
+          {badge && (
+            <span style={{ fontSize: 10, fontWeight: 800, color: A.green, background: A.greenSoft, borderRadius: 999, padding: '2px 7px', letterSpacing: '0.02em' }}>{badge}</span>
+          )}
+        </span>
+        {sub && <span style={{ fontSize: 11, fontWeight: 500, color: A.muted }}>{sub}</span>}
+      </span>
     </button>
   );
 }

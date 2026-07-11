@@ -13,7 +13,8 @@ export const CREDITO_IVA    = 420;
 export const CREDITO_TOTAL  = CREDITO_PRECIO + CREDITO_IVA;
 
 // Tabla escalonada: ahorro declarado → precio del cupón (con IVA incluido)
-// Techo absoluto: $14.520 ARS
+// Techo absoluto: $14.520 ARS. El precio final se redondea a la centena
+// (última decena en 00): desde 50 hacia arriba, debajo de 50 hacia abajo.
 export function calcularPrecioCupon(ahorroDeclarado) {
   if (!ahorroDeclarado || ahorroDeclarado <= 0) return 0;
   let comision;
@@ -22,8 +23,25 @@ export function calcularPrecioCupon(ahorroDeclarado) {
   else if (ahorroDeclarado <= 40000)  comision = 0.15;
   else if (ahorroDeclarado <= 100000) comision = 0.10;
   else                                comision = 0.07;
-  const conIva = ahorroDeclarado * comision * 1.21;
-  return Math.min(Math.round(conIva), 14520);
+  const conIva = Math.min(ahorroDeclarado * comision * 1.21, 14520);
+  return Math.round(conIva / 100) * 100;
+}
+
+// ─── Fuente única del precio de activación de un cupón ────────
+// Devuelve el precio en pesos (IVA incl.) que ve/paga el turista.
+// SIEMPRE aplica la tabla escalonada sobre el ahorro declarado; sólo
+// cae a `tokensCosto × crédito` como respaldo legacy (mock/sin ahorro),
+// y a 0 cuando el cupón es de regalo (tokensCosto === 0).
+export function precioActivacionARS({ ahorro = 0, tokensCosto = null } = {}) {
+  if (tokensCosto === 0) return 0;
+  if (ahorro > 0) return calcularPrecioCupon(ahorro);
+  return (Number(tokensCosto) || 0) * CREDITO_TOTAL;
+}
+
+// Créditos equivalentes (enteros) — sólo para la vista de socio Plus/superadmin.
+export function creditosActivacion(args) {
+  const precio = precioActivacionARS(args);
+  return precio <= 0 ? 0 : Math.max(1, Math.round(precio / CREDITO_TOTAL));
 }
 
 const TIPOS_ALOJAMIENTO = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];

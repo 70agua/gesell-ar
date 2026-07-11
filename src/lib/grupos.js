@@ -56,7 +56,9 @@ export function calcularPrecioGrupal(config, n) {
   const tier = resolveTier(cfg?.tramos, N);
   const discountPct = tier ? Number(tier.discount_pct) || 0 : 0;
   const pricePp = Math.round(base * (1 - discountPct / 100));
-  const total = pricePp * N;
+  // El valor final del cupón grupal se redondea a la centena SIEMPRE hacia
+  // abajo (termina en 00), favoreciendo al grupo a medida que crece N.
+  const total = Math.floor((pricePp * N) / 100) * 100;
   return { tier, discountPct, pricePp, total, base, n: N };
 }
 

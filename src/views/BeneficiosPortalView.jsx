@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import InfoTooltip from '../components/InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
+import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const P     = '#475be1';
@@ -96,6 +97,8 @@ function OfertaCard({ o, onActivar }) {
   const mostrarCreditos = useMostrarCreditos();
   const [hover, setHover] = useState(false);
   const ahorro = Math.round(o.descuento * 800);
+  const precioActivar = precioActivacionARS({ ahorro });
+  const credsActivar  = creditosActivacion({ ahorro });
   const badge = `−${o.descuento}%`;
   return (
     <div
@@ -156,11 +159,11 @@ function OfertaCard({ o, onActivar }) {
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: MUTED }}>Lo activás con</span>
             {mostrarCreditos ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <CoinSVG size={13}/> <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>{o.creditos} créditos</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>(AR${(o.creditos * 2420).toLocaleString('es-AR')})</span>
+                <CoinSVG size={13}/> <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>{credsActivar} crédito{credsActivar !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>(AR${precioActivar.toLocaleString('es-AR')})</span>
               </div>
             ) : (
-              <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>AR${(o.creditos * 2420).toLocaleString('es-AR')}</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: INK }}>AR${precioActivar.toLocaleString('es-AR')}</span>
             )}
           </div>
         </div>
