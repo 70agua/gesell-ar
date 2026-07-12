@@ -9,7 +9,7 @@
 //  onConfirmPlus, porque en SociosView el negocio recién se crea
 //  al final del formulario (todavía no hay negocioId acá).
 // ============================================================
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Smartphone, CreditCard, Building2, Upload } from 'lucide-react';
 import { getPlanesConfig } from '../lib/planes';
 
@@ -19,6 +19,22 @@ const GREEN = '#10A36B';
 const INK = '#0B1020';
 const INK2 = '#3D4255';
 const MUTED = '#6B7280';
+
+// Copy propio de la tarjeta de pricing (encabezado con tagline, texto del CTA
+// y link de ayuda). No vive en la tabla `planes` porque es texto de esta
+// pantalla, no configuración de plan; nombre/precio/descripción/beneficios sí
+// vienen de la DB vía getPlanesConfig().
+const EXTRA_PLAN = {
+  free: {
+    encabezado: '¿Te interesa publicitar tu producto o servicio y buscás traccionar más público?',
+    cta: 'Publicar ofertas GRATIS',
+  },
+  plus: {
+    encabezado: 'Ideal para alojamientos, gastronómicos ó agencias de turismo.',
+    cta: 'Regalar cuponeras SIN LÍMITE',
+    ayuda: 'Conocé más',
+  },
+};
 
 function Check({ color }) {
   return (
@@ -164,7 +180,7 @@ function PantallaPago({ plan, primaryColor, unidadesDeclaradas, onConfirmar, onV
   );
 }
 
-export default function PlanPicker({ value, onConfirmFree, onConfirmPlus, primaryColor = '#475be1', saving = false, unidadesDeclaradas = 0 }) {
+export default function PlanPicker({ onConfirmFree, onConfirmPlus, primaryColor = '#475be1', saving = false, unidadesDeclaradas = 0 }) {
   const [planes, setPlanes]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState(false); // muestra la pantalla de pago del plan Plus
@@ -192,66 +208,89 @@ export default function PlanPicker({ value, onConfirmFree, onConfirmPlus, primar
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, alignItems: 'stretch' }}>
       {planes.map(p => {
         const esGratis = p.id === 'free';
         const accent   = esGratis ? GREEN : primaryColor;
-        const selected = value === p.id;
-        const mesesTxt = p.mesesContrato ? `Contratando por ${p.mesesContrato} ${p.mesesContrato === 1 ? 'mes' : 'meses'}` : null;
-        const bonoTxt  = p.mesesGratisBono ? `+ ${p.mesesGratisBono} ${p.mesesGratisBono === 1 ? 'mes extra' : 'meses extra'} SIN CARGO (luego del primer año)` : null;
+        const extra    = EXTRA_PLAN[esGratis ? 'free' : 'plus'] || {};
+        // Por ley el precio se muestra CON impuestos (+21% IVA) y se aclara el
+        // valor sin impuestos justo debajo.
+        const sinImp   = p.precioMes || 0;
+        const precio   = Math.round(sinImp * 1.21).toLocaleString('es-AR');
 
         return (
           <div key={p.id}
             style={{
-              background: '#fff', border: `2px solid ${selected ? accent : GREY_LINE}`, borderRadius: 18,
-              padding: '20px 18px', display: 'flex', flexDirection: 'column', transition: 'border-color .15s',
+              background: '#fff', border: `1px solid ${GREY_LINE}`, borderRadius: 22,
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              boxShadow: '0 18px 50px -32px rgba(11,16,32,0.30)',
             }}>
-            <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 38, letterSpacing: '-0.02em', color: accent, lineHeight: 1 }}>
-              {p.nombre}
+
+            {/* Encabezado con tagline: lavanda suave (Gratis) o color pleno (Plus) */}
+            <div style={{ padding: '22px 26px', background: esGratis ? `${primaryColor}12` : accent }}>
+              <p style={{ margin: 0, fontFamily: FONT, fontStyle: 'italic', fontWeight: 600, fontSize: 14, lineHeight: 1.4, color: esGratis ? INK : '#fff' }}>
+                {extra.encabezado}
+              </p>
             </div>
 
-            {esGratis ? (
-              <p style={{ fontFamily: FONT, fontSize: 16, color: INK, lineHeight: 1.45, margin: '10px 0 14px' }}>
+            {/* Cuerpo */}
+            <div style={{ padding: '24px 26px 26px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <div style={{ fontFamily: FONT, fontWeight: 800, fontSize: 24, letterSpacing: '0.02em', color: accent, lineHeight: 1 }}>
+                {p.nombre}
+              </div>
+
+              <p style={{ fontFamily: FONT, fontSize: 14, fontWeight: 600,color: INK2, lineHeight: 1.5, margin: '12px 0 18px' }}>
                 {p.descripcion}
               </p>
-            ) : (
-              <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '10px 0 2px' }}>
-                  <span style={{ fontFamily: FONT, fontWeight: 800, fontSize: 26, color: INK }}>
-                    ${(p.precioMes || 0).toLocaleString('es-AR')}
-                  </span>
-                  <span style={{ fontFamily: FONT, fontSize: 13, color: MUTED }}>+ IVA / mes</span>
+
+              {/* Precio (con IVA) + aclaración sin impuestos */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+                  <span style={{ fontFamily: FONT, fontSize: 19, fontWeight: 800, color: accent }}>AR$</span>
+                  <span style={{ fontFamily: FONT, fontSize: 34, fontWeight: 900, color: accent, letterSpacing: '-0.02em', lineHeight: 1 }}>{precio}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 15, color: MUTED }}>/por mes</span>
                 </div>
-                {mesesTxt && <p style={{ margin: '2px 0 0', fontFamily: FONT, fontSize: 12, color: MUTED }}>{mesesTxt}</p>}
-                {bonoTxt && <p style={{ margin: '2px 0 12px', fontFamily: FONT, fontSize: 12, color: GREEN, fontWeight: 700 }}>{bonoTxt}</p>}
-                <p style={{ fontFamily: FONT, fontSize: 13, color: INK2, lineHeight: 1.4, margin: '0 0 12px' }}>{p.descripcion}</p>
-              </>
-            )}
-
-            {p.beneficios.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 16 }}>
-                {p.beneficios.map(b => (
-                  <div key={b} style={{ display: 'flex', gap: 7, fontFamily: FONT, fontSize: 12.5, color: INK2, lineHeight: 1.35 }}>
-                    <Check color={accent} />{b}
-                  </div>
-                ))}
+                <div style={{ fontFamily: FONT, fontSize: 12.5, fontStyle: 'italic', color: MUTED, marginTop: 5 }}>
+                  Precio sin impuestos: ${sinImp.toLocaleString('es-AR')}
+                </div>
               </div>
-            )}
 
-            <div style={{ flex: 1 }} />
+              {/* Beneficios */}
+              {p.beneficios.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginBottom: 24 }}>
+                  {p.beneficios.map(b => (
+                    <div key={b} style={{ display: 'flex', gap: 10, fontFamily: FONT, fontSize: 14, color: INK2, lineHeight: 1.4 }}>
+                      <Check color={GREEN} />{b}
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            <button type="button"
-              onClick={() => {
-                if (esGratis) onConfirmFree();
-                else setExpandido(true);
-              }}
-              style={{
-                width: '100%', padding: '12px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
-                fontFamily: FONT, fontWeight: 800, fontSize: 13.5,
-                background: esGratis ? '#0f172a' : accent, color: '#fff',
-              }}>
-              Elegir este plan
-            </button>
+              <div style={{ flex: 1 }} />
+
+              <button type="button"
+                onClick={() => { if (esGratis) onConfirmFree(); else setExpandido(true); }}
+                style={{
+                  width: '100%', padding: '15px 0', borderRadius: 14, border: 'none', cursor: 'pointer',
+                  fontFamily: FONT, fontWeight: 800, fontSize: 15, background: accent, color: '#fff',
+                }}>
+                {extra.cta}
+              </button>
+
+              {/* Slot de altura fija bajo el CTA: mantiene los dos botones
+                  alineados aunque sólo Plus tenga el link "¿Cómo funciona?". */}
+              <div style={{ minHeight: 20, marginTop: 14, textAlign: 'center' }}>
+                {extra.ayuda && (
+                  <span style={{ fontFamily: FONT, fontSize: 14, color: INK2 }}>
+                    ¿Cómo funciona?{' '}
+                    <button type="button" onClick={() => setExpandido(true)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, fontStyle: 'italic', color: accent }}>
+                      {extra.ayuda}
+                    </button>
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         );
       })}

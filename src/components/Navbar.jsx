@@ -482,20 +482,44 @@ function AventDrop({ onNavigate }) {
 }
 
 // ─── Logo dinámico según dominio ─────────────────────────────
-function SiteName() {
-  const host = typeof window !== 'undefined'
+function siteHost() {
+  return typeof window !== 'undefined'
     ? window.location.hostname.replace('www.', '').replace('localhost', 'gesell.ar')
     : 'gesell.ar';
+}
+
+// ─── Otros sitios de la red ──────────────────────────────────
+const SITIOS_RED = [
+  'marazul.ar',
+  'lasgaviotas.ar',
+  'madariaga.ar',
+  'costaesmeralda.ar',
+  'alquileresmardelplata.ar',
+  'costaatlantica.ar',
+];
+
+function SitiosDrop() {
+  const host = siteHost();
   return (
-    <span style={{ fontWeight: 500, fontSize: 14, color: A.primary, fontFamily: A.font }}>
-      {host}
-    </span>
+    <div style={{ padding: '8px 0', minWidth: 220 }}>
+      <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Otros sitios de la red</p>
+      {SITIOS_RED.filter(d => d !== host).map(dominio => (
+        <a key={dominio} href={`https://${dominio}`} target="_blank" rel="noopener noreferrer"
+          style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, color: A.ink2, textDecoration: 'none', cursor: 'pointer', fontFamily: A.font }}
+          onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
+        >
+          <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{EXT_ICON}</span>
+          {dominio}
+        </a>
+      ))}
+    </div>
   );
 }
 
-// ─── Packs ───────────────────────────────────────────────────
+// ─── Cuponeras ───────────────────────────────────────────────
 const PACKS_ICONS = {
-  'Todos los packs': (
+  'Todas las cuponeras': (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
       <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
@@ -528,7 +552,7 @@ const PACKS_ICONS = {
     </svg>
   ),
 };
-const PACKS_TIPOS = ['Todos los packs', 'Románticos', 'Familias', 'Aventura', 'Relax & Bienestar', 'Salidas + alojamiento'];
+const PACKS_TIPOS = ['Todas las cuponeras', 'Románticos', 'Familias', 'Aventura', 'Relax & Bienestar', 'Salidas + alojamiento'];
 
 // ═══════════════════════════════════════════════════════════
 export default function Navbar({ scrolled, view, setView, session, perfil, onLoginClick, onRegisterClick, onLogout, onPublicarOferta, onConvertirseSocio, onNavbarNav }) {
@@ -539,6 +563,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const [userMenuOpen,setUserMenuOpen]= useState(false);
   const { openDrawer } = useCuponera();
 
+  const sitiosRef = useRef(null);
   const alojRef   = useRef(null);
   const gastroRef = useRef(null);
   const aventRef  = useRef(null);
@@ -620,11 +645,25 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           {/* ── Logo ── */}
           <div onClick={() => nav('home')} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
             <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 40, width: 'auto', display: 'block' }} />
-            <SiteName />
           </div>
 
           {/* ── Desktop nav links ── */}
-          <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, paddingLeft: 16 }}>
+          <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, paddingLeft: 8 }}>
+
+            {/* Sitios de la red — gesell.ar + dominios */}
+            <div style={{ position: 'relative' }} ref={sitiosRef}
+              onMouseEnter={() => hoverOpen('sitios')}
+              onMouseLeave={hoverLeave}
+            >
+              <button onClick={() => nav('home')} style={{ ...navBtnSt, color: A.primary, fontWeight: 600 }}>
+                {siteHost()} <ChevD />
+              </button>
+              {(openMenu === 'sitios' || closingMenu === 'sitios') && (
+                <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'sitios' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
+                  <SitiosDrop />
+                </div>
+              )}
+            </div>
 
             {/* Alojamientos */}
             <div style={{ position: 'relative' }} ref={alojRef}
@@ -674,19 +713,19 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             {/* Separador visual */}
             <div style={{ width: 1, height: 18, background: A.line, margin: '0 2px', flexShrink: 0 }} />
 
-            {/* Packs exclusivos */}
+            {/* Cuponeras */}
             <div style={{ position: 'relative' }} ref={packsRef}
               onMouseEnter={() => hoverOpen('packs')}
               onMouseLeave={hoverLeave}
             >
               <button style={{ ...navBtnSt, fontWeight: 600, color: openMenu === 'packs' ? A.primary : A.ink }}>
-                packs exclusivos <ChevD />
+                cuponeras <ChevD />
               </button>
               {(openMenu === 'packs' || closingMenu === 'packs') && (
                 <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', minWidth: 220, animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
                   <div style={{ padding: '8px 0' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Packs</p>
-                    {PACKS_TIPOS.filter(t => t !== 'Todos los packs').map(tipo => (
+                    <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Cuponeras</p>
+                    {PACKS_TIPOS.filter(t => t !== 'Todas las cuponeras').map(tipo => (
                       <button key={tipo} onClick={() => nav('packs')}
                         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 400, color: A.ink2, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
                         onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
@@ -702,8 +741,8 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                       onMouseEnter={e => { e.currentTarget.style.background = A.bg; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     >
-                      <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>{PACKS_ICONS['Todos los packs']}</span>
-                      Todos los packs
+                      <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>{PACKS_ICONS['Todas las cuponeras']}</span>
+                      Todas las cuponeras
                     </button>
                   </div>
                 </div>
@@ -803,7 +842,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
               { label: 'salidas',          action: () => nav('ofertas', { ofertasCategoria: 'salidas' }) },
               { label: 'aventura & relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
-              { label: 'packs exclusivos', action: () => nav('packs') },
+              { label: 'cuponeras', action: () => nav('packs') },
             ].map(item => (
               <button key={item.label} onClick={item.action}
                 style={{ width: '100%', textAlign: 'left', padding: '14px 0', border: 'none', borderBottom: `1px solid ${A.line}`, background: 'none', fontSize: 16, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}>

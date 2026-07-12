@@ -34,6 +34,15 @@ const SERVICIOS_ALOJ = [
   'Vista al mar', 'Bicicletas', 'Jardín / Patio', 'Servicio de limpieza',
 ];
 
+// Reutiliza la columna `servicios` (misma que alojamiento) para las características
+// que se muestran en la ficha pública del lugar.
+const SERVICIOS_GASTRO = [
+  'WiFi', 'Estacionamiento', 'Aire acondicionado', 'Terraza / Balcón', 'Vista al mar',
+  'Apto celíacos', 'Opciones veganas / vegetarianas', 'Delivery', 'Apto mascotas',
+  'Salón para eventos', 'Música en vivo', 'Accesible en silla de ruedas',
+  'Zona para fumadores', 'Cava de vinos', 'Menú infantil', 'Acepta tarjetas',
+];
+
 const TIPOS_COCINA = [
   'Parrilla / Asador', 'Pizzería', 'Pastas', 'Cocina de mar', 'Regional',
   'Comida rápida', 'Minutas', 'De autor', 'Vegetariana / Vegana', 'Heladería',
@@ -330,6 +339,12 @@ export default function PerfilNegocioForm({ value: v, onChange, errors = {} }) {
               <input value={v.depto} onChange={e => set('depto', e.target.value)} style={inp} placeholder="Depto" />
               <input value={v.entreCalles} onChange={e => set('entreCalles', e.target.value)} style={inp} placeholder="Entre calles" />
             </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={lbl}>Horario de atención <span style={{ textTransform: 'none', fontWeight: 400, color: MUTED }}>— se muestra en tu ficha (opcional)</span></label>
+              <textarea value={v.horario} onChange={e => set('horario', e.target.value)} rows={2}
+                placeholder={'Ej: Lun a Vie 9 a 20 hs\nSáb y Dom 10 a 22 hs'}
+                style={{ ...inp, resize: 'vertical', minHeight: 44 }} />
+            </div>
             <label style={lbl}>Ubicación en el mapa <span style={{ textTransform: 'none', fontWeight: 400, color: MUTED }}>— arrastrá el pin si no coincide con tu dirección</span></label>
             <UbicacionMap position={v.latLng} onChange={ll => set('latLng', ll)} />
           </>
@@ -382,10 +397,20 @@ export default function PerfilNegocioForm({ value: v, onChange, errors = {} }) {
                   <input type="number" value={v.capacidad} onChange={e => set('capacidad', e.target.value)} style={{ ...inp, maxWidth: 200 }} placeholder="Ej: 80" />
                 </div>
                 {esGastro && (
-                  <div>
-                    <label style={lbl}>Tipo de cocina / bebidas</label>
-                    <Chips opciones={TIPOS_COCINA} selected={v.tiposCocina} onToggle={t => toggle('tiposCocina', t)} />
-                  </div>
+                  <>
+                    <div>
+                      <label style={lbl}>Tipo de cocina / bebidas</label>
+                      <Chips opciones={TIPOS_COCINA} selected={v.tiposCocina} onToggle={t => toggle('tiposCocina', t)} />
+                    </div>
+                    <div>
+                      <label style={lbl}>Link al menú / carta <span style={{ textTransform: 'none', fontWeight: 400, color: MUTED }}>— PDF, web o red social</span></label>
+                      <input value={v.menuUrl} onChange={e => set('menuUrl', e.target.value)} style={inp} placeholder="https://..." />
+                    </div>
+                    <div>
+                      <label style={lbl}>Características del lugar <span style={{ textTransform: 'none', fontWeight: 400, color: MUTED }}>— así se ven en tu ficha</span></label>
+                      <Chips opciones={SERVICIOS_GASTRO} selected={v.servicios} onToggle={s => toggle('servicios', s)} />
+                    </div>
+                  </>
                 )}
                 <div>
                   <label style={lbl}>Tipo de experiencia</label>

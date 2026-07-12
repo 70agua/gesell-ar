@@ -129,7 +129,7 @@ function PackRow({ pack, onOpenPack, reverse }) {
         {/* Precio + CTA */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Pack completo desde</div>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Cuponera completa desde</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.03em', color: C.ink }}>${pack.price.toLocaleString('es-AR')}</span>
               <span style={{ fontSize: 14, textDecoration: 'line-through', color: C.muted }}>${precioOriginal.toLocaleString('es-AR')}</span>
@@ -142,7 +142,7 @@ function PackRow({ pack, onOpenPack, reverse }) {
             onMouseEnter={e => e.currentTarget.style.background = C.primary}
             onMouseLeave={e => e.currentTarget.style.background = C.ink}
           >
-            Ver pack <ArrowRight size={16} />
+            Ver cuponera <ArrowRight size={16} />
           </button>
         </div>
       </div>
@@ -193,7 +193,7 @@ export default function PacksListView({ onBack, onOpenPack }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 28 }}>
             <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Inicio</button>
             <ChevronRight size={12} />
-            <span>Packs</span>
+            <span>Cuponeras</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'end' }}>
@@ -202,7 +202,7 @@ export default function PacksListView({ onBack, onOpenPack }) {
                 Aventura & Relax curadas
               </div>
               <h1 style={{ fontSize: 'clamp(36px,5vw,60px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.0, margin: 0, color: '#fff' }}>
-                Packs Cuponear
+                Cuponeras Cuponear
               </h1>
             </div>
             <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.6)', lineHeight: 1.65, margin: 0 }}>
@@ -213,7 +213,7 @@ export default function PacksListView({ onBack, onOpenPack }) {
           {/* Stats */}
           <div style={{ display: 'flex', gap: 32, marginTop: 36, paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             {[
-              { num: mockPacks.length, label: 'packs disponibles' },
+              { num: mockPacks.length, label: 'cuponeras disponibles' },
               { num: '100%', label: 'coordinados de antemano' },
               { num: '+293', label: 'viajeros satisfechos' },
             ].map((s, i) => (

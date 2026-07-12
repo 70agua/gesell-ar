@@ -251,7 +251,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
             <div>
               {/* Breadcrumb */}
               <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'rgba(255,255,255,0.5)', marginBottom:28 }}>
-                <button onClick={onBack} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.7)', fontSize:13, fontWeight:600, cursor:'pointer', padding:0 }}>Packs</button>
+                <button onClick={onBack} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.7)', fontSize:13, fontWeight:600, cursor:'pointer', padding:0 }}>Cuponeras</button>
                 <ChevronRight size={12}/>
                 <span style={{ color:'rgba(255,255,255,0.9)' }}>{pack.title}</span>
               </div>
@@ -277,7 +277,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
                   {icon:<Star size={14} fill={C.yellow} color={C.yellow}/>, label:'4.9', sub:'(128 reseñas)'},
                   {icon:<span style={{fontSize:14}}>🌅</span>, label:'3 días / 2 noches'},
                   {icon:<Users size={14} color='rgba(255,255,255,0.6)'/>, label:'Hasta 4 personas'},
-                  {icon:<Check size={13} color={C.green} strokeWidth={2.5}/>, label:'Pack verificado', color:C.green},
+                  {icon:<Check size={13} color={C.green} strokeWidth={2.5}/>, label:'Cuponera verificada', color:C.green},
                 ].map((s,i)=>(
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:500, color: s.color || 'rgba(255,255,255,0.8)' }}>
                     {s.icon} {s.label}
@@ -289,7 +289,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
               {/* Precio + CTA */}
               <div style={{ display:'flex', alignItems:'center', gap:20, flexWrap:'wrap' }}>
                 <div>
-                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.45)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>Pack completo desde</div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.45)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>Cuponera completa desde</div>
                   <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
                     <span style={{ fontSize:40, fontWeight:900, letterSpacing:'-0.03em', color:'#fff' }}>${precioFinal.toLocaleString('es-AR')}</span>
                     <span style={{ fontSize:15, textDecoration:'line-through', color:'rgba(255,255,255,0.35)' }}>${precioOriginal.toLocaleString('es-AR')}</span>
@@ -357,7 +357,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:80, alignItems:'start' }}>
             <div>
               <div style={{ fontSize:11, fontWeight:800, color:C.primary, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:14 }}>
-                El pack
+                La cuponera
               </div>
               <h2 style={{ fontSize:'clamp(30px,4vw,48px)', fontWeight:900, letterSpacing:'-0.025em', lineHeight:1.1, margin:'0 0 20px' }}>
                 Todo listo para que solo pienses en disfrutar
@@ -366,7 +366,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
             <div style={{ paddingTop:8 }}>
               <p style={{ fontSize:17, lineHeight:1.7, color:C.ink2, margin:0 }}>
                 {pack.description ||
-                  'Armamos este pack para que no pierdas tiempo organizando. Alojamiento verificado, restaurante reservado y spa esperándote. Llegás y todo ya está. Así de simple.'}
+                  'Armamos esta cuponera para que no pierdas tiempo organizando. Alojamiento verificado, restaurante reservado y spa esperándote. Llegás y todo ya está. Así de simple.'}
               </p>
               <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:20, fontSize:14, fontWeight:600, color:C.green }}>
                 <Check size={16} strokeWidth={2.5}/> Ahorrás ${ahorro.toLocaleString('es-AR')} vs contratar por separado
@@ -488,7 +488,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
                 Bonus incluido
               </div>
               <h2 style={{ fontSize:'clamp(24px,3vw,38px)', fontWeight:900, letterSpacing:'-0.025em', margin:0 }}>
-                Cupones de regalo con tu pack
+                Cupones de regalo con tu cuponera
               </h2>
             </div>
 
@@ -540,7 +540,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
             {/* LEFT — copy */}
             <div>
               <div style={{ fontSize:11, fontWeight:800, color: palette.accentSoft === C.primarySoft ? 'rgba(255,255,255,0.5)' : palette.accentSoft, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:16 }}>
-                Reservá tu pack
+                Reservá tu cuponera
               </div>
               <h2 style={{ fontSize:'clamp(32px,4vw,52px)', fontWeight:900, letterSpacing:'-0.03em', lineHeight:1.0, margin:'0 0 20px' }}>
                 Tu escapada a Villa Gesell te espera
@@ -601,7 +601,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
                 onMouseEnter={e=>e.currentTarget.style.background='#F0F4FF'}
                 onMouseLeave={e=>e.currentTarget.style.background='#fff'}
               >
-                Reservar este pack <ArrowRight size={18}/>
+                Reservar esta cuponera <ArrowRight size={18}/>
               </button>
 
               <div style={{ textAlign:'center', marginTop:12, fontSize:12, color:'rgba(255,255,255,0.4)', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
@@ -632,7 +632,7 @@ export default function PackDetailView({ pack, onBack, onOpenOferta }) {
         boxShadow:'0 -8px 32px rgba(11,16,32,0.12)',
       }} className="md:hidden">
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:11, color:C.muted, fontWeight:500 }}>Pack completo desde</div>
+          <div style={{ fontSize:11, color:C.muted, fontWeight:500 }}>Cuponera completa desde</div>
           <div style={{ fontSize:22, fontWeight:900, color:C.ink, letterSpacing:'-0.02em' }}>${precioFinal.toLocaleString('es-AR')}</div>
         </div>
         <button

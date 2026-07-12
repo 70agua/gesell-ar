@@ -4,7 +4,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard, { PrecioCupon } from '../components/OfertaCard';
-import { locations, mockPacks, ALL_PROMOS } from '../data/mockData';
+import { locations, ALL_PROMOS } from '../data/mockData';
+import CuponModal from '../components/CuponModal';
+import { getBeneficioIcon } from '../lib/beneficioIconos';
 import { useCuponera }  from '../lib/cuponera';
 import HeartButton      from '../components/HeartButton';
 import { busqueda } from '../lib/busqueda';
@@ -351,8 +353,8 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
       {/* ── Descubrí experiencias reales ─────────────────────── */}
       <FeedSection onOpenOferta={onOpenOferta} onAddCupon={undefined} />
 
-      {/* ── Packs exclusivos ──────────────────────────────────── */}
-      <PacksSection onArmarPack={onArmarPack} onOpenPack={onOpenPack} />
+      {/* ── Cuponeras prediseñadas ────────────────────────────── */}
+      <CuponerasSection onOpenPack={onOpenPack} />
     </div>
   );
 }
@@ -1030,14 +1032,14 @@ function FeedSection({ onOpenOferta }) {
     <section id="feed-ofertas" style={{ background: '#fff', padding: '72px 0' }}>
       <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 36 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-          <IcoBolt /> SALIDAS Y AVENTURA & RELAX
+          <IcoBolt /> RESEÑAS DE SOCIOS Y VIAJEROS
         </div>
         <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: '0 0 8px' }}>Descubrí experiencias reales</h2>
         <p style={{ fontSize: 16, color: A.muted, margin: 0 }}>Ofertas y momentos inolvidables, contado por quienes te van a acompañar en este viaje.</p>
       </div>
       <div style={{ position: 'relative' }}>
-        <div style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 10 }} className="no-scrollbar">
-          <div style={{ display: 'flex', gap: 14, width: 'max-content', paddingRight: 56 }}>
+        <div style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 44 }} className="no-scrollbar">
+          <div style={{ display: 'flex', gap: 24, width: 'max-content', paddingRight: 56 }}>
             {feed.map((item, i) => {
               if (item.type === 'video') return <VideoCard key={item.id} item={item} />;
               if (item.type === 'promo') {
@@ -1069,27 +1071,46 @@ const TIPO_FILTER_MAP = {
   camping: ['Dormi'],
 };
 
+const CATEGORIA_LABELS = [
+  { value: 'alojamiento',    label: 'alojamientos' },
+  { value: 'salidas',        label: 'salidas' },
+  { value: 'aventura_relax', label: 'aventura & relax' },
+];
+
 function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta, onNavMarketplaceTipo }) {
   const [promos, setPromos]             = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [categoria, setCategoria]       = useState('alojamiento');
   const [filtroTipo, setFiltroTipo]     = useState(null);
   const [visibleCount, setVisibleCount] = useState(10);
   const [loadingMore, setLoadingMore]   = useState(false);
+  const [catOpen, setCatOpen]           = useState(false);
   const scrollRef = useRef(null);
+  const catRef    = useRef(null);
   const { addCupon } = useCuponera();
 
   useEffect(() => {
     (async () => {
       const { getPromos } = await import('../lib/datos');
       setPromos(await getPromos(200));
+      setLoading(false);
     })();
   }, []);
 
-  useEffect(() => { setVisibleCount(10); }, [filtroTipo]);
+  useEffect(() => {
+    const h = e => { if (catRef.current && !catRef.current.contains(e.target)) setCatOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
 
-  const promosAloj = promos.filter(p => p.tokens_costo !== 0 && p.categoria === 'alojamiento');
-  const promosFiltradas = filtroTipo
-    ? promosAloj.filter(p => filtroTipo.split(',').map(t => t.trim()).includes(p.negocioTipo))
-    : promosAloj;
+  useEffect(() => { setVisibleCount(10); scrollRef.current?.scrollTo({ left: 0 }); }, [filtroTipo, categoria]);
+
+  const cambiarCategoria = (cat) => { setCategoria(cat); setFiltroTipo(null); };
+
+  const promosCat = promos.filter(p => p.tokens_costo !== 0 && p.categoria === categoria);
+  const promosFiltradas = (categoria === 'alojamiento' && filtroTipo)
+    ? promosCat.filter(p => filtroTipo.split(',').map(t => t.trim()).includes(p.negocioTipo))
+    : promosCat;
 
   const alojMostrados = promosFiltradas.slice(0, visibleCount);
   const hayMas = visibleCount < promosFiltradas.length;
@@ -1115,28 +1136,59 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
 
   return (
     <section style={{ background: A.bg, padding: '72px 0', borderTop: `1px solid ${A.line}`, borderBottom: `1px solid ${A.line}` }}>
+      <style>{`@keyframes skelPulse { 0%, 100% { opacity: 0.9 } 50% { opacity: 0.3 } }`}</style>
       {/* Header */}
       <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 28 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-          <IcoBolt /> OFERTAS EN ALOJAMIENTOS
+          <IcoBolt /> DESCUENTOS Y PROMOCIONES
         </div>
-        <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: '0 0 20px' }}>Ofertas en alojamientos</h2>
+        <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.01em', color: A.ink, margin: '0 0 20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>Ofertas en&nbsp;</span>
+          <span ref={catRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <button
+              onClick={() => setCatOpen(o => !o)}
+              aria-label="Elegí la categoría de ofertas"
+              style={{ background: 'none', border: 'none', font: 'inherit', letterSpacing: 'inherit', color: A.primary, fontWeight: 700, cursor: 'pointer', padding: 0, margin: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              {CATEGORIA_LABELS.find(c => c.value === categoria)?.label}
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: catOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s', marginTop: 4 }}><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            {catOpen && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 12, boxShadow: '0 20px 48px -16px rgba(11,16,32,0.24)', zIndex: 20, minWidth: 210, overflow: 'hidden', fontFamily: A.font }}>
+                {CATEGORIA_LABELS.map(c => {
+                  const activo = c.value === categoria;
+                  return (
+                    <button key={c.value} onClick={() => { cambiarCategoria(c.value); setCatOpen(false); }}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 16px', background: activo ? A.bg : '#fff', border: 'none', fontSize: 15, fontWeight: activo ? 700 : 500, color: activo ? A.primary : A.ink, cursor: 'pointer', fontFamily: A.font }}
+                      onMouseEnter={e => { if (!activo) e.currentTarget.style.background = A.bg; }}
+                      onMouseLeave={e => { if (!activo) e.currentTarget.style.background = '#fff'; }}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </span>
+        </h2>
 
-        {/* Pills de filtro */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <button onClick={() => setFiltroTipo(null)} style={{ ...PILL_BASE, background: filtroTipo === null ? A.primary : '#fff', color: filtroTipo === null ? '#fff' : A.ink2, borderColor: filtroTipo === null ? A.primary : A.line }}>
-            Todos
-          </button>
-          {TYPE_FILTERS.map(f => {
-            const active = filtroTipo === f.navFiltro;
-            return (
-              <button key={f.id} onClick={() => setFiltroTipo(active ? null : f.navFiltro)} style={{ ...PILL_BASE, background: active ? A.primary : '#fff', color: active ? '#fff' : A.ink2, borderColor: active ? A.primary : A.line }}>
-                <span style={{ color: active ? '#fff' : A.muted, display: 'flex' }}>{f.icon}</span>
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Pills de filtro (solo en alojamientos) */}
+        {categoria === 'alojamiento' && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button onClick={() => setFiltroTipo(null)} style={{ ...PILL_BASE, background: filtroTipo === null ? A.primary : '#fff', color: filtroTipo === null ? '#fff' : A.ink2, borderColor: filtroTipo === null ? A.primary : A.line }}>
+              Todos
+            </button>
+            {TYPE_FILTERS.map(f => {
+              const active = filtroTipo === f.navFiltro;
+              return (
+                <button key={f.id} onClick={() => setFiltroTipo(active ? null : f.navFiltro)} style={{ ...PILL_BASE, background: active ? A.primary : '#fff', color: active ? '#fff' : A.ink2, borderColor: active ? A.primary : A.line }}>
+                  <span style={{ color: active ? '#fff' : A.muted, display: 'flex' }}>{f.icon}</span>
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Scroll horizontal con fade + preloader */}
@@ -1144,31 +1196,45 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 8 }}
+          style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 44 }}
           className="no-scrollbar"
         >
-          <div style={{ display: 'flex', gap: 18, width: 'max-content', paddingRight: 56, alignItems: 'flex-start' }}>
-            {alojMostrados.map(promo => (
-              <div key={promo.id} style={{ width: 340, flexShrink: 0 }}>
-                <OfertaCard
-                  promo={promo}
-                  onOpen={p => {
-                    if (onOpenOferta) { onOpenOferta(p); return; }
-                    if (!onOpenDetail || !accommodations) return;
-                    const neg = accommodations.find(a => String(a.id) === String(p.negocioId));
-                    if (neg) onOpenDetail(neg, 'alojamiento', 'promos');
-                  }}
-                  onAddToCuponera={p => addCupon(p)}
-                />
-              </div>
-            ))}
-            {/* Preloader al final del scroll */}
-            {(hayMas || loadingMore) && (
-              <div style={{ width: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <video autoPlay loop muted playsInline style={{ width: 56, height: 'auto', opacity: 0.7 }}>
-                  <source src="/loading-casa.webm" type="video/webm" />
-                </video>
-              </div>
+          <div style={{ display: 'flex', gap: 24, width: 'max-content', paddingRight: 56, alignItems: 'flex-start' }}>
+            {loading ? (
+              /* Placeholders: bloques grises parpadeando hasta la primera tanda */
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ width: 340, height: 392, flexShrink: 0, borderRadius: 20, background: '#e2e4ea', animation: 'skelPulse 1.4s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+              ))
+            ) : (
+              <>
+                {alojMostrados.map(promo => (
+                  <div key={promo.id} style={{ width: 340, flexShrink: 0 }}>
+                    <OfertaCard
+                      promo={promo}
+                      onOpen={p => {
+                        if (onOpenOferta) { onOpenOferta(p); return; }
+                        if (!onOpenDetail || !accommodations) return;
+                        const neg = accommodations.find(a => String(a.id) === String(p.negocioId));
+                        if (neg) onOpenDetail(neg, 'alojamiento', 'promos');
+                      }}
+                      onAddToCuponera={p => addCupon(p)}
+                    />
+                  </div>
+                ))}
+                {/* Preloader al final del scroll */}
+                {(hayMas || loadingMore) && (
+                  <div style={{ width: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <video autoPlay loop muted playsInline style={{ width: 56, height: 'auto', opacity: 0.7 }}>
+                      <source src="/loading-casa.webm" type="video/webm" />
+                    </video>
+                  </div>
+                )}
+                {alojMostrados.length === 0 && (
+                  <div style={{ padding: '40px 4px', color: A.muted, fontSize: 15, fontFamily: A.font }}>
+                    No hay ofertas en esta categoría por ahora.
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1179,303 +1245,116 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
 }
 
 // ═══════════════════════════════════════════════════════════
-//  PACKS
-// ═══════════════════════════════════════════════════════════
-// Icono chevron izquierda para flechas del carrusel
-const IcoChevL = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
-const IcoChevR2 = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6"/></svg>;
+//  CUPONERAS PREDISEÑADAS
+// ─── Card de una cuponera (portada + beneficio + CTA) ───────
+function CuponeraCard({ cuponera, onVerCuponera }) {
+  const portada  = cuponera.images?.[0] || PHOTOS.cabin;
+  const nCupones = cuponera.cupones?.length || 0;
+  const BenIcon  = getBeneficioIcon(cuponera.beneficioIcono);
 
-function PacksSection({ onArmarPack, onOpenPack }) {
-  const [activeIdx, setActiveIdx]           = useState(0);
-  const [contentVisible, setContentVisible] = useState(true);
-  const [badgesVisible, setBadgesVisible]   = useState(true);
-  const fadeTimerRef   = useRef(null);
-  const badgeTimerRef  = useRef(null);
-  const expandTimerRef = useRef(null);
-  const stripRef = useRef(null);
-  const packs = mockPacks.slice(0, 6);
+  return (
+    <button
+      onClick={onVerCuponera}
+      style={{
+        position: 'relative', borderRadius: 24, overflow: 'hidden', minHeight: 520,
+        display: 'flex', flexDirection: 'column',
+        border: 'none', background: 'none', padding: 0, cursor: 'pointer',
+        transition: 'transform .15s', width: '100%',
+      }}
+      onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
+      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+    >
+      <img src={portada} alt={cuponera.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(5,10,25,0.95) 0%, rgba(5,10,25,0.35) 52%, rgba(5,10,25,0.5) 100%)' }} />
 
-  const CARD_H    = 500;
-  const FEAT_W    = 560;
-  const COLL_W    = 192;
-  const MORE_W    = 96;
-  const RADIUS    = 24;
-  const GAP       = 16;
-  const PAD_L     = 120;
-  const ANIM_MS    = 480; // duración del width transition
-  const FADEOUT_MS = 50;  // solo un tick de render — el ocultado es instantáneo (transition:none)
+      {/* Beneficio adicional (círculo amarillo + texto amarillo) */}
+      {cuponera.beneficioAdicional && (
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 11, padding: '20px 22px 0' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: A.yellow, display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }}>
+            <BenIcon size={21} color={A.navy} strokeWidth={2.4} />
+          </div>
+          <span style={{ fontSize: 15, fontWeight: 700, color: A.yellow, lineHeight: 1.25 }}>{cuponera.beneficioAdicional}</span>
+        </div>
+      )}
 
-  function handleSelect(idx) {
-    if (idx === activeIdx) return;
+      {/* Contenido inferior */}
+      <div style={{ position: 'relative', marginTop: 'auto', padding: '0 26px 26px', textAlign: 'left' }}>
+        <h3 style={{ fontSize: 30, fontWeight: 800, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1.1, margin: '0 0 12px' }}>{cuponera.title}</h3>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', lineHeight: 1.5, margin: '0 0 22px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cuponera.subtitle}</p>
 
-    // Cancelar timers pendientes
-    clearTimeout(fadeTimerRef.current);
-    clearTimeout(badgeTimerRef.current);
-    clearTimeout(expandTimerRef.current);
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 13.5, fontWeight: 600 }}>
+          <img src="/ico-disc.svg" alt="cupones" style={{ width: 22, height: 22, filter: 'brightness(0) invert(1)' }} />
+          Contiene {nCupones} cupones
+        </div>
+      </div>
+    </button>
+  );
+}
 
-    // 1. Fade out del contenido actual
-    setContentVisible(false);
-    setBadgesVisible(false);
+function CuponerasSection({ onOpenPack }) {
+  const [modal, setModal] = useState(null); // { cuponera, startIndex }
+  const [cuponeras, setCuponeras] = useState(null); // null = cargando
 
-    // 2. Cuando termina el fade-out, arrancar el expand de imagen + scroll
-    expandTimerRef.current = setTimeout(() => {
-      setActiveIdx(idx);
-      if (stripRef.current) {
-        const targetScroll = idx * (COLL_W + GAP) - PAD_L / 2;
-        stripRef.current.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
-      }
-      // 3. Cuando termina la animación de ancho, fade-in del contenido nuevo
-      fadeTimerRef.current  = setTimeout(() => setContentVisible(true), ANIM_MS + 30);
-      badgeTimerRef.current = setTimeout(() => setBadgesVisible(true),  ANIM_MS + 180);
-    }, FADEOUT_MS);
-  }
-
-  useEffect(() => () => {
-    clearTimeout(fadeTimerRef.current);
-    clearTimeout(badgeTimerRef.current);
-    clearTimeout(expandTimerRef.current);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { getCuponeras } = await import('../lib/datos');
+      const data = await getCuponeras();
+      if (vivo) setCuponeras(data.slice(0, 6));
+    })();
+    return () => { vivo = false; };
   }, []);
 
-  function nudge(dir) {
-    stripRef.current?.scrollBy({ left: dir * (COLL_W + GAP) * 2, behavior: 'smooth' });
-  }
+  // No renderizar la sección si no hay cuponeras cargadas en la DB.
+  if (cuponeras !== null && cuponeras.length === 0) return null;
 
   return (
     <section style={{ background: A.navy, padding: '88px 0 96px', color: '#fff' }}>
-      {/* Ocultar scrollbar nativa pero permitir scroll táctil */}
-      <style>{`.packs-strip::-webkit-scrollbar{display:none}`}</style>
+      <style>{`
+        @media (max-width: 980px) { .cuponeras-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 640px) { .cuponeras-grid { grid-template-columns: 1fr !important; } }
+        @keyframes cupSkel { 0%,100% { opacity: .35; } 50% { opacity: .12; } }
+      `}</style>
 
-      <div style={{ paddingLeft: PAD_L, paddingRight: 80 }}>
+      <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 'max(40px, calc((100vw - 1328px) / 2 + 40px))' }}>
+
         {/* Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56, alignItems: 'end', marginBottom: 52 }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(255,201,60,0.16)', color: A.yellow, borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-              <IcoBolt /> Aventura & Relax todo-en-uno
-            </div>
-            <h2 style={{fontSize: 52, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05, margin: 0 }}>
-              Packs exclusivos
-              <img src="/logo-cuponera-wh.svg" alt="Cuponear" style={{ display: 'block', height: 74, width: 'auto', marginTop: 14 }} />
-            </h2>
+        <div style={{ marginBottom: 48 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(255,201,60,0.16)', color: A.yellow, borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 18 }}>
+            <IcoBolt /> Cuponeras temáticas
           </div>
-          <div>
-            <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, margin: '0 0 6px' }}>
-              Te ahorramos la búsqueda y la negociación. Combinamos alojamiento, gastronomía y aventuras al mejor precio verificado.
-            </p>
-          </div>
+          <h2 style={{ fontSize: 'clamp(34px, 3vw, 52px)', fontWeight: 700, lineHeight: 1.05, margin: '0 0 10px' }}>
+            Cuponeras diseñadas para vos
+          </h2>
+          <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.62)', lineHeight: 1.5, margin: 0 }}>
+            Tenemos varias opciones para que puedas disfrutar de tu viaje y aproveches los ahorros más inteligentes.
+          </p>
+        </div>
+
+        {/* Grid de cuponeras */}
+        <div className="cuponeras-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+          {cuponeras === null
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={{ borderRadius: 24, aspectRatio: '1/1', background: 'rgba(255,255,255,0.08)', animation: 'cupSkel 1.4s ease-in-out infinite' }} />
+              ))
+            : cuponeras.map(c => (
+                <CuponeraCard
+                  key={c.id}
+                  cuponera={c}
+                  onVerCuponera={() => setModal({ cuponera: c, startIndex: 0 })}
+                />
+              ))
+          }
         </div>
       </div>
 
-      {/* Wrapper relativo para las flechas de nav */}
-      <div style={{ position: 'relative' }}>
-
-        {/* Flecha izquierda */}
-        <button
-          onClick={() => nudge(-1)}
-          style={{
-            position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)',
-            zIndex: 10, width: 44, height: 44, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-          aria-label="Anterior"
-        >
-          <IcoChevL />
-        </button>
-
-        {/* Flecha derecha */}
-        <button
-          onClick={() => nudge(1)}
-          style={{
-            position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)',
-            zIndex: 10, width: 44, height: 44, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-          aria-label="Siguiente"
-        >
-          <IcoChevR2 />
-        </button>
-
-        {/* Strip scrollable — orden FIJO, expansión in-place */}
-        <div
-          ref={stripRef}
-          className="packs-strip"
-          style={{
-            paddingLeft: PAD_L,
-            paddingRight: 40,
-            display: 'flex',
-            gap: GAP,
-            height: CARD_H,
-            overflowX: 'auto',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
-          {packs.map((pack, idx) => {
-            const isFeatured = idx === activeIdx;
-            const img = pack.images?.[0] || PHOTOS.cabin;
-            return (
-              <div
-                key={pack.id}
-                onClick={() => !isFeatured && handleSelect(idx)}
-                style={{
-                  position: 'relative',
-                  flexShrink: 0,
-                  width: isFeatured ? FEAT_W : COLL_W,
-                  borderRadius: RADIUS,
-                  overflow: 'hidden',
-                  cursor: isFeatured ? 'default' : 'pointer',
-                  transition: 'width 0.48s cubic-bezier(0.4,0,0.2,1)',
-                }}
-              >
-                {/* Imagen de fondo */}
-                <img src={img} alt={pack.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s', transform: isFeatured ? 'scale(1)' : 'scale(1.06)' }}/>
-
-                {/* Gradiente */}
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  background: isFeatured
-                    ? 'linear-gradient(to top, rgba(5,10,25,0.95) 0%, rgba(5,10,25,0.5) 45%, rgba(5,10,25,0.08) 100%)'
-                    : 'linear-gradient(to top, rgba(5,10,25,0.88) 0%, rgba(5,10,25,0.2) 70%, transparent 100%)',
-                  transition: 'background 0.48s',
-                }}/>
-
-                {/* Hover tint en colapsadas */}
-                {!isFeatured && (
-                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(37,69,230,0)', transition: 'background 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,69,230,0.18)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(37,69,230,0)'}
-                  />
-                )}
-
-                {/* Badge localidad — arriba izquierda, solo en expandida */}
-                {pack.location && isFeatured && (
-                  <div style={{
-                    position: 'absolute', top: 18, left: 18,
-                    background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
-                    color: '#fff', padding: '5px 11px', borderRadius: 999,
-                    fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5,
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    opacity: badgesVisible ? 1 : 0,
-                    transition: badgesVisible ? 'opacity 0.28s ease' : 'none',
-                  }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2"/></svg>
-                    {pack.location}
-                  </div>
-                )}
-
-                {/* Badge descuento — arriba derecha, solo en expandida */}
-                {pack.discountPct && isFeatured && (
-                  <div style={{
-                    position: 'absolute', top: 14, right: 16,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                    opacity: badgesVisible ? 1 : 0,
-                    transition: badgesVisible ? 'opacity 0.28s ease' : 'none',
-                  }}>
-                    <div style={{ background: A.yellow, color: A.navy, padding: '7px 16px', borderRadius: 999, fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>
-                      -{pack.discountPct}% OFF
-                    </div>
-                    <div style={{ background: A.yellow, color: A.navy, borderRadius: 999, padding: '3px 10px', fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', alignSelf: 'flex-end' }}>
-                      que contratando por separado
-                    </div>
-                  </div>
-                )}
-
-                {isFeatured ? (
-                  /* ── CARD EXPANDIDA ── */
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0, padding: '36px 36px 32px',
-                    opacity: contentVisible ? 1 : 0,
-                    transition: contentVisible ? 'opacity 0.28s ease' : 'none',
-                    pointerEvents: contentVisible ? 'auto' : 'none',
-                  }}>
-                    {pack.badge && <div style={{ fontSize: 10, fontWeight: 700, color: A.yellow, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>{pack.badge}</div>}
-                    <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, marginBottom: 10 }}>{pack.title}</div>
-                    <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.68)', lineHeight: 1.55, marginBottom: 18, maxWidth: 440 }}>{pack.subtitle}</div>
-
-                    {/* Chips de qué incluye */}
-                    {pack.includes?.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 24 }}>
-                        {pack.includes.map((item, i) => (
-                          <span key={i} style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                            background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)',
-                            border: '1px solid rgba(255,255,255,0.18)',
-                            color: '#fff', fontSize: 11.5, fontWeight: 600,
-                            padding: '5px 12px', borderRadius: 999,
-                          }}>
-                            <IcoCheck /> {item}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); onOpenPack ? onOpenPack(pack) : onArmarPack(); }}
-                        style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', padding: '13px 22px', borderRadius: 14, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.15s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-                      >
-                        Ver detalles
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); onOpenPack ? onOpenPack(pack) : onArmarPack(); }}
-                        style={{ marginLeft: 'auto', background: A.primary, color: '#fff', border: 'none', padding: '13px 26px', borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.15s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = A.primaryDark}
-                        onMouseLeave={e => e.currentTarget.style.background = A.primary}
-                      >
-                        Pedí un presupuesto <IcoArrowR />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* ── CARD COLAPSADA ── */
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '18px 16px' }}>
-                    {pack.badge && (
-                      <div style={{ fontSize: 12, fontWeight: 700, color: A.yellow, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>{pack.badge}</div>
-                    )}
-                    <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', lineHeight: 1.25 }}>
-                      {pack.title}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-        </div>
-
-        {/* Indicadores dot */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginTop: 28 }}>
-          {packs.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSelect(idx)}
-              style={{
-                width: idx === activeIdx ? 24 : 7,
-                height: 7,
-                borderRadius: 999,
-                background: idx === activeIdx ? '#7DA1FF' : 'rgba(255,255,255,0.25)',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s',
-              }}
-              aria-label={`Pack ${idx + 1}`}
-            />
-          ))}
-        </div>
-      </div>
+      {modal && (
+        <CuponModal
+          cuponera={modal.cuponera}
+          startIndex={modal.startIndex}
+          onClose={() => setModal(null)}
+        />
+      )}
     </section>
   );
 }
@@ -1501,9 +1380,9 @@ function GastronomySection({ dining, onOpenDetail, onVerTodas }) {
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-            <IcoBolt /> GASTRONOMÍA
+            <IcoBolt /> GASTRONOMÍA LOCAL
           </div>
-          <h2 style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>
+          <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>
             Top <em style={{ fontStyle: 'normal', color: A.primary }}>#10</em> donde comer y beber
           </h2>
         </div>

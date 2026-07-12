@@ -2,7 +2,7 @@
 //  src/views/LoginView.jsx
 // ============================================================
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Coins, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Coins, Trash2, Ticket, ChevronRight, ArrowLeft } from 'lucide-react';
 import { login, registrarTurista, loginConGoogle } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { registrarIntentoPagoTarjeta, FOTOS_GALERIA_MAX } from '../lib/planes';
@@ -172,7 +172,19 @@ const BtnNext = ({ onClick, disabled, label, saving }) => (
   </button>
 );
 
-export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete, planDirecto }) {
+// Botón "Volver" sin borde ni fondo — se pone a la izquierda del título de cada paso.
+function VolverBtn({ onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: OBMUTED, fontFamily: OBFONT, fontSize: 13, fontWeight: 600, flexShrink: 0 }}
+      onMouseEnter={e => (e.currentTarget.style.color = OBINK)}
+      onMouseLeave={e => (e.currentTarget.style.color = OBMUTED)}>
+      <ArrowLeft size={16} /> Volver
+    </button>
+  );
+}
+
+export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onComplete, onSalir, planDirecto }) {
   const [obStep,    setObStep]    = useState(1);
   const [doneSteps, setDoneSteps] = useState(new Set());
   // Perfil del negocio — objeto único manejado por PerfilNegocioForm
@@ -332,6 +344,32 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
     } finally { setSaving(false); }
   };
 
+  // "Volver": retrocede al paso anterior del wizard; si ya estamos en el
+  // primero, sale del alta comercial (misma acción que el logo).
+  const irAtras = async () => {
+    const prev = NAV_STEPS.map(s => s.n).filter(n => n < obStep).pop();
+    if (prev) { setObStep(prev); window.scrollTo(0, 0); }
+    else {
+      // Si vuelve desde el primer paso, eliminar el usuario/negocio incompletos
+      // para que pueda reintentar el registro desde cero con el mismo email.
+      try {
+        if (regUserId) {
+          // Eliminar el negocio stub
+          const { data: perfilData } = await supabase.from('perfiles').select('negocio_id').eq('id', regUserId).single();
+          if (perfilData?.negocio_id) {
+            await supabase.from('negocios').delete().eq('id', perfilData.negocio_id);
+          }
+          // Eliminar el perfil
+          await supabase.from('perfiles').delete().eq('id', regUserId);
+        }
+      } catch (err) {
+        console.error('Error al limpiar registro incompleto:', err);
+        // Continuar igual aunque falle la limpieza
+      }
+      onSalir?.();
+    }
+  };
+
   // Paso 3: se omite/continúa. Las ofertas ya las persiste TabOfertas contra `promociones`.
   const step3Continuar = () => {
     setDoneSteps(s => new Set([...s, 3]));
@@ -422,7 +460,10 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
       {/* ── Sidebar (mismo estilo que el panel admin) ── */}
       <div style={{ width:230, minWidth:230, background:OBNAVY, display:'flex', flexDirection:'column', flexShrink:0 }}>
         <div style={{ padding:'20px 0 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
-          <img src="/logo-cuponera-wh.svg" alt="Cuponera" style={{ width:180, height:'auto', display:'block' }} />
+          <button type="button" onClick={() => onSalir?.()} title="Ir al inicio y descartar el alta comercial"
+            style={{ background:'none', border:'none', padding:0, cursor:'pointer', display:'block' }}>
+            <img src="/logo-cuponera-wh.svg" alt="Cuponera" style={{ width:180, height:'auto', display:'block' }} />
+          </button>
           <div style={{ fontSize:10.5, color:OBMUTED, fontWeight:600, letterSpacing:'0.04em' }}>Registro de socio</div>
         </div>
         <nav style={{ padding:'16px 10px', display:'flex', flexDirection:'column', gap:2, flex:1 }}>
@@ -460,6 +501,7 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
           <TabOfertas
             onboarding
             onSkip={step3Continuar}
+            onVolver={irAtras}
             negocioId={negocioId}
             plan={plan || 'free'}
             showToast={showToast}
@@ -475,7 +517,10 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
           {obStep === 2 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div>
-                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Tu perfil de negocio</h1>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                  <VolverBtn onClick={irAtras} />
+                  <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Tu perfil de negocio</h1>
+                </div>
                 <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Esta info aparece en tu ficha pública. Los campos con <span style={{ color:'#ef4444' }}>*</span> son obligatorios.</p>
               </div>
 
@@ -496,9 +541,9 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
           {/* ── Paso 1: Cuenta ── */}
           {obStep === 1 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-              <div>
-                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Elegí tu plan</h1>
-                <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Podés empezar gratis y actualizar cuando quieras. El cobro se activa cuando tu ficha sea aprobada.</p>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <VolverBtn onClick={irAtras} />
+                <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Elegí tu plan</h1>
               </div>
 
               {errors._ && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{errors._}</div>}
@@ -531,7 +576,10 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
           {obStep === 4 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div>
-                <h1 style={{ margin:'0 0 6px', fontSize:24, fontWeight:800, color:OBINK }}>Armá tu primera cuponera regalo</h1>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                  <VolverBtn onClick={irAtras} />
+                  <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Armá tu primera cuponera regalo</h1>
+                </div>
                 <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Sumale cupones de otros socios y regalásela a tus huéspedes con tu alias. La pagás una sola vez al armarla — hoy tenés créditos de bienvenida para empezar.</p>
               </div>
 
@@ -688,8 +736,10 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
   const [rShowPass, setRShowPass] = useState(false);
   const [terminos,  setTerminos]  = useState(false);
 
-  // ── Cuenta comercial (checkbox al final del paso 1) ──
-  const [esComercial,   setEsComercial]   = useState(false);
+  // ── Modo de registro: se elige en dos tarjetas ANTES del formulario.
+  //    null = todavía no eligió · 'turista' · 'comercial'
+  const [modoRegistro,  setModoRegistro]  = useState(null);
+  const esComercial = modoRegistro === 'comercial';
   const [regUserId,     setRegUserId]     = useState(null); // userId creado en paso 1
 
   // ── Handlers ─────────────────────────────────────────────────
@@ -754,15 +804,27 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
     }
   };
 
-  const handleGoogle = async () => {
+  // Google es un redirect: la intención "comercial" se pierde en el viaje de
+  // ida/vuelta, así que la guardamos con timestamp antes de salir. Al volver,
+  // App la lee y manda al alta comercial en vez de dejarlo como turista.
+  const handleGoogle = async (intent) => {
     setError(''); setLoading(true);
-    try { await loginConGoogle(); }
-    catch { setError('No se pudo conectar con Google. Intentá de nuevo.'); setLoading(false); }
+    try {
+      if (intent === 'comercial') {
+        localStorage.setItem('cuponear_reg_intent', JSON.stringify({ modo: 'comercial', ts: Date.now() }));
+      } else {
+        localStorage.removeItem('cuponear_reg_intent');
+      }
+      await loginConGoogle();
+    } catch {
+      localStorage.removeItem('cuponear_reg_intent');
+      setError('No se pudo conectar con Google. Intentá de nuevo.'); setLoading(false);
+    }
   };
 
   const switchTab = (t) => {
     setTab(t); setError(''); setExito(''); setRegStep(1);
-    setEsComercial(false); setRegUserId(null);
+    setModoRegistro(null); setRegUserId(null);
   };
 
   // ─── Render ──────────────────────────────────────────────────
@@ -778,6 +840,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
           localStorage.setItem('gesell_onboarding_tip', '1');
           onOnboardingComplete?.();
         }}
+        onSalir={() => { setModoRegistro(null); onBack?.(); }}
       />
     );
   }
@@ -832,7 +895,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
           {/* ══ INGRESAR ══ */}
           {tab === 'ingresar' && (
             <form onSubmit={handleIngresar} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <BtnGoogle onClick={handleGoogle} loading={loading} />
+              <BtnGoogle onClick={() => handleGoogle()} loading={loading} />
               <Divisor />
               <Campo label="Email" type="email" value={email} onChange={setEmail} placeholder="tu@email.com" icon={<Mail size={15} />} required />
               <Campo label="Contraseña" type={showPass ? 'text' : 'password'} value={password} onChange={setPassword} placeholder="••••••••"
@@ -856,15 +919,46 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
           {tab === 'registrarse' && (
             <div>
 
-              {/* ── PASO 1 — Datos de cuenta (común a todos) ── */}
-              {regStep === 1 && (
+              {/* ── PASO 1a — Elegir tipo de cuenta (dos tarjetas) ── */}
+              {regStep === 1 && !modoRegistro && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: A.ink, fontFamily: A.font }}>¿Cómo vas a usar Cuponear?</div>
+                    <div style={{ fontSize: 13, color: A.muted, marginTop: 4, fontFamily: A.font }}>Elegí una opción para empezar tu registro.</div>
+                  </div>
+                  {[
+                    { id: 'turista',   Icon: User, titulo: 'Soy turista', desc: 'Explorá descuentos de la zona, agregá a cuponeras y disfrutá todos los beneficios.' },
+                    { id: 'comercial', Icon: Store,  titulo: 'Tengo un negocio',          desc: 'Armá tu ficha de negocio, publicá ofertas y sumá clientes. ¡Empezá GRATIS!' },
+                  ].map(o => (
+                    <button key={o.id} type="button" onClick={() => { setModoRegistro(o.id); setError(''); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '16px', borderRadius: 16, border: `1.5px solid ${A.line}`, background: '#fff', cursor: 'pointer', transition: 'all .15s', fontFamily: A.font }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.background = A.primarySoft; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = A.line; e.currentTarget.style.background = '#fff'; }}>
+                      <div style={{ width: 46, height: 46, borderRadius: 12, background: A.primarySoft, color: A.primary, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <o.Icon size={22} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: A.ink }}>{o.titulo}</div>
+                        <div style={{ fontSize: 12.5, color: A.muted, marginTop: 3, lineHeight: 1.45 }}>{o.desc}</div>
+                      </div>
+                      <ChevronRight size={18} color={A.muted} style={{ flexShrink: 0 }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* ── PASO 1b — Datos de cuenta (según el modo elegido) ── */}
+              {regStep === 1 && modoRegistro && (
                 <form onSubmit={handleAccountSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {!esComercial && (
-                    <>
-                      <BtnGoogle onClick={handleGoogle} loading={loading} label="Registrarse con Google" />
-                      <Divisor />
-                    </>
-                  )}
+                  <button type="button" onClick={() => { setModoRegistro(null); setError(''); }}
+                    style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: A.muted, fontSize: 13, fontWeight: 600, fontFamily: A.font }}>
+                    ← {esComercial ? 'Tengo un negocio' : 'Quiero aprovechar ofertas'} · Cambiar
+                  </button>
+
+                  <BtnGoogle onClick={() => handleGoogle(esComercial ? 'comercial' : undefined)} loading={loading}
+                    label={esComercial ? 'Continuar con Google' : 'Registrarse con Google'} />
+                  <Divisor />
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <Campo label="Nombre" value={rNombre} onChange={setRNombre} placeholder="Sofía" icon={<User size={15} />} required />
                     <Campo label="Apellido" value={rApellido} onChange={setRApellido} placeholder="García" required />
@@ -876,23 +970,14 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
                   />
                   <Campo label="Repetir contraseña" type={rShowPass ? 'text' : 'password'} value={rPass2} onChange={setRPass2} placeholder="Repetí tu contraseña" icon={<Lock size={15} />} required />
 
-                  {/* ── Cuenta comercial (checkbox) ── */}
-                  <div style={{ border: `1.5px solid ${esComercial ? A.primary : A.line}`, borderRadius: 14, background: esComercial ? A.primarySoft : '#fff', padding: esComercial ? '16px 16px 18px' : '14px 16px', transition: 'all .18s' }}>
-                    <div onClick={() => { setEsComercial(v => !v); setError(''); }} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
-                      <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${esComercial ? A.primary : A.line}`, background: esComercial ? A.primary : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 1, transition: 'all .15s' }}>
-                        {esComercial && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Store size={16} color={esComercial ? A.primary : A.ink2} />
-                          <span style={{ fontSize: 14, fontWeight: 700, color: esComercial ? A.primary : A.ink, fontFamily: A.font }}>Es una cuenta comercial</span>
-                        </div>
-                        <div style={{ fontSize: 12.5, color: A.muted, marginTop: 4, lineHeight: 1.5, fontFamily: A.font }}>
-                          Activala si tenés un negocio. Así vas a poder <strong style={{ color: A.ink2 }}>crear cupones de descuento</strong> para tus clientes y armar tu ficha en Cuponear. El rubro exacto (alojamiento, salidas o aventura &amp; relax) lo elegís después, desde tu panel.
-                        </div>
+                  {esComercial && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, border: `1px solid ${A.line}`, background: A.primarySoft, borderRadius: 12, padding: '12px 14px' }}>
+                      <Store size={16} color={A.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+                      <div style={{ fontSize: 12.5, color: A.ink2, lineHeight: 1.5, fontFamily: A.font }}>
+                        Vas a poder <strong style={{ color: A.ink }}>crear cupones</strong> y armar tu ficha. El rubro (alojamiento, salidas o aventura &amp; relax) lo elegís en el próximo paso.
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   <Terminos checked={terminos} onChange={setTerminos} />
                   <BtnSubmit loading={loading} label={esComercial ? 'Continuar' : 'Crear mi cuenta'} loadingLabel={esComercial ? 'Continuando...' : 'Creando cuenta...'} />

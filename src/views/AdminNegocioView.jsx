@@ -14,7 +14,7 @@ import {
   Disc3, Info, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos, calcularPrecio, registrarCompra } from '../lib/cobros';
+import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra } from '../lib/cobros';
 import { getWallet } from '../lib/gamificacion';
 import {
   getCuponerasRegalo, crearCuponeraRegalo, renombrarCuponera, cambiarEstadoCuponera, toggleModoInteligente,
@@ -27,7 +27,6 @@ import { impulsarOferta, costoPorAcceso, costoPorVenta, costoPorResultado } from
 import { sanitizeTituloOferta } from '../lib/ofertas';
 import ComprarTokensModal from '../components/ComprarTokensModal';
 import SimuladorImpulso, { CREDITOS_MIN, DIAS_REF, VALOR_CREDITO } from '../components/SimuladorImpulso';
-import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
 import LoadingScreen from '../components/LoadingScreen';
 import GaleriaFotos from '../components/GaleriaFotos';
 import PerfilNegocioForm from '../components/PerfilNegocioForm';
@@ -751,6 +750,8 @@ function dbRowToItem(p) {
     img:       src,
     imagenes:  src ? [{ src, file: null }] : [],
     formatos:  [...(p.offer_type === 'Flash' ? ['flash'] : []), ...(p.is_group ? ['grupal'] : [])],
+    ahorro:    p.ahorro_estimado ?? '',
+    precio:    p.precio_manual != null ? String(p.precio_manual) : (p.ahorro_estimado ? String(calcularPrecioCupon(Number(p.ahorro_estimado))) : ''),
     flashFechaFin: p.fecha_fin_flash ? new Date(p.fecha_fin_flash) : null,
     fechaDesde: p.fecha_inicio ? new Date(p.fecha_inicio) : null,
     fechaHasta: p.fecha_fin ? new Date(p.fecha_fin) : null,
@@ -1013,7 +1014,7 @@ function EstadoGuardadoIcono({ activo, status, style }) {
   );
 }
 
-export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free', onUpgrade, saldoTokens = 0, setSaldoTokens, onboarding = false, onSkip }) {
+export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free', onUpgrade, saldoTokens = 0, setSaldoTokens, onboarding = false, onSkip, onVolver, soloEditor = false, ofertaInicial = null, modoAdmin = false, onCerrarEditor, onOfertaGuardada }) {
   const [ofertas, setOfertas] = useState(() => {
     if (dbPromos.length > 0) return dbPromos.map(dbRowToItem);
     // En el onboarding arrancamos sin ninguna oferta (sólo el placeholder), sin datos de ejemplo.
@@ -1041,6 +1042,8 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
     // El mín/máx de personas se derivan de los tramos al guardar (primer/último rango).
     basePricePp: '', tramos: [{ min_pax: 2, max_pax: 4, discount_pct: 10 }],
     happyDesde: '15:00', happyHasta: '18:00',
+    // Ahorro declarado en $ para el turista: sugiere el Precio del cupón (editable).
+    ahorro: '', precio: '',
     // Período activo: modo 'hoy'/'manual' (default) o 'especifica' (habilita el datetime).
     desdeModo: 'hoy', hastaModo: 'manual',
     activa: true, imagenes: [], fechaDesde: null, fechaHasta: null,
@@ -1243,6 +1246,8 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
       basePricePp: o.basePricePp ?? '',
       tramos: Array.isArray(o.tramos) && o.tramos.length ? o.tramos : [{ min_pax: 2, max_pax: 4, discount_pct: 10 }],
       happyDesde: o.happyDesde || '15:00', happyHasta: o.happyHasta || '18:00',
+      ahorro: o.ahorro ?? '',
+      precio: o.precio ?? '',
       activa: o.activa !== false,
       imagenes: o.imagenes?.length > 0 ? o.imagenes : o.img ? [{ src: o.img, file: null }] : [],
       desdeModo: o.fechaDesde ? 'especifica' : 'hoy',
@@ -1310,6 +1315,8 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
       descripcion:     editForm.desc || null,
       imagen_url:      imagenUrl,
       offer_type:      esFlash ? 'Flash' : 'Normal',
+      ahorro_estimado: editForm.ahorro ? Number(editForm.ahorro) : null,
+      precio_manual:   editForm.precio ? Number(editForm.precio) : null,
       fecha_fin_flash: esFlash && Number(editForm.flashHoras) > 0 ? new Date(Date.now() + Math.min(72, Number(editForm.flashHoras)) * 3600000).toISOString() : null,
       fecha_fin:       !esFlash && editForm.fechaHasta ? editForm.fechaHasta.toISOString() : null,
       fecha_inicio:    !esFlash && editForm.fechaDesde ? editForm.fechaDesde.toISOString() : null,
@@ -1410,15 +1417,23 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
   // salir del campo, ver onBlur del panel más abajo); selects y on/off (saveDelayMs = 0, ver
   // setFInstante) se autoguardan ya, sin esperar nada.
   useEffect(() => {
+    if (modoAdmin) return;   // el superadmin guarda con un botón explícito, sin autoguardado
     if (!isDirty) return;
     draftTimerRef.current = setTimeout(() => { autosaveConIcono(); }, saveDelayMs);
     return () => clearTimeout(draftTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editForm, editingOferta, isDirty, saveDelayMs]);
 
+  // Modo "solo editor" (drawer del superadmin): al montar, abre directamente la oferta indicada.
+  useEffect(() => {
+    if (ofertaInicial) doStartEdit(dbRowToItem(ofertaInicial));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ofertaInicial?.id]);
+
   // Flush inmediato: al salir de cualquier campo del panel (blur), si hay cambios pendientes,
   // se guarda al instante en vez de esperar el debounce de 3s.
   function handlePanelBlur() {
+    if (modoAdmin) return;   // sin autoguardado en el panel del superadmin
     if (!isDirty) return;
     clearTimeout(draftTimerRef.current);
     autosaveConIcono();
@@ -1499,6 +1514,8 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
         ? [...prev, itemGuardado]
         : prev.map(o => o.id === editingOferta.id ? itemGuardado : o));
       setEditingOferta(itemGuardado);
+      // El superadmin actualiza su fila en memoria (sin recargar toda la lista → no pierde el scroll).
+      onOfertaGuardada?.(row);
     } catch (err) {
       setSavingOferta(false);
       manualSavingRef.current = false;
@@ -1728,15 +1745,26 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
 
   return (
     <>
-    <div style={{ display: 'flex', alignItems: 'stretch', margin: -28, height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'stretch', margin: soloEditor ? 0 : -28, height: soloEditor ? '100%' : '100vh', overflow: 'hidden' }}>
 
-      {/* ─── Left: lista (scroll propio) ─── */}
+      {/* ─── Left: lista (scroll propio) — oculta en modo solo editor ─── */}
+      {!soloEditor && (
       <div style={{ flex: 1, minWidth: 0, padding: 28, paddingRight: 20, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
 
         {onboarding ? (
           <>
             <div>
-              <h2 style={{ fontFamily: FONT, fontSize: 22, fontWeight: 800, color: INK, margin: '0 0 6px' }}>Cargá tu primera oferta</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                {onVolver && (
+                  <button type="button" onClick={onVolver}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: MUTED, fontFamily: FONT, fontSize: 13, fontWeight: 600, flexShrink: 0 }}
+                    onMouseEnter={e => (e.currentTarget.style.color = INK)}
+                    onMouseLeave={e => (e.currentTarget.style.color = MUTED)}>
+                    <ArrowLeft size={16} /> Volver
+                  </button>
+                )}
+                <h2 style={{ fontFamily: FONT, fontSize: 22, fontWeight: 800, color: INK, margin: 0 }}>Cargá tu primera oferta</h2>
+              </div>
               <p style={{ fontFamily: FONT, fontSize: 13, color: INK2, margin: 0, lineHeight: 1.5 }}>
                 Tiene las mismas opciones que después vas a tener en tu panel. Completala a la derecha, o dejalo para más tarde.
               </p>
@@ -1786,12 +1814,13 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
         )}
 
       </div>
+      )}
 
       {/* ─── Separator + panel de edición (se puede cerrar con la X) ─── */}
-      {editorAbierto && <div style={{ width: 1, background: LINE, flexShrink: 0 }}/>}
+      {editorAbierto && !soloEditor && <div style={{ width: 1, background: LINE, flexShrink: 0 }}/>}
 
       {editorAbierto && (
-      <div style={{ width: '36%', flexShrink: 0, height: '100%', background: CARD, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ width: soloEditor ? '100%' : '36%', flexShrink: 0, height: '100%', background: CARD, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header panel */}
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${LINE}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: PS, flexShrink: 0 }}>
@@ -1799,19 +1828,27 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
             {editingOferta === 'new' ? 'Crear cupón' : 'Editar oferta'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Superadmin: guardado explícito arriba a la derecha (sin autoguardado) */}
+            {modoAdmin && (
+              <button onClick={() => saveEdit()} disabled={savingOferta || !camposCompletos}
+                title="Guardar cambios"
+                style={{ background: (camposCompletos && !savingOferta) ? P : LINE, color: (camposCompletos && !savingOferta) ? '#fff' : MUTED, border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: (savingOferta || !camposCompletos) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <Save size={14}/> {savingOferta ? 'Guardando…' : 'Guardar'}
+              </button>
+            )}
             {editingOferta !== 'new' && (
               <button onClick={deleteEditing} title="Eliminar oferta" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #fecaca', background: '#fff', cursor: 'pointer', color: '#ef4444', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                 <Trash2 size={13}/>
               </button>
             )}
-            <button onClick={() => tryNav(() => setEditorAbierto(false))} title="Cerrar panel" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', cursor: 'pointer', color: INK2, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <button onClick={() => tryNav(() => (soloEditor && onCerrarEditor ? onCerrarEditor() : setEditorAbierto(false)))} title="Cerrar panel" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${LINE}`, background: '#fff', cursor: 'pointer', color: INK2, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <X size={15}/>
             </button>
           </div>
         </div>
 
-        {/* Header fijo "Aumentar visibilidad": sólo al editar un cupón ya publicado (no en alta ni en borrador) */}
-        {editingOferta !== 'new' && !editingOferta.borrador && esUuid(editingOferta.id) && (
+        {/* Header fijo "Aumentar visibilidad": sólo al editar un cupón ya publicado (no en alta ni en borrador). Oculto para el superadmin. */}
+        {!modoAdmin && editingOferta !== 'new' && !editingOferta.borrador && esUuid(editingOferta.id) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', background: '#fff7ed', borderBottom: '1px solid #fed7aa', flexShrink: 0 }}>
             <div style={{ width: 32, height: 32, borderRadius: 9, background: '#ffedd5', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <TrendingUp size={16} color="#ea580c"/>
@@ -1978,6 +2015,44 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
                 style={{ ...inputSt, resize: 'vertical', lineHeight: 1.5, paddingRight: 34 }}/>
               <EstadoGuardadoIcono activo={campoActivo === 'desc'} status={saveStatus} style={{ top: 14, transform: 'none' }}/>
             </div>
+          </div>
+
+          {/* ── 6) Ahorro declarado → Precio del cupón (auto-sugerido, editable) ── */}
+          <div>
+            <FieldLabel label="Ahorro estimado para el turista ($)"/>
+            <div style={{ position: 'relative' }}>
+              <input value={editForm.ahorro} inputMode="numeric"
+                onChange={e => {
+                  const v = soloNum(e.target.value).slice(0, 9);
+                  // Si el precio todavía coincide con el sugerido del ahorro anterior, lo re-sugerimos;
+                  // si el socio lo editó a mano, se respeta.
+                  setEditForm(f => {
+                    const sugeridoPrevio = calcularPrecioCupon(Number(f.ahorro));
+                    const eraAuto = !f.precio || Number(f.precio) === sugeridoPrevio;
+                    return { ...f, ahorro: v, precio: eraAuto ? String(calcularPrecioCupon(Number(v)) || '') : f.precio };
+                  });
+                  setIsDirty(true); setCampoActivo('ahorro'); setSaveStatus('idle'); setSaveDelayMs(3000);
+                }}
+                placeholder="Ej. 5000" style={{ ...inputSt, paddingRight: 34 }}/>
+              <EstadoGuardadoIcono activo={campoActivo === 'ahorro'} status={saveStatus}/>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <FieldLabel label="Precio del cupón ($, IVA incl.)"/>
+              <div style={{ position: 'relative' }}>
+                <input value={editForm.precio} inputMode="numeric"
+                  onChange={e => setCampoTexto('precio', soloNum(e.target.value).slice(0, 9))}
+                  placeholder="Ej. 1500" style={{ ...inputSt, paddingRight: 34 }}/>
+                <EstadoGuardadoIcono activo={campoActivo === 'precio'} status={saveStatus}/>
+              </div>
+              {Number(editForm.ahorro) > 0 && Number(editForm.precio) !== calcularPrecioCupon(Number(editForm.ahorro)) && (
+                <button type="button"
+                  onClick={() => setCampoTexto('precio', String(calcularPrecioCupon(Number(editForm.ahorro)) || ''))}
+                  style={{ marginTop: 6, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                  Usar sugerido: ${calcularPrecioCupon(Number(editForm.ahorro)).toLocaleString('es-AR')}
+                </button>
+              )}
+            </div>
+            <p style={{ marginTop: 6, fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>El precio se sugiere automáticamente a partir del ahorro declarado, pero podés editarlo.</p>
           </div>
           </>
           )}
@@ -2152,7 +2227,8 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
           </>
           )}
 
-          {/* ── Acciones ── */}
+          {/* ── Acciones ── (ocultas para el superadmin: guarda/elimina desde el header) */}
+          {!modoAdmin && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 8 }}>
             {/* Sólo para una oferta ya publicada (no "new"/borrador, donde el CTA sigue siendo
                 "Publicar cupón"): si el autoguardado ya se llevó todos los cambios, el botón
@@ -2175,6 +2251,7 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
               </button>
             )}
           </div>
+          )}
 
         </div>
       </div>
@@ -2714,7 +2791,7 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
               </div>
               <div style={{ flex:1 }}>
                 <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Plan activo</div>
-                <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{esPlusReal ? 'PLUS' : 'Gratis'}</div>
+                <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{esPlusReal ? 'PLUS' : 'FREEMIUM'}</div>
               </div>
               <div style={{ textAlign:'right' }}>
                 {esPlusReal ? (

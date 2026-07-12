@@ -3,6 +3,9 @@
 // ============================================================
 
 import { supabase } from './supabase';
+import { calcularPrecioCupon } from './cobros';
+
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80';
 
 // ─── Localidades cercanas ─────────────────────────────────────
 const LOCALIDADES_CERCANAS = {
@@ -78,17 +81,35 @@ function normalizeNegocio(n) {
     category:          n.tipo                || '',
     priceRange:        n.precio_rango        || null,
     tags:              n.tags                || [],
+    servicios:         n.servicios ? n.servicios.split(',').map(s => s.trim()).filter(Boolean) : [],
+    horario:           n.horario             || '',
     description:       n.descripcion         || '',
     iconName:          iconPorTipo(n.tipo),
     fotoPerfil:        n.foto_perfil         || null,
     lat:               n.lat != null ? Number(n.lat) : null,
     lng:               n.lng != null ? Number(n.lng) : null,
     plan:              n.plan                || 'free',
+    // ── Contacto / info pública que el socio carga a mano (ficha de socio) ──
+    email:             n.email              || '',
+    sitioWeb:          n.sitio_web          || '',
+    menuUrl:           n.menu_url           || '',
+    instagram:         n.instagram          || '',
+    facebook:          n.facebook           || '',
+    tiktok:            n.tiktok             || '',
+    whatsapp:          [n.tel_movil_cod, n.tel_movil_num].filter(Boolean).join(' ') || '',
+    telefono:          [n.tel_fijo_cod, n.tel_fijo_num].filter(Boolean).join(' ') || '',
+    tipoCocina:        n.tipo_cocina        || '',
+    capacidad:         n.capacidad          || null,
+    reservaObligatoria: n.reserva_obligatoria || false,
+    // Detalle de dirección (piso/depto/entre calles) para la ficha
+    piso:              n.piso               || '',
+    depto:             n.depto              || '',
+    entreCalles:       n.entre_calles       || '',
     esReal:            true,
   };
 }
 
-function normalizePromo(p) {
+export function normalizePromo(p) {
   return {
     id:               p.id,
     negocioId:        p.negocio_id,
@@ -249,6 +270,78 @@ export async function getNegocioById(id) {
     .eq('id', id)
     .single();
   return data ? normalizeNegocio(data) : null;
+}
+
+// ─── Cuponeras prediseñadas (cuponeras_locales) ───────────────
+// Normaliza una promoción de la DB a la forma de "cupón" que consumen
+// CuponModal y las minifichas de la Home.
+function normalizeCuponDeCuponera(p) {
+  const n = p.negocios || {};
+  const precio = p.precio_manual != null
+    ? Number(p.precio_manual)
+    : calcularPrecioCupon(Number(p.ahorro_estimado) || 0);
+  const terminos = (p.condiciones || '')
+    .split(/\n|(?<=\.)\s+/).map(s => s.trim()).filter(Boolean);
+  const galeria = Array.isArray(n.galeria) && n.galeria.length
+    ? n.galeria
+    : [p.imagen_url].filter(Boolean);
+  return {
+    id:               p.id,
+    titulo:           p.titulo,
+    badge:            p.badge || 'Promo',
+    imagen:           p.imagen_url || FALLBACK_IMG,
+    socio:            n.nombre || '',
+    localidad:        n.localidad || '',
+    beneficio:        p.descripcion || p.subtitulo || '',
+    descripcionSocio: n.descripcion || '',
+    detalles:         [],
+    terminos,
+    galeria,
+    lat:              n.lat != null ? Number(n.lat) : null,
+    lng:              n.lng != null ? Number(n.lng) : null,
+    ahorro_estimado:  Number(p.ahorro_estimado) || 0,
+    precio_activacion: precio,
+  };
+}
+
+// Devuelve las cuponeras activas con sus cupones ya normalizados,
+// listas para <CuponeraCard>/<CuponModal>. Descarta las vacías.
+export async function getCuponeras() {
+  const { data, error } = await supabase
+    .from('cuponeras_locales')
+    .select(`
+      id, nombre, descripcion, badge, imagen_url, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado,
+      cuponeras_locales_cupones (
+        promociones (
+          id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
+          ahorro_estimado, precio_manual, activa, aprobada,
+          negocios ( nombre, localidad, descripcion, lat, lng, galeria )
+        )
+      )
+    `)
+    .eq('estado', 'activa')
+    .order('creado_en', { ascending: false });
+
+  if (error) { console.error('getCuponeras', error); return []; }
+
+  return (data || []).map(cl => {
+    const cupones = (cl.cuponeras_locales_cupones || [])
+      .map(x => x.promociones)
+      .filter(p => p && p.activa !== false && p.aprobada !== false)
+      .map(normalizeCuponDeCuponera);
+    return {
+      id:               cl.id,
+      title:            cl.nombre,
+      subtitle:         cl.descripcion || '',
+      badge:            cl.badge || '',
+      images:           [cl.imagen_url || FALLBACK_IMG],
+      beneficioAdicional: cl.beneficio_adicional || '',
+      beneficioIcono:   cl.beneficio_icono || '',
+      beneficioTipo:    cl.beneficio_tipo || '',
+      beneficioValor:   cl.beneficio_valor != null ? Number(cl.beneficio_valor) : 0,
+      cupones,
+    };
+  }).filter(c => c.cupones.length > 0);
 }
 
 function iconPorTipo(tipo) {

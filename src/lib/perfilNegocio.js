@@ -28,7 +28,7 @@ export function perfilDesdeNegocio(negocio, emailSemilla = '') {
     email: n.email || emailSemilla || '',
     telFijoCod: n.tel_fijo_cod || '+54', telFijoNum: n.tel_fijo_num || '',
     telMovilCod: n.tel_movil_cod || '+54', telMovilNum: n.tel_movil_num || '',
-    sitioWeb: n.sitio_web || '', instagram: n.instagram || '', facebook: n.facebook || '', tiktok: n.tiktok || '',
+    sitioWeb: n.sitio_web || '', menuUrl: n.menu_url || '', instagram: n.instagram || '', facebook: n.facebook || '', tiktok: n.tiktok || '',
     pais: n.pais || 'Argentina', provincia: n.provincia || 'Buenos Aires', localidad: n.localidad || '', codPostal: n.cod_postal || '7165',
     tieneLocalFisico: n.tiene_local_fisico !== false,
     calle: n.calle || '', piso: n.piso || '', depto: n.depto || '', entreCalles: n.entre_calles || '',
@@ -36,6 +36,7 @@ export function perfilDesdeNegocio(negocio, emailSemilla = '') {
     tamMinM2: n.tam_min_m2?.toString() || '', tamMaxM2: n.tam_max_m2?.toString() || '',
     minHues: n.min_huespedes?.toString() || '', maxHues: n.max_huespedes?.toString() || '',
     servicios: n.servicios ? n.servicios.split(',').map(s => s.trim()).filter(Boolean) : [],
+    horario: n.horario || '',
     aceptaMascotas: n.acepta_mascotas || false, aceptaNinos: n.acepta_ninos ?? true,
     capacidad: n.capacidad?.toString() || '',
     tiposCocina: n.tipo_cocina ? n.tipo_cocina.split(',').map(s => s.trim()).filter(Boolean) : [],
@@ -62,6 +63,7 @@ export function perfilAPayload(v) {
     entre_calles: v.tieneLocalFisico ? (v.entreCalles.trim() || null) : null,
     lat: v.tieneLocalFisico ? (v.latLng?.[0] ?? null) : null,
     lng: v.tieneLocalFisico ? (v.latLng?.[1] ?? null) : null,
+    horario: v.tieneLocalFisico ? (v.horario.trim() || null) : null,
     descripcion: v.descripcion.trim(),
   };
   if (v.tipo === 'alojamiento') {
@@ -78,7 +80,10 @@ export function perfilAPayload(v) {
     payload.reserva_obligatoria = v.reservaObligatoria;
     const esGastro = v.cats.some(c => CATEGORIAS_GASTRO.has(c));
     payload.tipo_cocina = esGastro ? v.tiposCocina.join(', ') : null;
+    payload.menu_url = (v.menuUrl || '').trim() || null;
     payload.tags = v.tags;
+    // Reutiliza la misma columna `servicios` que alojamiento (nunca conviven en el mismo negocio).
+    payload.servicios = esGastro ? v.servicios.join(', ') : null;
   } else if (v.tipo === 'aventura_relax') {
     payload.duracion = v.duracion;
     payload.max_pax = v.maxPax ? parseInt(v.maxPax) : null;

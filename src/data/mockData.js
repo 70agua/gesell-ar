@@ -367,6 +367,150 @@ export const mockPacks = [
   },
 ];
 
+// ============================================================
+//  CUPONES INCLUIDOS EN CADA CUPONERA PREDISEÑADA
+//  Cada cuponera (antes "pack") reúne varios cupones de socios.
+//  Cada cupón tiene su ficha (detalles, socio, galería y ubicación).
+// ============================================================
+const CUP_IMG = {
+  hotel:    'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+  cabana:   'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=800&q=80',
+  spa:      'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=800&q=80',
+  cena:     'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=800&q=80',
+  vino:     'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=800&q=80',
+  cuatro4:  'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=800&q=80',
+  yoga:     'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=800&q=80',
+  surf:     'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=800&q=80',
+  caballos: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=800&q=80',
+  postre:   'https://images.unsplash.com/photo-1501443762994-82bd5dab89a5?auto=format&fit=crop&w=800&q=80',
+  desayuno: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?auto=format&fit=crop&w=800&q=80',
+  fogon:    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+  cafe:     'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=800&q=80',
+  pileta:   'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80',
+  bar:      'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&q=80',
+  bosque:   'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=800&q=80',
+  playa:    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+};
+
+const TERMINOS_BASE = [
+  'Válido presentando el cupón desde la app, sin necesidad de imprimir.',
+  'No acumulable con otras promociones vigentes del mismo socio.',
+  'Sujeto a disponibilidad del socio al momento del canje.',
+  'Un cupón por persona/mesa salvo aclaración del socio.',
+];
+
+// hash estable de un string → entero (para valores ficticios deterministas)
+function hashStr(str = '') {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+// helper: completa defaults del cupón (galería, términos, campos para el mapa
+// y valores ficticios de ahorro/precio de activación para poder mostrar el checkout)
+function mkCupon(o) {
+  const h = hashStr(o.id || o.titulo || '');
+  return {
+    galeria: [o.imagen, CUP_IMG.playa, CUP_IMG.bosque],
+    terminos: TERMINOS_BASE,
+    // campos que consume MapView (forma "promo")
+    title: o.titulo,
+    proveedorNombre: o.socio,
+    // valores ficticios estables (mismo id → mismo valor siempre)
+    ahorro_estimado: 3000 + (h % 13) * 1000,   // $3.000 – $15.000
+    precio_activacion: 600 + (h % 9) * 150,     // $600 – $1.800
+    ...o,
+  };
+}
+
+const CUPONES_POR_CUPONERA = {
+  // 1 · Escapada Romántica — Mar de las Pampas
+  1: [
+    mkCupon({ id: 'c1-1', badge: 'Cortesía', titulo: 'Espumante y welcome en la habitación', socio: 'Hotel del Bosque', tipo: 'Hotel', imagen: CUP_IMG.hotel, lat: -37.3225, lng: -56.9852, localidad: 'Mar de las Pampas',
+      beneficio: 'Botella de espumante y tabla de bienvenida al llegar a tu habitación.', descripcionSocio: 'Hotel boutique entre los pinos de Mar de las Pampas, a 3 cuadras del mar. 24 habitaciones con desayuno de campo incluido.', detalles: ['Espumante nacional frío en la habitación', 'Tabla de quesos y frutos secos para 2', 'Válido en el check-in coordinando el horario'] }),
+    mkCupon({ id: 'c1-2', badge: '2×1', titulo: 'Cena romántica a la luz de las velas', socio: 'Restaurante Amarena', tipo: 'Restaurante', imagen: CUP_IMG.cena, lat: -37.3241, lng: -56.9831, localidad: 'Mar de las Pampas',
+      beneficio: 'Menú de 3 pasos para 2 personas pagando uno.', descripcionSocio: 'Cocina de autor con productos de la zona, ambientado a la luz de las velas. Reserva recomendada.', detalles: ['Entrada + principal + postre por persona', 'Aplica de domingo a jueves', 'No incluye bebidas'] }),
+    mkCupon({ id: 'c1-3', badge: '-30%', titulo: 'Circuito de spa y masajes en pareja', socio: 'Spa Aqua Serena', tipo: 'Spa', imagen: CUP_IMG.spa, lat: -37.3210, lng: -56.9868, localidad: 'Mar de las Pampas',
+      beneficio: '30% off en el circuito de spa de 2 horas para dos.', descripcionSocio: 'Circuito húmedo con hidromasaje, sauna finlandés y sala de relax. Masajes descontracturantes con turno previo.', detalles: ['Circuito húmedo 2 horas', 'Masaje relax de 30 min por persona', 'Turno con reserva anticipada'] }),
+    mkCupon({ id: 'c1-4', badge: 'Regalo', titulo: 'Desayuno de campo servido en la cabaña', socio: 'Panadería La Espiga', tipo: 'Panadería', imagen: CUP_IMG.desayuno, lat: -37.3252, lng: -56.9845, localidad: 'Mar de las Pampas',
+      beneficio: 'Canasta de desayuno artesanal para dos.', descripcionSocio: 'Panadería de masa madre y facturas artesanales. Elaboración diaria.', detalles: ['Facturas, pan casero y mermeladas', 'Jugo natural y café de especialidad', 'Coordinar entrega el día anterior'] }),
+  ],
+  // 2 · Aventura en el Faro — Las Gaviotas
+  2: [
+    mkCupon({ id: 'c2-1', badge: 'Cortesía', titulo: 'Cabaña en el pinar con fogón nocturno', socio: 'Las Gaviotas Lodge', tipo: 'Cabaña', imagen: CUP_IMG.cabana, lat: -37.3465, lng: -56.9925, localidad: 'Las Gaviotas',
+      beneficio: 'Leña y kit de fogón sin cargo durante tu estadía.', descripcionSocio: 'Cabañas de madera entre los pinos, a 200 m de una bajada de playa tranquila. Ideal para desconectarse.', detalles: ['Kit de fogón con leña incluido', 'Quincho con parrilla disponible', 'Válido toda la estadía'] }),
+    mkCupon({ id: 'c2-2', badge: '-15%', titulo: 'Excursión 4x4 al Faro Querandí', socio: 'Médanos Extremo', tipo: 'Aventura', imagen: CUP_IMG.cuatro4, lat: -37.3502, lng: -56.9948, localidad: 'Las Gaviotas',
+      beneficio: '15% off en la excursión guiada 4x4 a la reserva del faro.', descripcionSocio: 'Excursiones off-road por la reserva Faro Querandí con guías habilitados. Salidas diarias según marea.', detalles: ['Recorrido de 3 horas por los médanos', 'Subida al faro incluida', 'Salida sujeta a condiciones climáticas'] }),
+    mkCupon({ id: 'c2-3', badge: 'Regalo', titulo: 'Picnic gourmet en playa virgen', socio: 'Almacén del Médano', tipo: 'Gourmet', imagen: CUP_IMG.playa, lat: -37.3448, lng: -56.9910, localidad: 'Las Gaviotas',
+      beneficio: 'Canasta de picnic artesanal para dos personas.', descripcionSocio: 'Almacén de productos regionales, tablas y viandas para llevar. Todo de productores locales.', detalles: ['Tabla de fiambres y quesos regionales', 'Vino o limonada artesanal', 'Retirar en el local coordinando horario'] }),
+    mkCupon({ id: 'c2-4', badge: '-20%', titulo: 'Sandboard en los médanos', socio: 'Duna Sur', tipo: 'Aventura', imagen: CUP_IMG.surf, lat: -37.3520, lng: -56.9962, localidad: 'Mar Azul',
+      beneficio: '20% off en la clase de sandboard con equipo.', descripcionSocio: 'Escuela de sandboard y actividades de médano. Instructores certificados y equipo incluido.', detalles: ['Clase de 90 minutos', 'Tabla y protecciones incluidas', 'Apto principiantes desde 8 años'] }),
+  ],
+  // 3 · Ruta Gastronómica — Villa Gesell
+  3: [
+    mkCupon({ id: 'c3-1', badge: 'Cortesía', titulo: 'Apart céntrico con late check-out', socio: 'Apart del Centro', tipo: 'Apart', imagen: CUP_IMG.hotel, lat: -37.2630, lng: -56.9762, localidad: 'Villa Gesell',
+      beneficio: 'Late check-out sin cargo (hasta las 14 hs).', descripcionSocio: 'Aparts equipados en pleno centro, a una cuadra de la Avenida 3 y del mar.', detalles: ['Late check-out hasta las 14 hs', 'Sujeto a disponibilidad', 'Coordinar el día del egreso'] }),
+    mkCupon({ id: 'c3-2', badge: '-25%', titulo: 'Degustación de vinos y mariscos', socio: 'Bodegón del Puerto', tipo: 'Restaurante', imagen: CUP_IMG.vino, lat: -37.2648, lng: -56.9748, localidad: 'Villa Gesell',
+      beneficio: '25% off en la tabla de mariscos con maridaje.', descripcionSocio: 'Cocina de mar con carta de vinos de bodegas argentinas. Terraza con vista al centro.', detalles: ['Tabla de mariscos para 2', 'Copa de vino de maridaje incluida', 'Aplica hasta las 20 hs'] }),
+    mkCupon({ id: 'c3-3', badge: '2×1', titulo: 'Churros históricos en El Topo', socio: 'Churros El Topo', tipo: 'Cafetería', imagen: CUP_IMG.cafe, lat: -37.2622, lng: -56.9771, localidad: 'Villa Gesell',
+      beneficio: 'Docena de churros 2×1 con chocolate.', descripcionSocio: 'Un clásico histórico de la Villa. Churros rellenos de dulce de leche recién hechos.', detalles: ['Media docena + media docena de regalo', 'Chocolate caliente a elección', 'Válido todo el día'] }),
+    mkCupon({ id: 'c3-4', badge: '-15%', titulo: 'Cabalgata al atardecer por la costa', socio: 'Cabalgatas del Sur', tipo: 'Aventura', imagen: CUP_IMG.caballos, lat: -37.2705, lng: -56.9820, localidad: 'Villa Gesell',
+      beneficio: '15% off en la cabalgata guiada de atardecer.', descripcionSocio: 'Paseos a caballo por la playa y los médanos con guías. Caballos mansos, apto principiantes.', detalles: ['Cabalgata de 1 hora al atardecer', 'Guía y casco incluidos', 'Reserva anticipada según cupo'] }),
+  ],
+  // 4 · Familia Plena — Villa Gesell
+  4: [
+    mkCupon({ id: 'c4-1', badge: 'Cortesía', titulo: 'Casa con pileta y acceso al parque acuático', socio: 'Complejo Sol y Mar', tipo: 'Complejo', imagen: CUP_IMG.pileta, lat: -37.2660, lng: -56.9740, localidad: 'Villa Gesell',
+      beneficio: 'Entradas al parque acuático para toda la familia.', descripcionSocio: 'Complejo familiar con pileta climatizada, juegos y salón. A pocas cuadras de la playa.', detalles: ['4 entradas al parque acuático', 'Uso de pileta y solárium', 'Válido durante la estadía'] }),
+    mkCupon({ id: 'c4-2', badge: '-20%', titulo: 'Clases de surf para chicos', socio: 'Escuela de Surf VG', tipo: 'Aventura', imagen: CUP_IMG.surf, lat: -37.2690, lng: -56.9790, localidad: 'Villa Gesell',
+      beneficio: '20% off en la clase grupal de surf para menores.', descripcionSocio: 'Escuela de surf con instructores certificados. Tablas blandas y neoprenes por talle.', detalles: ['Clase grupal de 90 minutos', 'Tabla y traje incluidos', 'Desde 7 años con autorización'] }),
+    mkCupon({ id: 'c4-3', badge: 'Regalo', titulo: 'Show de títeres y entrada al teatro', socio: 'Teatro de la Villa', tipo: 'Cultura', imagen: CUP_IMG.cena, lat: -37.2618, lng: -56.9758, localidad: 'Villa Gesell',
+      beneficio: 'Entrada de regalo para menores acompañados.', descripcionSocio: 'Espacio cultural con funciones familiares durante toda la temporada.', detalles: ['1 entrada de menor sin cargo por adulto', 'Función de tarde', 'Sujeto a la cartelera vigente'] }),
+    mkCupon({ id: 'c4-4', badge: '-15%', titulo: 'Merienda familiar con helado', socio: 'Heladería La Perla', tipo: 'Heladería', imagen: CUP_IMG.postre, lat: -37.2635, lng: -56.9776, localidad: 'Villa Gesell',
+      beneficio: '15% off en el combo de merienda familiar.', descripcionSocio: 'Helado artesanal y meriendas. Más de 30 gustos de elaboración propia.', detalles: ['1 kg de helado + churros', 'Bebidas para 4 personas', 'Válido de lunes a viernes'] }),
+  ],
+  // 5 · Relax Total — Mar de las Pampas
+  5: [
+    mkCupon({ id: 'c5-1', badge: 'Cortesía', titulo: 'Cabaña de descanso en el bosque', socio: 'Cabañas Aromo', tipo: 'Cabaña', imagen: CUP_IMG.cabana, lat: -37.3218, lng: -56.9858, localidad: 'Mar de las Pampas',
+      beneficio: 'Kit de té de hierbas y aromaterapia en la cabaña.', descripcionSocio: 'Cabañas rodeadas de aromos y pinos, pensadas para el descanso. Silencio y naturaleza.', detalles: ['Kit de infusiones y aromaterapia', 'Difusor de esencias en la habitación', 'Válido toda la estadía'] }),
+    mkCupon({ id: 'c5-2', badge: 'Regalo', titulo: 'Yoga y meditación al amanecer', socio: 'Yoga Gesell', tipo: 'Bienestar', imagen: CUP_IMG.yoga, lat: -37.3235, lng: -56.9872, localidad: 'Mar de las Pampas',
+      beneficio: 'Una clase de yoga al amanecer sin cargo.', descripcionSocio: 'Clases de hatha y vinyasa en los médanos al amanecer. Mats disponibles.', detalles: ['Clase de 75 minutos', 'Mat y accesorios incluidos', 'Cupos limitados, reservar antes'] }),
+    mkCupon({ id: 'c5-3', badge: '-30%', titulo: 'Masaje relajante descontracturante', socio: 'Spa Aqua Serena', tipo: 'Spa', imagen: CUP_IMG.spa, lat: -37.3212, lng: -56.9866, localidad: 'Mar de las Pampas',
+      beneficio: '30% off en el masaje descontracturante de 50 min.', descripcionSocio: 'Masajes terapéuticos y de relajación con aceites esenciales. Turnos individuales.', detalles: ['Masaje de cuerpo completo 50 min', 'Aceites esenciales incluidos', 'Turno con reserva previa'] }),
+    mkCupon({ id: 'c5-4', badge: '2×1', titulo: 'Menú saludable de autor', socio: 'Verde Bistró', tipo: 'Restaurante', imagen: CUP_IMG.cena, lat: -37.3248, lng: -56.9838, localidad: 'Mar de las Pampas',
+      beneficio: 'Plato principal saludable 2×1.', descripcionSocio: 'Cocina plant-based y saludable con productos orgánicos de la zona.', detalles: ['Principal + principal de regalo', 'Opciones veganas y sin TACC', 'Aplica al mediodía'] }),
+  ],
+  // 6 · Amigos & Adrenalina — Villa Gesell Centro
+  6: [
+    mkCupon({ id: 'c6-1', badge: 'Cortesía', titulo: 'Casa completa con quincho y parrilla', socio: 'Casa Duna', tipo: 'Casa', imagen: CUP_IMG.hotel, lat: -37.2652, lng: -56.9752, localidad: 'Villa Gesell',
+      beneficio: 'Kit de asado y leña para la primera noche.', descripcionSocio: 'Casa amplia para grupos con quincho, parrilla y terraza. A metros del centro.', detalles: ['Kit de asado + leña incluidos', 'Quincho y terraza de uso exclusivo', 'Válido la primera noche'] }),
+    mkCupon({ id: 'c6-2', badge: 'Regalo', titulo: 'Noche de fogón y asado en la playa', socio: 'Fogón Costero', tipo: 'Gourmet', imagen: CUP_IMG.fogon, lat: -37.2700, lng: -56.9810, localidad: 'Villa Gesell',
+      beneficio: 'Fogón guiado con picada de regalo para el grupo.', descripcionSocio: 'Experiencias de fogón en la playa con guía, música y picada regional.', detalles: ['Picada regional para el grupo', 'Fogón y leña incluidos', 'Sujeto a permisos y clima'] }),
+    mkCupon({ id: 'c6-3', badge: '-20%', titulo: 'Sandboard nocturno en médanos', socio: 'Duna Sur', tipo: 'Aventura', imagen: CUP_IMG.surf, lat: -37.2718, lng: -56.9832, localidad: 'Villa Gesell',
+      beneficio: '20% off en la salida de sandboard nocturna.', descripcionSocio: 'Salidas de sandboard con linternas y equipo. Adrenalina bajo las estrellas.', detalles: ['Salida guiada de 2 horas', 'Tabla, casco y linterna incluidos', 'Apto mayores de 12 años'] }),
+    mkCupon({ id: 'c6-4', badge: '2×1', titulo: 'Tragos de autor en terraza con DJ', socio: 'Bar La Costa', tipo: 'Bar', imagen: CUP_IMG.bar, lat: -37.2628, lng: -56.9766, localidad: 'Villa Gesell',
+      beneficio: 'Cocktails de autor 2×1 en la terraza.', descripcionSocio: 'Rooftop bar con DJ en vivo y coctelería de autor. La previa perfecta del grupo.', detalles: ['Trago + trago de regalo por persona', 'Aplica hasta las 22 hs', 'Música en vivo los fines de semana'] }),
+  ],
+};
+
+mockPacks.forEach(p => { p.cupones = CUPONES_POR_CUPONERA[p.id] || []; });
+
+// ─── Beneficio adicional por cuponera (texto amarillo + ícono) ─
+const BENEFICIO_POR_CUPONERA = {
+  1: { texto: 'Triplica los puntos que obtenés', icono: 'trending' },
+  2: { texto: 'Sumás puntos por cada aventura',   icono: 'zap' },
+  3: { texto: 'Doble de puntos en gastronomía',   icono: 'sparkles' },
+  4: { texto: 'Te regalamos un cupón',            icono: 'gift' },
+  5: { texto: 'Beneficios de bienestar exclusivos', icono: 'heart' },
+  6: { texto: 'Triplica los puntos que obtenés',  icono: 'party' },
+};
+mockPacks.forEach(p => {
+  const b = BENEFICIO_POR_CUPONERA[p.id];
+  if (b) { p.beneficioAdicional = b.texto; p.beneficioIcono = b.icono; }
+});
+
+// Alias semántico: las "cuponeras prediseñadas" son los mockPacks enriquecidos.
+export const mockCuponeras = mockPacks;
+
 export const mockDining = [
   {
     id: 'nido',

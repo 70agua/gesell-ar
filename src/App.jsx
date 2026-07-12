@@ -89,7 +89,25 @@ function AppContent() {
     async function checkSession() {
       const s = await getSession();
       setSession(s);
-      if (s) { const p = await getPerfil(); setPerfil(p); }
+      if (s) {
+        const p = await getPerfil();
+        setPerfil(p);
+        // Si venía de Google con intención "comercial" (guardada antes del
+        // redirect), lo mandamos derecho al alta comercial en vez de dejarlo
+        // como turista con "publicar oferta". Se honra sólo si es reciente
+        // (<10 min) y el perfil todavía no tiene negocio.
+        try {
+          const raw = localStorage.getItem('cuponear_reg_intent');
+          if (raw) {
+            localStorage.removeItem('cuponear_reg_intent');
+            const { modo, ts } = JSON.parse(raw);
+            const fresco = Date.now() - (ts || 0) < 10 * 60 * 1000;
+            if (modo === 'comercial' && fresco && p && !p.negocio_id && !p.es_superadmin) {
+              setView('convertir-comercial');
+            }
+          }
+        } catch { /* flag inválido: ignorar */ }
+      }
       setAuthLoading(false);
     }
     checkSession();
@@ -458,6 +476,7 @@ function AppContent() {
               rEmail={perfil?.email || session.user.email || ''}
               planDirecto={convertirPlanDirecto}
               onComplete={() => { setConvertirPlanDirecto(null); handleOnboardingComplete(); }}
+              onSalir={() => { setConvertirPlanDirecto(null); setView('home'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'socios' && (

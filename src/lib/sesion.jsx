@@ -20,9 +20,13 @@ import { createContext, useContext } from 'react';
 
 const SesionCtx = createContext({ perfil: null, mostrarCreditos: false });
 
-// ¿Este perfil maneja su billetera en créditos? → socio Plus o superadmin.
+// El precio de las ofertas SIEMPRE se muestra en pesos.
+// Los créditos pasaron a ser "créditos publicitarios" de los socios y ya no
+// tienen relación con el precio de las ofertas, así que nadie (ni socio Plus
+// ni superadmin) ve el precio de cupones en créditos.
+// eslint-disable-next-line no-unused-vars
 export function debeVerCreditos(perfil) {
-  return perfil?.negocios?.plan === 'plus' || perfil?.es_superadmin === true;
+  return false;
 }
 
 export function SesionProvider({ perfil, children }) {

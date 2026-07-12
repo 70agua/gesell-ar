@@ -5,6 +5,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, ChevronRight } from 'lucide-react';
 import emailjs from '@emailjs/browser';
+import { supabase } from '../lib/supabase';
 
 // ─── EmailJS config ────────────────────────────────────────
 const EJ_SERVICE_ID  = 'service_qeuvztw';
@@ -255,6 +256,16 @@ function ContactForm({ onBack, onSent }) {
     if (Object.keys(e).length) { setErrors(e); return; }
     setSending(true);
     try {
+      // Queda registrada como consulta "a un humano" en el panel del superadmin (negocio_id null = Cuponix).
+      const mensajeConTel = form.telefono?.trim()
+        ? `${form.mensaje}\n\nTel: ${form.telefono.trim()}`
+        : form.mensaje;
+      await supabase.from('consultas').insert({
+        negocio_id: null,
+        nombre_visitante: form.nombre,
+        email: form.email,
+        mensaje: mensajeConTel,
+      });
       await emailjs.send(EJ_SERVICE_ID, EJ_TEMPLATE_ID, {
         from_name:  form.nombre,
         from_email: form.email,

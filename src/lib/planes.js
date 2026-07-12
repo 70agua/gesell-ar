@@ -8,8 +8,10 @@
 import { supabase } from './supabase';
 import { acreditarTokens } from './cobros';
 
-// Créditos de "capacidad" que recibe un socio al darse de alta en Plus (una sola vez).
-const CREDITOS_ALTA_PLUS = 50;
+// Créditos publicitarios que recibe un socio Plus: 15 por mes (recurrente).
+// Al alta se acredita el primer mes; la reposición mensual todavía no está
+// mecanizada (falta el job/top-up recurrente) — ver brief de planes.
+const CREDITOS_PLUS_MENSUALES = 15;
 
 // Tope de fotos en la galería del perfil, según plan.
 export const FOTOS_GALERIA_MAX = { free: 4, plus: 20 };
@@ -110,11 +112,11 @@ export async function crearSuscripcionPlus(negocioId, { unidadesDeclaradas = 0 }
   await supabase.from('negocios').update({ plan: 'plus', fecha_alta_plus: ahora }).eq('id', negocioId);
 
   // El alias sólo existe si el negocio ya fue Plus antes → sirve de proxy de "alta nueva":
-  // generamos alias y acreditamos los 50 créditos de capacidad una única vez.
+  // generamos alias y acreditamos el primer mes de créditos publicitarios.
   const { data: aliasExistente } = await supabase.from('socio_alias').select('id').eq('negocio_id', negocioId).maybeSingle();
   if (!aliasExistente) {
     await generarAliasUnico(negocioId, unidadesDeclaradas);
-    await acreditarTokens(negocioId, CREDITOS_ALTA_PLUS);
+    await acreditarTokens(negocioId, CREDITOS_PLUS_MENSUALES);
   }
 
   return { error: null };

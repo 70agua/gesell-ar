@@ -32,7 +32,9 @@ export function calcularPrecioCupon(ahorroDeclarado) {
 // SIEMPRE aplica la tabla escalonada sobre el ahorro declarado; sólo
 // cae a `tokensCosto × crédito` como respaldo legacy (mock/sin ahorro),
 // y a 0 cuando el cupón es de regalo (tokensCosto === 0).
-export function precioActivacionARS({ ahorro = 0, tokensCosto = null } = {}) {
+export function precioActivacionARS({ ahorro = 0, tokensCosto = null, precioManual = null } = {}) {
+  // Precio fijado a mano tiene prioridad (0 sigue significando "regalo").
+  if (precioManual != null && precioManual !== '') return Number(precioManual) || 0;
   if (tokensCosto === 0) return 0;
   if (ahorro > 0) return calcularPrecioCupon(ahorro);
   return (Number(tokensCosto) || 0) * CREDITO_TOTAL;

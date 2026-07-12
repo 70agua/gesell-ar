@@ -11,6 +11,7 @@ import {
   Star, Minus, Plus, Sunrise, Users, Bell,
   Dumbbell, Wind, Flame, PawPrint, Baby, Bike, Tv, ChefHat,
   TreePine, Droplets, Sparkles, BedDouble, AirVent,
+  Mail, BookOpen,
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { supabase }                                    from '../lib/supabase';
@@ -2303,68 +2304,167 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
   );
 }
 
+// ─── Helpers de links de contacto (ficha de socio) ───────────
+const withProto = u => (u && !/^https?:\/\//i.test(u) ? `https://${u}` : u);
+const igUrl = h => {
+  if (!h) return '';
+  const clean = h.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '');
+  return clean ? `https://instagram.com/${clean}` : '';
+};
+const waUrl = t => { const d = (t || '').replace(/\D/g, ''); return d ? `https://wa.me/${d}` : ''; };
+const IgIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
+
+// ─── Card de una promo del socio en la columna derecha (gastro) ──
+function GastroPromoItem({ promo: p, onOpenOferta, onAdd }) {
+  const mostrarCreditos = useMostrarCreditos();
+  const isFlash = p.offerType === 'Flash';
+  const creditos = creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
+  return (
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
+      {/* Imagen con badge + título */}
+      <div onClick={() => onOpenOferta?.(p)} style={{ position: 'relative', height: 130, cursor: 'pointer', overflow: 'hidden', background: '#1a2a35' }}>
+        {(p.image || p.imagen_url) && (
+          <img src={p.image || p.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.2) 55%, transparent 100%)' }} />
+        <div style={{ position: 'absolute', top: 10, right: 12 }} onClick={e => e.stopPropagation()}>
+          <HeartButton id={p.id} size={28} />
+        </div>
+        {isFlash && (
+          <div style={{ position: 'absolute', top: 10, left: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', borderRadius: 999, padding: '3px 8px 3px 6px' }}>
+            <Zap size={10} color="#f5c842" fill="#f5c842" />
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.ink }}>OFERTA</span>
+            <span style={{ fontSize: 10, fontWeight: 900, color: '#e02020', fontStyle: 'italic' }}>FLASH</span>
+          </div>
+        )}
+        <div style={{ position: 'absolute', bottom: 10, left: 14, right: 44 }}>
+          {p.badge && <div style={{ fontSize: 30, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 2, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>}
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.95)', lineHeight: 1.3, textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>{p.title || p.titulo}</div>
+        </div>
+        {isFlash && p.fechaFinFlash && (
+          <div style={{ position: 'absolute', bottom: 10, right: 12 }}><MiniFlashTimer fechaFin={p.fechaFinFlash} /></div>
+        )}
+      </div>
+      {/* Cuerpo */}
+      <div style={{ padding: '12px 14px' }}>
+        <button
+          onClick={() => onAdd?.(p)}
+          style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: C.primary }}
+          onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
+          onMouseLeave={e => e.currentTarget.style.background = C.primary}
+        >
+          <Send size={13} /> Solicitar este cupón
+        </button>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', gap: 5, marginTop: 9 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
+          {mostrarCreditos ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                <CoinSVG size={12} />
+                <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
+              </div>
+              <span style={{ fontSize: 11, color: C.muted }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
+              <CreditTooltip />
+            </>
+          ) : (
+            <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
-//  GastroExperienciaDetail
+//  GastroExperienciaDetail — ficha de socio (info + promos)
 // ═══════════════════════════════════════════════════════════
-function GastroExperienciaDetail({ item, tipo }) {
-  const category = item.category || item.type || '';
+function GastroExperienciaDetail({ item, tipo, promos = [], onOpenOferta }) {
+  const { addCupon } = useCuponera();
+  const category  = item.category || item.type || '';
   const pinColor  = TIPO_COLORS[category] || C.muted;
   const isGastro  = tipo === 'salidas';
   const priceLabel = { '$': 'Económico (hasta $3.000)', '$$': 'Moderado ($3.000 – $7.000)', '$$$': 'Gourmet ($7.000+)' }[item.priceRange] || item.priceRange;
 
+  const promosVisibles = promos.map(p => ({ ...p, title: p.title || p.titulo, image: p.image || p.imagen_url }));
+
+  // Cocina como chips
+  const cocinas = (item.tipoCocina || '').split(',').map(s => s.trim()).filter(Boolean);
+  const destacados = [...(item.tags || []), ...cocinas];
+  // Características del lugar cargadas por el socio (checklist del editor de perfil).
+  const servicios = item.servicios || [];
+
+  // Contacto — sólo lo que el socio cargó
+  const contactos = [
+    item.menuUrl   && { icon: <BookOpen size={14} />,   label: 'Ver menú / carta', href: withProto(item.menuUrl) },
+    item.sitioWeb  && { icon: <Globe size={14} />,      label: 'Sitio web',        href: withProto(item.sitioWeb) },
+    item.whatsapp  && { icon: <Phone size={14} />,      label: 'WhatsApp',         href: waUrl(item.whatsapp) },
+    item.instagram && { icon: <IgIcon size={14} />,     label: 'Instagram',        href: igUrl(item.instagram) },
+    item.email     && { icon: <Mail size={14} />,       label: 'Email',            href: `mailto:${item.email}` },
+  ].filter(Boolean).filter(c => c.href);
+
+  // Ficha de datos — sólo lo que existe
+  const datos = [
+    { icon: isGastro ? <Utensils size={15} /> : <Star size={15} />, label: 'Tipo', val: category || (isGastro ? 'Gastronomía' : 'Experiencia') },
+    cocinas.length > 0 && { icon: <ChefHat size={15} />, label: 'Cocina', val: cocinas.join(' · ') },
+    item.tieneLocalFisico && item.address && { icon: <MapPin size={15} />, label: 'Domicilio', val: [item.address, item.piso && `Piso ${item.piso}`, item.depto && `Depto ${item.depto}`].filter(Boolean).join(' · ') },
+    { icon: <MapPin size={15} />, label: 'Zona', val: [item.zona, item.localidad].filter(Boolean).join(' · ') || 'Villa Gesell' },
+    item.priceRange && { icon: <span className="font-bold text-sm">{item.priceRange}</span>, label: 'Rango de precio', val: priceLabel },
+    item.capacidad && { icon: <Users size={15} />, label: 'Capacidad', val: `${item.capacidad} personas` },
+    isGastro && item.reservaObligatoria && { icon: <Clock size={15} />, label: 'Reservas', val: 'Requiere reserva previa' },
+  ].filter(Boolean);
+
   return (
     <>
-      <div className="max-w-[1328px] mx-auto px-14 py-10">
+      <div className="max-w-[1328px] mx-auto px-10 py-10">
+        {/* Ficha de socio: dos columnas fijas, igual que alojamiento — la sidebar de
+            la derecha queda sticky con promociones (o el aviso de que no hay) y,
+            si está cargado, el horario. Todo lo demás vive en la columna izquierda. */}
         <div className="grid gap-12 items-start" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
 
-          {/* LEFT */}
+          {/* LEFT — info del lugar */}
           <div>
             <h2 className="text-lg font-bold mb-2.5" style={{ color: C.ink }}>
               {isGastro ? 'Sobre el lugar' : 'Descripción de la experiencia'}
             </h2>
-            <p className="text-[15px] leading-relaxed" style={{ color: C.ink2 }}>
+            <p className="text-[15px] leading-relaxed" style={{ color: C.ink2, lineHeight: 1.65 }}>
               {item.description || item.desc || (isGastro ? 'Un lugar especial en la Costa Atlántica para disfrutar en compañía.' : 'Una experiencia única diseñada para que descubras lo mejor de Villa Gesell y la zona.')}
             </p>
 
-            {item.tags?.length > 0 && (
+            {servicios.length > 0 && (
+              <>
+                <h3 className="text-lg font-bold mt-7 mb-3" style={{ color: C.ink }}>Servicios y comodidades</h3>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {servicios.map(s => (
+                    <AmenityChip key={s} tag={s} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {destacados.length > 0 && (
               <>
                 <h3 className="text-lg font-bold mt-7 mb-3" style={{ color: C.ink }}>Destacados</h3>
                 <div className="flex flex-wrap gap-2">
-                  {item.tags.map(tag => (
+                  {destacados.map(tag => (
                     <span key={tag} className="px-3 py-1.5 rounded-full text-[12px] font-semibold" style={{ background: C.primarySoft, color: C.primary }}>{tag}</span>
                   ))}
                 </div>
               </>
             )}
 
-            <h3 className="text-lg font-bold mt-8 mb-3 flex items-center gap-2" style={{ color: C.ink }}>
-              <MapPin size={17} /> Zona
-            </h3>
-            <BarrioMap item={item} plan="PLUS" />
-
-            <div className="mt-3 flex items-center gap-2.5 px-4 py-3 rounded-xl" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
-              <Lock size={14} color={C.muted} />
-              <div>
-                <div className="text-[13px] font-semibold" style={{ color: C.ink }}>Dirección exacta</div>
-                <div className="text-[12px]" style={{ color: C.muted }}>Registrate gratis para ver la dirección exacta y el horario de atención.</div>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT — Info card */}
-          <div className="sticky" style={{ top: 84 }}>
-            <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1px solid ${C.line}`, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.14)' }}>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-4" style={{ background: `${pinColor}18`, color: pinColor }}>
-                {isGastro ? <Utensils size={13} /> : <Star size={13} />} {category}
+            {/* Información y contacto del comercio */}
+            <h3 className="text-lg font-bold mt-8 mb-3" style={{ color: C.ink }}>Información del comercio</h3>
+            <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1px solid ${C.line}` }}>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-3" style={{ background: `${pinColor}18`, color: pinColor }}>
+                {isGastro ? <Utensils size={13} /> : <Star size={13} />} {category || (isGastro ? 'Gastronomía' : 'Experiencia')}
               </div>
 
               <div style={{ borderTop: `1px solid ${C.line}` }}>
-                {[
-                  { icon: <MapPin size={15} />, label: 'Zona', val: [item.zona, item.localidad].filter(Boolean).join(' · ') || 'Villa Gesell' },
-                  item.priceRange && { icon: <span className="font-bold text-sm">{item.priceRange}</span>, label: 'Rango de precio', val: priceLabel },
-                  item.rating && { icon: <Star size={15} fill={C.yellow} color={C.yellow} />, label: 'Calificación', val: `${item.rating} / 5` },
-                  isGastro && { icon: <Clock size={15} />, label: 'Horario', val: 'Consultá en el lugar' },
-                ].filter(Boolean).map((r, i) => (
+                {datos.map((r, i) => (
                   <div key={i} className="flex items-start gap-3 py-3" style={{ borderBottom: `1px solid ${C.line}` }}>
                     <div style={{ color: C.primary, marginTop: 1 }}>{r.icon}</div>
                     <div>
@@ -2375,33 +2475,53 @@ function GastroExperienciaDetail({ item, tipo }) {
                 ))}
               </div>
 
-              <div className="mt-5 p-4 rounded-2xl" style={{ background: 'linear-gradient(135deg,#EEF1FF 0%,#F7F7F8 100%)', border: `1px solid ${C.primarySoft}` }}>
-                <div className="text-[13px] font-bold mb-1.5" style={{ color: C.ink }}>
-                  {isGastro ? '¿Querés reservar una mesa?' : '¿Querés sumarte a esta experiencia?'}
+              {contactos.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {contactos.map(c => (
+                    <a key={c.label} href={c.href} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-semibold no-underline"
+                      style={{ background: C.bg, border: `1px solid ${C.line}`, color: C.ink2 }}>
+                      {c.icon} {c.label}
+                    </a>
+                  ))}
                 </div>
-                <div className="text-[12px] leading-relaxed mb-3" style={{ color: C.muted }}>
-                  {isGastro
-                    ? 'En general este tipo de lugares no requieren reserva. Si tiene sistema de reservas, aparece en su sitio web o redes.'
-                    : 'Contactate directamente con el proveedor. Los alojamientos Cuponear pueden incluir estas experiencias en sus packs.'}
-                </div>
-                {item.menuUrl && (
-                  <a href={item.menuUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-[10px] text-[13px] font-bold text-white no-underline"
-                    style={{ background: C.primary }}>
-                    <Globe size={14} /> Ver sitio web
-                  </a>
-                )}
-              </div>
-
-              <div className="mt-3 flex gap-2">
-                {[{ icon: <Phone size={13} />, label: 'WhatsApp' }, { icon: <Globe size={13} />, label: 'Instagram' }].map(b => (
-                  <button key={b.label} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[10px] text-[12px] font-semibold cursor-pointer"
-                    style={{ background: C.bg, border: `1px solid ${C.line}`, color: C.ink2 }}>
-                    {b.icon} {b.label}
-                  </button>
-                ))}
-              </div>
+              )}
             </div>
+          </div>
+
+          {/* RIGHT — sidebar sticky: promociones (siempre) + horario (si está cargado) */}
+          <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 18px 4px' }}>
+                <img src="/ico-disc.svg" style={{ width: 32, height: 42, objectFit: 'contain' }} alt="" />
+                <span style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>Promociones</span>
+              </div>
+              {promosVisibles.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16 }}>
+                  {promosVisibles.slice(0, 5).map((p, i) => (
+                    <GastroPromoItem key={p.id || i} promo={p} onOpenOferta={onOpenOferta} onAdd={addCupon} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: '20px 18px 22px', textAlign: 'center' }}>
+                  <p className="text-[13px]" style={{ color: C.muted, lineHeight: 1.5, margin: 0 }}>
+                    Este establecimiento no cuenta con cupones disponibles.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {item.horario && (
+              <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 18 }}>
+                <div className="flex items-center gap-2 mb-2" style={{ color: C.ink }}>
+                  <Clock size={16} />
+                  <span className="text-[13px] font-bold">Horario</span>
+                </div>
+                <p className="text-[13.5px]" style={{ color: C.ink2, lineHeight: 1.55, margin: 0, whiteSpace: 'pre-line' }}>
+                  {item.horario}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2417,6 +2537,15 @@ function GastroExperienciaDetail({ item, tipo }) {
             En {item.localidad || 'Villa Gesell'}, Buenos Aires.
           </p>
           <BarrioMap item={item} plan="PLUS" />
+          {!(item.tieneLocalFisico && item.address) && (
+            <div className="mt-3 flex items-center gap-2.5 px-4 py-3 rounded-xl" style={{ background: C.bg, border: `1px solid ${C.line}`, maxWidth: 460 }}>
+              <Lock size={14} color={C.muted} />
+              <div>
+                <div className="text-[13px] font-semibold" style={{ color: C.ink }}>Dirección exacta</div>
+                <div className="text-[12px]" style={{ color: C.muted }}>Registrate gratis para ver la dirección exacta y cómo llegar.</div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </>
@@ -2593,7 +2722,7 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
           onLoginRequired={onLoginRequired}
         />
       ) : (
-        <GastroExperienciaDetail item={item} tipo={tipo} session={session} onLoginRequired={onLoginRequired} />
+        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} session={session} onOpenOferta={onOpenOferta} onLoginRequired={onLoginRequired} />
       )}
 
       {/* Drawer */}

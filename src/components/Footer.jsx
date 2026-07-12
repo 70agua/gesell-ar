@@ -84,7 +84,7 @@ export default function Footer({ onNavigate }) {
           <NavLink label="Alojamientos"     onClick={() => nav('marketplace')} />
           <NavLink label="Salidas"      onClick={() => nav('salidas')} />
           <NavLink label="Ofertas y descuentos" onClick={() => nav('ofertas')} />
-          <NavLink label="Packs exclusivos" onClick={() => nav('packs')} />
+          <NavLink label="Cuponeras" onClick={() => nav('packs')} />
           <NavLink label="Ofertas de regalo" onClick={() => nav('ofertas-regalo')} />
         </div>
 
@@ -93,7 +93,7 @@ export default function Footer({ onNavigate }) {
           <div style={COL.title}>Tu cuponera</div>
           <NavLink label="¿Cómo funciona?"  onClick={() => nav('home')} />
           <NavLink label="Activar descuentos" onClick={() => nav('ofertas')} />
-          <NavLink label="Armá tu pack"     onClick={() => nav('marketplace')} />
+          <NavLink label="Armá tu cuponera" onClick={() => nav('marketplace')} />
           <NavLink label="Ingresar"         onClick={() => nav('login')} />
         </div>
 

@@ -2,8 +2,8 @@
 //  src/views/SuperAdminView.jsx  —  Aire design (AdminA)
 // ============================================================
 import React, { useState, useEffect } from 'react';
-import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Calendar, List, LayoutGrid, BarChart2 } from 'lucide-react';
-import OfertaEditorDrawer from '../components/OfertaEditorDrawer';
+import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Calendar, List, LayoutGrid, BarChart2, Settings, Lock, Trash2, RefreshCw, Plus, Check, Search } from 'lucide-react';
+import { TabOfertas as SocioOfertasEditor } from './AdminNegocioView';
 import { CoinSVG } from '../components/Token';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { descontarToken, debeUsarTokens, CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
@@ -11,6 +11,29 @@ import { getPlanesConfig, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
 import { PUBLI_CATEGORIAS, listarPublicidadesAdmin, crearPublicidad, actualizarPublicidad, eliminarPublicidad } from '../lib/publicidad';
 import { getDemandaDestinos } from '../lib/demanda';
+import { categoriaDeNegocio, normalizePromo } from '../lib/datos';
+import OfertaCard from '../components/OfertaCard';
+import { listarCuponerasLocales, crearCuponeraLocal, actualizarCuponeraLocal, eliminarCuponeraLocal, agregarCuponASet, quitarCuponDeSet } from '../lib/cuponerasLocales';
+import { BENEFICIO_ICONOS, getBeneficioIcon } from '../lib/beneficioIconos';
+import { BENEFICIO_TIPOS, tipoBeneficio } from '../lib/beneficiosCuponera';
+import { CAPACIDADES, listarRoles, crearRol, actualizarRol, eliminarRol, listarUsuariosAdmin, crearUsuario, actualizarUsuario, eliminarUsuario } from '../lib/adminUsuarios';
+
+// ─── Helpers ──────────────────────────────────────────────────
+function formatearCategoria(categoria) {
+  const map = {
+    'alojamiento': 'Alojamiento',
+    'salidas': 'Salidas',
+    'aventura_relax': 'Aventura & Relax',
+  };
+  return map[categoria] || categoria;
+}
+
+// Rubros canónicos para el select de "Tipo" (los 3 vigentes del modelo actual).
+const TIPOS_RUBRO = [
+  { value: 'alojamiento',    label: 'Alojamiento' },
+  { value: 'salidas',        label: 'Salidas' },
+  { value: 'aventura_relax', label: 'Aventura & Relax' },
+];
 
 // ─── Aire tokens ─────────────────────────────────────────────
 const A = {
@@ -29,14 +52,16 @@ const A = {
 
 const TABS = [
   { id: 'resumen',   label: 'Resumen'   },
-  { id: 'negocios',  label: 'Socios'    },
-  { id: 'ofertas',   label: 'Ofertas'   },
-  { id: 'publicidad',label: 'Publicidad'},
-  { id: 'ventas',    label: 'Ventas'    },
-  { id: 'usuarios',  label: 'Usuarios'  },
+  { id: 'socios',    label: 'Socios comerciales' },
+  { id: 'turistas',  label: 'Turistas'  },
+  { id: 'marketplace', label: 'Marketplace' },
+  { id: 'estadisticas', label: 'Estadísticas y ventas' },
   { id: 'consultas', label: 'Consultas' },
-  { id: 'estadisticas', label: 'Estadísticas' },
-  { id: 'ajustes',   label: 'Ajustes'   },
+  { id: 'ajustes',   label: 'Ajustes generales', sep: true, sub: [
+    { id: 'contenidos', label: 'Contenidos dinámicos' },
+    { id: 'usuarios', label: 'Usuarios' },
+    { id: 'config', label: 'Permisos' }
+  ] },
 ];
 
 // ─── Reusable UI atoms ───────────────────────────────────────
@@ -58,34 +83,56 @@ function ABtn({ onClick, children, variant = 'ghost', style: extStyle = {} }) {
 }
 
 // ─── Sidebar ─────────────────────────────────────────────────
-function Sidebar({ tab, setTab, stats, perfil, onLogout, onGoHome }) {
+function Sidebar({ tab, setTab, subTab, setSubTab, stats, perfil, onLogout, onGoHome, onEditarPerfil }) {
   return (
     <aside style={{ background:A.navy, color:'#fff', padding:'22px 16px', display:'flex', flexDirection:'column', width:240, minWidth:240, minHeight:'100vh', position:'sticky', top:0, alignSelf:'flex-start' }}>
       {/* Logo */}
-      <button onClick={onGoHome} style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 8px 18px', background:'transparent', border:'none', cursor:'pointer', color:'#fff' }}>
-        <div style={{ width:32, height:32, borderRadius:8, background:A.primary, display:'grid', placeItems:'center', fontFamily:A.font, fontWeight:900, fontSize:16 }}>G</div>
-        <div style={{ textAlign:'left' }}>
-          <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700 }}>Cuponear</div>
-          <div style={{ fontFamily:A.font, fontSize:11, color:'rgba(255,255,255,0.55)' }}>Superadmin</div>
-        </div>
-      </button>
+      <div style={{ padding:'0 0 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+        <button onClick={onGoHome} title="Ir a la home" style={{ background:'none', border:'none', padding:0, cursor:'pointer', display:'block' }}>
+          <img src="/logo-cuponera-wh.svg" alt="Cuponear" style={{ width:180, height:'auto', display:'block' }} />
+        </button>
+        <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.5)', fontWeight:600, letterSpacing:'0.04em' }}>Panel de control</div>
+      </div>
 
       {/* Nav */}
       <nav style={{ display:'flex', flexDirection:'column', gap:2, marginTop:10 }}>
         {TABS.map(t => {
           const active = tab === t.id;
-          const badge = t.id === 'negocios' ? stats.pendientes : t.id === 'ofertas' ? stats.ofertas : t.id === 'consultas' ? stats.consultas : 0;
+          const badge = t.id === 'socios' ? stats.pendientes : t.id === 'marketplace' ? stats.ofertas : t.id === 'consultas' ? stats.consultas : 0;
+          // El badge de consultas es un círculo de notificación rojo (mensajes sin leer de Cuponix).
+          const esNotif = t.id === 'consultas';
           return (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
-              border:'none', borderRadius:10,
-              background: active ? A.primary : 'transparent',
-              color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-              fontFamily:A.font, fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left',
-            }}>
-              <span style={{ flex:1 }}>{t.label}</span>
-              {badge > 0 && <span style={{ background:A.yellow, color:A.ink, fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:999 }}>{badge}</span>}
-            </button>
+            <div key={t.id} style={t.sep ? { marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.12)' } : undefined}>
+              <button onClick={() => { setTab(t.id); if (t.sub) setSubTab(t.sub[0].id); }} style={{
+                display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                border:'none', borderRadius:10, width:'100%',
+                background: active ? A.primary : 'transparent',
+                color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                fontFamily:A.font, fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left',
+              }}>
+                <span style={{ flex:1 }}>{t.label}</span>
+                {badge > 0 && (
+                  esNotif
+                    ? <span style={{ minWidth:18, height:18, padding:'0 5px', boxSizing:'border-box', background:'#EF4444', color:'#fff', fontSize:10, fontWeight:700, borderRadius:999, display:'inline-flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 0 2px rgba(239,68,68,0.25)' }}>{badge}</span>
+                    : <span style={{ background:A.yellow, color:A.ink, fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:999 }}>{badge}</span>
+                )}
+              </button>
+              {/* Submenú de Ajustes */}
+              {active && t.sub && (
+                <div style={{ display:'flex', flexDirection:'column', gap:1, paddingLeft:16, marginTop:4 }}>
+                  {t.sub.map(s => (
+                    <button key={s.id} onClick={() => setSubTab(s.id)} style={{
+                      display:'flex', alignItems:'center', padding:'8px 10px',
+                      border:'none', borderRadius:8, background:'transparent',
+                      color: subTab === s.id ? '#fff' : 'rgba(255,255,255,0.5)',
+                      fontFamily:A.font, fontSize:12, fontWeight: subTab === s.id ? 600 : 400, cursor:'pointer', textAlign:'left',
+                    }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
@@ -93,7 +140,14 @@ function Sidebar({ tab, setTab, stats, perfil, onLogout, onGoHome }) {
       {/* Footer */}
       <div style={{ marginTop:'auto', padding:'14px 8px 4px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ fontFamily:A.font, fontSize:10, color:'rgba(255,255,255,0.5)', fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase' }}>Sesión activa</div>
-        <div style={{ fontFamily:A.font, fontSize:13, fontWeight:600, marginTop:4 }}>{perfil?.nombre || 'Superadmin'}</div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:A.font, fontSize:13, fontWeight:600 }}>{perfil?.nombre || 'Superadmin'}</div>
+          </div>
+          <button onClick={() => onEditarPerfil?.()} title="Editar perfil del superadmin" style={{ background:'transparent', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', transition:'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
+            <Settings size={18} />
+          </button>
+        </div>
         <button onClick={onLogout} style={{ marginTop:10, background:'transparent', border:'none', color:'rgba(255,255,255,0.5)', fontFamily:A.font, fontSize:12, cursor:'pointer', padding:'4px 0' }}>
           Cerrar sesión →
         </button>
@@ -107,13 +161,17 @@ function Sidebar({ tab, setTab, stats, perfil, onLogout, onGoHome }) {
 // ═══════════════════════════════════════════════════════════
 export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
   const [tab, setTab]             = useState('resumen');
+  const [subTab, setSubTab]       = useState('contenidos'); // Para Ajustes
   const [negocios, setNegocios]   = useState([]);
   const [usuarios, setUsuarios]   = useState([]);
+  const [turistas, setTuristas]   = useState([]);
   const [consultas, setConsultas] = useState([]);
   const [ofertas, setOfertas]     = useState([]);
   const [ventas, setVentas]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [toast, setToast]         = useState(null);
+  const [negocioEditando, setNegocioEditando] = useState(null);
+  const [filtroNegocioId, setFiltroNegocioId] = useState(null);
 
   useEffect(() => { cargarTodo(); }, []);
 
@@ -123,11 +181,17 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
       supabase.from('negocios').select('*').order('creado_en', { ascending: false }),
       supabase.from('perfiles').select('*, negocios(nombre)').order('creado_en', { ascending: false }),
       supabase.from('consultas').select('*, negocios(nombre)').order('creado_en', { ascending: false }),
-      supabase.from('promociones').select('*, negocios(nombre, tipo, localidad)').order('creado_en', { ascending: false }),
+      supabase.from('promociones').select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url)').order('creado_en', { ascending: false }),
       supabase.from('ventas').select('*, venta_items(*, negocios(nombre), promociones(titulo))').order('creado_en', { ascending: false }),
     ]);
     if (negRes.data) setNegocios(negRes.data);
-    if (usrRes.data) setUsuarios(usrRes.data);
+    if (usrRes.data) {
+      // Separar turistas (sin negocio) de administrativos/socios
+      const sólosAdmins = usrRes.data.filter(u => u.es_superadmin);
+      const solosTuristas = usrRes.data.filter(u => !u.negocio_id && !u.es_superadmin);
+      setUsuarios(sólosAdmins);
+      setTuristas(solosTuristas);
+    }
     if (conRes.data) setConsultas(conRes.data);
     if (ofRes.data) {
       // Los borradores (autosave del socio) no entran al panel del superadmin.
@@ -162,6 +226,13 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     showToast(activo ? 'Negocio desactivado' : 'Negocio activado');
   }
 
+  async function toggleActivoUsuario(id, estado) {
+    const { error } = await supabase.from('perfiles').update({ bloqueado: !estado }).eq('id', id);
+    if (error) return showToast('Error al actualizar', 'error');
+    setTuristas(prev => prev.map(u => u.id === id ? { ...u, bloqueado: !estado } : u));
+    showToast(estado ? 'Turista desbloqueado' : 'Turista bloqueado');
+  }
+
   async function aprobarComprobante(id) {
     const { error } = await supabase.from('negocios').update({ puede_compartir_cuponeras: true }).eq('id', id);
     if (error) return showToast('Error al aprobar comprobante', 'error');
@@ -188,9 +259,14 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
 
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:A.bg, fontFamily:A.font, color:A.ink }}>
-      <Sidebar tab={tab} setTab={setTab} stats={stats} perfil={perfil} onLogout={handleLogout} onGoHome={onGoHome} />
+      <Sidebar tab={tab} setTab={setTab} subTab={subTab} setSubTab={setSubTab} stats={stats} perfil={perfil} onLogout={handleLogout} onGoHome={onGoHome} onEditarPerfil={() => showToast('Panel de perfil del superadmin (próximamente)', 'info')} />
 
       <main style={{ flex:1, padding:'22px 28px', overflow:'hidden' }}>
+        {/* Drawer: Editar socio comercial */}
+        {negocioEditando && (
+          <SocioEditDrawer negocio={negocioEditando} onClose={() => setNegocioEditando(null)} onSave={(actualizado) => { setNegocios(prev => prev.map(n => n.id === actualizado.id ? actualizado : n)); setNegocioEditando(null); showToast('Socio actualizado'); }} onVerCupones={() => { setTab('marketplace'); setFiltroNegocioId(negocioEditando.id); setNegocioEditando(null); }} />
+        )}
+
         {/* Toast */}
         {toast && (
           <div style={{
@@ -211,27 +287,41 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
           <div>
             <h1 style={{ fontFamily:A.font, fontSize:28, fontWeight:700, margin:0, letterSpacing:'-0.025em' }}>
               {TABS.find(t => t.id === tab)?.label}
+              {TABS.find(t => t.id === tab)?.sub && (
+                <span style={{ fontSize:18, fontWeight:400, color:A.muted, marginLeft:10 }}>
+                  · {TABS.find(t => t.id === tab).sub.find(s => s.id === subTab)?.label}
+                </span>
+              )}
             </h1>
             <div style={{ fontFamily:A.font, fontSize:13, color:A.muted, marginTop:4 }}>
               Panel de administración · Cuponear
             </div>
           </div>
-          <ABtn onClick={cargarTodo}>↻ Actualizar</ABtn>
+          <ABtn onClick={cargarTodo}><RefreshCw size={14} /> Actualizar</ABtn>
         </div>
 
         {loading ? (
           <MiniLoader />
         ) : (
           <>
-            {tab === 'resumen'   && <TabResumen stats={stats} negocios={negocios} consultas={consultas} ofertas={ofertas} ventas={ventas} onEditarSocio={onEditarSocio} setTab={setTab} setOfertas={setOfertas} showToast={showToast} />}
-            {tab === 'negocios'  && <TabNegocios negocios={negocios} onAprobar={aprobar} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} onAprobarComprobante={aprobarComprobante} />}
-            {tab === 'ofertas'   && <TabOfertas ofertas={ofertas} setOfertas={setOfertas} showToast={showToast} />}
-            {tab === 'publicidad'&& <TabPublicidad showToast={showToast} />}
-            {tab === 'ventas'    && <TabVentas ventas={ventas} />}
-            {tab === 'usuarios'  && <TabUsuarios usuarios={usuarios} />}
+            {tab === 'resumen'   && <TabResumen stats={stats} negocios={negocios} consultas={consultas} ofertas={ofertas} ventas={ventas} onEditarSocio={onEditarSocio} setTab={setTab} setOfertas={setOfertas} showToast={showToast} onActualizar={cargarTodo} />}
+            {tab === 'socios'    && <TabNegocios negocios={negocios} onAprobar={aprobar} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} onAprobarComprobante={aprobarComprobante} onActualizar={cargarTodo} />}
+            {tab === 'turistas'  && <TabTuristas usuarios={turistas} onToggle={toggleActivoUsuario} onActualizar={cargarTodo} />}
+            {tab === 'marketplace' && <TabMarketplace ofertas={ofertas} setOfertas={setOfertas} showToast={showToast} negocioEditando={negocioEditando} setNegocioEditando={setNegocioEditando} filtroNegocioId={filtroNegocioId} setFiltroNegocioId={setFiltroNegocioId} negocios={negocios} onActualizar={cargarTodo} />}
             {tab === 'consultas' && <TabConsultas consultas={consultas} onLeer={marcarLeida} />}
-            {tab === 'estadisticas' && <TabEstadisticas />}
-            {tab === 'ajustes'   && <TabAjustes showToast={showToast} />}
+            {tab === 'estadisticas' && (
+              <div style={{ display:'flex', flexDirection:'column', gap:32 }}>
+                <div>
+                  <h2 style={{ fontFamily:A.font, fontSize:18, fontWeight:800, color:A.ink, margin:'0 0 4px' }}>Ventas</h2>
+                  <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:'0 0 16px' }}>Cuponeras vendidas y su detalle.</p>
+                  <TabVentas ventas={ventas} />
+                </div>
+                <TabEstadisticas />
+              </div>
+            )}
+            {tab === 'ajustes' && subTab === 'contenidos' && <TabAjusteContenidos showToast={showToast} />}
+            {tab === 'ajustes' && subTab === 'usuarios' && <TabAjusteUsuarios showToast={showToast} />}
+            {tab === 'ajustes' && subTab === 'config' && <TabAjustePerfiles showToast={showToast} />}
           </>
         )}
       </main>
@@ -242,7 +332,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
 // ═══════════════════════════════════════════════════════════
 //  TAB: RESUMEN
 // ═══════════════════════════════════════════════════════════
-function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, setOfertas, showToast }) {
+function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, setOfertas, showToast, onActualizar }) {
   const [ofertaEditando, setOfertaEditando] = useState(null);
 
   const kpis = [
@@ -255,12 +345,9 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
       {ofertaEditando !== null && (
-        <OfertaEditorDrawer
-          oferta={ofertaEditando?.id ? ofertaEditando : null}
-          negocioId={ofertaEditando?.negocio_id}
-          onClose={() => setOfertaEditando(null)}
-          onSave={(result) => { setOfertas(prev => prev.map(o => o.id === result.id ? { ...o, ...result } : o)); setOfertaEditando(null); showToast('Oferta actualizada'); }}
-        />
+        <CuponEditDrawer oferta={ofertaEditando} negocios={negocios} ofertas={ofertas}
+          showToast={showToast} onClose={() => setOfertaEditando(null)}
+          onOfertaGuardada={row => setOfertas(prev => prev.map(o => o.id === row.id ? { ...o, ...row, negocios: o.negocios } : o))} />
       )}
 
       {/* KPI cards */}
@@ -310,7 +397,7 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
         <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 18px', borderBottom:`1px solid ${A.line}` }}>
             <div style={{ fontFamily:A.font, fontSize:15, fontWeight:600 }}>Últimas ofertas</div>
-            <button onClick={() => setTab('ofertas')} style={{ background:'transparent', border:'none', fontFamily:A.font, fontSize:12, color:A.primary, fontWeight:600, cursor:'pointer' }}>Ver todas →</button>
+            <button onClick={() => setTab('marketplace')} style={{ background:'transparent', border:'none', fontFamily:A.font, fontSize:12, color:A.primary, fontWeight:600, cursor:'pointer' }}>Ver todas →</button>
           </div>
           {ofertas.slice(0, 6).map((o, i) => (
             <button key={o.id} onClick={() => setOfertaEditando(o)} style={{
@@ -361,9 +448,10 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
 // ═══════════════════════════════════════════════════════════
 //  TAB: SOCIOS
 // ═══════════════════════════════════════════════════════════
-function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio, onAprobarComprobante }) {
-  const [filtroEstado, setFiltroEstado]       = useState('todos');
+function TabNegocios({ negocios, onToggle, onEditarComoSocio, onAprobarComprobante, onActualizar }) {
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
+  const [filtroLocalidad, setFiltroLocalidad] = useState('todas');
+  const [ordenamiento, setOrdenamiento]       = useState('creado');
   const [busqueda, setBusqueda]               = useState('');
   const [seleccionados, setSeleccionados]     = useState([]);
   const [accion, setAccion]                   = useState('');
@@ -374,20 +462,28 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio, onAprob
   const tiposGastro = ['Restaurante','Bar','Café','Balneario','Pastelería','Gourmet'];
   const tiposExp    = ['Experiencia'];
 
-  const filtrados = negocios.filter(n => {
-    const matchEstado =
-      filtroEstado === 'todos'      ? true :
-      filtroEstado === 'pendientes' ? !n.aprobado :
-      filtroEstado === 'activos'    ? n.aprobado && n.activo :
-      filtroEstado === 'inactivos'  ? n.aprobado && !n.activo : true;
+  // Localidades únicas disponibles
+  const localidades = [...new Set(negocios.map(n => n.localidad).filter(Boolean))].sort();
+
+  let filtrados = negocios.filter(n => {
     const matchCategoria =
       filtroCategoria === 'todas'        ? true :
       filtroCategoria === 'alojamiento'  ? tiposAloj.includes(n.tipo) :
       filtroCategoria === 'salidas'  ? tiposGastro.includes(n.tipo) :
       filtroCategoria === 'aventura_relax'  ? tiposExp.includes(n.tipo) : true;
-    const matchBusqueda = busqueda === '' || n.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (n.localidad || '').toLowerCase().includes(busqueda.toLowerCase());
-    return matchEstado && matchCategoria && matchBusqueda;
+    const matchLocalidad = filtroLocalidad === 'todas' || (n.localidad === filtroLocalidad);
+    const matchBusqueda = busqueda === '' || n.nombre.toLowerCase().includes(busqueda.toLowerCase());
+    return matchCategoria && matchLocalidad && matchBusqueda;
   });
+
+  // Aplicar ordenamiento
+  if (ordenamiento === 'nombre') {
+    filtrados = filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  } else if (ordenamiento === 'modificado') {
+    filtrados = filtrados.sort((a, b) => new Date(b.actualizado_en || 0) - new Date(a.actualizado_en || 0));
+  } else if (ordenamiento === 'creado') {
+    filtrados = filtrados.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en));
+  }
 
   const todosSeleccionados = filtrados.length > 0 && filtrados.every(n => seleccionados.includes(n.id));
   const toggleSeleccion = id => setSeleccionados(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
@@ -395,14 +491,19 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio, onAprob
 
   const ejecutarAccion = async () => {
     if (!accion || seleccionados.length === 0) return;
-    for (const id of seleccionados) {
-      const n = negocios.find(x => x.id === id);
-      if (!n) continue;
-      if (accion === 'aprobar')    await onAprobar(id);
-      if (accion === 'activar')    await onToggle(id, false);
-      if (accion === 'desactivar') await onToggle(id, true);
+
+    // Confirmación única para eliminación masiva
+    if (accion === 'eliminar') {
+      if (!window.confirm(`¿Eliminar ${seleccionados.length} socio(s) comercial(es)?`)) return;
+      await supabase.from('negocios').delete().in('id', seleccionados);
+    } else if (accion === 'bloquear') {
+      for (const id of seleccionados) {
+        await onToggle(id, false);
+      }
     }
     setSeleccionados([]); setAccion('');
+    // Refrescar la lista después de la acción
+    onActualizar?.();
   };
 
   const inputStyle = { padding:'10px 14px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none' };
@@ -430,27 +531,31 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio, onAprob
       {/* Barra filtros */}
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
         <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          placeholder="Buscar socio o localidad..." style={{ ...inputStyle, flex:1, minWidth:200 }} />
+          placeholder="Buscar nombre ó email..." style={{ ...inputStyle, flex:1, minWidth:200 }} />
         <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)} style={inputStyle}>
           <option value="todas">Todas las categorías</option>
           <option value="alojamiento">Alojamientos</option>
           <option value="salidas">Salidas</option>
           <option value="aventura_relax">Aventura & Relax</option>
         </select>
-        <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={inputStyle}>
-          <option value="todos">Todos los estados</option>
-          <option value="pendientes">Pendientes</option>
-          <option value="activos">Activos</option>
-          <option value="inactivos">Inactivos</option>
+        <select value={filtroLocalidad} onChange={e => setFiltroLocalidad(e.target.value)} style={inputStyle}>
+          <option value="todas">Todas las localidades</option>
+          {localidades.map(loc => (
+            <option key={loc} value={loc}>{loc}</option>
+          ))}
+        </select>
+        <select value={ordenamiento} onChange={e => setOrdenamiento(e.target.value)} style={inputStyle}>
+          <option value="creado">Último creado</option>
+          <option value="modificado">Último modificado</option>
+          <option value="nombre">Nombre A-Z</option>
         </select>
         {seleccionados.length > 0 && (
           <div style={{ display:'flex', alignItems:'center', gap:8, marginLeft:'auto' }}>
             <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{seleccionados.length} seleccionados</span>
             <select value={accion} onChange={e => setAccion(e.target.value)} style={inputStyle}>
               <option value="">Elegir acción...</option>
-              <option value="aprobar">✓ Aprobar todos</option>
-              <option value="activar">▶ Activar todos</option>
-              <option value="desactivar">⏸ Desactivar todos</option>
+              <option value="bloquear">🔒 Bloquear</option>
+              <option value="eliminar">🗑️ Eliminar</option>
             </select>
             <ABtn onClick={ejecutarAccion} variant="primary" style={{ opacity: accion ? 1 : 0.4 }}>Aplicar</ABtn>
           </div>
@@ -488,22 +593,25 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio, onAprob
                     <span style={{ fontFamily:A.font, fontSize:14, fontWeight:600, color:A.ink }}>{n.nombre}</span>
                     <StatusBadge aprobado={n.aprobado} activo={n.activo} />
                   </div>
-                  <div style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{n.tipo}{n.localidad ? ` · ${n.localidad}` : ''}{n.zona ? ` · ${n.zona}` : ''}</div>
+                  <div style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{formatearCategoria(n.tipo)}{n.localidad ? ` · ${n.localidad}` : ''}{n.zona ? ` · ${n.zona}` : ''}</div>
                 </div>
-                <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                  <ABtn onClick={() => onEditarComoSocio && onEditarComoSocio(n.id)} style={{ fontSize:12, padding:'6px 10px' }}>
-                    <Pencil size={12} /> Editar
-                  </ABtn>
-                  {!n.aprobado && (
-                    <ABtn onClick={() => onAprobar(n.id)} variant="success" style={{ fontSize:12, padding:'6px 10px' }}>
-                      <CheckCircle2 size={12} /> Aprobar
-                    </ABtn>
-                  )}
-                  {n.aprobado && (
-                    <ABtn onClick={() => onToggle(n.id, n.activo)} style={{ fontSize:12, padding:'6px 10px' }}>
-                      {n.activo ? <><EyeOff size={12} /> Desactivar</> : <><Eye size={12} /> Activar</>}
-                    </ABtn>
-                  )}
+                <div style={{ display:'flex', gap:8, flexShrink:0, alignItems:'center' }}>
+                  {/* Ver/Editar */}
+                  <button onClick={() => onEditarComoSocio && onEditarComoSocio(n.id)} title="Ver/Editar socio" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:A.primary, opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                    <Pencil size={18} />
+                  </button>
+                  {/* Bloquear/Desbloquear */}
+                  <button onClick={() => onToggle(n.id, n.activo)} title={n.activo ? 'Bloquear socio' : 'Desbloquear socio'} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color: n.activo ? A.muted : '#C03030', opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                    <Lock size={18} />
+                  </button>
+                  {/* Eliminar */}
+                  <button onClick={async () => {
+                    if (!window.confirm(`¿Eliminar a "${n.nombre}"?`)) return;
+                    await supabase.from('negocios').delete().eq('id', n.id);
+                    onActualizar?.();
+                  }} title="Eliminar socio" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:'#EF4444', opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -515,7 +623,160 @@ function TabNegocios({ negocios, onAprobar, onToggle, onEditarComoSocio, onAprob
 }
 
 // ═══════════════════════════════════════════════════════════
-//  TAB: OFERTAS
+//  TAB: TURISTAS
+// ═══════════════════════════════════════════════════════════
+function TabTuristas({ usuarios, onToggle, onActualizar }) {
+  const [busqueda, setBusqueda]         = useState('');
+  const [filtroLocalidad, setFiltroLocalidad] = useState('todas');
+  const [filtroProvincia, setFiltroProvincia] = useState('todas');
+  const [ordenamiento, setOrdenamiento] = useState('creado');
+  const [seleccionados, setSeleccionados] = useState([]);
+  const [accion, setAccion]             = useState('');
+
+  // Localidades y provincias únicas disponibles
+  const localidades = [...new Set(usuarios.map(u => u.localidad).filter(Boolean))].sort();
+  const provincias = [...new Set(usuarios.map(u => u.provincia).filter(Boolean))].sort();
+
+  let filtrados = usuarios.filter(u => {
+    const matchLocalidad = filtroLocalidad === 'todas' || (u.localidad === filtroLocalidad);
+    const filtroProv = filtroProvincia === 'todas' || (u.provincia === filtroProvincia);
+    const matchBusqueda = busqueda === '' || (u.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) || (u.email || '').toLowerCase().includes(busqueda.toLowerCase());
+    return matchLocalidad && filtroProv && matchBusqueda;
+  });
+
+  // Aplicar ordenamiento
+  if (ordenamiento === 'nombre') {
+    filtrados = filtrados.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+  } else if (ordenamiento === 'localidad') {
+    filtrados = filtrados.sort((a, b) => (a.localidad || '').localeCompare(b.localidad || '', 'es'));
+  } else if (ordenamiento === 'provincia') {
+    filtrados = filtrados.sort((a, b) => (a.provincia || '').localeCompare(b.provincia || '', 'es'));
+  } else if (ordenamiento === 'modificado') {
+    filtrados = filtrados.sort((a, b) => new Date(b.actualizado_en || 0) - new Date(a.actualizado_en || 0));
+  } else if (ordenamiento === 'creado') {
+    filtrados = filtrados.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en));
+  }
+
+  const todosSeleccionados = filtrados.length > 0 && filtrados.every(u => seleccionados.includes(u.id));
+  const toggleSeleccion = id => setSeleccionados(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  const toggleTodos = () => { if (todosSeleccionados) setSeleccionados([]); else setSeleccionados(filtrados.map(u => u.id)); };
+
+  const ejecutarAccion = async () => {
+    if (!accion || seleccionados.length === 0) return;
+
+    // Confirmación única para eliminación masiva
+    if (accion === 'eliminar') {
+      if (!window.confirm(`¿Eliminar ${seleccionados.length} turista(s)?`)) return;
+      await supabase.from('perfiles').delete().in('id', seleccionados);
+    } else if (accion === 'bloquear') {
+      for (const id of seleccionados) {
+        const u = usuarios.find(x => x.id === id);
+        if (!u) continue;
+        await onToggle(id, u?.bloqueado);
+      }
+    }
+    setSeleccionados([]); setAccion('');
+    // Refrescar la lista después de la acción
+    onActualizar?.();
+  };
+
+  const inputStyle = { padding:'10px 14px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none' };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Barra filtros */}
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...inputStyle, flex:1, minWidth:200 }} placeholder="Buscar nombre ó email…" />
+        <select value={filtroProvincia} onChange={e => setFiltroProvincia(e.target.value)} style={inputStyle}>
+          <option value="todas">Todas las provincias</option>
+          {provincias.map(prov => (
+            <option key={prov} value={prov}>{prov}</option>
+          ))}
+        </select>
+        <select value={filtroLocalidad} onChange={e => setFiltroLocalidad(e.target.value)} style={inputStyle}>
+          <option value="todas">Todas las localidades</option>
+          {localidades.map(loc => (
+            <option key={loc} value={loc}>{loc}</option>
+          ))}
+        </select>
+        <select value={ordenamiento} onChange={e => setOrdenamiento(e.target.value)} style={inputStyle}>
+          <option value="creado">Último creado</option>
+          <option value="modificado">Último modificado</option>
+          <option value="nombre">Nombre A-Z</option>
+          <option value="localidad">Localidad A-Z</option>
+          <option value="provincia">Provincia A-Z</option>
+        </select>
+        {seleccionados.length > 0 && (
+          <div style={{ display:'flex', gap:8, alignItems:'center', marginLeft:'auto' }}>
+            <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{seleccionados.length} seleccionados</span>
+            <select value={accion} onChange={e => setAccion(e.target.value)} style={{ ...inputStyle, minWidth:120 }}>
+              <option value="">Elegir acción...</option>
+              <option value="bloquear">🔒 Bloquear</option>
+              <option value="eliminar">🗑️ Eliminar</option>
+            </select>
+            <ABtn onClick={ejecutarAccion} variant="primary" style={{ opacity: accion ? 1 : 0.4 }}>Aplicar</ABtn>
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderTop:`1px solid ${A.line}`, paddingTop:14 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, fontFamily:A.font }}>
+          <thead>
+            <tr style={{ borderBottom:`1px solid ${A.line}` }}>
+              <th style={{ padding:'10px 12px', textAlign:'left', fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', fontSize:11 }}>
+                <input type="checkbox" checked={todosSeleccionados} onChange={toggleTodos} style={{ cursor:'pointer' }} />
+              </th>
+              <th style={{ padding:'10px 12px', textAlign:'left', fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', fontSize:11 }}>Nombre</th>
+              <th style={{ padding:'10px 12px', textAlign:'left', fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', fontSize:11 }}>Email</th>
+              <th style={{ padding:'10px 12px', textAlign:'left', fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', fontSize:11 }}>Localidad</th>
+              <th style={{ padding:'10px 12px', textAlign:'left', fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', fontSize:11 }}>Provincia</th>
+              <th style={{ padding:'10px 12px', textAlign:'left', fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', fontSize:11 }}>Registrado</th>
+              <th style={{ padding:'10px 12px', textAlign:'left', fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', fontSize:11 }}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtrados.map(u => (
+              <tr key={u.id} style={{ borderBottom:`1px solid ${A.line}`, background: seleccionados.includes(u.id) ? A.primarySoft : 'transparent' }}>
+                <td style={{ padding:'10px 12px' }}>
+                  <input type="checkbox" checked={seleccionados.includes(u.id)} onChange={() => toggleSeleccion(u.id)} style={{ cursor:'pointer' }} />
+                </td>
+                <td style={{ padding:'10px 12px', color:A.ink }}>{u.nombre || '(sin nombre)'}</td>
+                <td style={{ padding:'10px 12px', color:A.ink2, fontSize:12 }}>{u.email}</td>
+                <td style={{ padding:'10px 12px', color:A.muted, fontSize:12 }}>{u.localidad || '—'}</td>
+                <td style={{ padding:'10px 12px', color:A.muted, fontSize:12 }}>{u.provincia || '—'}</td>
+                <td style={{ padding:'10px 12px', color:A.muted, fontSize:12 }}>{new Date(u.creado_en).toLocaleDateString('es-AR')}</td>
+                <td style={{ padding:'10px 12px' }}>
+                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                    {/* Ver/Editar (stub: simplemente muestra toast) */}
+                    <button onClick={() => alert('Edición de turistas (próximamente)')} title="Ver/Editar turista" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:A.primary, opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                      <Pencil size={16} />
+                    </button>
+                    {/* Bloquear/Desbloquear */}
+                    <button onClick={() => onToggle(u.id, u?.bloqueado)} title={u.bloqueado ? 'Desbloquear turista' : 'Bloquear turista'} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color: u.bloqueado ? '#C03030' : A.muted, opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                      <Lock size={16} />
+                    </button>
+                    {/* Eliminar */}
+                    <button onClick={async () => {
+                      if (!window.confirm(`¿Eliminar a "${u.nombre || 'este turista'}"?`)) return;
+                      await supabase.from('perfiles').delete().eq('id', u.id);
+                      onActualizar?.();
+                    }} title="Eliminar turista" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:'#EF4444', opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filtrados.length === 0 && <div style={{ textAlign:'center', color:A.muted, padding:30 }}>Sin resultados</div>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB: CUPONES (antes "OFERTAS")
 // ═══════════════════════════════════════════════════════════
 function OfertaStatsPanel({ ofertaId }) {
   const [stats, setStats]     = useState(null);
@@ -569,39 +830,138 @@ function OfertaStatsPanel({ ofertaId }) {
   );
 }
 
-function TabOfertas({ ofertas, setOfertas, showToast }) {
-  const [filtro, setFiltro]             = useState('todas');
+// ─── Drawer de edición de UN cupón (reusa el editor del socio en modo solo-editor) ─
+function CuponEditDrawer({ oferta, negocios, ofertas, showToast, onClose, onOfertaGuardada }) {
+  const neg = negocios.find(n => n.id === oferta.negocio_id);
+  const promosDelNegocio = ofertas.filter(o => o.negocio_id === oferta.negocio_id);
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(11,16,32,0.42)', backdropFilter:'blur(2px)', zIndex:60 }} />
+      {/* 70% del ancho del drawer anterior (620px → ~434px) */}
+      <div style={{ position:'fixed', top:0, right:0, height:'100vh', width:'100%', maxWidth:434, background:'#fff', zIndex:61, boxShadow:'-10px 0 44px rgba(0,0,0,0.20)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <SocioOfertasEditor
+          soloEditor
+          modoAdmin
+          ofertaInicial={oferta}
+          dbPromos={promosDelNegocio}
+          negocioId={oferta.negocio_id}
+          showToast={(msg, type) => showToast(msg, type === 'err' ? 'error' : 'ok')}
+          plan={neg?.plan || 'free'}
+          onUpgrade={() => {}}
+          onCerrarEditor={onClose}
+          onOfertaGuardada={onOfertaGuardada}
+        />
+      </div>
+    </>
+  );
+}
+
+// ─── Contenido visual de una fila de cupón (foto + socio + título + métricas) ─
+// Compartido entre el listado de Cupones y el armador de "Nueva cuponera".
+function CuponRowBody({ o, precioDe, onSocio }) {
+  const vencida = o.fecha_vencimiento && new Date(o.fecha_vencimiento) < new Date();
+  const fmtFecha = iso => iso ? new Date(iso).toLocaleDateString('es-AR', { day:'numeric', month:'short' }) : null;
+  return (
+    <>
+      <div style={{ width:52, height:52, borderRadius:10, overflow:'hidden', background:A.bg, flexShrink:0 }}>
+        {o.imagen_url
+          ? <img src={o.imagen_url} alt={o.titulo} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+          : <div style={{ width:'100%', height:'100%', display:'grid', placeItems:'center', fontSize:20 }}>🏷</div>
+        }
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginBottom:2 }}>
+          {onSocio
+            ? <button onClick={onSocio} style={{ background:'none', border:'none', color:A.primary, cursor:'pointer', fontWeight:600, textDecoration:'underline', padding:0, fontFamily:A.font }}>{o.negocios?.nombre || '—'}</button>
+            : <span style={{ color:A.ink2, fontWeight:600 }}>{o.negocios?.nombre || '—'}</span>
+          } · {formatearCategoria(o.negocios?.tipo) || ''}
+        </div>
+        <div style={{ fontFamily:A.font, fontSize:14, fontWeight:600, color:A.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {o.badge && <span style={{ fontWeight:700 }}>{o.badge} · </span>}{o.titulo}
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4, flexWrap:'wrap' }}>
+          {o.ahorro_estimado > 0 && (
+            <span style={{ fontFamily:A.font, fontSize:11, color:A.green, fontWeight:600 }}>
+              Ahorro decl. ${Number(o.ahorro_estimado).toLocaleString('es-AR')}
+            </span>
+          )}
+          {precioDe(o) > 0 && (
+            <span style={{ fontFamily:A.font, fontSize:11, color:A.ink2, fontWeight:600 }}>
+              Activación ${precioDe(o).toLocaleString('es-AR')}
+            </span>
+          )}
+          {!o.aprobada && o.activa !== false && <span style={{ background:'#FFF7E5', color:'#C28A1B', padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Pendiente</span>}
+          {o.aprobada && o.activa && !vencida && <span style={{ background:'#E8F5EC', color:A.green, padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Activa</span>}
+          {((!o.aprobada && o.activa === false) || (o.aprobada && !o.activa) || vencida) && <span style={{ background:'#FCEAEA', color:'#C03030', padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>{vencida ? `Vencida el ${fmtFecha(o.fecha_vencimiento)}` : 'Inactiva'}</span>}
+          {o.fecha_vencimiento && !vencida && o.activa && <span style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>vence {fmtFecha(o.fecha_vencimiento)}</span>}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TabOfertas({ ofertas, setOfertas, showToast, negocioEditando, setNegocioEditando, filtroNegocioId, setFiltroNegocioId, negocios, onActualizar }) {
+  const [filtro, setFiltro]             = useState('todas');   // estado: todas|activas|pendientes|inactivas
   const [vistaOferta, setVistaOferta]   = useState('lista');
   const [expandida, setExpandida]       = useState(null);
   const [ofertaEditando, setOfertaEditando] = useState(null);
-  const [tokensVal, setTokensVal]       = useState('');
-  const [aprobando, setAprobando]       = useState(null);
+  const [busqueda, setBusqueda]         = useState('');
+  const [filtroLocalidad, setFiltroLocalidad] = useState('todas');
+  const [filtroSocio, setFiltroSocio]   = useState('todos');
+  const [filtroTipo, setFiltroTipo]     = useState('todos');
+  const [ordenamiento, setOrdenamiento] = useState('creado');
+  const [seleccionados, setSeleccionados] = useState([]);
+  const [accionLote, setAccionLote]     = useState('');
 
   const estaVencida = o => o.fecha_vencimiento && new Date(o.fecha_vencimiento) < new Date();
-  const activas        = ofertas.filter(o => o.aprobada && o.activa && !estaVencida(o));
-  const pendientesApro = ofertas.filter(o => !o.aprobada && o.activa !== false);
-  const inactivas      = ofertas.filter(o => (!o.aprobada && o.activa === false) || (o.aprobada && !o.activa) || estaVencida(o));
+  const precioDe   = o => calcularPrecioCupon(Number(o.ahorro_estimado) || 0);
+  const estadoDe   = o => (!o.aprobada && o.activa !== false) ? 'pendiente'
+    : (o.aprobada && o.activa && !estaVencida(o)) ? 'activa' : 'inactiva';
+  const rubroDe    = o => categoriaDeNegocio(o.negocios?.tipo, o.negocio_id);
 
-  const filtradas = (() => {
-    if (filtro === 'pendientes') return pendientesApro;
-    if (filtro === 'inactivas')  return inactivas;
-    if (filtro === 'activas')    return activas;
-    return [...pendientesApro, ...activas, ...inactivas];
-  })();
+  const base = filtroNegocioId ? ofertas.filter(o => o.negocio_id === filtroNegocioId) : ofertas;
+  const activas        = base.filter(o => estadoDe(o) === 'activa');
+  const pendientesApro = base.filter(o => estadoDe(o) === 'pendiente');
+  const inactivas      = base.filter(o => estadoDe(o) === 'inactiva');
+
+  // Opciones de los selects (derivadas de los cupones visibles)
+  const localidades = [...new Set(base.map(o => o.negocios?.localidad).filter(Boolean))].sort();
+  const socios = [...new Map(base.filter(o => o.negocio_id).map(o => [o.negocio_id, o.negocios?.nombre || '—'])).entries()]
+    .sort((a, b) => (a[1] || '').localeCompare(b[1] || '', 'es'));
+
+  let filtradas = base.filter(o => {
+    const est = estadoDe(o);
+    const matchEstado    = filtro === 'todas' || (filtro === 'activas' && est === 'activa') || (filtro === 'pendientes' && est === 'pendiente') || (filtro === 'inactivas' && est === 'inactiva');
+    const matchLocalidad = filtroLocalidad === 'todas' || o.negocios?.localidad === filtroLocalidad;
+    const matchSocio     = filtroSocio === 'todos' || o.negocio_id === filtroSocio;
+    const matchTipo      = filtroTipo === 'todos' || rubroDe(o) === filtroTipo;
+    const q = busqueda.trim().toLowerCase();
+    const matchBusqueda  = !q || (o.titulo || '').toLowerCase().includes(q) || (o.negocios?.nombre || '').toLowerCase().includes(q);
+    return matchEstado && matchLocalidad && matchSocio && matchTipo && matchBusqueda;
+  });
+
+  const rankEstado = { activa: 0, pendiente: 1, inactiva: 2 };
+  filtradas = filtradas.slice().sort((a, b) => {
+    switch (ordenamiento) {
+      case 'nombre':     return (a.titulo || '').localeCompare(b.titulo || '', 'es');
+      case 'modificado': return new Date(b.publicada_en || b.creado_en || 0) - new Date(a.publicada_en || a.creado_en || 0);
+      case 'ahorro':     return (Number(b.ahorro_estimado) || 0) - (Number(a.ahorro_estimado) || 0);
+      case 'precio':     return precioDe(b) - precioDe(a);
+      case 'estado':     return rankEstado[estadoDe(a)] - rankEstado[estadoDe(b)];
+      default:           return new Date(b.creado_en || 0) - new Date(a.creado_en || 0); // 'creado'
+    }
+  });
+
+  const todosSeleccionados = filtradas.length > 0 && filtradas.every(o => seleccionados.includes(o.id));
+  const toggleSeleccion = id => setSeleccionados(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  const toggleTodos = () => setSeleccionados(todosSeleccionados ? [] : filtradas.map(o => o.id));
 
   async function aprobarOferta(oferta) {
-    const tokens = parseInt(tokensVal);
-    if (isNaN(tokens) || tokens < 0) return showToast('Ingresá un valor válido (0 o más)', 'error');
-    const { error } = await supabase.from('promociones').update({ aprobada: true, activa: true, tokens_costo: tokens }).eq('id', oferta.id);
+    // El precio se define dentro del editor de la oferta (ahorro declarado), no aquí
+    const { error } = await supabase.from('promociones').update({ aprobada: true, activa: true }).eq('id', oferta.id);
     if (error) return showToast('Error al aprobar', 'error');
-    setOfertas(prev => prev.map(o => o.id === oferta.id ? { ...o, aprobada: true, activa: true, tokens_costo: tokens } : o));
-    const negRes = await supabase.from('negocios').select('plan, tipo').eq('id', oferta.negocio_id).single();
-    if (debeUsarTokens(negRes.data?.tipo, negRes.data?.plan)) {
-      const ok = await descontarToken(oferta.negocio_id);
-      if (!ok) return showToast('El socio no tiene tokens suficientes', 'error');
-    }
-    setAprobando(null); setTokensVal('');
-    showToast(tokens === 0 ? 'Aprobada — SIN CARGO' : `Aprobada — ${tokens} crédito${tokens !== 1 ? 's' : ''}`);
+    setOfertas(prev => prev.map(o => o.id === oferta.id ? { ...o, aprobada: true, activa: true } : o));
+    showToast('Cupón aprobado');
   }
 
   async function desaprobarOferta(id) {
@@ -610,37 +970,78 @@ function TabOfertas({ ofertas, setOfertas, showToast }) {
     showToast('Oferta desactivada');
   }
 
-  const filterBtns = [
-    { id:'todas', label:'Todas', count: ofertas.length },
-    { id:'activas', label:'Activas', count: activas.length },
-    { id:'pendientes', label:'Pendientes', count: pendientesApro.length },
-    { id:'inactivas', label:'Inactivas', count: inactivas.length },
-  ];
+  async function ejecutarAccionLote() {
+    if (!accionLote || seleccionados.length === 0) return;
+    if (accionLote === 'aprobar') {
+      await supabase.from('promociones').update({ aprobada: true, activa: true }).in('id', seleccionados);
+      setOfertas(prev => prev.map(o => seleccionados.includes(o.id) ? { ...o, aprobada: true, activa: true } : o));
+      showToast(`${seleccionados.length} cupón(es) aprobado(s)`);
+    } else if (accionLote === 'desactivar') {
+      await supabase.from('promociones').update({ aprobada: false, activa: false, motivo_inactiva: 'superadmin' }).in('id', seleccionados);
+      setOfertas(prev => prev.map(o => seleccionados.includes(o.id) ? { ...o, aprobada: false, activa: false, motivo_inactiva: 'superadmin' } : o));
+      showToast(`${seleccionados.length} cupón(es) desactivado(s)`);
+    } else if (accionLote === 'eliminar') {
+      if (!window.confirm(`¿Eliminar ${seleccionados.length} cupón(es)? Esta acción no se puede deshacer.`)) return;
+      await supabase.from('promociones').delete().in('id', seleccionados);
+      setOfertas(prev => prev.filter(o => !seleccionados.includes(o.id)));
+      showToast(`${seleccionados.length} cupón(es) eliminado(s)`);
+    }
+    setSeleccionados([]); setAccionLote('');
+  }
+
+  const selStyle = { padding:'9px 12px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', cursor:'pointer' };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
       {ofertaEditando !== null && (
-        <OfertaEditorDrawer
-          oferta={ofertaEditando?.id ? ofertaEditando : null}
-          negocioId={ofertaEditando?.negocio_id}
-          onClose={() => setOfertaEditando(null)}
-          onSave={(result) => { setOfertas(prev => prev.map(o => o.id === result.id ? { ...o, ...result } : o)); setOfertaEditando(null); showToast('Oferta actualizada'); }}
-        />
+        <CuponEditDrawer oferta={ofertaEditando} negocios={negocios} ofertas={ofertas}
+          showToast={showToast} onClose={() => setOfertaEditando(null)}
+          onOfertaGuardada={row => setOfertas(prev => prev.map(o => o.id === row.id ? { ...o, ...row, negocios: o.negocios } : o))} />
       )}
 
-      {/* Filter bar */}
-      <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-        <div style={{ display:'flex', gap:6 }}>
-          {filterBtns.map(f => (
-            <button key={f.id} onClick={() => setFiltro(f.id)} style={{
-              padding:'8px 16px', borderRadius:999, fontFamily:A.font, fontWeight:600, fontSize:13, cursor:'pointer',
-              background: filtro === f.id ? A.ink : '#fff',
-              color: filtro === f.id ? '#fff' : A.ink2,
-              border: filtro === f.id ? 'none' : `1px solid ${A.line}`,
-            }}>{f.label} <span style={{ opacity:0.6 }}>{f.count}</span></button>
-          ))}
+      {/* Filtro activo por negocio */}
+      {filtroNegocioId && (
+        <div style={{ background:'#E8F5EC', border:`1px solid ${A.green}`, borderRadius:14, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+          <span style={{ fontFamily:A.font, fontSize:13, color:A.green, fontWeight:600 }}>
+            Mostrando cupones de "{negocios.find(n => n.id === filtroNegocioId)?.nombre || '—'}"
+          </span>
+          <button onClick={() => setFiltroNegocioId(null)} style={{ background:'none', border:'none', color:A.green, cursor:'pointer', fontWeight:600, fontFamily:A.font }}>
+            Limpiar filtro ×
+          </button>
         </div>
-        <div style={{ marginLeft:'auto', display:'flex', gap:6, background:A.bg, borderRadius:10, padding:4 }}>
+      )}
+
+      {/* Cabecera: búsqueda + filtros + orden (estilo Turistas/Socios) */}
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+        <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+          placeholder="Buscar cupón ó socio..." style={{ ...selStyle, cursor:'text', flex:1, minWidth:180 }} />
+        <select value={filtro} onChange={e => setFiltro(e.target.value)} style={selStyle}>
+          <option value="todas">Todos los estados</option>
+          <option value="activas">Activas ({activas.length})</option>
+          <option value="pendientes">Pendientes ({pendientesApro.length})</option>
+          <option value="inactivas">Inactivas ({inactivas.length})</option>
+        </select>
+        <select value={filtroLocalidad} onChange={e => setFiltroLocalidad(e.target.value)} style={selStyle}>
+          <option value="todas">Todas las localidades</option>
+          {localidades.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+        </select>
+        <select value={filtroSocio} onChange={e => setFiltroSocio(e.target.value)} style={selStyle}>
+          <option value="todos">Todos los socios</option>
+          {socios.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}
+        </select>
+        <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} style={selStyle}>
+          <option value="todos">Todos los tipos</option>
+          {TIPOS_RUBRO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        <select value={ordenamiento} onChange={e => setOrdenamiento(e.target.value)} style={selStyle}>
+          <option value="creado">Fecha de creación</option>
+          <option value="modificado">Fecha de modificación</option>
+          <option value="nombre">Nombre A-Z</option>
+          <option value="ahorro">Ahorro declarado</option>
+          <option value="precio">Precio</option>
+          <option value="estado">Estado</option>
+        </select>
+        <div style={{ display:'flex', gap:6, background:A.bg, borderRadius:10, padding:4 }}>
           <button onClick={() => setVistaOferta('lista')} style={{ padding:'6px 10px', borderRadius:8, background: vistaOferta === 'lista' ? '#fff' : 'transparent', border:'none', cursor:'pointer', color: vistaOferta === 'lista' ? A.primary : A.muted }}>
             <List size={16} />
           </button>
@@ -650,79 +1051,76 @@ function TabOfertas({ ofertas, setOfertas, showToast }) {
         </div>
       </div>
 
-      <div style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{filtradas.length} ofertas</div>
+      {/* Fila de resultados + acciones en lote */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+        <div style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{filtradas.length} cupones</div>
+        {seleccionados.length > 0 && (
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginLeft:'auto' }}>
+            <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{seleccionados.length} seleccionados</span>
+            <select value={accionLote} onChange={e => setAccionLote(e.target.value)} style={selStyle}>
+              <option value="">Acción en lote...</option>
+              <option value="aprobar">✅ Aprobar</option>
+              <option value="desactivar">⏸️ Desactivar</option>
+              <option value="eliminar">🗑️ Eliminar</option>
+            </select>
+            <ABtn onClick={ejecutarAccionLote} variant="primary" style={{ opacity: accionLote ? 1 : 0.4 }}>Aplicar</ABtn>
+          </div>
+        )}
+      </div>
 
       {filtradas.length === 0 ? (
-        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'48px 24px', textAlign:'center', color:A.muted, fontFamily:A.font }}>No hay ofertas en esta categoría</div>
+        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'48px 24px', textAlign:'center', color:A.muted, fontFamily:A.font }}>No hay cupones con estos filtros</div>
       ) : vistaOferta === 'cuadricula' ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:14 }}>
-          {filtradas.map(o => (
-            <div key={o.id} onClick={() => setOfertaEditando(o)} style={{
-              background:'#fff', borderRadius:14, overflow:'hidden',
-              border:`1px solid ${!o.aprobada ? '#FFC93C55' : A.line}`,
-              cursor:'pointer', opacity: !o.activa ? 0.7 : 1,
-            }}>
-              <div style={{ position:'relative', aspectRatio:'1', overflow:'hidden' }}>
-                <img src={o.imagen_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80'} alt={o.titulo} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.7), transparent)' }} />
-                <div style={{ position:'absolute', top:8, right:8 }}>
-                  {!o.aprobada ? <span style={{ background:A.yellow, color:A.ink, fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>Pendiente</span>
-                    : !o.activa ? <span style={{ background:'#6B7280', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>Inactiva</span>
-                    : <span style={{ background:A.green, color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>Activa</span>}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(230px, 1fr))', gap:16, alignItems:'start' }}>
+          {filtradas.map(o => {
+            const est = estadoDe(o);
+            const badgeEstado = est === 'pendiente' ? { t:'Pendiente', bg:'#FFF7E5', c:'#C28A1B' }
+              : est === 'activa' ? { t:'Activa', bg:'#E8F5EC', c:A.green }
+              : { t:'Inactiva', bg:'#FCEAEA', c:'#C03030' };
+            return (
+              <div key={o.id} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {/* Minificha idéntica al frontend */}
+                <div style={{ position:'relative' }}>
+                  <div style={{ position:'absolute', top:8, left:8, zIndex:2 }}>
+                    <input type="checkbox" checked={seleccionados.includes(o.id)} onChange={() => toggleSeleccion(o.id)}
+                      onClick={e => e.stopPropagation()} style={{ accentColor:A.primary, width:18, height:18, cursor:'pointer' }} />
+                  </div>
+                  <div style={{ position:'absolute', top:8, right:8, zIndex:2 }}>
+                    <span style={{ background:badgeEstado.bg, color:badgeEstado.c, fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:6, fontFamily:A.font }}>{badgeEstado.t}</span>
+                  </div>
+                  <OfertaCard promo={normalizePromo(o)} variant="grid" fixedHeight={340} hideActions onOpen={() => setOfertaEditando(o)} />
                 </div>
-                <div style={{ position:'absolute', bottom:8, left:0, right:0, padding:'0 12px', textAlign:'center' }}>
-                  <div style={{ color:'#fff', fontSize:22, fontWeight:700, textShadow:'0 2px 6px rgba(0,0,0,0.4)' }}>{o.badge}</div>
-                  <div style={{ color:'rgba(255,255,255,0.8)', fontSize:11, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{o.titulo}</div>
+                {/* Acciones individuales debajo de la ficha */}
+                <div style={{ display:'flex', gap:6 }}>
+                  <ABtn onClick={() => setOfertaEditando(o)} style={{ flex:1, justifyContent:'center', fontSize:12, padding:'7px 8px' }}>
+                    <Pencil size={12} /> Editar
+                  </ABtn>
+                  {!o.aprobada ? (
+                    <ABtn onClick={() => aprobarOferta(o)} variant="success" style={{ flex:1, justifyContent:'center', fontSize:12, padding:'7px 8px' }}>
+                      <CheckCircle2 size={12} /> Aprobar
+                    </ABtn>
+                  ) : (
+                    <ABtn onClick={() => desaprobarOferta(o.id)} style={{ flex:1, justifyContent:'center', fontSize:12, padding:'7px 8px' }}>Desactivar</ABtn>
+                  )}
                 </div>
               </div>
-              <div style={{ padding:12 }}>
-                <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{o.negocios?.nombre}</div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          {/* Seleccionar todo */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 16px' }}>
+            <input type="checkbox" checked={todosSeleccionados} onChange={toggleTodos} style={{ accentColor:A.primary, width:16, height:16, cursor:'pointer' }} />
+            <span style={{ fontFamily:A.font, fontSize:11, color:A.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>Seleccionar todo</span>
+          </div>
           {filtradas.map(o => {
-            const vencida = estaVencida(o);
-            const fmtFecha = iso => iso ? new Date(iso).toLocaleDateString('es-AR', { day:'numeric', month:'short' }) : null;
+            const seleccionado = seleccionados.includes(o.id);
             return (
-              <div key={o.id} style={{ background:'#fff', border:`1px solid ${!o.aprobada && o.activa !== false ? '#FFC93C55' : A.line}`, borderRadius:14, overflow:'hidden' }}>
+              <div key={o.id} style={{ background:'#fff', border:`1px solid ${seleccionado ? A.primary : (!o.aprobada && o.activa !== false ? '#FFC93C55' : A.line)}`, borderRadius:14, overflow:'hidden' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:14, padding:16 }}>
-                  <div style={{ width:52, height:52, borderRadius:10, overflow:'hidden', background:A.bg, flexShrink:0 }}>
-                    {o.imagen_url
-                      ? <img src={o.imagen_url} alt={o.titulo} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                      : <div style={{ width:'100%', height:'100%', display:'grid', placeItems:'center', fontSize:20 }}>🏷</div>
-                    }
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginBottom:2 }}>
-                      {o.negocios?.nombre || '—'} · {o.negocios?.tipo || ''}
-                    </div>
-                    <div style={{ fontFamily:A.font, fontSize:14, fontWeight:600, color:A.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {o.badge && <span style={{ fontWeight:700 }}>{o.badge} · </span>}{o.titulo}
-                    </div>
-                    <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4, flexWrap:'wrap' }}>
-                      {o.tokens_costo != null && (
-                        <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily:A.font, fontSize:11, color:A.muted }}>
-                          <CoinSVG size={12} />{o.tokens_costo === 0 ? 'SIN CARGO' : `${o.tokens_costo} · AR$${(o.tokens_costo * CREDITO_TOTAL).toLocaleString('es-AR')}`}
-                        </span>
-                      )}
-                      {o.ahorro_estimado > 0 && (
-                        <span style={{ fontFamily:A.font, fontSize:11, color:A.green, fontWeight:600 }}>
-                          Ahorro decl. ${Number(o.ahorro_estimado).toLocaleString('es-AR')}
-                        </span>
-                      )}
-                      {filtro === 'todas' && (
-                        <>
-                          {!o.aprobada && o.activa !== false && <span style={{ background:'#FFF7E5', color:'#C28A1B', padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Pendiente</span>}
-                          {o.aprobada && o.activa && !vencida && <span style={{ background:'#E8F5EC', color:A.green, padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Activa</span>}
-                          {((!o.aprobada && o.activa === false) || (o.aprobada && !o.activa) || vencida) && <span style={{ background:'#FCEAEA', color:'#C03030', padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>{vencida ? `Vencida el ${fmtFecha(o.fecha_vencimiento)}` : 'Inactiva'}</span>}
-                        </>
-                      )}
-                      {o.fecha_vencimiento && !vencida && o.activa && <span style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>vence {fmtFecha(o.fecha_vencimiento)}</span>}
-                    </div>
-                  </div>
+                  <input type="checkbox" checked={seleccionado} onChange={() => toggleSeleccion(o.id)} style={{ accentColor:A.primary, width:16, height:16, cursor:'pointer', flexShrink:0 }} />
+                  <CuponRowBody o={o} precioDe={precioDe} onSocio={() => setNegocioEditando(negocios.find(n => n.id === o.negocio_id) || { id: o.negocio_id, ...o.negocios })} />
                   <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
                     <ABtn onClick={() => setOfertaEditando(o)} style={{ fontSize:12, padding:'6px 10px' }}>
                       <Pencil size={12} /> Editar
@@ -733,31 +1131,14 @@ function TabOfertas({ ofertas, setOfertas, showToast }) {
                     }}>
                       <BarChart2 size={15} />
                     </button>
-                    {!o.aprobada && o.activa !== false ? (
-                      aprobando === o.id ? (
-                        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                          <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                            <input type="number" min="0" value={tokensVal} onChange={e => setTokensVal(e.target.value)}
-                              placeholder="Créditos (0=gratis)"
-                              style={{ width:110, padding:'6px 10px', border:`1px solid ${A.line}`, borderRadius:8, fontFamily:A.font, fontSize:12, outline:'none' }}
-                            />
-                            {o.ahorro_estimado > 0 && (
-                              <span style={{ fontFamily:A.font, fontSize:10, color:A.muted }}>
-                                Sugerido: {Math.max(1, Math.round(calcularPrecioCupon(o.ahorro_estimado) / CREDITO_TOTAL))} créd.
-                              </span>
-                            )}
-                          </div>
-                          <ABtn onClick={() => aprobarOferta(o)} variant="success" style={{ fontSize:12, padding:'6px 10px' }}>✓</ABtn>
-                          <ABtn onClick={() => { setAprobando(null); setTokensVal(''); }} style={{ fontSize:12, padding:'6px 10px' }}>✕</ABtn>
-                        </div>
-                      ) : (
-                        <ABtn onClick={() => setAprobando(o.id)} variant="success" style={{ fontSize:12, padding:'6px 10px' }}>
-                          <CheckCircle2 size={12} /> Aprobar
-                        </ABtn>
-                      )
-                    ) : o.aprobada ? (
+                    {!o.aprobada && o.activa !== false && (
+                      <ABtn onClick={() => aprobarOferta(o)} variant="success" style={{ fontSize:12, padding:'6px 10px' }}>
+                        <CheckCircle2 size={12} /> Aprobar
+                      </ABtn>
+                    )}
+                    {o.aprobada && (
                       <ABtn onClick={() => desaprobarOferta(o.id)} style={{ fontSize:12, padding:'6px 10px' }}>Desactivar</ABtn>
-                    ) : null}
+                    )}
                   </div>
                 </div>
                 {expandida === o.id && (
@@ -768,6 +1149,553 @@ function TabOfertas({ ofertas, setOfertas, showToast }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB: CUPONERAS LOCALES (Sets = grupos de cupones)
+// ═══════════════════════════════════════════════════════════
+function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNegocioEditando, filtroNegocioId, setFiltroNegocioId, negocios, onActualizar }) {
+  const [mkTab, setMkTab]       = useState('cupones');  // 'cupones' | 'cuponeras' | 'nueva'
+  const [sets, setSets]         = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [pickerAbierto, setPickerAbierto] = useState(null);
+
+  // Precio de un cupón (valor de activación): manual si existe, si no la fórmula sobre el ahorro.
+  const precioDe = o => o?.precio_manual != null ? Number(o.precio_manual) : calcularPrecioCupon(Number(o?.ahorro_estimado) || 0);
+  const promoById = Object.fromEntries(ofertas.map(o => [o.id, o]));
+  const localidades = [...new Set(ofertas.map(o => o.negocios?.localidad).filter(Boolean))].sort();
+
+  async function cargar() {
+    setLoading(true);
+    const { data } = await listarCuponerasLocales();
+    setSets(data || []);
+    setLoading(false);
+  }
+  useEffect(() => { cargar(); }, []);
+
+  // Crea la cuponera y la devuelve (o null si falló). El toast lo maneja quien llama.
+  async function crear({ nombre, descripcion = null, localidad = null }) {
+    const { data, error } = await crearCuponeraLocal({ nombre, descripcion, localidad });
+    if (error) { showToast('Error al crear la cuponera', 'error'); return null; }
+    const nuevo = { ...data, promocionIds: [] };
+    setSets(prev => [nuevo, ...prev]);
+    return nuevo;
+  }
+
+  async function cambiar(id, campos) {
+    setSets(prev => prev.map(s => s.id === id ? { ...s, ...campos } : s));
+    const { error } = await actualizarCuponeraLocal(id, campos);
+    if (error) { showToast('Error al guardar', 'error'); cargar(); }
+  }
+
+  async function borrar(id) {
+    if (!window.confirm('¿Eliminar esta cuponera local? Los cupones no se borran, sólo el set.')) return;
+    setSets(prev => prev.filter(s => s.id !== id));
+    const { error } = await eliminarCuponeraLocal(id);
+    if (error) { showToast('Error al eliminar', 'error'); cargar(); }
+    else showToast('Cuponera eliminada');
+  }
+
+  async function toggleCupon(set, promoId) {
+    const incluido = set.promocionIds.includes(promoId);
+    setSets(prev => prev.map(s => s.id === set.id
+      ? { ...s, promocionIds: incluido ? s.promocionIds.filter(x => x !== promoId) : [...s.promocionIds, promoId] }
+      : s));
+    const { error } = incluido ? await quitarCuponDeSet(set.id, promoId) : await agregarCuponASet(set.id, promoId);
+    if (error) { showToast('Error al actualizar el set', 'error'); cargar(); }
+  }
+
+  const tabBtn = (id, label) => (
+    <button key={id} onClick={() => setMkTab(id)} style={{
+      background:'none', border:'none', cursor:'pointer', fontFamily:A.font, fontSize:14,
+      fontWeight: mkTab === id ? 700 : 500, color: mkTab === id ? A.primary : A.muted,
+      padding:'10px 4px', marginRight:24, position:'relative',
+    }}>
+      {label}
+      {mkTab === id && <span style={{ position:'absolute', left:0, right:0, bottom:-1, height:2.5, borderRadius:3, background:A.primary }} />}
+    </button>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
+      {/* Tabs de la sección Marketplace */}
+      <div style={{ display:'flex', borderBottom:`1px solid ${A.line}` }}>
+        {tabBtn('cupones', 'Cupones')}
+        {tabBtn('cuponeras', `Cuponeras${sets.length ? ` (${sets.length})` : ''}`)}
+        {tabBtn('nueva', 'Nueva cuponera')}
+      </div>
+
+      {mkTab === 'cupones' && (
+        <TabOfertas ofertas={ofertas} setOfertas={setOfertas} showToast={showToast}
+          negocioEditando={negocioEditando} setNegocioEditando={setNegocioEditando}
+          filtroNegocioId={filtroNegocioId} setFiltroNegocioId={setFiltroNegocioId}
+          negocios={negocios} onActualizar={onActualizar} />
+      )}
+
+      {mkTab === 'cuponeras' && (loading ? <MiniLoader /> : (
+        <CuponerasLista sets={sets} ofertas={ofertas} promoById={promoById} precioDe={precioDe}
+          localidades={localidades} pickerAbierto={pickerAbierto} setPickerAbierto={setPickerAbierto}
+          cambiar={cambiar} borrar={borrar} toggleCupon={toggleCupon} onNueva={() => setMkTab('nueva')} />
+      ))}
+
+      {mkTab === 'nueva' && (loading ? <MiniLoader /> : (
+        <CuponeraNueva ofertas={ofertas} sets={sets} localidades={localidades} promoById={promoById}
+          precioDe={precioDe} onCrear={crear} onToggleCupon={toggleCupon} showToast={showToast}
+          onFinalizar={() => setMkTab('cuponeras')} />
+      ))}
+    </div>
+  );
+}
+
+// ─── Selector de ícono para el beneficio adicional ──────────
+function IconoBeneficioPicker({ value, onChange }) {
+  return (
+    <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+      {BENEFICIO_ICONOS.map(({ id, label, Icon }) => {
+        const sel = value === id;
+        return (
+          <button key={id} type="button" onClick={() => onChange(id)} title={label}
+            style={{ width:38, height:38, borderRadius:10, display:'grid', placeItems:'center', cursor:'pointer',
+              border: sel ? `2px solid ${A.primary}` : `1px solid ${A.line}`,
+              background: sel ? A.primarySoft : '#fff', color: sel ? A.primary : A.ink2 }}>
+            <Icon size={18} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Chip visual del beneficio adicional (círculo amarillo + texto) para el preview.
+function BeneficioChip({ texto, icono }) {
+  const Icon = getBeneficioIcon(icono);
+  return (
+    <div style={{ display:'inline-flex', alignItems:'center', gap:8, marginBottom:10 }}>
+      <div style={{ width:28, height:28, borderRadius:'50%', background:A.yellow, display:'grid', placeItems:'center', flexShrink:0 }}>
+        <Icon size={15} color="#0B1020" strokeWidth={2.4} />
+      </div>
+      <span style={{ fontFamily:A.font, fontSize:12.5, fontWeight:700, color:'#B8860B' }}>{texto}</span>
+    </div>
+  );
+}
+
+// ─── Tab "Cuponeras": listado de cuponeras existentes ────────
+function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, pickerAbierto, setPickerAbierto, cambiar, borrar, toggleCupon, onNueva }) {
+  const selStyle = { padding:'8px 11px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', cursor:'pointer' };
+  const inputStyle = { ...selStyle, cursor:'text' };
+
+  if (sets.length === 0) {
+    return (
+      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'48px 24px', textAlign:'center', fontFamily:A.font }}>
+        <p style={{ color:A.muted, margin:'0 0 16px' }}>Todavía no hay cuponeras.</p>
+        <ABtn variant="primary" onClick={onNueva}><Plus size={15} style={{ marginRight:6, verticalAlign:'-2px' }} />Crear la primera</ABtn>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      {sets.map(set => {
+        const cupones = set.promocionIds.map(id => promoById[id]).filter(Boolean);
+        const ahorroTotal = cupones.reduce((acc, o) => acc + (Number(o.ahorro_estimado) || 0), 0);
+        const precioTotal = cupones.reduce((acc, o) => acc + precioDe(o), 0);
+        const editando = pickerAbierto === set.id;
+        const activa = set.estado === 'activa';
+        return (
+          <div key={set.id} style={{ background:'#fff', border:`1px solid ${editando ? A.primary : A.line}`, borderRadius:16, overflow:'hidden' }}>
+
+            {!editando ? (
+              /* ═══ PREVIEW ═══ */
+              <div style={{ display:'flex' }}>
+                {/* Foto principal — ocupa todo el alto, a la izquierda */}
+                <div style={{ width:180, flexShrink:0, alignSelf:'stretch', background:A.bg, borderRight:`1px solid ${A.line}` }}>
+                  {set.imagen_url
+                    ? <img src={set.imagen_url} alt={set.nombre} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+                    : <div style={{ width:'100%', height:'100%', minHeight:150, display:'grid', placeItems:'center', fontSize:30, color:A.muted }}>🖼️</div>
+                  }
+                </div>
+
+                <div style={{ flex:1, minWidth:0, padding:18 }}>
+                {/* Fila superior: badge + estado + editar */}
+                <div style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:10 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    {set.beneficio_adicional && <BeneficioChip texto={set.beneficio_adicional} icono={set.beneficio_icono} />}
+                    {set.badge && (
+                      <span style={{ display:'block', width:'fit-content', background:A.yellow, color:'#0B1020', fontSize:11, fontWeight:800, padding:'3px 10px', borderRadius:999, letterSpacing:'0.02em', marginBottom:8 }}>{set.badge}</span>
+                    )}
+                    <div style={{ fontFamily:A.font, fontSize:19, fontWeight:800, color:A.ink, letterSpacing:'-0.02em', lineHeight:1.2 }}>{set.nombre}</div>
+                    {set.descripcion && <div style={{ fontFamily:A.font, fontSize:13.5, color:A.muted, marginTop:3, lineHeight:1.45 }}>{set.descripcion}</div>}
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+                    <span style={{ background: activa ? '#E8F5EC' : '#FCEAEA', color: activa ? A.green : '#C03030', fontSize:10.5, fontWeight:700, padding:'3px 9px', borderRadius:999, fontFamily:A.font }}>{activa ? 'Activa' : 'Inactiva'}</span>
+                    <ABtn onClick={() => setPickerAbierto(set.id)} style={{ fontSize:12, padding:'7px 12px' }}><Pencil size={13} /> Editar</ABtn>
+                  </div>
+                </div>
+
+                {/* Miniaturas de los cupones */}
+                <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:4, marginBottom:14 }}>
+                  {cupones.length === 0 ? (
+                    <span style={{ fontFamily:A.font, fontSize:12.5, color:A.muted, fontStyle:'italic', padding:'18px 0' }}>Todavía sin cupones — tocá “Editar” para agregarlos.</span>
+                  ) : cupones.map(o => (
+                    <div key={o.id} title={`${o.badge ? o.badge + ' · ' : ''}${o.titulo}${o.negocios?.nombre ? ' — ' + o.negocios.nombre : ''}`}
+                      style={{ width:60, height:60, borderRadius:12, overflow:'hidden', background:A.bg, flexShrink:0, border:`1px solid ${A.line}` }}>
+                      {o.imagen_url
+                        ? <img src={o.imagen_url} alt={o.titulo} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        : <div style={{ width:'100%', height:'100%', display:'grid', placeItems:'center', fontSize:22 }}>🏷</div>
+                      }
+                    </div>
+                  ))}
+                </div>
+
+                {/* Totales */}
+                <div style={{ display:'flex', gap:20, flexWrap:'wrap', alignItems:'center', borderTop:`1px solid ${A.line}`, paddingTop:12 }}>
+                  <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{cupones.length} cupones</span>
+                  <span style={{ fontFamily:A.font, fontSize:12, color:A.green, fontWeight:600 }}>Ahorro declarado ${ahorroTotal.toLocaleString('es-AR')}</span>
+                  <span style={{ fontFamily:A.font, fontSize:12, color:A.ink2, fontWeight:600 }}>Valor de activación ${precioTotal.toLocaleString('es-AR')}</span>
+                  {set.localidad && <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>· {set.localidad}</span>}
+                </div>
+                </div>
+              </div>
+            ) : (
+              /* ═══ EDICIÓN ═══ */
+              <>
+                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px 6px', flexWrap:'wrap' }}>
+                  <input value={set.nombre} onChange={e => cambiar(set.id, { nombre: e.target.value })}
+                    onBlur={e => cambiar(set.id, { nombre: e.target.value.trim() || 'Sin nombre' })}
+                    style={{ ...inputStyle, fontWeight:700, fontSize:15, flex:1, minWidth:180 }} />
+                  <select value={set.estado} onChange={e => cambiar(set.id, { estado: e.target.value })} style={selStyle}>
+                    <option value="activa">Activa</option>
+                    <option value="inactiva">Inactiva</option>
+                  </select>
+                  <select value={set.localidad || ''} onChange={e => cambiar(set.id, { localidad: e.target.value || null })} style={selStyle}>
+                    <option value="">Sin localidad</option>
+                    {localidades.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                  <button onClick={() => borrar(set.id)} title="Eliminar cuponera" style={{ background:'none', border:`1px solid ${A.line}`, borderRadius:8, padding:'7px 9px', cursor:'pointer', color:'#C03030', display:'flex', alignItems:'center' }}>
+                    <Trash2 size={14} />
+                  </button>
+                  <ABtn variant="primary" onClick={() => setPickerAbierto(null)} style={{ fontSize:12, padding:'8px 14px' }}>Listo</ABtn>
+                </div>
+
+                {/* Descripción + badge */}
+                <div style={{ padding:'0 16px 10px', display:'flex', gap:10, flexWrap:'wrap' }}>
+                  <input value={set.descripcion || ''} onChange={e => cambiar(set.id, { descripcion: e.target.value })}
+                    onBlur={e => cambiar(set.id, { descripcion: e.target.value.trim() || null })}
+                    placeholder="Descripción de la cuponera (opcional)"
+                    style={{ ...inputStyle, flex:1, minWidth:200, boxSizing:'border-box', fontSize:13, color:A.ink2 }} />
+                  <input value={set.badge || ''} onChange={e => cambiar(set.id, { badge: e.target.value })}
+                    onBlur={e => cambiar(set.id, { badge: e.target.value.trim() || null })}
+                    placeholder="Badge (ej: Más vendida)"
+                    title="Etiqueta amarilla que aparece arriba del título en la home"
+                    style={{ ...inputStyle, width:200, boxSizing:'border-box', fontSize:13, color:A.ink2 }} />
+                </div>
+
+                {/* Foto principal (portada) */}
+                <div style={{ padding:'0 16px 12px', display:'flex', gap:10, alignItems:'center' }}>
+                  <div style={{ width:52, height:52, borderRadius:10, overflow:'hidden', background:A.bg, border:`1px solid ${A.line}`, flexShrink:0, display:'grid', placeItems:'center' }}>
+                    {set.imagen_url
+                      ? <img src={set.imagen_url} alt="portada" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                      : <span style={{ fontSize:18 }}>🖼️</span>}
+                  </div>
+                  <input value={set.imagen_url || ''} onChange={e => cambiar(set.id, { imagen_url: e.target.value })}
+                    onBlur={e => cambiar(set.id, { imagen_url: e.target.value.trim() || null })}
+                    placeholder="URL de la foto principal (https://...)"
+                    style={{ ...inputStyle, flex:1, minWidth:200, boxSizing:'border-box', fontSize:13, color:A.ink2 }} />
+                </div>
+
+                {/* Beneficio adicional (texto amarillo + ícono + efecto en el precio) */}
+                <div style={{ padding:'0 16px 14px' }}>
+                  <div style={{ fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Beneficio adicional</div>
+                  <input value={set.beneficio_adicional || ''} onChange={e => cambiar(set.id, { beneficio_adicional: e.target.value })}
+                    onBlur={e => cambiar(set.id, { beneficio_adicional: e.target.value.trim() || null })}
+                    placeholder="Ej: Triplicás los puntos que obtenés"
+                    style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontSize:13, color:A.ink2, marginBottom:10 }} />
+                  {/* Tipo de beneficio + valor (define qué recalcula el checkout) */}
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:10 }}>
+                    <select value={set.beneficio_tipo || ''} onChange={e => cambiar(set.id, { beneficio_tipo: e.target.value || null })}
+                      style={{ ...inputStyle, fontSize:13, flex:1, minWidth:200, cursor:'pointer' }}>
+                      {BENEFICIO_TIPOS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                    {tipoBeneficio(set.beneficio_tipo).needsValor && (
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <input type="number" min="0" value={set.beneficio_valor ?? ''} onChange={e => cambiar(set.id, { beneficio_valor: e.target.value === '' ? null : Number(e.target.value) })}
+                          placeholder="valor" style={{ ...inputStyle, width:90, fontSize:13 }} />
+                        <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{tipoBeneficio(set.beneficio_tipo).unidad}</span>
+                      </div>
+                    )}
+                  </div>
+                  {tipoBeneficio(set.beneficio_tipo).ayuda && (
+                    <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginBottom:10 }}>{tipoBeneficio(set.beneficio_tipo).ayuda}</div>
+                  )}
+                  <IconoBeneficioPicker value={set.beneficio_icono} onChange={id => cambiar(set.id, { beneficio_icono: id })} />
+                </div>
+
+                {/* Gestión de cupones */}
+                <div style={{ borderTop:`1px solid ${A.line}`, padding:'14px 16px 16px' }}>
+                  <div style={{ fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12 }}>Cupones incluidos</div>
+                  <ArmadorCupones set={set} ofertas={ofertas} localidades={localidades} promoById={promoById} precioDe={precioDe} onToggleCupon={toggleCupon} />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Armador de cupones (filtros + resultados + barra de totales) ──
+// Compartido por "Nueva cuponera" y el modo edición de una cuponera.
+function ArmadorCupones({ set, ofertas, localidades, promoById, precioDe, onToggleCupon }) {
+  const [busqueda, setBusqueda]             = useState('');
+  const [filtroLocalidad, setFiltroLocalidad] = useState('todas');
+  const [filtroTipo, setFiltroTipo]         = useState('todos');
+  const [soloFlash, setSoloFlash]           = useState(false);
+  const [orden, setOrden]                   = useState('creado');
+  // Si la cuponera ya tiene cupones, arranca mostrando los agregados.
+  const [verAgregados, setVerAgregados]     = useState((set?.promocionIds?.length || 0) > 0);
+  const [mostrar, setMostrar]               = useState(10);
+
+  const toggleVer = () => { setVerAgregados(v => !v); setMostrar(10); };
+
+  const agregadosIds = set?.promocionIds || [];
+  const rubroDe      = o => categoriaDeNegocio(o.negocios?.tipo, o.negocio_id);
+
+  // ── Resultados filtrados ──
+  let resultados = ofertas.filter(o => {
+    const matchLoc  = filtroLocalidad === 'todas' || o.negocios?.localidad === filtroLocalidad;
+    const matchTipo = filtroTipo === 'todos' || rubroDe(o) === filtroTipo;
+    const matchFlash = !soloFlash || o.offer_type === 'Flash';
+    const q = busqueda.trim().toLowerCase();
+    const matchQ = !q || (o.titulo || '').toLowerCase().includes(q) || (o.negocios?.nombre || '').toLowerCase().includes(q);
+    return matchLoc && matchTipo && matchFlash && matchQ;
+  });
+  if (verAgregados) resultados = resultados.filter(o => agregadosIds.includes(o.id));
+  resultados = resultados.slice().sort((a, b) => {
+    switch (orden) {
+      case 'nombre': return (a.titulo || '').localeCompare(b.titulo || '', 'es');
+      case 'ahorro': return (Number(b.ahorro_estimado) || 0) - (Number(a.ahorro_estimado) || 0);
+      case 'precio': return precioDe(b) - precioDe(a);
+      default:       return new Date(b.creado_en || 0) - new Date(a.creado_en || 0);
+    }
+  });
+
+  // ── Totales acumulados de ESTA cuponera ──
+  const cuponesAgregados = agregadosIds.map(id => promoById[id]).filter(Boolean);
+  const totalAhorro      = cuponesAgregados.reduce((a, o) => a + (Number(o.ahorro_estimado) || 0), 0);
+  const totalActivacion  = cuponesAgregados.reduce((a, o) => a + precioDe(o), 0);
+
+  const selStyle = { padding:'9px 12px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', cursor:'pointer' };
+  const inputStyle = { ...selStyle, cursor:'text' };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      {/* ── Filtros horizontales ── */}
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+        <div style={{ position:'relative', flex:1, minWidth:200 }}>
+          <Search size={15} style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', color:A.muted }} />
+          <input type="text" value={busqueda} onChange={e => { setBusqueda(e.target.value); setMostrar(10); }}
+            placeholder="Buscar cupón ó socio..." style={{ ...inputStyle, width:'100%', boxSizing:'border-box', paddingLeft:32 }} />
+        </div>
+        <select value={filtroLocalidad} onChange={e => { setFiltroLocalidad(e.target.value); setMostrar(10); }} style={selStyle}>
+          <option value="todas">Todas las localidades</option>
+          {localidades.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+        </select>
+        <select value={filtroTipo} onChange={e => { setFiltroTipo(e.target.value); setMostrar(10); }} style={selStyle}>
+          <option value="todos">Todos los tipos</option>
+          {TIPOS_RUBRO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        <label style={{ display:'flex', alignItems:'center', gap:7, fontFamily:A.font, fontSize:13, color:A.ink2, cursor:'pointer', padding:'0 4px' }}>
+          <input type="checkbox" checked={soloFlash} onChange={e => { setSoloFlash(e.target.checked); setMostrar(10); }} style={{ accentColor:A.primary, width:15, height:15, cursor:'pointer' }} />
+          Solo Flash
+        </label>
+        <select value={orden} onChange={e => { setOrden(e.target.value); setMostrar(10); }} style={selStyle}>
+          <option value="creado">Más recientes</option>
+          <option value="nombre">Nombre A-Z</option>
+          <option value="ahorro">Ahorro declarado</option>
+          <option value="precio">Valor de activación</option>
+        </select>
+      </div>
+
+      {/* Contador + toggle ver agregados */}
+      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+        <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{resultados.length} resultado{resultados.length !== 1 ? 's' : ''}{verAgregados ? ' agregados' : ''}</span>
+        <button onClick={toggleVer} style={{ marginLeft:'auto', background:'none', border:`1px solid ${verAgregados ? A.line : A.primary}`, color: verAgregados ? A.ink2 : A.primary, borderRadius:999, padding:'6px 14px', fontFamily:A.font, fontSize:12.5, fontWeight:600, cursor:'pointer' }}>
+          {verAgregados ? 'Agregar cupones' : `Ver agregados (${cuponesAgregados.length})`}
+        </button>
+      </div>
+
+      {/* ── Resultados ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:8, paddingBottom:8 }}>
+        {resultados.length === 0 ? (
+          <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'40px 24px', textAlign:'center', color:A.muted, fontFamily:A.font }}>
+            {verAgregados ? 'Todavía no agregaste cupones a esta cuponera.' : 'No hay cupones con estos filtros.'}
+          </div>
+        ) : resultados.slice(0, mostrar).map(o => {
+          const incluido = agregadosIds.includes(o.id);
+          return (
+            <div key={o.id} style={{ background:'#fff', border:`1px solid ${incluido ? A.primary : A.line}`, borderRadius:14, overflow:'hidden' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:14, padding:16 }}>
+                <CuponRowBody o={o} precioDe={precioDe} />
+                <button onClick={() => onToggleCupon(set, o.id)} style={{
+                  flexShrink:0, display:'flex', alignItems:'center', gap:6, padding:'9px 15px', borderRadius:10, cursor:'pointer', fontFamily:A.font, fontSize:13, fontWeight:700,
+                  border: incluido ? `1px solid ${A.primary}` : 'none',
+                  background: incluido ? A.primarySoft : A.primary,
+                  color: incluido ? A.primary : '#fff',
+                }}>
+                  {incluido ? <><Check size={15} /> Agregado</> : <><Plus size={15} /> Añadir</>}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {resultados.length > mostrar && (
+          <button onClick={() => setMostrar(m => m + 10)} style={{ alignSelf:'center', marginTop:4, background:'#fff', border:`1px solid ${A.line}`, borderRadius:10, padding:'10px 22px', fontFamily:A.font, fontSize:13, fontWeight:700, color:A.ink, cursor:'pointer' }}>
+            Cargar más ({resultados.length - mostrar} restantes)
+          </button>
+        )}
+      </div>
+
+      {/* ── Barra fija de totales ── */}
+      <div style={{ position:'sticky', bottom:0, zIndex:5, marginTop:4, background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, boxShadow:'0 -6px 24px -12px rgba(11,16,32,0.18)', padding:'12px 18px', display:'flex', alignItems:'center', gap:24, flexWrap:'wrap' }}>
+        <div>
+          <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>Cupones</div>
+          <div style={{ fontFamily:A.font, fontSize:18, fontWeight:800, color:A.ink }}>{cuponesAgregados.length}</div>
+        </div>
+        <div>
+          <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>Ahorro declarado</div>
+          <div style={{ fontFamily:A.font, fontSize:18, fontWeight:800, color:A.green }}>${totalAhorro.toLocaleString('es-AR')}</div>
+        </div>
+        <div>
+          <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>Valor de activación</div>
+          <div style={{ fontFamily:A.font, fontSize:18, fontWeight:800, color:A.ink2 }}>${totalActivacion.toLocaleString('es-AR')}</div>
+        </div>
+        <button onClick={toggleVer} style={{ marginLeft:'auto', background:A.bg, border:`1px solid ${A.line}`, borderRadius:10, padding:'9px 16px', fontFamily:A.font, fontSize:13, fontWeight:700, color:A.ink, cursor:'pointer' }}>
+          {verAgregados ? 'Agregar cupones' : `Ver agregados (${cuponesAgregados.length})`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrear, onToggleCupon, showToast, onFinalizar }) {
+  const [nombre, setNombre]           = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [badge, setBadge]             = useState('');
+  const [imagenUrl, setImagenUrl]     = useState('');
+  const [benTexto, setBenTexto]       = useState('');
+  const [benIcono, setBenIcono]       = useState('star');
+  const [benTipo, setBenTipo]         = useState('');
+  const [benValor, setBenValor]       = useState('');
+  const [localidadSet, setLocalidadSet] = useState('');
+  const [setActivoId, setSetActivoId] = useState(null);
+  const [guardando, setGuardando]     = useState(false);
+
+  const setActivo = sets.find(s => s.id === setActivoId) || null;
+
+  async function guardar() {
+    if (!nombre.trim()) return showToast('Poné un nombre para la cuponera', 'error');
+    setGuardando(true);
+    const nuevo = await onCrear({
+      nombre: nombre.trim(), descripcion: descripcion.trim() || null, badge: badge.trim() || null,
+      imagen_url: imagenUrl.trim() || null,
+      beneficio_adicional: benTexto.trim() || null, beneficio_icono: benTexto.trim() ? benIcono : null,
+      beneficio_tipo: benTexto.trim() ? (benTipo || null) : null,
+      beneficio_valor: benTexto.trim() && benTipo && benValor !== '' ? Number(benValor) : null,
+      localidad: localidadSet || null,
+    });
+    setGuardando(false);
+    if (nuevo) { setSetActivoId(nuevo.id); showToast('Cuponera creada — ahora agregá cupones'); }
+  }
+
+  function nuevaOtra() {
+    setSetActivoId(null); setNombre(''); setDescripcion(''); setBadge(''); setImagenUrl(''); setBenTexto(''); setBenIcono('star'); setBenTipo(''); setBenValor(''); setLocalidadSet('');
+  }
+
+  const selStyle = { padding:'9px 12px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', cursor:'pointer' };
+  const inputStyle = { ...selStyle, cursor:'text' };
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      {/* ── Alta / cabecera de la cuponera en armado ── */}
+      {!setActivo ? (
+        <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre de la cuponera"
+            style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontWeight:700, fontSize:15 }} />
+          <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Descripción (opcional)"
+            rows={2} style={{ ...inputStyle, width:'100%', boxSizing:'border-box', resize:'vertical', lineHeight:1.5 }} />
+          {/* Foto principal (portada) */}
+          <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+            <div style={{ width:96, height:96, borderRadius:12, overflow:'hidden', background:A.bg, border:`1px solid ${A.line}`, flexShrink:0, display:'grid', placeItems:'center' }}>
+              {imagenUrl.trim()
+                ? <img src={imagenUrl} alt="portada" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                : <span style={{ fontSize:24 }}>🖼️</span>}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <input value={imagenUrl} onChange={e => setImagenUrl(e.target.value)} placeholder="URL de la foto principal (https://...)"
+                style={{ ...inputStyle, width:'100%', boxSizing:'border-box' }} />
+              <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginTop:6 }}>Es la portada que se ve a la izquierda de la cuponera.</div>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+            <input value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge (ej: Más vendida)"
+              style={{ ...inputStyle, flex:1, minWidth:160 }} />
+            <select value={localidadSet} onChange={e => setLocalidadSet(e.target.value)} style={selStyle}>
+              <option value="">Sin localidad</option>
+              {localidades.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          {/* Beneficio adicional */}
+          <div>
+            <div style={{ fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Beneficio adicional (opcional)</div>
+            <input value={benTexto} onChange={e => setBenTexto(e.target.value)} placeholder="Ej: Triplicás los puntos que obtenés"
+              style={{ ...inputStyle, width:'100%', boxSizing:'border-box', marginBottom:10 }} />
+            {benTexto.trim() && (
+              <>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:8 }}>
+                  <select value={benTipo} onChange={e => setBenTipo(e.target.value)} style={{ ...selStyle, flex:1, minWidth:200 }}>
+                    {BENEFICIO_TIPOS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                  {tipoBeneficio(benTipo).needsValor && (
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <input type="number" min="0" value={benValor} onChange={e => setBenValor(e.target.value)}
+                        placeholder="valor" style={{ ...inputStyle, width:90 }} />
+                      <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>{tipoBeneficio(benTipo).unidad}</span>
+                    </div>
+                  )}
+                </div>
+                {tipoBeneficio(benTipo).ayuda && (
+                  <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginBottom:10 }}>{tipoBeneficio(benTipo).ayuda}</div>
+                )}
+              </>
+            )}
+            <IconoBeneficioPicker value={benIcono} onChange={setBenIcono} />
+          </div>
+          <ABtn variant="primary" onClick={guardar} style={{ alignSelf:'flex-start', opacity: guardando ? 0.6 : 1 }}>Guardar</ABtn>
+        </div>
+      ) : (
+        <div style={{ background:A.primarySoft, border:`1px solid ${A.primary}`, borderRadius:14, padding:'12px 16px', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontFamily:A.font, fontSize:11, color:A.primary, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em' }}>Armando</div>
+            <div style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink }}>{setActivo.nombre}</div>
+          </div>
+          <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+            <ABtn variant="ghost" onClick={nuevaOtra}>Crear otra</ABtn>
+            <ABtn variant="primary" onClick={onFinalizar}>Finalizar</ABtn>
+          </div>
+        </div>
+      )}
+
+      {/* ── Armador (mismo que en edición) ── */}
+      {setActivo ? (
+        <ArmadorCupones set={setActivo} ofertas={ofertas} localidades={localidades} promoById={promoById} precioDe={precioDe} onToggleCupon={onToggleCupon} />
+      ) : (
+        <div style={{ background:A.bg, border:`1px dashed ${A.line}`, borderRadius:14, padding:'28px 24px', textAlign:'center', color:A.muted, fontFamily:A.font, fontSize:13 }}>
+          Guardá la cuponera para empezar a agregar cupones.
         </div>
       )}
     </div>
@@ -1135,6 +2063,9 @@ function TabUsuarios({ usuarios }) {
 function TabConsultas({ consultas, onLeer }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:'0 0 4px' }}>
+        Mensajes de quienes pidieron hablar con un humano desde Cuponix.
+      </p>
       {consultas.length === 0 ? (
         <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'48px 24px', textAlign:'center', color:A.muted, fontFamily:A.font }}>No hay consultas todavía</div>
       ) : consultas.map(c => (
@@ -1148,7 +2079,7 @@ function TabConsultas({ consultas, onLeer }) {
               </div>
               <div style={{ fontFamily:A.font, fontSize:13, color:A.ink2, lineHeight:1.5, marginBottom:8 }}>{c.mensaje}</div>
               <div style={{ display:'flex', gap:12, fontFamily:A.font, fontSize:11, color:A.muted }}>
-                {c.negocios?.nombre && <span>🏢 {c.negocios.nombre}</span>}
+                {c.negocios?.nombre ? <span>🏢 {c.negocios.nombre}</span> : <span>💬 Cuponix</span>}
                 <span>📅 {new Date(c.creado_en).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' })}</span>
               </div>
             </div>
@@ -1167,122 +2098,560 @@ function TabConsultas({ consultas, onLeer }) {
 // ═══════════════════════════════════════════════════════════
 //  TAB: AJUSTES → PLANES
 // ═══════════════════════════════════════════════════════════
-function PlanForm({ plan, onGuardado, showToast }) {
-  const [form, setForm] = useState({
-    nombre: plan.nombre,
-    descripcion: plan.descripcion,
-    precioMes: plan.precioMes ?? '',
-    mesesContrato: plan.mesesContrato ?? '',
-    mesesGratisBono: plan.mesesGratisBono ?? '',
-    beneficios: plan.beneficios,
-  });
+// Helper: limpiar "(gratis)" del nombre del plan
+function limpiarNombrePlan(nombre) {
+  return nombre.replace(/\s*\(gratis\)\s*/gi, '').trim();
+}
+
+// Sub-componente para editar beneficio con drag-and-drop y mini-formatos
+function BeneficioItem({ valor, index, onEdit, onDelete, onReorder }) {
+  const [dragging, setDragging] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const inputStyle = { width:'100%', padding:'9px 12px', border:`1px solid ${A.line}`, borderRadius:9, fontFamily:A.font, fontSize:13, outline:'none', boxSizing:'border-box' };
+
+  return (
+    <>
+      <div
+        draggable
+        onDragStart={() => setDragging(true)}
+        onDragEnd={() => setDragging(false)}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); onReorder?.(index); }}
+        style={{
+          display:'flex', alignItems:'center', gap:8, background: dragging ? '#f0f0f0' : A.bg, borderRadius:8, padding:'7px 10px',
+          cursor:'move', opacity: dragging ? 0.7 : 1, transition:'all 0.15s',
+          border: dragging ? `2px dashed ${A.primary}` : 'none',
+        }}>
+        <span style={{ fontFamily:A.font, fontSize:12, color:A.muted, userSelect:'none' }}>⋮⋮</span>
+        {editando ? (
+          <>
+            <input autoFocus value={valor} onChange={e => onEdit(index, e.target.value)} onBlur={() => setEditando(false)} onKeyDown={e => e.key === 'Escape' && setEditando(false)}
+              style={{ ...inputStyle, flex:1, margin:0, padding:'6px 8px', fontSize:12 }} />
+            <span style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>Esc</span>
+          </>
+        ) : (
+          <span onClick={() => setEditando(true)} style={{ flex:1, fontFamily:A.font, fontSize:13, color:A.ink2, cursor:'text' }} dangerouslySetInnerHTML={{ __html: valor || '(vacío)' }} />
+        )}
+        <button onClick={() => onDelete(index)} style={{ background:'none', border:'none', cursor:'pointer', color:A.muted, fontSize:16, lineHeight:1, padding:0 }}>×</button>
+      </div>
+    </>
+  );
+}
+
+function PlanForm({ plan, onChange, showToast }) {
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [nuevoBeneficio, setNuevoBeneficio] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
-
-  function agregarBeneficio() {
-    if (!nuevoBeneficio.trim()) return;
-    setForm(f => ({ ...f, beneficios: [...f.beneficios, nuevoBeneficio.trim()] }));
-    setNuevoBeneficio('');
-  }
-  function quitarBeneficio(i) {
-    setForm(f => ({ ...f, beneficios: f.beneficios.filter((_, idx) => idx !== i) }));
-  }
-
-  async function guardar() {
-    setSaving(true);
-    const { error } = await actualizarPlanCopy(plan.planId, {
-      nombre: form.nombre,
-      descripcion: form.descripcion,
-      precio_mes: form.precioMes === '' ? null : Number(form.precioMes),
-      meses_contrato: form.mesesContrato === '' ? null : Number(form.mesesContrato),
-      meses_gratis_bono: form.mesesGratisBono === '' ? null : Number(form.mesesGratisBono),
-      beneficios: form.beneficios,
-    });
-    setSaving(false);
-    if (error) { showToast?.('Error al guardar el plan', 'error'); return; }
-    showToast?.(`Plan ${form.nombre} actualizado`, 'success');
-    onGuardado?.();
-  }
 
   const inputStyle = { width:'100%', padding:'9px 12px', border:`1px solid ${A.line}`, borderRadius:9, fontFamily:A.font, fontSize:13, outline:'none', boxSizing:'border-box' };
   const labelStyle = { display:'block', fontSize:11, fontWeight:600, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 };
 
+  function agregarBeneficio() {
+    if (!nuevoBeneficio.trim()) return;
+    onChange({ beneficios: [...plan.beneficios, nuevoBeneficio.trim()] });
+    setNuevoBeneficio('');
+  }
+
+  function quitarBeneficio(i) {
+    onChange({ beneficios: plan.beneficios.filter((_, idx) => idx !== i) });
+  }
+
+  function editarBeneficio(i, nuevoValor) {
+    const nuevos = [...plan.beneficios];
+    nuevos[i] = nuevoValor;
+    onChange({ beneficios: nuevos });
+  }
+
+  function reordenarBeneficio(fromIdx, toIdx) {
+    if (fromIdx === toIdx) return;
+    const nuevos = [...plan.beneficios];
+    const [item] = nuevos.splice(fromIdx, 1);
+    nuevos.splice(toIdx, 0, item);
+    onChange({ beneficios: nuevos });
+  }
+
+  const nombreLimpio = limpiarNombrePlan(plan.nombre);
+
   return (
     <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:22, display:'flex', flexDirection:'column', gap:14 }}>
-      <div style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink }}>Plan {plan.nombre} <span style={{ fontSize:12, fontWeight:400, color:A.muted }}>({plan.codigo})</span></div>
+      <div style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink }}>Plan {nombreLimpio} <span style={{ fontSize:12, fontWeight:400, color:A.muted }}>({plan.codigo})</span></div>
 
       <div>
-        <label style={labelStyle}>Nombre</label>
-        <input value={form.nombre} onChange={set('nombre')} style={inputStyle} />
+        <label style={labelStyle}>Nombre (sin editar)</label>
+        <div style={{ ...inputStyle, background:A.bg, padding:'9px 12px', fontFamily:A.font, fontSize:13, color:A.ink2 }}>{nombreLimpio}</div>
       </div>
 
       <div>
-        <label style={labelStyle}>Descripción corta</label>
-        <textarea value={form.descripcion} onChange={set('descripcion')} rows={3} style={{ ...inputStyle, resize:'vertical' }} />
+        <label style={labelStyle}>Descripción corta (HTML: &lt;b&gt;bold&lt;/b&gt;, &lt;i&gt;itálica&lt;/i&gt;, &lt;span style="color:#RGB"&gt;color&lt;/span&gt;)</label>
+        <textarea
+          value={plan.descripcion}
+          onChange={e => onChange({ descripcion: e.target.value })}
+          rows={3}
+          style={{ ...inputStyle, resize:'vertical', fontFamily:'"Courier New", monospace', fontSize:12 }}
+          placeholder="Ej: Incluye <b>15 créditos</b> por <i>mes</i>" />
+        <div style={{ marginTop:6, padding:8, background:A.bg, borderRadius:6, fontSize:13, fontFamily:A.font, color:A.ink2 }} dangerouslySetInnerHTML={{ __html: plan.descripcion }} />
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:12 }}>
         <div>
           <label style={labelStyle}>Precio mensual ($)</label>
-          <input type="number" value={form.precioMes} onChange={set('precioMes')} style={inputStyle} placeholder="Sin costo" />
+          <input type="number" value={plan.precioMes ?? ''} onChange={e => onChange({ precioMes: e.target.value ? Number(e.target.value) : '' })}
+            style={inputStyle} placeholder="Sin costo" />
         </div>
         <div>
           <label style={labelStyle}>Meses de contrato</label>
-          <input type="number" value={form.mesesContrato} onChange={set('mesesContrato')} style={inputStyle} placeholder="—" />
+          <input type="number" value={plan.mesesContrato ?? ''} onChange={e => onChange({ mesesContrato: e.target.value ? Number(e.target.value) : '' })}
+            style={inputStyle} placeholder="—" />
         </div>
         <div>
           <label style={labelStyle}>Meses de bono gratis</label>
-          <input type="number" value={form.mesesGratisBono} onChange={set('mesesGratisBono')} style={inputStyle} placeholder="—" />
+          <input type="number" value={plan.mesesGratisBono ?? ''} onChange={e => onChange({ mesesGratisBono: e.target.value ? Number(e.target.value) : '' })}
+            style={inputStyle} placeholder="—" />
         </div>
       </div>
 
       <div>
-        <label style={labelStyle}>Beneficios</label>
+        <label style={labelStyle}>Beneficios (drag para reordenar, click para editar)</label>
         <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:8 }}>
-          {form.beneficios.map((b, i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:8, background:A.bg, borderRadius:8, padding:'7px 10px' }}>
-              <span style={{ flex:1, fontFamily:A.font, fontSize:13, color:A.ink2 }}>{b}</span>
-              <button onClick={() => quitarBeneficio(i)} style={{ background:'none', border:'none', cursor:'pointer', color:A.muted, fontSize:16, lineHeight:1 }}>×</button>
-            </div>
+          {plan.beneficios.map((b, i) => (
+            <BeneficioItem
+              key={i}
+              valor={b}
+              index={i}
+              onEdit={editarBeneficio}
+              onDelete={quitarBeneficio}
+              onReorder={(toIdx) => reordenarBeneficio(i, toIdx)}
+            />
           ))}
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <input value={nuevoBeneficio} onChange={e => setNuevoBeneficio(e.target.value)} onKeyDown={e => e.key === 'Enter' && agregarBeneficio()}
-            style={{ ...inputStyle, flex:1 }} placeholder="Agregar beneficio…" />
+          <input
+            value={nuevoBeneficio}
+            onChange={e => setNuevoBeneficio(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && agregarBeneficio()}
+            style={{ ...inputStyle, flex:1 }}
+            placeholder="Beneficio (HTML: <b>bold</b>, <i>itálica</i>, <span style={{color:'#fff'}}>#RGB</span> color)" />
           <ABtn onClick={agregarBeneficio}>Agregar</ABtn>
         </div>
-      </div>
-
-      <div>
-        <ABtn onClick={guardar} variant="primary" style={{ opacity: saving ? 0.6 : 1 }}>{saving ? 'Guardando…' : 'Guardar cambios'}</ABtn>
       </div>
     </div>
   );
 }
 
-function TabAjustes({ showToast }) {
+function TabAjusteContenidos({ showToast }) {
+  const [planesOrig, setPlanesOrig]   = useState([]);
   const [planes, setPlanes]   = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   async function cargar() {
     setLoading(true);
-    setPlanes(await getPlanesConfig());
+    const p = await getPlanesConfig();
+    setPlanesOrig(p);
+    setPlanes(JSON.parse(JSON.stringify(p))); // Deep clone para edición local
     setLoading(false);
   }
+
   useEffect(() => { cargar(); }, []);
+
+  async function guardarTodos() {
+    setSaving(true);
+    try {
+      for (const plan of planes) {
+        const changed = JSON.stringify(planesOrig.find(po => po.planId === plan.planId)) !== JSON.stringify(plan);
+        if (!changed) continue;
+        const { error } = await actualizarPlanCopy(plan.planId, {
+          nombre: plan.nombre,
+          descripcion: plan.descripcion,
+          precio_mes: plan.precioMes === '' ? null : Number(plan.precioMes),
+          meses_contrato: plan.mesesContrato === '' ? null : Number(plan.mesesContrato),
+          meses_gratis_bono: plan.mesesGratisBono === '' ? null : Number(plan.mesesGratisBono),
+          beneficios: plan.beneficios,
+        });
+        if (error) throw error;
+      }
+      showToast?.('Planes actualizados', 'success');
+      cargar();
+    } catch (err) {
+      showToast?.('Error al guardar planes', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (loading) return <MiniLoader />;
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <div style={{ fontFamily:A.font, fontSize:18, fontWeight:700, color:A.ink }}>Planes</div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ fontFamily:A.font, fontSize:18, fontWeight:700, color:A.ink }}>Planes</div>
+        <ABtn onClick={guardarTodos} variant="primary" style={{ opacity: saving ? 0.6 : 1 }}>{saving ? 'Guardando…' : 'Guardar todos'}</ABtn>
+      </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:16 }}>
         {planes.map(p => (
-          <PlanForm key={p.planId} plan={p} onGuardado={cargar} showToast={showToast} />
+          <PlanForm
+            key={p.planId}
+            plan={p}
+            onChange={(updates) => {
+              setPlanes(ps => ps.map(pl => pl.planId === p.planId ? { ...pl, ...updates } : pl));
+            }}
+            showToast={showToast}
+          />
         ))}
       </div>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB AJUSTES: PERFILES / PERMISOS
+// ═══════════════════════════════════════════════════════════
+function TabAjustePerfiles({ showToast }) {
+  const [roles, setRoles]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [nuevo, setNuevo]     = useState('');
+  const [creando, setCreando] = useState(false);
+
+  async function cargar() { setLoading(true); setRoles(await listarRoles()); setLoading(false); }
+  useEffect(() => { cargar(); }, []);
+
+  async function crear() {
+    if (!nuevo.trim()) return showToast('Poné un nombre para el perfil', 'error');
+    setCreando(true);
+    const { data, error } = await crearRol(nuevo.trim());
+    setCreando(false);
+    if (error) return showToast(error.code === '23505' ? 'Ya existe un perfil con ese nombre' : 'Error al crear el perfil', 'error');
+    setRoles(prev => [...prev, data]); setNuevo('');
+    showToast('Perfil creado');
+  }
+
+  async function toggleCap(rol, capId) {
+    const permisos = { ...(rol.permisos || {}), [capId]: !rol.permisos?.[capId] };
+    setRoles(prev => prev.map(r => r.id === rol.id ? { ...r, permisos } : r));
+    const { error } = await actualizarRol(rol.id, { permisos });
+    if (error) { showToast('Error al guardar', 'error'); cargar(); }
+  }
+
+  async function renombrar(rol, nombre) {
+    const val = nombre.trim() || rol.nombre;
+    setRoles(prev => prev.map(r => r.id === rol.id ? { ...r, nombre: val } : r));
+    await actualizarRol(rol.id, { nombre: val });
+  }
+
+  async function borrar(rol) {
+    if (!window.confirm(`¿Eliminar el perfil "${rol.nombre}"?`)) return;
+    setRoles(prev => prev.filter(r => r.id !== rol.id));
+    const { error } = await eliminarRol(rol.id);
+    if (error) { showToast('Error al eliminar', 'error'); cargar(); }
+    else showToast('Perfil eliminado');
+  }
+
+  const inputStyle = { padding:'8px 11px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none' };
+  if (loading) return <MiniLoader />;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:0 }}>
+        Los perfiles definen qué puede hacer cada usuario. El perfil <b>Superadmin</b> es del sistema: no se edita ni se borra.
+        <br/><span style={{ fontSize:12 }}>Nota: la aplicación de estos permisos por sección todavía no está cableada (se guardan y se muestran).</span>
+      </p>
+
+      {/* Alta de perfil */}
+      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:16, display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+        <input value={nuevo} onChange={e => setNuevo(e.target.value)} placeholder="Nombre del nuevo perfil" style={{ ...inputStyle, flex:1, minWidth:200 }} />
+        <ABtn variant="primary" onClick={crear} style={{ opacity: creando ? 0.6 : 1 }}>Crear perfil</ABtn>
+      </div>
+
+      {roles.map(rol => (
+        <div key={rol.id} style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:16 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+            {rol.es_sistema ? (
+              <span style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink }}>{rol.nombre}</span>
+            ) : (
+              <input defaultValue={rol.nombre} onBlur={e => renombrar(rol, e.target.value)}
+                style={{ ...inputStyle, fontWeight:700, fontSize:15, flex:1, minWidth:180 }} />
+            )}
+            {rol.es_sistema && <span style={{ background:'#EDE9FE', color:'#7C3AED', padding:'3px 8px', borderRadius:6, fontWeight:600, fontSize:10, fontFamily:A.font }}>Sistema</span>}
+            {!rol.es_sistema && (
+              <button onClick={() => borrar(rol)} title="Eliminar perfil" style={{ marginLeft:'auto', background:'none', border:`1px solid ${A.line}`, borderRadius:8, padding:'6px 8px', cursor:'pointer', color:'#C03030', display:'flex', alignItems:'center' }}>
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:8 }}>
+            {CAPACIDADES.map(cap => {
+              const on = rol.es_sistema ? true : !!rol.permisos?.[cap.id];
+              return (
+                <label key={cap.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, background:A.bg, cursor: rol.es_sistema ? 'not-allowed' : 'pointer', opacity: rol.es_sistema ? 0.7 : 1 }}>
+                  <input type="checkbox" checked={on} disabled={rol.es_sistema} onChange={() => toggleCap(rol, cap.id)} style={{ accentColor:A.primary, width:16, height:16, cursor: rol.es_sistema ? 'not-allowed' : 'pointer' }} />
+                  <span style={{ fontFamily:A.font, fontSize:13, color:A.ink }}>{cap.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TAB AJUSTES: USUARIOS
+// ═══════════════════════════════════════════════════════════
+function TabAjusteUsuarios({ showToast }) {
+  const [usuarios, setUsuarios] = useState([]);
+  const [roles, setRoles]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [form, setForm]         = useState({ email:'', password:'', nombre:'', apellido:'', rol:'' });
+  const [guardando, setGuardando] = useState(false);
+
+  async function cargar() {
+    setLoading(true);
+    const [us, rs] = await Promise.all([listarUsuariosAdmin(), listarRoles()]);
+    setUsuarios(us); setRoles(rs);
+    setLoading(false);
+  }
+  useEffect(() => { cargar(); }, []);
+
+  async function crear() {
+    if (!form.email.trim() || !form.password) return showToast('Email y contraseña son obligatorios', 'error');
+    if (form.password.length < 6) return showToast('La contraseña debe tener al menos 6 caracteres', 'error');
+    if (!form.rol) return showToast('Asigná un perfil', 'error');
+    setGuardando(true);
+    const { error } = await crearUsuario({ email: form.email.trim(), password: form.password, nombre: form.nombre.trim(), apellido: form.apellido.trim(), rol: form.rol });
+    setGuardando(false);
+    if (error) return showToast(error, 'error');
+    setForm({ email:'', password:'', nombre:'', apellido:'', rol:'' });
+    showToast('Usuario creado');
+    cargar();
+  }
+
+  async function cambiarRol(u, rol) {
+    setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, rol } : x));
+    const { error } = await actualizarUsuario(u.id, { nombre: u.nombre, apellido: u.apellido, rol });
+    if (error) { showToast('Error al guardar', 'error'); cargar(); }
+  }
+
+  async function borrar(u) {
+    if (!window.confirm(`¿Eliminar al usuario ${u.email}?`)) return;
+    const { error } = await eliminarUsuario(u.id);
+    if (error) return showToast(error, 'error');
+    setUsuarios(prev => prev.filter(x => x.id !== u.id));
+    showToast('Usuario eliminado');
+  }
+
+  const inputStyle = { padding:'9px 11px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', boxSizing:'border-box' };
+  if (loading) return <MiniLoader />;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:0 }}>
+        Usuarios que acceden al panel. Cada uno tiene un perfil asignado (definido en Permisos).
+      </p>
+
+      {/* Alta de usuario */}
+      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:A.ink }}>Añadir usuario</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:10 }}>
+          <input value={form.email} onChange={e => setForm({ ...form, email:e.target.value })} placeholder="Email (usuario)" style={inputStyle} />
+          <input type="password" value={form.password} onChange={e => setForm({ ...form, password:e.target.value })} placeholder="Contraseña" style={inputStyle} />
+          <input value={form.nombre} onChange={e => setForm({ ...form, nombre:e.target.value })} placeholder="Nombre" style={inputStyle} />
+          <input value={form.apellido} onChange={e => setForm({ ...form, apellido:e.target.value })} placeholder="Apellido" style={inputStyle} />
+          <select value={form.rol} onChange={e => setForm({ ...form, rol:e.target.value })} style={{ ...inputStyle, cursor:'pointer' }}>
+            <option value="">Perfil asignado…</option>
+            {roles.map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
+          </select>
+          <ABtn variant="primary" onClick={crear} style={{ justifyContent:'center', opacity: guardando ? 0.6 : 1 }}>
+            {guardando ? 'Creando…' : 'Añadir usuario'}
+          </ABtn>
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
+        {usuarios.map((u, i) => (
+          <div key={u.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', borderTop: i > 0 ? `1px solid ${A.line}` : 'none' }}>
+            <div style={{ width:40, height:40, borderRadius:'50%', background: u.es_superadmin ? '#7C3AED' : A.primary, display:'grid', placeItems:'center', flexShrink:0, color:'#fff', fontFamily:A.font, fontWeight:700, fontSize:14 }}>
+              {u.es_superadmin ? '⭐' : (u.nombre?.[0] || u.email?.[0] || 'U').toUpperCase()}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:A.font, fontSize:14, fontWeight:600, color:A.ink }}>{[u.nombre, u.apellido].filter(Boolean).join(' ') || 'Sin nombre'}</div>
+              <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginTop:2 }}>{u.email}</div>
+            </div>
+            {u.es_superadmin ? (
+              <span style={{ background:'#EDE9FE', color:'#7C3AED', padding:'4px 10px', borderRadius:6, fontWeight:600, fontSize:11, fontFamily:A.font }}>Superadmin</span>
+            ) : (
+              <>
+                <select value={u.rol || ''} onChange={e => cambiarRol(u, e.target.value)} style={{ ...inputStyle, cursor:'pointer' }}>
+                  <option value="">Sin perfil</option>
+                  {roles.filter(r => !r.es_sistema).map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
+                </select>
+                <button onClick={() => borrar(u)} title="Eliminar usuario" style={{ background:'none', border:`1px solid ${A.line}`, borderRadius:8, padding:'7px 9px', cursor:'pointer', color:'#C03030', display:'flex', alignItems:'center' }}>
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DRAWER: EDITAR SOCIO COMERCIAL
+// ═══════════════════════════════════════════════════════════
+function SocioEditDrawer({ negocio, onClose, onSave, onVerCupones }) {
+  const [form, setForm] = useState({
+    nombre: negocio?.nombre || '',
+    email: negocio?.email || '',
+    telefono: negocio?.telefono || '',
+    localidad: negocio?.localidad || '',
+    provincia: negocio?.provincia || '',
+    tipo: negocio?.tipo || '',
+    descripcion: negocio?.descripcion || '',
+  });
+  const [guardando, setGuardando] = useState(false);
+  const [vista, setVista]         = useState('datos');   // 'datos' | 'log'
+  const [logs, setLogs]           = useState(null);      // null = aún no cargado
+  const [cargandoLogs, setCargandoLogs] = useState(false);
+
+  // Fotos que cargó el socio (read-only para el superadmin).
+  const galeria = Array.isArray(negocio?.galeria) ? negocio.galeria.filter(Boolean) : [];
+  const fotoPerfil = negocio?.foto_perfil || negocio?.imagen_url || null;
+
+  // El "Tipo" es un select con los 3 rubros; si el valor guardado es legacy (ej. 'Hotel'),
+  // lo agregamos como opción extra para no perderlo al abrir.
+  const tipoEnLista = TIPOS_RUBRO.some(t => t.value === form.tipo);
+
+  async function cargarLogs() {
+    setVista('log');
+    if (logs !== null || cargandoLogs) return;
+    setCargandoLogs(true);
+    let q = supabase.from('acciones_usuario').select('*').order('creado_en', { ascending: false }).limit(200);
+    if (negocio?.owner_id) q = q.eq('user_id', negocio.owner_id);
+    const { data } = await q;
+    setLogs(negocio?.owner_id ? (data || []) : []);
+    setCargandoLogs(false);
+  }
+
+  async function guardar() {
+    if (!negocio?.id) return alert('No se pudo identificar el negocio');
+    setGuardando(true);
+    const { error } = await supabase.from('negocios').update(form).eq('id', negocio.id);
+    setGuardando(false);
+    if (error) return alert('Error al guardar');
+    onSave({ ...negocio, ...form });
+  }
+
+  const inputStyle = { padding:'10px 12px', borderRadius:10, border:`1px solid ${A.line}`, fontFamily:A.font, fontSize:13, outline:'none', background:'#fff', width:'100%', boxSizing:'border-box' };
+  const labelStyle = { display:'block', fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, marginBottom:6, textTransform:'uppercase' };
+  const fmtFechaHora = iso => iso ? new Date(iso).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div style={{ padding:'16px 18px', borderBottom:`1px solid ${A.line}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ fontFamily:A.font, fontWeight:700, fontSize:16, color:A.ink }}>Editar socio comercial</div>
+            <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginTop:2 }}>{negocio?.nombre}</div>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:A.muted, cursor:'pointer', fontSize:24 }}>×</button>
+        </div>
+
+        {/* Pestañas: Datos / Log */}
+        <div style={{ display:'flex', gap:6, padding:'10px 18px 0' }}>
+          {[{ id:'datos', label:'Datos' }, { id:'log', label:'Log de acciones' }].map(t => (
+            <button key={t.id} onClick={() => t.id === 'log' ? cargarLogs() : setVista('datos')} style={{
+              padding:'8px 14px', borderRadius:'10px 10px 0 0', border:'none', cursor:'pointer', fontFamily:A.font, fontSize:13, fontWeight:600,
+              background: vista === t.id ? A.primarySoft : 'transparent', color: vista === t.id ? A.primary : A.muted,
+            }}>{t.label}</button>
+          ))}
+        </div>
+
+        {/* Contenido */}
+        <div style={{ flex:1, overflow:'auto', padding:'18px', borderTop:`1px solid ${A.line}` }}>
+          {vista === 'datos' ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              {/* Fotos cargadas por el socio */}
+              <div>
+                <label style={labelStyle}>Foto de perfil / logo</label>
+                {fotoPerfil ? (
+                  <img src={fotoPerfil} alt="perfil" style={{ width:96, height:96, borderRadius:14, objectFit:'cover', border:`1px solid ${A.line}` }} />
+                ) : (
+                  <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, fontStyle:'italic' }}>El socio no cargó foto de perfil.</div>
+                )}
+              </div>
+              <div>
+                <label style={labelStyle}>Galería ({galeria.length})</label>
+                {galeria.length ? (
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8 }}>
+                    {galeria.map((src, i) => (
+                      <img key={i} src={src} alt={`foto ${i+1}`} style={{ width:'100%', aspectRatio:'1', borderRadius:10, objectFit:'cover', border:`1px solid ${A.line}` }} />
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, fontStyle:'italic' }}>El socio no cargó fotos en la galería.</div>
+                )}
+              </div>
+
+              <div><label style={labelStyle}>Nombre del negocio</label>
+                <input value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Email</label>
+                <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Teléfono</label>
+                <input value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Localidad</label>
+                <input value={form.localidad} onChange={e => setForm({...form, localidad: e.target.value})} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Provincia</label>
+                <input value={form.provincia} onChange={e => setForm({...form, provincia: e.target.value})} style={inputStyle} /></div>
+              <div>
+                <label style={labelStyle}>Tipo</label>
+                <select value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})} style={{ ...inputStyle, cursor:'pointer' }}>
+                  {TIPOS_RUBRO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {!tipoEnLista && form.tipo && <option value={form.tipo}>{form.tipo} (actual)</option>}
+                </select>
+              </div>
+              <div><label style={labelStyle}>Descripción</label>
+                <textarea value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} rows={3} style={{...inputStyle, resize:'none'}} /></div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginBottom:12 }}>
+                Acciones registradas del cliente a nivel sistema, más recientes primero.
+              </div>
+              {cargandoLogs ? (
+                <MiniLoader />
+              ) : !negocio?.owner_id ? (
+                <div style={{ fontFamily:A.font, fontSize:13, color:A.muted, textAlign:'center', padding:'32px 0' }}>Este negocio no tiene un usuario dueño asociado.</div>
+              ) : (logs && logs.length) ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                  {logs.map(l => (
+                    <div key={l.id} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'11px 12px', borderRadius:10, background:A.bg }}>
+                      <div style={{ flex:1, minWidth:0, fontFamily:A.font, fontSize:13, color:A.ink }}>{l.accion}</div>
+                      <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, whiteSpace:'nowrap', flexShrink:0 }}>{fmtFechaHora(l.creado_en)}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontFamily:A.font, fontSize:13, color:A.muted, textAlign:'center', padding:'32px 0' }}>Sin acciones registradas todavía.</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'14px 18px', borderTop:`1px solid ${A.line}`, display:'flex', gap:10 }}>
+          <ABtn onClick={onVerCupones} style={{ flex:1, justifyContent:'center', background:'#E8F5EC', color:A.green, fontWeight:600 }}>
+            Ver cupones
+          </ABtn>
+          <ABtn onClick={onClose} style={{ flex:1, justifyContent:'center' }}>Cancelar</ABtn>
+          <ABtn onClick={guardar} variant="primary" style={{ flex:1, justifyContent:'center', opacity: guardando ? 0.6 : 1 }}>
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </ABtn>
+        </div>
+      </div>
+    </>
   );
 }
