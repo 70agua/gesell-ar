@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { locations } from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
-import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
+import { EXPERIENCIAS_SALIDAS, getCuponerasDestacadas } from '../lib/datos';
 
 const A = {
   ink:         '#0B1020',
@@ -561,6 +561,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const animTimer = useRef(null);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
+  const [cuponerasDestacadas, setCuponerasDestacadas] = useState([]);
   const { openDrawer } = useCuponera();
 
   const sitiosRef = useRef(null);
@@ -600,6 +601,18 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
 
   // Limpiar timers al desmontar
   useEffect(() => () => { clearTimeout(closeTimer.current); clearTimeout(animTimer.current); }, []);
+
+  // Cargar cuponeras destacadas
+  useEffect(() => {
+    (async () => {
+      try {
+        const destacadas = await getCuponerasDestacadas();
+        setCuponerasDestacadas(destacadas);
+      } catch (e) {
+        console.error('Error cargando cuponeras destacadas:', e);
+      }
+    })();
+  }, []);
 
   const closeAll = () => { clearTimeout(closeTimer.current); setOpenMenu(null); setMobileOpen(false); };
 
@@ -719,20 +732,20 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseLeave={hoverLeave}
             >
               <button style={{ ...navBtnSt, fontWeight: 600, color: openMenu === 'packs' ? A.primary : A.ink }}>
-                cuponeras <ChevD />
+                viajá con packs <ChevD />
               </button>
               {(openMenu === 'packs' || closingMenu === 'packs') && (
                 <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', minWidth: 220, animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
                   <div style={{ padding: '8px 0' }}>
                     <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Cuponeras</p>
-                    {PACKS_TIPOS.filter(t => t !== 'Todas las cuponeras').map(tipo => (
-                      <button key={tipo} onClick={() => nav('packs')}
+                    {cuponerasDestacadas.map(cuponera => (
+                      <button key={cuponera.id} onClick={() => openDrawer() && nav('home')}
                         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 400, color: A.ink2, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
                         onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
                       >
-                        <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>{PACKS_ICONS[tipo]}</span>
-                        {tipo}
+                        <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>📦</span>
+                        {cuponera.title}
                       </button>
                     ))}
                     <div style={{ height: 1, background: A.line, margin: '4px 16px' }} />
@@ -741,8 +754,8 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                       onMouseEnter={e => { e.currentTarget.style.background = A.bg; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     >
-                      <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>{PACKS_ICONS['Todas las cuponeras']}</span>
-                      Todas las cuponeras
+                      <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>📦</span>
+                      Ver todas las cuponeras
                     </button>
                   </div>
                 </div>
@@ -842,7 +855,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
               { label: 'salidas',          action: () => nav('ofertas', { ofertasCategoria: 'salidas' }) },
               { label: 'aventura & relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
-              { label: 'cuponeras', action: () => nav('packs') },
+              { label: 'packs inteligentes', action: () => nav('packs') },
             ].map(item => (
               <button key={item.label} onClick={item.action}
                 style={{ width: '100%', textAlign: 'left', padding: '14px 0', border: 'none', borderBottom: `1px solid ${A.line}`, background: 'none', fontSize: 16, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}>

@@ -6,7 +6,9 @@ import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard, { PrecioCupon } from '../components/OfertaCard';
 import { locations, ALL_PROMOS } from '../data/mockData';
 import CuponModal from '../components/CuponModal';
+import CuponModalMock from '../components/CuponModalMock';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
+import { aplicarBeneficioCuponera } from '../lib/beneficiosCuponera';
 import { useCuponera }  from '../lib/cuponera';
 import HeartButton      from '../components/HeartButton';
 import { busqueda } from '../lib/busqueda';
@@ -1251,6 +1253,11 @@ function CuponeraCard({ cuponera, onVerCuponera }) {
   const portada  = cuponera.images?.[0] || PHOTOS.cabin;
   const nCupones = cuponera.cupones?.length || 0;
   const BenIcon  = getBeneficioIcon(cuponera.beneficioIcono);
+  // Precio total de la cuponera (con el descuento del beneficio, si aplica).
+  const precioBase = (cuponera.cupones || []).reduce((s, c) => s + (Number(c.precio_activacion) || 0), 0);
+  const { precio: precioCuponera } = aplicarBeneficioCuponera({
+    tipo: cuponera.beneficioTipo, valor: cuponera.beneficioValor, puntosBase: 0, precioBase,
+  });
 
   return (
     <button
@@ -1282,9 +1289,12 @@ function CuponeraCard({ cuponera, onVerCuponera }) {
         <h3 style={{ fontSize: 30, fontWeight: 800, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1.1, margin: '0 0 12px' }}>{cuponera.title}</h3>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', lineHeight: 1.5, margin: '0 0 22px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cuponera.subtitle}</p>
 
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 13.5, fontWeight: 600 }}>
-          <img src="/ico-disc.svg" alt="cupones" style={{ width: 22, height: 22, filter: 'brightness(0) invert(1)' }} />
-          Contiene {nCupones} cupones
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 15, color: '#fff', fontSize: 13.5, fontWeight: 600 }}>
+          <div style={{ position: 'relative', width: 40, height: 33 }}>
+            <img src="/ico-disc.svg" alt="" style={{ width: 33, height: 33, position: 'absolute', top: 0, left: 0, zIndex: 2 }} />
+            <img src="/ico-disc.svg" alt="" style={{ width: 33, height: 33, position: 'absolute', top: 0, left: 18, zIndex: 1, opacity: 0.55 }} />
+          </div>
+          Contiene {nCupones} cupones{precioCuponera > 0 ? `, por $${Math.round(precioCuponera).toLocaleString('es-AR')}` : ''}
         </div>
       </div>
     </button>
@@ -1321,13 +1331,13 @@ function CuponerasSection({ onOpenPack }) {
         {/* Header */}
         <div style={{ marginBottom: 48 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(255,201,60,0.16)', color: A.yellow, borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 18 }}>
-            <IcoBolt /> Cuponeras temáticas
+            <IcoBolt /> Viajá con packs de cupones
           </div>
           <h2 style={{ fontSize: 'clamp(34px, 3vw, 52px)', fontWeight: 700, lineHeight: 1.05, margin: '0 0 10px' }}>
-            Cuponeras diseñadas para vos
+            Packs Cuponear
           </h2>
           <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.62)', lineHeight: 1.5, margin: 0 }}>
-            Tenemos varias opciones para que puedas disfrutar de tu viaje y aproveches los ahorros más inteligentes.
+            Ahorrá tiempo con cuponeras curadas por la plataforma. Llevate un pack cerrado de experiencias combinadas y asegurate un ahorro extra que no conseguís comprando los cupones por separado.
           </p>
         </div>
 
@@ -1349,7 +1359,9 @@ function CuponerasSection({ onOpenPack }) {
       </div>
 
       {modal && (
-        <CuponModal
+        // MOCKUP: probando el rediseño a pantalla completa (CuponModalMock).
+        // Para volver al original, cambiar CuponModalMock por CuponModal.
+        <CuponModalMock
           cuponera={modal.cuponera}
           startIndex={modal.startIndex}
           onClose={() => setModal(null)}
