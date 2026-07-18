@@ -589,6 +589,21 @@ function SpeechBubble({ onDismiss }) {
   const prefixShown = typed.slice(0, BUBBLE_PREFIX.length);
   const nameShown   = typed.slice(BUBBLE_PREFIX.length, BUBBLE_PREFIX.length + BUBBLE_NAME.length);
   const suffixShown = typed.slice(BUBBLE_PREFIX.length + BUBBLE_NAME.length);
+  const [countdown, setCountdown] = useState(10);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) {
+          onDismiss();
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [onDismiss]);
+
   return (
     <div style={{
       position: 'fixed', bottom: 170, right: 24, zIndex: 9003, width: 230,
@@ -627,8 +642,9 @@ function SpeechBubble({ onDismiss }) {
           background: C.primary, border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#fff', fontSize: 9, lineHeight: 1,
+          fontWeight: 800,
         }}
-      >✕</button>
+      >{countdown}</button>
     </div>
   );
 }

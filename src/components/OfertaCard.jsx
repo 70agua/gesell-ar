@@ -111,7 +111,7 @@ function ProveedorHeader({ promo, size = 44 }) {
 }
 
 // ─── Imagen con badge, heart y overlays ───────────────────────
-function ImagenConBadge({ promo, imgHeight, inMarketplace }) {
+function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false }) {
   const esFlash = promo.offerType === 'Flash';
   return (
     <div style={{ position: 'relative', overflow: 'hidden', flexShrink: 0, ...(imgHeight ? { height: imgHeight } : { aspectRatio: '4/3' }) }}>
@@ -142,7 +142,7 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace }) {
         <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3, background: '#d2e9f3', color: '#0c101f', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '3px 8px', borderRadius: 999 }}>
           PROMOCIÓN
         </div>
-      ) : (
+      ) : !hideHeart && (
         <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }}>
           <HeartButton id={promo.id} />
         </div>
@@ -233,11 +233,30 @@ export function PrecioCupon({ tokens_costo, ahorro = 0, color = A.ink, mutedColo
   );
 }
 
+// ─── Franja "¡Últimos N cupones!" (solo si hay stock físico y quedan ≤8) ──
+function StockStrip({ tieneStock, stockRestante }) {
+  if (!tieneStock || stockRestante == null || stockRestante <= 0 || stockRestante > 5) return null;
+  const nIconos = Math.min(stockRestante, 5);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 16px', background: '#FFF4E5', borderTop: '1px solid #FBE3BE' }}>
+      <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+        {Array.from({ length: nIconos }).map((_, i) => (
+          <img key={i} src="/ico-disc.svg" alt="" width={17} height={17}
+            style={{ display: 'block', marginLeft: i ? -5 : 0, animation: i === nIconos - 1 ? 'stockBlink 0.8s ease-in-out infinite' : undefined }} />
+        ))}
+      </span>
+      <span style={{ fontSize: 11.5, fontWeight: 800, color: '#B4531B', letterSpacing: '0.01em' }}>
+        {stockRestante === 1 ? '¡Último cupón disponible!' : `¡Últimos ${stockRestante} cupones!`}
+      </span>
+    </div>
+  );
+}
+
 // ─── Precio + CTAs ─────────────────────────────────────────────
-function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false }) {
+function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false, hidePrecio = false, hideAgregar = false }) {
   return (
     <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <PrecioCupon tokens_costo={promo.tokens_costo} ahorro={promo.ahorroEstimado} />
+      {!hidePrecio && <PrecioCupon tokens_costo={promo.tokens_costo} ahorro={promo.ahorroEstimado} />}
 
       {!hideActions && (
         <>
@@ -250,12 +269,14 @@ function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false }
             Ver oferta
           </button>
 
-          <button
-            onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'none', border: 'none', color: A.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font, padding: 0 }}
-          >
-            <img src="/ico-disc.svg" alt="" width={15} height={15} style={{ display: 'block' }} /> Agregar a cuponera
-          </button>
+          {!hideAgregar && (
+            <button
+              onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'none', border: 'none', color: A.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font, padding: 0 }}
+            >
+              <img src="/ico-disc.svg" alt="" width={15} height={15} style={{ display: 'block' }} /> Agregar a cuponera
+            </button>
+          )}
         </>
       )}
     </div>
@@ -263,7 +284,7 @@ function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false }
 }
 
 // ═══════════════════════════════════════════════════════════
-export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, variant = 'grid', inMarketplace = false, reviewSlot = null, fixedHeight = null, hideActions = false }) {
+export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, variant = 'grid', inMarketplace = false, reviewSlot = null, fixedHeight = null, hideActions = false, hidePrecio = false, hideAgregar = false, hideHeart = false }) {
   const abrir = onOpen || onClick;
 
   if (variant === 'list') {
@@ -275,13 +296,14 @@ export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, va
         onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
       >
         <div style={{ position: 'relative', width: 200, flexShrink: 0 }}>
-          <ImagenConBadge promo={promo} imgHeight="100%" inMarketplace={inMarketplace} />
+          <ImagenConBadge promo={promo} imgHeight="100%" inMarketplace={inMarketplace} hideHeart={hideHeart} />
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <ProveedorHeader promo={promo} size={38} />
           {reviewSlot}
           <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
-          <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} />
+          <StockStrip tieneStock={promo.tieneStock} stockRestante={promo.stockRestante} />
+          <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
         </div>
       </div>
     );
@@ -295,13 +317,14 @@ export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, va
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
     >
       <ProveedorHeader promo={promo} />
-      <ImagenConBadge promo={promo} inMarketplace={inMarketplace} />
+      <ImagenConBadge promo={promo} inMarketplace={inMarketplace} hideHeart={hideHeart} />
+      <StockStrip tieneStock={promo.tieneStock} stockRestante={promo.stockRestante} />
       {/* Con alto fijo, la reseña se expande y empuja franja+precio al fondo */}
       {fixedHeight
         ? <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{reviewSlot}</div>
         : reviewSlot}
       <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
-      <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} hideActions={hideActions} />
+      <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} hideActions={hideActions} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
     </div>
   );
 

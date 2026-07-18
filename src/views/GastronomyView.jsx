@@ -5,11 +5,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { getGastronomia, getAventura, getPromos } from '../lib/datos';
-import { mockDining } from '../data/mockData';
+import { getGastronomia, getAventura, getPromos, CATS_RUBRO } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:220 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { LOCALIDADES } from '../lib/localidades';
 import { useCuponera } from '../lib/cuponera';
+import OfertaCard from '../components/OfertaCard';
 
 // Fix Leaflet icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -33,36 +33,18 @@ const A = {
   font:        "'Inter', system-ui, sans-serif",
 };
 
-const TIPOS_GASTRO = [
-  { label: 'Restaurantes',      val: 'Restaurante' },
-  { label: 'Bares',             val: 'Bar' },
-  { label: 'Cafeterías',        val: 'Café' },
-  { label: 'Heladerías',        val: 'Heladería' },
-  { label: 'Panaderías',        val: 'Panadería' },
-  { label: 'Compras',           val: 'Compras' },
-  { label: 'Discotecas',        val: 'Discoteca' },
-  { label: 'Cines y Teatros',   val: 'Cine y Teatro' },
-  { label: 'Shows y Recitales', val: 'Show y Recital' },
-  { label: 'Centros Culturales',val: 'Centro Cultural' },
-];
+// Los filtros usan el MISMO vocabulario que se guarda en `negocios.categoria`
+// (CATS_RUBRO), para que tildar una subcategoría matchee de verdad. Label = val.
+const optsFrom = arr => arr.map(c => ({ label: c, val: c }));
+// "Mimo" = subcategorías de bienestar dentro de aventura_relax; el resto es
+// "experiencia". Así los dos accesos de Home muestran filtros acordes.
+const CATS_MIMO = ['Yoga & Mindfulness', 'Masajes', 'Salón de belleza'];
+const TIPOS_GASTRO   = optsFrom(CATS_RUBRO.salidas);
+const TIPOS_AVENTURA = optsFrom(CATS_RUBRO.aventura_relax.filter(c => !CATS_MIMO.includes(c)));
+const TIPOS_MIMO     = optsFrom(CATS_MIMO);
 
-const TIPOS_AVENTURA = [
-  { label: 'Excursiones',         val: 'Excursion' },
-  { label: 'Actividades',         val: 'Actividad' },
-  { label: 'Deportes acuáticos',  val: 'Deportes acuáticos' },
-  { label: 'Cabalgatas',          val: 'Cabalgatas' },
-  { label: 'Kitesurf',            val: 'Kitesurf' },
-  { label: 'Tour fotográfico',    val: 'Tour fotográfico' },
-  { label: 'Pesca deportiva',     val: 'Pesca deportiva' },
-  { label: 'Senderismo',          val: 'Senderismo' },
-  { label: 'Espectáculos',        val: 'Espectáculos' },
-];
-
-const TIPOS_MIMO = [
-  { label: 'Spa',                 val: 'Spa' },
-  { label: 'Yoga & Bienestar',    val: 'Yoga / Bienestar' },
-  { label: 'Masajes',             val: 'Masajes a domicilio' },
-];
+const ALL_TIPOS = [...TIPOS_GASTRO, ...TIPOS_AVENTURA, ...TIPOS_MIMO];
+const tipoLabel = val => ALL_TIPOS.find(t => t.val === val)?.label || val;
 
 const EXPERIENCIA_OPTS = [
   { label: 'Cita de a dos',       icon: '❤️' },
@@ -174,6 +156,70 @@ const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="n
 const IcoX       = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>;
 const IcoChevD   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>;
 const IcoPin     = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>;
+
+// ─── Minificha de ranking (card con número dorado/gris) ──────
+function RankCard({ item, rank, hoveredId, setHoveredId, onOpenDetail }) {
+  const color = TIPO_COLORS[item.category] || A.primary;
+  const isHov = hoveredId === item.id;
+  return (
+    <div
+      onMouseEnter={() => setHoveredId(item.id)}
+      onMouseLeave={() => setHoveredId(null)}
+      onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
+      style={{ background:'#fff', border:`1px solid ${isHov ? color+'60' : A.line}`, borderRadius:18, overflow:'hidden', cursor:'pointer', transition:'box-shadow .2s, transform .2s', boxShadow: isHov ? '0 12px 40px -12px rgba(11,16,32,0.18)' : 'none', transform: isHov ? 'translateY(-2px)' : 'none' }}
+    >
+      <div style={{ position:'relative', height:200, overflow:'hidden', flexShrink:0 }}>
+        <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover', transition:'transform .4s', transform: isHov ? 'scale(1.05)' : 'scale(1)' }} />
+        <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.5) 0%, transparent 50%)' }} />
+        <div style={{ position:'absolute', bottom:10, left:10, background:color, color:'#fff', padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:700 }}>
+          {item.subcategoria || item.category}
+        </div>
+        {item.priceRange && (
+          <div style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.95)', color:A.ink, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700 }}>
+            {item.priceRange}
+          </div>
+        )}
+      </div>
+      <div style={{ padding:'14px 16px 18px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+          <div style={{ background: rank <= 3 ? A.yellow : '#8B8B8B', color: rank <= 3 ? A.navy : '#fff', width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:900, flexShrink:0, letterSpacing:'-0.03em', boxShadow: rank <= 3 ? `0 2px 8px ${A.yellow}60` : 'none' }}>
+            #{rank}
+          </div>
+          <div style={{ fontSize:16, fontWeight:800, color: isHov ? A.primary : A.ink, lineHeight:1.2, transition:'color .15s' }}>{item.name}</div>
+        </div>
+        <div style={{ fontSize:12, color:A.muted, marginBottom:6, display:'flex', alignItems:'center', gap:4 }}><IcoPin /><span style={{ color:A.ink2, fontWeight:500 }}>{[item.zona, item.localidad].filter(Boolean).join(' · ')}</span></div>
+        <p style={{ fontSize:13, color:A.ink2, lineHeight:1.5, margin:0, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{item.description}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Fila mediana sin número (para "Más propuestas") ─────────
+function PropuestaRow({ item, hoveredId, setHoveredId, onOpenDetail }) {
+  const color = TIPO_COLORS[item.category] || A.primary;
+  const isHov = hoveredId === item.id;
+  return (
+    <div
+      onMouseEnter={() => setHoveredId(item.id)}
+      onMouseLeave={() => setHoveredId(null)}
+      onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
+      style={{ background:'#fff', border:`1px solid ${isHov ? color+'60' : A.line}`, borderRadius:14, overflow:'hidden', cursor:'pointer', display:'flex', alignItems:'stretch', transition:'box-shadow .2s, transform .2s', boxShadow: isHov ? '0 8px 28px -8px rgba(11,16,32,0.14)' : 'none', transform: isHov ? 'translateX(2px)' : 'none' }}
+    >
+      <div style={{ width:110, height:90, flexShrink:0, overflow:'hidden' }}>
+        <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover', transition:'transform .4s', transform: isHov ? 'scale(1.05)' : 'scale(1)' }} />
+      </div>
+      <div style={{ padding:'12px 16px', flex:1, display:'flex', flexDirection:'column', justifyContent:'center', gap:3 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ fontSize:15, fontWeight:700, color: isHov ? A.primary : A.ink, lineHeight:1.2, transition:'color .15s' }}>{item.name}</div>
+          <span style={{ background:color, color:'#fff', padding:'2px 8px', borderRadius:999, fontSize:9, fontWeight:700, flexShrink:0 }}>{item.subcategoria || item.category}</span>
+          {item.priceRange && <span style={{ fontSize:11, color:A.muted, fontWeight:600, flexShrink:0 }}>{item.priceRange}</span>}
+        </div>
+        <div style={{ fontSize:12, color:A.muted, display:'flex', alignItems:'center', gap:3 }}><IcoPin /><span>{[item.zona, item.localidad].filter(Boolean).join(' · ')}</span></div>
+        <p style={{ fontSize:12, color:A.ink2, lineHeight:1.4, margin:0, display:'-webkit-box', WebkitLineClamp:1, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{item.description}</p>
+      </div>
+    </div>
+  );
+}
 const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
 const IcoLock    = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
 const IcoRefresh = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>;
@@ -213,7 +259,7 @@ function GastroCard({ item, isHovered, onHover, session, onLoginClick, onOpenDet
         />
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.5) 0%, transparent 50%)' }} />
         <div style={{ position:'absolute', bottom:10, left:10, background:color, color:'#fff', padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:700, letterSpacing:'0.03em' }}>
-          {item.category}
+          {item.subcategoria || item.category}
         </div>
         {item.priceRange && (
           <div style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.95)', color:A.ink, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700 }}>
@@ -251,9 +297,11 @@ function GastroCard({ item, isHovered, onHover, session, onLoginClick, onOpenDet
 }
 
 // ═══════════════════════════════════════════════════════════
-export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, initialCategoria = '', initialAventura = '', initialTipos = null, modoRanking = false, modoAventura = false }) {
+export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, onVerRanking, onOpenOferta, initialCategoria = '', initialAventura = '', foco = null, modoRanking = false, modoAventura = false }) {
   const { addCupon } = useCuponera();
   const [salidas, setSalidas] = useState([]);
+  const [promos, setPromos] = useState([]);          // ofertas generales de la categoría
+  const [ofertasCount, setOfertasCount] = useState(9);
   const [loading,     setLoading]     = useState(true);
   const [busqueda,    setBusqueda]    = useState('');
   const [orden,       setOrden]       = useState('relevancia');
@@ -275,11 +323,17 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
   const [filtroComida,      setFiltroComida]      = useState('');
   const [filtroExperiencia, setFiltroExperiencia] = useState('');
 
-  useEffect(() => {
-    if (initialTipos) setFiltroTipos(new Set(initialTipos));
-    else if (initialCategoria) setFiltroTipos(new Set([initialCategoria]));
-    if (initialAventura) setFiltroExperiencia(initialAventura);
-  }, []);
+  // Entramos siempre con los filtros vacíos: el listado muestra todo el bucket
+  // (definido por `modoAventura`) de forma inclusiva y el usuario acota sumando
+  // filtros. No pre-tildamos subcategorías porque los negocios sólo guardan el
+  // tipo genérico ('salidas' / 'aventura_relax'); pre-tildarlas dejaba la lista
+  // vacía. `foco` sólo decide qué grupo de filtros y qué título mostrar.
+
+  // Grupo de subcategorías que se ofrece en el sidebar según de dónde venimos.
+  const tiposSidebar = foco === 'experiencia' ? TIPOS_AVENTURA
+                     : foco === 'mimo'        ? TIPOS_MIMO
+                     : modoAventura           ? [...TIPOS_AVENTURA, ...TIPOS_MIMO]
+                     : TIPOS_GASTRO;
 
   const ordenRef = useRef(null);
 
@@ -289,14 +343,11 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
         const data = await getAventura();
         setSalidas(data);
       } else {
-        const gastro = await getGastronomia();
-        const realIds   = new Set(gastro.map(g => String(g.id)));
-        const realNames = new Set(gastro.map(g => (g.name || '').toLowerCase()));
-        const mocks = mockDining
-          .filter(m => !realIds.has(String(m.id)) && !realNames.has((m.name || '').toLowerCase()))
-          .map(m => ({ ...m, esReal: false }));
-        setSalidas([...gastro, ...mocks]);
+        // Solo socios reales (sin merge con mocks): así nunca se muestran datos no controlables.
+        setSalidas(await getGastronomia());
       }
+      // Ofertas generales de la categoría (para el listado bajo el ranking).
+      try { setPromos(await getPromos(200)); } catch (_) {}
       setLoading(false);
     })();
   }, [modoAventura]);
@@ -317,7 +368,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
   // Filtros sidebar + búsqueda
   const gastroFiltradaBase = itemsConLatLng.filter(item => {
     const matchLocalidad = !filtroLocalidad || item.localidad === filtroLocalidad;
-    const matchTipo      = filtroTipos.size === 0 || filtroTipos.has(item.category);
+    const matchTipo      = filtroTipos.size === 0 || (item.subcategorias || []).some(sc => filtroTipos.has(sc));
     const matchPrecio    = filtroPrecios.size === 0 || filtroPrecios.has(item.priceRange);
     const matchBusq      = !busqueda || item.name.toLowerCase().includes(busqueda.toLowerCase()) || (item.description||'').toLowerCase().includes(busqueda.toLowerCase());
     return matchLocalidad && matchTipo && matchPrecio && matchBusq;
@@ -342,7 +393,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
 
   const activeChips = [
     ...(filtroLocalidad ? [{ key:'loc',  label:filtroLocalidad, clear:() => setFiltroLocalidad('') }] : []),
-    ...[...filtroTipos].map(t => ({ key:`t-${t}`, label: TIPOS_GASTRO.find(g => g.val === t)?.label || t, clear:() => toggleTipo(t) })),
+    ...[...filtroTipos].map(t => ({ key:`t-${t}`, label: tipoLabel(t), clear:() => toggleTipo(t) })),
     ...[...filtroPrecios].map(p => ({ key:`p-${p}`, label:p, clear:() => togglePrecio(p) })),
   ];
 
@@ -478,7 +529,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
 
                 {/* Tipos */}
                 <div style={{ fontSize:11, fontWeight:700, color:A.muted, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:8 }}>Tipo de lugar</div>
-                {(modoAventura ? [...TIPOS_AVENTURA, ...TIPOS_MIMO] : TIPOS_GASTRO).map(t => (
+                {tiposSidebar.map(t => (
                   <CheckRow key={t.val} label={t.label} checked={filtroTipos.has(t.val)} onChange={() => toggleTipo(t.val)} />
                 ))}
 
@@ -504,11 +555,15 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, marginBottom:20 }}>
             <div style={{ flex:1 }}>
               <h1 style={{ fontSize:30, fontStyle:'italic', fontWeight:500, color:A.ink, letterSpacing:'-0.01em', margin:'25px 0 6px', lineHeight:1.2 }}>
-                {modoAventura
+                {foco === 'experiencia'
+                  ? 'Viví una experiencia'
+                  : foco === 'mimo'
+                  ? 'Hacete un mimo'
+                  : foco === 'compras'
+                  ? 'Traete un recuerdo'
+                  : modoAventura
                   ? 'Aventura & Relax'
-                  : modoRanking
-                  ? <>Top <em style={{ fontStyle:'normal', color:A.primary }}>#10</em> donde comer y beber</>
-                  : 'Los más ricos sabores locales'}
+                  : <>Top <em style={{ fontStyle:'normal', color:A.primary }}>#10</em> donde comer y beber</>}
               </h1>
               <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:6 }}>
                 <span style={{ fontSize:13, color:A.muted }}>
@@ -547,7 +602,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
             <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
               {[...filtroTipos].map(t => (
                 <span key={t} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:A.primarySoft, color:A.primary, borderRadius:999, fontSize:12, fontWeight:600 }}>
-                  {TIPOS_GASTRO.find(g => g.val === t)?.label || t}
+                  {tipoLabel(t)}
                   <button onClick={() => toggleTipo(t)} style={{ background:'none', border:'none', cursor:'pointer', color:A.primary, display:'flex', padding:0 }}><IcoX /></button>
                 </span>
               ))}
@@ -574,152 +629,94 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
               </button>
             </div>
           ) : !modoRanking ? (
+            foco === 'mimo' ? (
+              /* ── Hacete un mimo: sólo ofertas de relax, sin ranking ── */
+              (() => {
+                const ofertas = promos.filter(p => p.categoria === 'aventura_relax' && p.tokens_costo !== 0 && (p.subcategorias || []).some(s => CATS_MIMO.includes(s)));
+                if (!ofertas.length) return (
+                  <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:20, padding:'48px 32px', textAlign:'center' }}>
+                    <div style={{ fontSize:17, fontWeight:700, color:A.ink, marginBottom:6 }}>Todavía no hay ofertas de relax</div>
+                    <div style={{ fontSize:13, color:A.muted }}>Pronto vas a encontrar yoga & mindfulness, masajes y salón de belleza acá.</div>
+                  </div>
+                );
+                return (
+                  <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:20, alignItems:'flex-start' }}>
+                    {ofertas.map(p => (
+                      <OfertaCard key={p.id} promo={p} onOpen={onOpenOferta} onAddToCuponera={addCupon} />
+                    ))}
+                  </div>
+                );
+              })()
+            ) : (
             /* ── Vista regular (desde header nav): mapa + grilla sin numeración ── */
             <>
             {mapEl}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16 }}>
-              {gastroOrdenada.map((item) => {
-                const color = TIPO_COLORS[item.category] || A.primary;
-                const isHov = hoveredId === item.id;
-                return (
-                  <div key={item.id}
-                    onMouseEnter={() => setHoveredId(item.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
-                    style={{ background:'#fff', border:`1px solid ${isHov ? color+'60' : A.line}`, borderRadius:18, overflow:'hidden', cursor:'pointer', transition:'box-shadow .2s, transform .2s', boxShadow: isHov ? '0 12px 40px -12px rgba(11,16,32,0.18)' : 'none', transform: isHov ? 'translateY(-2px)' : 'none' }}
-                  >
-                    <div style={{ position:'relative', height:190, overflow:'hidden', flexShrink:0 }}>
-                      <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover', transition:'transform .4s', transform: isHov ? 'scale(1.05)' : 'scale(1)' }} />
-                      <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.4) 0%, transparent 55%)' }} />
-                      <div style={{ position:'absolute', bottom:10, left:10, background:color, color:'#fff', padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:700 }}>
-                        {item.category}
-                      </div>
-                      {item.priceRange && (
-                        <div style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.95)', color:A.ink, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700 }}>
-                          {item.priceRange}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ padding:'13px 15px 16px' }}>
-                      <div style={{ fontSize:15, fontWeight:800, color: isHov ? A.primary : A.ink, marginBottom:3, lineHeight:1.2, transition:'color .15s' }}>{item.name}</div>
-                      <div style={{ fontSize:12, color:A.muted, marginBottom:5, display:'flex', alignItems:'center', gap:4 }}><IcoPin /><span style={{ color:A.ink2, fontWeight:500 }}>{[item.zona, item.localidad].filter(Boolean).join(' · ')}</span></div>
-                      <p style={{ fontSize:12, color:A.ink2, lineHeight:1.45, margin:0, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{item.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:16 }}>
+              {gastroOrdenada.slice(0, 3).map((item, i) => (
+                <RankCard key={item.id} item={item} rank={i + 1} hoveredId={hoveredId} setHoveredId={setHoveredId} onOpenDetail={onOpenDetail} />
+              ))}
             </div>
+            {gastroOrdenada.length > 3 && (
+              <div style={{ display:'flex', justifyContent:'center', marginTop:24 }}>
+                <button onClick={() => onVerRanking?.()} style={{ background:A.ink, color:'#fff', border:'none', borderRadius:999, padding:'13px 32px', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:A.font }}>
+                  Ver ranking completo
+                </button>
+              </div>
+            )}
+
+            {/* ── Ofertas generales de la categoría (bajo el ranking) ── */}
+            {(() => {
+              const cat = modoAventura ? 'aventura_relax' : 'salidas';
+              const ofertas = promos.filter(p => p.categoria === cat && p.tokens_costo !== 0);
+              if (!ofertas.length) return null;
+              const loc = filtroLocalidad || 'Villa Gesell';
+              return (
+                <div style={{ marginTop: 48 }}>
+                  <h2 style={{ fontSize: 28, fontWeight: 800, color: A.ink, margin: '0 0 4px', fontFamily: A.font, letterSpacing: '-0.02em' }}>
+                    Salí y ahorrá en {loc} y alrededores
+                  </h2>
+                  <p style={{ fontSize: 13, color: A.muted, margin: '0 0 20px', fontFamily: A.font }}>
+                    {ofertas.length} oferta{ofertas.length !== 1 ? 's' : ''} disponible{ofertas.length !== 1 ? 's' : ''}
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 20, alignItems: 'flex-start' }}>
+                    {ofertas.slice(0, ofertasCount).map(p => (
+                      <OfertaCard key={p.id} promo={p} onOpen={onOpenOferta} onAddToCuponera={addCupon} />
+                    ))}
+                  </div>
+                  {ofertas.length > ofertasCount && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                      <button onClick={() => setOfertasCount(n => n + 9)} style={{ background: A.ink, color: '#fff', border: 'none', borderRadius: 999, padding: '13px 30px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>
+                        Ver más ofertas
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             </>
+            )
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-
-              {/* TOP 3 — cards grandes, 3 columnas */}
-              {gastroOrdenada.length > 0 && (
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16, marginBottom:8 }}>
-                  {gastroOrdenada.slice(0,3).map((item, i) => {
-                    const MEDAL      = [A.yellow, A.yellow, A.yellow];
-                    const MEDAL_TEXT = [A.navy,   A.navy,   A.navy  ];
-                    const color = TIPO_COLORS[item.category] || A.primary;
-                    const isHov = hoveredId === item.id;
-                    return (
-                      <div key={item.id}
-                        onMouseEnter={() => setHoveredId(item.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                        onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
-                        style={{ background:'#fff', border:`1px solid ${isHov ? color+'60' : A.line}`, borderRadius:18, overflow:'hidden', cursor:'pointer', transition:'box-shadow .2s, transform .2s', boxShadow: isHov ? '0 12px 40px -12px rgba(11,16,32,0.18)' : 'none', transform: isHov ? 'translateY(-2px)' : 'none' }}
-                      >
-                        <div style={{ position:'relative', height:220, overflow:'hidden', flexShrink:0 }}>
-                          <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover', transition:'transform .4s', transform: isHov ? 'scale(1.05)' : 'scale(1)' }} />
-                          <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.5) 0%, transparent 50%)' }} />
-                          <div style={{ position:'absolute', bottom:10, left:10, background:color, color:'#fff', padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:700 }}>
-                            {item.category}
-                          </div>
-                          {item.priceRange && (
-                            <div style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.95)', color:A.ink, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700 }}>
-                              {item.priceRange}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ padding:'14px 16px 18px' }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
-                            <div style={{ background:MEDAL[i], color:MEDAL_TEXT[i], width:38, height:38, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17, fontWeight:900, flexShrink:0, letterSpacing:'-0.03em', boxShadow:`0 2px 8px ${MEDAL[i]}60` }}>
-                              #{i+1}
-                            </div>
-                            <div style={{ fontSize:17, fontWeight:800, color: isHov ? A.primary : A.ink, lineHeight:1.2, transition:'color .15s' }}>{item.name}</div>
-                          </div>
-                          <div style={{ fontSize:12, color:A.muted, marginBottom:6, display:'flex', alignItems:'center', gap:4 }}><IcoPin /><span style={{ color:A.ink2, fontWeight:500 }}>{[item.zona, item.localidad].filter(Boolean).join(' · ')}</span></div>
-                          <p style={{ fontSize:13, color:A.ink2, lineHeight:1.5, margin:0, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{item.description}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
 
               {/* MAPA — top 10 numerado + puntitos del resto */}
               {mapEl}
 
-              {/* PUESTO 4–10 — lista intermedia */}
-              {gastroOrdenada.slice(3,10).map((item, i) => {
-                const rank = i + 4;
-                const color = TIPO_COLORS[item.category] || A.primary;
-                const isHov = hoveredId === item.id;
-                return (
-                  <div key={item.id}
-                    onMouseEnter={() => setHoveredId(item.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
-                    style={{ background:'#fff', border:`1px solid ${isHov ? color+'60' : A.line}`, borderRadius:14, overflow:'hidden', cursor:'pointer', display:'flex', alignItems:'stretch', transition:'box-shadow .2s, transform .2s', boxShadow: isHov ? '0 8px 28px -8px rgba(11,16,32,0.14)' : 'none', transform: isHov ? 'translateX(2px)' : 'none' }}
-                  >
-                    {/* Foto */}
-                    <div style={{ width:110, height:90, flexShrink:0, overflow:'hidden' }}>
-                      <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover', transition:'transform .4s', transform: isHov ? 'scale(1.05)' : 'scale(1)' }} />
-                    </div>
-                    {/* Info */}
-                    <div style={{ padding:'12px 16px', flex:1, display:'flex', flexDirection:'column', justifyContent:'center', gap:3 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <div style={{ background:'#8B8B8B', color:'#fff', width:30, height:30, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:900, flexShrink:0, letterSpacing:'-0.02em' }}>#{rank}</div>
-                        <div style={{ fontSize:15, fontWeight:700, color: isHov ? A.primary : A.ink, lineHeight:1.2, transition:'color .15s' }}>{item.name}</div>
-                        <span style={{ background:color, color:'#fff', padding:'2px 8px', borderRadius:999, fontSize:9, fontWeight:700, flexShrink:0 }}>{item.category}</span>
-                        {item.priceRange && <span style={{ fontSize:11, color:A.muted, fontWeight:600, flexShrink:0 }}>{item.priceRange}</span>}
-                      </div>
-                      <div style={{ fontSize:12, color:A.muted, display:'flex', alignItems:'center', gap:3 }}><IcoPin /><span>{[item.zona, item.localidad].filter(Boolean).join(' · ')}</span></div>
-                      <p style={{ fontSize:12, color:A.ink2, lineHeight:1.4, margin:0, display:'-webkit-box', WebkitLineClamp:1, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{item.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
+              {/* TOP 10 — minifichas numeradas, 3 por fila */}
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:16 }}>
+                {gastroOrdenada.slice(0,10).map((item, i) => (
+                  <RankCard key={item.id} item={item} rank={i + 1} hoveredId={hoveredId} setHoveredId={setHoveredId} onOpenDetail={onOpenDetail} />
+                ))}
+              </div>
 
               {/* RESTO — "Otras experiencias gastronómicas" sin numeración */}
               {gastroOrdenada.slice(10).length > 0 && (
                 <>
                   <div style={{ padding:'20px 0 8px', fontSize:15, fontWeight:700, color:A.ink2, letterSpacing:'-0.01em' }}>
-                    Otras experiencias gastronómicas
+                    Más propuestas de gastronomía
                   </div>
-                  {gastroOrdenada.slice(10).map((item) => {
-                    const color = TIPO_COLORS[item.category] || A.primary;
-                    const isHov = hoveredId === item.id;
-                    return (
-                      <div key={item.id}
-                        onMouseEnter={() => setHoveredId(item.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                        onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
-                        style={{ background:'#fff', border:`1px solid ${isHov ? color+'40' : A.line}`, borderRadius:10, overflow:'hidden', cursor:'pointer', display:'flex', alignItems:'center', transition:'box-shadow .15s', boxShadow: isHov ? '0 4px 16px -4px rgba(11,16,32,0.10)' : 'none' }}
-                      >
-                        <div style={{ width:72, height:60, flexShrink:0, overflow:'hidden' }}>
-                          <img src={item.image} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        </div>
-                        <div style={{ padding:'10px 14px', flex:1, display:'flex', alignItems:'center', gap:12 }}>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:14, fontWeight:600, color: isHov ? A.primary : A.ink, transition:'color .15s' }}>{item.name}</div>
-                            <div style={{ fontSize:11, color:A.muted, display:'flex', alignItems:'center', gap:3, marginTop:2 }}><IcoPin />{[item.zona, item.localidad].filter(Boolean).join(' · ')}</div>
-                          </div>
-                          <span style={{ background:color, color:'#fff', padding:'2px 8px', borderRadius:999, fontSize:9, fontWeight:700, flexShrink:0 }}>{item.category}</span>
-                          {item.priceRange && <span style={{ fontSize:11, color:A.muted, fontWeight:600, flexShrink:0 }}>{item.priceRange}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {gastroOrdenada.slice(10).map((item) => (
+                    <PropuestaRow key={item.id} item={item} hoveredId={hoveredId} setHoveredId={setHoveredId} onOpenDetail={onOpenDetail} />
+                  ))}
                 </>
               )}
 

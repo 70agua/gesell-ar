@@ -189,3 +189,6 @@
   color: #adb8c5;
   opacity: 1;
 }
+
+/* Parpadeo del último cupón en la franja "¡Últimos N cupones!" */
+@keyframes stockBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }

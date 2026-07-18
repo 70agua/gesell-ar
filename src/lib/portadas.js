@@ -1,23 +1,23 @@
 // ============================================================
-//  src/lib/publicidad.js
-//  Imágenes publicitarias que ocupan la primera ficha de los
+//  src/lib/portadas.js
+//  Imágenes de portada que ocupan la primera ficha de los
 //  listings. Se cargan por categoría desde el panel superadmin y
 //  rotan de forma arbitraria sin repetición dentro de cada categoría.
 // ============================================================
 
 import { supabase } from './supabase';
 
-export const PUBLI_CATEGORIAS = [
+export const PORTADA_CATEGORIAS = [
   { value: 'alojamiento',     label: 'Alojamientos' },
   { value: 'salidas',         label: 'Salidas' },
   { value: 'aventura_relax',  label: 'Aventura & Relax' },
   { value: 'general',         label: 'General (sin categoría)' },
 ];
 
-// ─── Lectura pública: publicidades activas de una categoría ───
-export async function getPublicidades(categoria) {
+// ─── Lectura pública: portadas activas de una categoría ───
+export async function getPortadas(categoria) {
   let q = supabase
-    .from('publicidades')
+    .from('portadas')
     .select('*')
     .eq('activa', true)
     .order('orden', { ascending: true });
@@ -26,13 +26,13 @@ export async function getPublicidades(categoria) {
   return data || [];
 }
 
-// ─── Elige una publicidad al azar sin repetir la última mostrada ──
+// ─── Elige una portada al azar sin repetir la última mostrada ──
 //  Guarda en localStorage el último id por categoría para evitar
 //  que salga dos veces seguidas (si hay más de una cargada).
-export function elegirPublicidad(lista, categoria = 'general') {
+export function elegirPortada(lista, categoria = 'general') {
   if (!lista || lista.length === 0) return null;
   if (lista.length === 1) return lista[0];
-  const key = `publi_last_${categoria}`;
+  const key = `portada_last_${categoria}`;
   let ultimo = null;
   try { ultimo = localStorage.getItem(key); } catch { /* ignore */ }
   const candidatas = lista.filter(p => String(p.id) !== String(ultimo));
@@ -43,23 +43,23 @@ export function elegirPublicidad(lista, categoria = 'general') {
 }
 
 // ─── CRUD superadmin ──────────────────────────────────────────
-export async function listarPublicidadesAdmin() {
+export async function listarPortadasAdmin() {
   const { data } = await supabase
-    .from('publicidades')
+    .from('portadas')
     .select('*')
     .order('categoria', { ascending: true })
     .order('orden', { ascending: true });
   return data || [];
 }
 
-export async function crearPublicidad({ categoria, imagen_url, link = null, orden = 0 }) {
-  return supabase.from('publicidades').insert({ categoria, imagen_url, link, orden }).select().single();
+export async function crearPortada({ categoria, imagen_url, link = null, orden = 0 }) {
+  return supabase.from('portadas').insert({ categoria, imagen_url, link, orden }).select().single();
 }
 
-export async function actualizarPublicidad(id, cambios) {
-  return supabase.from('publicidades').update(cambios).eq('id', id).select().single();
+export async function actualizarPortada(id, cambios) {
+  return supabase.from('portadas').update(cambios).eq('id', id).select().single();
 }
 
-export async function eliminarPublicidad(id) {
-  return supabase.from('publicidades').delete().eq('id', id);
+export async function eliminarPortada(id) {
+  return supabase.from('portadas').delete().eq('id', id);
 }

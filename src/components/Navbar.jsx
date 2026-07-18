@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { locations } from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
 import { EXPERIENCIAS_SALIDAS, getCuponerasDestacadas } from '../lib/datos';
+import { getBeneficioIcon } from '../lib/beneficioIconos';
 
 const A = {
   ink:         '#0B1020',
@@ -698,7 +699,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('gastro')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('ofertas', { ofertasCategoria: 'salidas' })} style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('salidas')} style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
                 salidas <ChevD />
               </button>
               {(openMenu === 'gastro' || closingMenu === 'gastro') && (
@@ -738,16 +739,19 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                 <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', minWidth: 220, animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
                   <div style={{ padding: '8px 0' }}>
                     <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Cuponeras</p>
-                    {cuponerasDestacadas.map(cuponera => (
-                      <button key={cuponera.id} onClick={() => openDrawer() && nav('home')}
+                    {cuponerasDestacadas.map(cuponera => {
+                      const MenuIcon = getBeneficioIcon(cuponera.menuIcono);
+                      return (
+                      <button key={cuponera.id} onClick={() => { nav('packs'); }}
                         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 400, color: A.ink2, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
                         onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
                       >
-                        <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>📦</span>
+                        <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}><MenuIcon size={16} strokeWidth={1.9} /></span>
                         {cuponera.title}
                       </button>
-                    ))}
+                      );
+                    })}
                     <div style={{ height: 1, background: A.line, margin: '4px 16px' }} />
                     <button onClick={() => nav('packs')}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: A.primary, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
@@ -853,7 +857,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           <div style={{ padding: '20px 24px 48px' }}>
             {[
               { label: 'alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
-              { label: 'salidas',          action: () => nav('ofertas', { ofertasCategoria: 'salidas' }) },
+              { label: 'salidas',          action: () => nav('salidas') },
               { label: 'aventura & relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
               { label: 'packs inteligentes', action: () => nav('packs') },
             ].map(item => (

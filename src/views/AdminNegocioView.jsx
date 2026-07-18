@@ -14,6 +14,7 @@ import {
   Disc3, Info, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { categoriaDeNegocio } from '../lib/datos';
 import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra } from '../lib/cobros';
 import { getWallet } from '../lib/gamificacion';
 import {
@@ -764,6 +765,8 @@ function dbRowToItem(p) {
     impulsoActivo:   p.impulso_activo || false,
     impulsoTotal:    Number(p.impulso_creditos_total || 0),
     impulsoRestante: Number(p.impulso_creditos_restante || 0),
+    // Reserva previa (legacy null → se resuelve al editar según categoría del negocio)
+    requiereReserva: p.requiere_reserva ?? null,
     _db: true,
   };
 }
@@ -1014,7 +1017,9 @@ function EstadoGuardadoIcono({ activo, status, style }) {
   );
 }
 
-export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free', onUpgrade, saldoTokens = 0, setSaldoTokens, onboarding = false, onSkip, onVolver, soloEditor = false, ofertaInicial = null, modoAdmin = false, onCerrarEditor, onOfertaGuardada }) {
+export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showToast, plan = 'free', onUpgrade, saldoTokens = 0, setSaldoTokens, onboarding = false, onSkip, onVolver, soloEditor = false, ofertaInicial = null, modoAdmin = false, onCerrarEditor, onOfertaGuardada }) {
+  // Los alojamientos por defecto piden reserva previa (fechas de estadía); el resto no.
+  const esAlojamientoNegocio = categoriaDeNegocio(negocioTipo) === 'alojamiento';
   const [ofertas, setOfertas] = useState(() => {
     if (dbPromos.length > 0) return dbPromos.map(dbRowToItem);
     // En el onboarding arrancamos sin ninguna oferta (sólo el placeholder), sin datos de ejemplo.
@@ -1047,6 +1052,8 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
     // Período activo: modo 'hoy'/'manual' (default) o 'especifica' (habilita el datetime).
     desdeModo: 'hoy', hastaModo: 'manual',
     activa: true, imagenes: [], fechaDesde: null, fechaHasta: null,
+    // ¿El servicio requiere reserva previa? Habilita el form de disponibilidad en el detalle.
+    requiereReserva: esAlojamientoNegocio,
   };
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [isDirty, setIsDirty]   = useState(false);
@@ -1254,6 +1261,7 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
       hastaModo: o.fechaHasta ? 'especifica' : 'manual',
       fechaDesde: o.fechaDesde || null,
       fechaHasta: o.fechaHasta || null,
+      requiereReserva: o.requiereReserva ?? esAlojamientoNegocio,
     });
     lastFileRef.current = null; lastUrlRef.current = null;
     // Si reabrimos un borrador, sus cambios siguen actualizando esa misma fila.
@@ -1321,6 +1329,7 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
       fecha_fin:       !esFlash && editForm.fechaHasta ? editForm.fechaHasta.toISOString() : null,
       fecha_inicio:    !esFlash && editForm.fechaDesde ? editForm.fechaDesde.toISOString() : null,
       negocio_id:      negocioId,
+      requiere_reserva: !!editForm.requiereReserva,
       ...grupoPayload,
     };
   }
@@ -2223,6 +2232,23 @@ export function TabOfertas({ dbPromos = [], negocioId, showToast, plan = 'free',
                 </div>
               </div>
             )}
+          </div>
+
+          {/* ── Reserva previa: habilita el form de disponibilidad en el detalle del cupón ── */}
+          <div>
+            <FieldLabel label="Disponibilidad"/>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 2px' }}>
+              <CalendarDays size={18} color={editForm.requiereReserva ? P : INK2} style={{ flexShrink: 0 }}/>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK }}>El servicio requiere reserva previa</div>
+                <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 1, lineHeight: 1.4 }}>
+                  Si lo activás, el turista pide disponibilidad (fecha/personas) desde el detalle y vos confirmás. Si no, el cupón se agrega directo a la cuponera.
+                </div>
+              </div>
+              <div style={{ flexShrink: 0 }}>
+                <Toggle on={!!editForm.requiereReserva} onChange={() => setFInstante(f => ({ ...f, requiereReserva: !f.requiereReserva }))}/>
+              </div>
+            </div>
           </div>
           </>
           )}
@@ -3845,7 +3871,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       <main style={{ flex:1, padding:28, overflowY:'auto', maxWidth:'100%' }}>
         {tab === 'cuenta'      && <TabCuenta credits={credits} addonTotal={addonTotal} setShowComprar={setShowComprar} perfil={perfil} negocio={negocio} setNegocio={setNegocio} showToast={showToast} onCuentaEliminada={handleLogout}/>}
         {tab === 'notif'       && <TabNovedades credits={credits} setCredits={setCredits} onGoToVentas={() => setTab('solicitudes')}/>}
-        {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens}/>}
+        {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} negocioTipo={negocio?.tipo} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens}/>}
         {tab === 'stats'       && <TabEstadisticas/>}
         {tab === 'solicitudes' && <TabVentas negocioId={perfil?.negocio_id} showToast={showToast}/>}
         {tab === 'empresa' && <TabEmpresa negocio={negocio} showToast={showToast}/>}

@@ -20,7 +20,7 @@ const LOCALIDADES_CERCANAS = {
 
 export const TIPOS_ALOJ   = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Casa', 'Hostel', 'Glamping']);
 const TIPOS_GASTRO = new Set(['salidas', 'Restaurante', 'Restaurantes', 'Bar', 'Bares', 'Café', 'Cafés & Dulces', 'Cafés y Dulces', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Heladerías', 'Bodegón', 'Panadería', 'Panaderías', 'Discoteca', 'Discotecas', 'Cine y Teatro', 'Cines y Teatros', 'Show y Recital', 'Shows y Recitales', 'Centro Cultural', 'Centros Culturales', 'Otro', 'Otros']);
-const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos']);
+const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga & Mindfulness', 'Masajes', 'Salón de belleza', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos']);
 
 // Categorías reales que un socio puede elegir al dar de alta su negocio
 // (fuente única — `negocios.categoria` guarda uno o dos de estos valores,
@@ -29,7 +29,7 @@ const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Act
 export const CATS_RUBRO = {
   alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
   salidas:        ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
-  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga / Bienestar', 'Masajes a domicilio', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
+  aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga & Mindfulness', 'Masajes', 'Salón de belleza', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
 };
 
 // "Tipo de experiencia" — el socio de Salidas lo elige al darse de alta
@@ -79,6 +79,11 @@ function normalizeNegocio(n) {
     address:           n.direccion || [n.calle, n.numero].filter(Boolean).join(' ') || '',
     tieneLocalFisico:  n.tiene_local_fisico   !== false,
     category:          n.tipo                || '',
+    // Subcategoría(s) que el socio eligió en el alta (columna `categoria`, hasta
+    // 2 unidas por ' / ', vocabulario de CATS_RUBRO). `subcategorias` es el array
+    // para filtrar; `subcategoria` la primera para mostrar como etiqueta.
+    subcategorias:     n.categoria ? n.categoria.split(' / ').map(s => s.trim()).filter(Boolean) : [],
+    subcategoria:      n.categoria ? n.categoria.split(' / ')[0].trim() : '',
     priceRange:        n.precio_rango        || null,
     tags:              n.tags                || [],
     servicios:         n.servicios ? n.servicios.split(',').map(s => s.trim()).filter(Boolean) : [],
@@ -110,6 +115,7 @@ function normalizeNegocio(n) {
 }
 
 export function normalizePromo(p) {
+  const categoria = categoriaDeNegocio(p.negocios?.tipo, p.negocio_id);
   return {
     id:               p.id,
     negocioId:        p.negocio_id,
@@ -131,8 +137,17 @@ export function normalizePromo(p) {
     grupoTramos:      Array.isArray(p.group_tiers) ? p.group_tiers : [],
     // Impulso publicitario
     impulsoActivo:    p.impulso_activo    || false,
+    // Stock / límite físico de canjes
+    tieneStock:       p.tiene_stock       || false,
+    stockMaximo:      p.stock_maximo      != null ? Number(p.stock_maximo)   : null,
+    stockRestante:    p.stock_restante    != null ? Number(p.stock_restante) : null,
     aprobada:         p.aprobada,
-    categoria:        categoriaDeNegocio(p.negocios?.tipo, p.negocio_id),
+    // ¿El servicio requiere reserva previa? Habilita el form de solicitud de disponibilidad
+    // en el detalle. Legacy (null) → según categoría (alojamiento pide fecha; el resto no).
+    requiereReserva:  p.requiere_reserva != null ? p.requiere_reserva : (categoria === 'alojamiento'),
+    categoria,
+    subcategorias:    p.negocios?.categoria ? p.negocios.categoria.split(' / ').map(s => s.trim()).filter(Boolean) : [],
+    subcategoria:     p.negocios?.categoria ? p.negocios.categoria.split(' / ')[0].trim() : '',
     negocioTipo:      p.negocios?.tipo   || '',
     proveedorNombre:  p.negocios?.nombre || '',
     proveedorImage:   p.negocios?.foto_perfil || p.negocios?.imagen_url || null,
@@ -186,7 +201,7 @@ export async function getAventura() {
 export async function getPromos(limit = 8) {
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
+    .select('*, negocios(nombre, tipo, categoria, localidad, zona, foto_perfil, imagen_url, activo)')
     .eq('activa', true)
     .eq('aprobada', true)
     .order('creado_en', { ascending: false })
@@ -301,6 +316,9 @@ function normalizeCuponDeCuponera(p) {
     lng:              n.lng != null ? Number(n.lng) : null,
     ahorro_estimado:  Number(p.ahorro_estimado) || 0,
     precio_activacion: precio,
+    tieneStock:       p.tiene_stock    || false,
+    stockRestante:    p.stock_restante != null ? Number(p.stock_restante) : null,
+    categoria:        categoriaDeNegocio(n.tipo),
   };
 }
 
@@ -315,7 +333,8 @@ export async function getCuponeras() {
         promociones (
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
           ahorro_estimado, precio_manual, activa, aprobada,
-          negocios ( nombre, localidad, descripcion, lat, lng, galeria )
+          tiene_stock, stock_maximo, stock_restante,
+          negocios ( nombre, tipo, localidad, descripcion, lat, lng, galeria )
         )
       )
     `)
@@ -337,8 +356,53 @@ export async function getCuponeras() {
       images:           [cl.imagen_url || FALLBACK_IMG],
       beneficioAdicional: cl.beneficio_adicional || '',
       beneficioIcono:   cl.beneficio_icono || '',
+      menuIcono:        cl.menu_icono || '',
       beneficioTipo:    cl.beneficio_tipo || '',
       beneficioValor:   cl.beneficio_valor != null ? Number(cl.beneficio_valor) : 0,
+      incluyeAlojamiento: cupones.some(c => c.categoria === 'alojamiento'),
+      cupones,
+    };
+  }).filter(c => c.cupones.length > 0);
+}
+
+// Cuponeras marcadas como destacadas en el menú de la navbar
+export async function getCuponerasDestacadas() {
+  const { data, error } = await supabase
+    .from('cuponeras_locales')
+    .select(`
+      id, nombre, descripcion, badge, imagen_url, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado, menu_icono,
+      cuponeras_locales_cupones (
+        promociones (
+          id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
+          ahorro_estimado, precio_manual, activa, aprobada,
+          tiene_stock, stock_maximo, stock_restante,
+          negocios ( nombre, tipo, localidad, descripcion, lat, lng, galeria )
+        )
+      )
+    `)
+    .eq('estado', 'activa')
+    .eq('destacada_en_menu', true)
+    .order('creado_en', { ascending: false });
+
+  if (error) { console.error('getCuponerasDestacadas', error); return []; }
+
+  return (data || []).map(cl => {
+    const cupones = (cl.cuponeras_locales_cupones || [])
+      .map(x => x.promociones)
+      .filter(p => p && p.activa !== false && p.aprobada !== false)
+      .map(normalizeCuponDeCuponera);
+    return {
+      id:               cl.id,
+      title:            cl.nombre,
+      subtitle:         cl.descripcion || '',
+      badge:            cl.badge || '',
+      images:           [cl.imagen_url || FALLBACK_IMG],
+      beneficioAdicional: cl.beneficio_adicional || '',
+      beneficioIcono:   cl.beneficio_icono || '',
+      menuIcono:        cl.menu_icono || '',
+      beneficioTipo:    cl.beneficio_tipo || '',
+      beneficioValor:   cl.beneficio_valor != null ? Number(cl.beneficio_valor) : 0,
+      incluyeAlojamiento: cupones.some(c => c.categoria === 'alojamiento'),
       cupones,
     };
   }).filter(c => c.cupones.length > 0);

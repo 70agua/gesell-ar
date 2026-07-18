@@ -2,12 +2,13 @@
 //  src/views/OfertasView.jsx — Listado de todas las ofertas
 //  Diseño: mismo sistema Aire que MarketplaceView
 // ============================================================
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getPromos, categoriaDeNegocio, EXPERIENCIAS_SALIDAS } from '../lib/datos';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { getPromos, getAlojamientos, categoriaDeNegocio, EXPERIENCIAS_SALIDAS } from '../lib/datos';
 import { ALL_PROMOS }   from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
 import OfertaCard from '../components/OfertaCard';
-import { getPublicidades, elegirPublicidad } from '../lib/publicidad';
+import HeartButton from '../components/HeartButton';
+import { getPortadas, elegirPortada } from '../lib/portadas';
 import BuscarDestinoModal from '../components/BuscarDestinoModal';
 
 // ─── Tokens ──────────────────────────────────────────────────
@@ -177,16 +178,88 @@ function useWindowWidth() {
   return w;
 }
 
-// ─── Ficha publicitaria (primera celda de la grilla) ──────────
-function PubliCard({ publi }) {
-  const img = <img src={publi.imagen_url} alt="Publicidad" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
+// ─── Ficha de portada (primera celda de la grilla) ──────────
+function PortadaCard({ portada }) {
+  const img = <img src={portada.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
   // height:100% para igualar el alto de las cards vecinas; minHeight evita que
   // colapse cuando queda sola en su fila (mobile, 1 columna).
   const base = { position: 'relative', borderRadius: 20, overflow: 'hidden', border: `1px solid ${A.line}`, height: '100%', minHeight: 420, background: A.bg, display: 'block' };
-  if (publi.link) {
-    return <a href={publi.link} target="_blank" rel="noopener noreferrer" style={{ ...base, cursor: 'pointer' }}>{img}</a>;
+  if (portada.link) {
+    return <a href={portada.link} target="_blank" rel="noopener noreferrer" style={{ ...base, cursor: 'pointer' }}>{img}</a>;
   }
   return <div style={base}>{img}</div>;
+}
+
+// ─── Tab-bar de destinos (paralelo al sidebar) ────────────────
+function DestinoTabs({ destinos, value, onPick }) {
+  return (
+    <div className="hscroll" style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+      {['Todo', ...destinos].map(d => {
+        const active = value === d;
+        return (
+          <button
+            key={d}
+            onClick={() => onPick(d)}
+            style={{
+              flexShrink: 0, padding: '11px 26px', borderRadius: 999, cursor: 'pointer',
+              fontFamily: A.font, fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap',
+              border: `1.5px solid ${active ? A.ink : A.line}`,
+              background: active ? A.ink : '#fff',
+              color: active ? '#fff' : A.ink2,
+              transition: 'all 0.15s',
+            }}
+          >
+            {d}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Minificha de socio (strip horizontal "Elegí un destino") ──
+function SocioMiniCard({ socio, promoCount, onOpen }) {
+  const tipo = (socio.subcategoria || socio.type || '').toUpperCase();
+  const ubic = [socio.localidad, socio.zona].filter(Boolean).join(' - ');
+  return (
+    <div
+      onClick={() => onOpen(socio)}
+      style={{ width: 300, flexShrink: 0, cursor: 'pointer', fontFamily: A.font }}
+    >
+      <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', aspectRatio: '1 / 0.92', background: A.bg, border: `1px solid ${A.line}` }}>
+        <img src={socio.image} alt={socio.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 2 }}>
+          <HeartButton id={socio.id} size={34} />
+        </div>
+        {tipo && (
+          <span style={{ position: 'absolute', bottom: 12, left: 12, background: '#fff', color: A.ink, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', padding: '5px 12px', borderRadius: 999 }}>
+            {tipo}
+          </span>
+        )}
+      </div>
+      <div style={{ padding: '12px 2px 0' }}>
+        {ubic && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: A.primary }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {ubic}
+          </div>
+        )}
+        <div style={{ fontSize: 21, fontWeight: 700, color: A.ink, letterSpacing: '-0.01em', margin: '4px 0 10px', lineHeight: 1.15, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          {socio.name}
+        </div>
+        {promoCount > 0 ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: A.primary, color: '#fff', fontSize: 13, fontWeight: 600, padding: '6px 13px', borderRadius: 999 }}>
+            <img src="/ico-disc.svg" alt="" width={14} height={14} style={{ display: 'block', filter: 'brightness(0) invert(1)' }} />
+            {promoCount} promocion{promoCount !== 1 ? 'es' : ''}
+          </span>
+        ) : (
+          <span style={{ display: 'inline-flex', alignItems: 'center', background: A.bg, color: A.muted, fontSize: 13, fontWeight: 500, padding: '6px 13px', borderRadius: 999 }}>
+            Sin promociones vigentes
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [], initialTipo = null, initialExperiencia = null }) {
@@ -195,7 +268,8 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   const [busqueda,    setBusqueda]    = useState('');
   const [drawerOpen,  setDrawerOpen]  = useState(false);
   const [shownCount,  setShownCount]  = useState(10);
-  const [publi,       setPubli]       = useState(null);
+  const [portada,     setPortada]     = useState(null);
+  const [socios,      setSocios]      = useState([]);   // Alojamientos para el strip "Elegí un destino"
   const [buscarPaisOpen, setBuscarPaisOpen] = useState(false);
   const sentinelRef = useRef(null);
   const { addCupon }                  = useCuponera();
@@ -283,14 +357,26 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   // ── Categoría activa (single-select) ─────────────────────────
   const catActiva = tipoAloj ? 'alojamiento' : tipoSalidas ? 'salidas' : tipoExp ? 'aventura_relax' : null;
 
-  // Publicidad de la primera ficha — rota sin repetir por categoría
+  // Portada de la primera ficha — rota sin repetir por categoría
   useEffect(() => {
     let cancel = false;
     (async () => {
       const cat = catActiva || 'general';
-      const lista = await getPublicidades(cat);
+      const lista = await getPortadas(cat);
       if (cancel) return;
-      setPubli(elegirPublicidad(lista, cat));
+      setPortada(elegirPortada(lista, cat));
+    })();
+    return () => { cancel = true; };
+  }, [catActiva]);
+
+  // Socios (alojamientos) para el strip horizontal "Elegí un destino".
+  // Solo se cargan en la vista de alojamiento; incluye negocios sin ofertas vigentes.
+  useEffect(() => {
+    if (catActiva !== 'alojamiento') { setSocios([]); return; }
+    let cancel = false;
+    (async () => {
+      const list = await getAlojamientos();
+      if (!cancel) setSocios(list);
     })();
     return () => { cancel = true; };
   }, [catActiva]);
@@ -360,6 +446,26 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
     // Ofertas impulsadas primero (más visibilidad); el resto conserva su orden.
     .sort((a, b) => (b.impulsoActivo ? 1 : 0) - (a.impulsoActivo ? 1 : 0));
 
+  // ── Promos vigentes por negocio (para el badge de las minifichas) ──
+  const promosPorNegocio = useMemo(() => {
+    const m = {};
+    promos.forEach(p => { if (p.negocioId) m[p.negocioId] = (m[p.negocioId] || 0) + 1; });
+    return m;
+  }, [promos]);
+
+  // ── Socios del strip: mismos filtros del sidebar (destino, tipo, servicios, búsqueda) ──
+  const sociosVisibles = socios.filter(s => {
+    if (busqueda && !(s.name || '').toLowerCase().includes(busqueda.toLowerCase())) return false;
+    if (localidades.length > 0) {
+      const enDestino = localidades.filter(l => l !== '__otros__').includes(s.localidad);
+      const esOtro = localidades.includes('__otros__') && !destinosValidos.includes(s.localidad);
+      if (!enDestino && !esOtro) return false;
+    }
+    if (tiposValidos && !(s.subcategorias || []).some(c => tiposValidos.has(c))) return false;
+    if (tagsRequeridos && !tagsRequeridos.some(t => (s.tags || []).includes(t))) return false;
+    return true;
+  });
+
   const hayOtrosFiltros = subcatPrimaria.size > 0 || subcatSecundaria.size > 0;
   const limpiarFiltros = () => {
     setTipoAloj(false); setTipoGastro(false); setTipoExp(false);
@@ -372,17 +478,23 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   // Infinite scroll
   const filterKey = `${busqueda}|${tipoAloj}|${tipoSalidas}|${tipoExp}|${soloFlash}|${soloGrupales}|${localidades.join()}|${[...subcatPrimaria].join()}|${[...subcatSecundaria].join()}`;
   useEffect(() => { setShownCount(10); }, [filterKey]);
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-    const obs = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) setShownCount(n => n + 10);
-    }, { rootMargin: '200px' });
-    obs.observe(sentinelRef.current);
-    return () => obs.disconnect();
-  }, [sentinelRef.current]);
 
   const visiblesPaged = visibles.slice(0, shownCount);
   const hayMas = shownCount < visibles.length;
+
+  // Observer del sentinel. Se reconstruye en cada carga (dep shownCount): al re-observar,
+  // IntersectionObserver re-evalúa la intersección, así que si el sentinel sigue en pantalla
+  // vuelve a disparar y carga otra tanda hasta llenar el viewport (evita el "loading eterno"
+  // al scrollear rápido). Depender de `hayMas` re-adjunta cuando el sentinel aparece/desaparece.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hayMas) return;
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setShownCount(n => n + 10);
+    }, { rootMargin: '200px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hayMas, shownCount, filterKey]);
 
   // Cols responsive
   const cols = isMobile ? 1 : winW < 1024 ? 2 : 3;
@@ -400,6 +512,48 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
     : catActiva === 'alojamiento'
     ? `Elegí tu alojamiento en ${destinoTexto}`
     : `Ofertas en ${destinoTexto}`;
+
+  // Tab-bar de destinos (single-select) — comparte estado con el sidebar (localidades).
+  const destinoTabActivo = localidades.length === 1 ? localidades[0] : (localidades.length === 0 ? 'Todo' : '');
+  const pickDestinoTab = (d) => setLocalidades(d === 'Todo' ? [] : [d]);
+
+  const searchPlaceholder =
+    catActiva === 'alojamiento'    ? 'Buscar en alojamientos' :
+    catActiva === 'salidas'        ? 'Buscar en salidas' :
+    catActiva === 'aventura_relax' ? 'Buscar en aventura & relax' :
+    'Buscar en ofertas';
+
+  const esAlojamiento = catActiva === 'alojamiento';
+
+  // Elemento del buscador (reutilizado en el header de alojamiento y el genérico).
+  const searchBox = (
+    <div style={{ position: 'relative' }}>
+      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder={searchPlaceholder}
+        style={{ width: isMobile ? 170 : 300, paddingLeft: 16, paddingRight: 42, paddingTop: 12, paddingBottom: 12, border: `1.5px solid ${A.line}`, borderRadius: 14, fontSize: 14, fontFamily: A.font, background: '#fff', color: A.ink, outline: 'none', boxSizing: 'border-box' }}
+        onFocus={e => e.target.style.borderColor = A.primary} onBlur={e => e.target.style.borderColor = A.line}
+      />
+      <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: A.muted, display: 'flex', pointerEvents: 'none' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </span>
+    </div>
+  );
+
+  const filtrosMobileBtn = (
+    <button onClick={() => setDrawerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: hayFiltros ? A.primary : '#fff', color: hayFiltros ? '#fff' : A.ink, border: `1.5px solid ${hayFiltros ? A.primary : A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+      Filtros{hayFiltros ? ` (${[tipoAloj,tipoSalidas,tipoExp,soloFlash,soloGrupales].filter(Boolean).length + localidades.length + subcatPrimaria.size + subcatSecundaria.size})` : ''}
+    </button>
+  );
+
+  // Link "Buscar en el resto del país" (bajo el conteo de ofertas).
+  const buscarPaisLink = (
+    <button
+      onClick={() => setBuscarPaisOpen(true)}
+      style={{ background: 'none', border: 'none', padding: 0, marginLeft: 8, color: A.primary, textDecoration: 'underline', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}
+    >
+      Buscar en el resto del país
+    </button>
+  );
 
   const SidebarContent = (
     <>
@@ -427,6 +581,11 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
             title="Destino"
             onLimpiar={localidades.length > 0 ? () => setLocalidades([]) : null}
           >
+            <CheckRow
+              label="Todos los destinos"
+              checked={localidades.length === 0}
+              onChange={() => setLocalidades([])}
+            />
             {destinosValidos.map(loc => (
               <CheckRow
                 key={loc} label={loc}
@@ -558,44 +717,67 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
 
         {/* Resultados */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Header: título + [filtros mobile] + search */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-            <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: isMobile ? 22 : 30, fontStyle: 'italic', fontWeight: 500, color: A.ink, letterSpacing: '-0.01em', margin: '25px 0 0', lineHeight: 1.2 }}>
-                {tituloPrincipal}
-              </h1>
-              <p style={{ fontSize: 13, color: A.muted, margin: '6px 0 0' }}>
+          {esAlojamiento ? (
+            <>
+              {/* "Elegí un destino" + búsqueda */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, margin: '25px 0 20px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                <h1 style={{ fontSize: isMobile ? 24 : 32, fontStyle: 'italic', fontWeight: 500, color: A.ink, letterSpacing: '-0.01em', margin: 0, lineHeight: 1.2 }}>
+                  Elegí un destino
+                </h1>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                  {isMobile && filtrosMobileBtn}
+                  {searchBox}
+                </div>
+              </div>
+
+              {/* Tabs de destino (en paralelo al sidebar) */}
+              {!loading && destinosValidos.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <DestinoTabs destinos={destinosValidos} value={destinoTabActivo} onPick={pickDestinoTab} />
+                </div>
+              )}
+
+              {/* Strip horizontal de socios */}
+              {sociosVisibles.length > 0 && (
+                <div className="hscroll" style={{ display: 'flex', gap: 20, overflowX: 'auto', paddingBottom: 8, marginBottom: 34, scrollbarWidth: 'none' }}>
+                  {sociosVisibles.map(s => (
+                    <SocioMiniCard
+                      key={s.id} socio={s} promoCount={promosPorNegocio[s.id] || 0}
+                      onOpen={(soc) => onOpenOferta && onOpenOferta({ negocioId: soc.id, categoria: 'alojamiento' })}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Encabezado de las ofertas */}
+              <h2 style={{ fontSize: isMobile ? 22 : 30, fontStyle: 'italic', fontWeight: 500, color: A.ink, letterSpacing: '-0.01em', margin: '0 0 4px', lineHeight: 1.2 }}>
+                Ofertas en alojamientos
+              </h2>
+              <p style={{ fontSize: 13, color: A.muted, margin: '0 0 20px' }}>
                 {loading ? 'Cargando...' : (
-                  <>
-                    {visibles.length} oferta{visibles.length !== 1 ? 's' : ''} disponible{visibles.length !== 1 ? 's' : ''}
-                    <button
-                      onClick={() => setBuscarPaisOpen(true)}
-                      style={{ background: 'none', border: 'none', padding: 0, marginLeft: 8, color: A.primary, textDecoration: 'underline', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}
-                    >
-                      Buscar en el resto del país
-                    </button>
-                  </>
+                  <>{visibles.length} oferta{visibles.length !== 1 ? 's' : ''} disponible{visibles.length !== 1 ? 's' : ''}{buscarPaisLink}</>
                 )}
               </p>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-              {isMobile && (
-                <button onClick={() => setDrawerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: hayFiltros ? A.primary : '#fff', color: hayFiltros ? '#fff' : A.ink, border: `1.5px solid ${hayFiltros ? A.primary : A.line}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-                  Filtros{hayFiltros ? ` (${[tipoAloj,tipoSalidas,tipoExp,soloFlash,soloGrupales].filter(Boolean).length + localidades.length + subcatPrimaria.size + subcatSecundaria.size})` : ''}
-                </button>
-              )}
-              <div style={{ position: 'relative', marginTop: 25 }}>
-                <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar en ofertas"
-                  style={{ width: isMobile ? 170 : 260, paddingLeft: 14, paddingRight: 40, paddingTop: 10, paddingBottom: 10, border: `1.5px solid ${A.line}`, borderRadius: 12, fontSize: 14, fontFamily: A.font, background: '#fff', color: A.ink, outline: 'none', boxSizing: 'border-box' }}
-                  onFocus={e => e.target.style.borderColor = A.primary} onBlur={e => e.target.style.borderColor = A.line}
-                />
-                <span style={{ position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)', color: A.muted, display: 'flex', pointerEvents: 'none' }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                </span>
+            </>
+          ) : (
+            /* Header genérico (salidas, aventura & relax, o sin categoría) */
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+              <div style={{ flex: 1 }}>
+                <h1 style={{ fontSize: isMobile ? 22 : 30, fontStyle: 'italic', fontWeight: 500, color: A.ink, letterSpacing: '-0.01em', margin: '25px 0 0', lineHeight: 1.2 }}>
+                  {tituloPrincipal}
+                </h1>
+                <p style={{ fontSize: 13, color: A.muted, margin: '6px 0 0' }}>
+                  {loading ? 'Cargando...' : (
+                    <>{visibles.length} oferta{visibles.length !== 1 ? 's' : ''} disponible{visibles.length !== 1 ? 's' : ''}{buscarPaisLink}</>
+                  )}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginTop: 25 }}>
+                {isMobile && filtrosMobileBtn}
+                {searchBox}
               </div>
             </div>
-          </div>
+          )}
 
           {loading ? (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
@@ -608,7 +790,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
-              {publi && <PubliCard key="publi" publi={publi} />}
+              {portada && <PortadaCard key="portada" portada={portada} />}
               {visiblesPaged.map(promo => (
                 <OfertaCard key={promo.id} promo={promo} onAddToCuponera={addCupon} onOpen={onOpenOferta} />
               ))}
@@ -621,7 +803,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
               <div style={{ width: 28, height: 28, border: `3px solid ${A.line}`, borderTopColor: A.primary, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
             </div>
           )}
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } } .hscroll::-webkit-scrollbar { display: none; }`}</style>
         </div>
       </div>
     </div>

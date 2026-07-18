@@ -503,6 +503,7 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
             onSkip={step3Continuar}
             onVolver={irAtras}
             negocioId={negocioId}
+            negocioTipo={perfil.tipo}
             plan={plan || 'free'}
             showToast={showToast}
             saldoTokens={saldoCreditos}

@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, CheckCircle2, Users } from 'lucide-react';
+import { X, Plus, Trash2, CheckCircle2, Users, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { calcularPrecioCupon, CREDITO_TOTAL } from '../lib/cobros';
 import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
@@ -52,6 +52,10 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
     return [...prev, { min_pax: desde, max_pax: desde + 1, discount_pct: (Number(ult?.discount_pct) || 0) + 5 }];
   });
   const eliminarTramo = (i) => setTramos(prev => prev.filter((_, idx) => idx !== i));
+
+  // ── Stock / límite físico de canjes ──
+  const [tieneStock, setTieneStock] = useState(oferta?.tiene_stock || false);
+  const [stockMax, setStockMax]     = useState(oferta?.stock_maximo ?? 50);
 
   // Alianzas: array de { negocio_id, nombre, beneficio_mejorado }
   const [alianzas, setAlianzas]         = useState([]);
@@ -145,6 +149,10 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
       activa:          false,
       aprobada:        false,
       // Cupón grupal
+      // Stock / límite físico
+      tiene_stock:     tieneStock,
+      stock_maximo:    tieneStock ? Number(stockMax) : null,
+      stock_restante:  tieneStock ? (oferta?.stock_restante ?? Number(stockMax)) : null,
       is_group:        esGrupal,
       group_min_pax:   esGrupal ? Number(grupo.group_min_pax) : null,
       group_max_pax:   esGrupal ? Number(grupo.group_max_pax) : null,
@@ -307,6 +315,31 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
               />
               <p className="text-slate-400 text-xs font-medium mt-1">Sin fecha: se desactiva automáticamente a los 45 días de aprobarse.</p>
             </div>
+          </section>
+
+          {/* Stock / límite físico */}
+          <section className="space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer p-4 rounded-2xl border border-slate-200 bg-slate-50/60">
+              <input type="checkbox" checked={tieneStock} onChange={e => setTieneStock(e.target.checked)}
+                className="mt-0.5 w-5 h-5 accent-amber-500 cursor-pointer" />
+              <span>
+                <span className="flex items-center gap-2 font-black text-slate-900 text-sm">
+                  <Package size={16} className="text-amber-500" /> ¿Tiene stock o límite físico?
+                </span>
+                <span className="block text-slate-500 text-xs font-medium mt-0.5">
+                  Activalo si hay una cantidad limitada de canjes disponibles.
+                </span>
+              </span>
+            </label>
+
+            {tieneStock && (
+              <div className="pl-1">
+                <label className="block text-xs font-black text-slate-500 mb-1.5">Cantidad máxima de canjes</label>
+                <input type="number" min={1} value={stockMax} onChange={e => setStockMax(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400" />
+                <p className="text-slate-400 text-xs font-medium mt-1">Por defecto 50. Cuando queden pocos, se destaca en la tarjeta del cupón.</p>
+              </div>
+            )}
           </section>
 
           {/* Cupón grupal */}

@@ -53,7 +53,7 @@ function AppContent() {
   const [ofertasExperienciaInicial, setOfertasExperienciaInicial] = useState(null);
   const [gastroCategoria,   setGastroCategoria]   = useState('');
   const [gastroAventura,    setGastroAventura]    = useState('');
-  const [gastroInitialTipos, setGastroInitialTipos] = useState(null);
+  const [gastroFoco,        setGastroFoco]        = useState(null);
   const [gastroModoAventura, setGastroModoAventura] = useState(false);
   const [gastroNavKey,      setGastroNavKey]      = useState(0);
   const [salidasModoRanking, setSalidasModoRanking] = useState(false);
@@ -68,6 +68,10 @@ function AppContent() {
   const [salidas, setSalidas]   = useState([]);
   const [aventura, setAventura] = useState([]);
   const [loginInitialTab, setLoginInitialTab] = useState('ingresar');
+  // El login se disparó porque un visitante quiso agregar un cupón a su cuponera.
+  // Al volver logueado lo mandamos a home (no al panel) y dejamos que la cuponera
+  // reinyecte el cupón + muestre el aviso, sin interrumpir con el wizard.
+  const [cuponLoginPending, setCuponLoginPending] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -120,10 +124,13 @@ function AppContent() {
   };
 
   const handleOpenOferta = async (oferta) => {
-    if (oferta?.categoria === 'alojamiento' && oferta?.negocioId) {
+    // Un cupón abre la ficha del socio (igual para todas las categorías, no sólo
+    // alojamiento). Así gastronomía y aventura & relax muestran la misma vista de
+    // socio/promociones que los alojamientos, en lugar de la vista de oferta suelta.
+    if (oferta?.negocioId) {
       let neg = alojamientos.find(a => String(a.id) === String(oferta.negocioId));
       if (!neg) neg = await getNegocioById(oferta.negocioId);
-      if (neg) { handleOpenDetail(neg, 'alojamiento'); return; }
+      if (neg) { handleOpenDetail(neg, oferta.categoria || undefined); return; }
     }
     setSelectedOferta(oferta);
     setView('oferta-detail');
@@ -192,6 +199,9 @@ function AppContent() {
     setSession(s); setPerfil(p);
     setView('home');
     window.scrollTo(0, 0);
+    // Si venía de agregar un cupón, la cuponera abre su drawer + aviso: no
+    // encimamos el wizard de bienvenida.
+    if (cuponLoginPending) { setCuponLoginPending(false); return; }
     setTuristaWizardOpen(true);
   };
 
@@ -199,6 +209,12 @@ function AppContent() {
     const s = await getSession();
     const p = await getPerfil();
     setSession(s); setPerfil(p);
+    if (cuponLoginPending) {
+      setCuponLoginPending(false);
+      setView('home');
+      window.scrollTo(0, 0);
+      return;
+    }
     setView(p?.es_superadmin ? 'superadmin' : 'admin');
   };
 
@@ -228,7 +244,7 @@ function AppContent() {
   return (
     <SesionProvider perfil={perfil}>
     <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
-    <CuponeraProvider session={session} onLoginRequired={() => setView('login')} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
+    <CuponeraProvider session={session} onLoginRequired={() => { setCuponLoginPending(true); setLoginInitialTab('registrarse'); setView('login'); window.scrollTo(0, 0); }} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
       {/* Loading global — se activa con showLoading() desde cualquier vista */}
       {isLoading && <LoadingScreen />}
 
@@ -285,7 +301,7 @@ function AppContent() {
               if (targetView === 'salidas') {
                 setSalidasModoRanking(false);
                 setGastroModoAventura(false);
-                setGastroInitialTipos(null);
+                setGastroFoco(null);
                 setGastroNavKey(k => k + 1);
               }
               setView(targetView);
@@ -301,7 +317,7 @@ function AppContent() {
               dining={salidas}
               aventura={aventura}
               onOpenDetail={handleOpenDetail}
-              onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setOfertasTipoInicial(null); setView('ofertas'); } window.scrollTo(0, 0); }}
+              onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroModoAventura(false); setGastroFoco(null); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setOfertasTipoInicial(null); setView('ofertas'); } window.scrollTo(0, 0); }}
               onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
               onVerMarketplace={(destino) => {
                 setOfertasCategoria(null);
@@ -315,34 +331,26 @@ function AppContent() {
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
               onNavMarketplaceTipo={(filtro) => { setMarketplaceTipo(filtro || 'todos'); setView('marketplace'); window.scrollTo(0, 0); }}
               onNavCuponear={(target) => {
-                const TIEMPOS_EXPERIENCIA = ['Excursion', 'Actividad', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'];
-                const TIEMPOS_MIMO = ['Spa', 'Yoga / Bienestar', 'Masajes a domicilio'];
+                // Entramos SIEMPRE al listado con los filtros vacíos (inclusive):
+                // se muestra todo el universo del bucket y el usuario acota con
+                // los filtros de la izquierda (localidad, etc.). `foco` sólo define
+                // qué grupo de filtros y qué título mostrar — nunca pre-tilda nada.
                 if (target === 'alojamientos') {
                   setOfertasCategoria('alojamiento');
                   setOfertasTipoInicial(null);
                   setView('ofertas');
-                } else if (target === 'comer') {
+                } else if (target === 'comer' || target === 'compras') {
                   setSalidasModoRanking(false);
                   setGastroModoAventura(false);
-                  setGastroInitialTipos(null);
+                  setGastroCategoria(''); setGastroAventura('');
+                  setGastroFoco(target === 'compras' ? 'compras' : null);
                   setGastroNavKey(k => k + 1);
                   setView('salidas');
-                } else if (target === 'compras') {
-                  setSalidasModoRanking(false);
-                  setGastroModoAventura(false);
-                  setGastroInitialTipos(['Compras']);
-                  setGastroNavKey(k => k + 1);
-                  setView('salidas');
-                } else if (target === 'experiencia') {
+                } else if (target === 'experiencia' || target === 'mimo') {
                   setSalidasModoRanking(false);
                   setGastroModoAventura(true);
-                  setGastroInitialTipos(TIEMPOS_EXPERIENCIA);
-                  setGastroNavKey(k => k + 1);
-                  setView('salidas');
-                } else if (target === 'mimo') {
-                  setSalidasModoRanking(false);
-                  setGastroModoAventura(true);
-                  setGastroInitialTipos(TIEMPOS_MIMO);
+                  setGastroCategoria(''); setGastroAventura('');
+                  setGastroFoco(target);
                   setGastroNavKey(k => k + 1);
                   setView('salidas');
                 }
@@ -485,14 +493,16 @@ function AppContent() {
           {view === 'salidas' && (
             <GastronomyView
               key={gastroNavKey}
-              onBack={() => { setGastroCategoria(''); setGastroAventura(''); setGastroInitialTipos(null); setGastroModoAventura(false); setView('home'); }}
+              onBack={() => { setGastroCategoria(''); setGastroAventura(''); setGastroFoco(null); setGastroModoAventura(false); setView('home'); }}
               session={session}
               onLoginClick={() => setView('login')}
               onOpenDetail={handleOpenDetail}
+              onOpenOferta={handleOpenOferta}
               onVerOfertas={() => { setOfertasCategoria(null); setOfertasTipoInicial(null); setView('ofertas'); window.scrollTo(0,0); }}
+              onVerRanking={() => { setSalidasModoRanking(true); window.scrollTo(0, 0); }}
               initialCategoria={gastroCategoria}
               initialAventura={gastroAventura}
-              initialTipos={gastroInitialTipos}
+              foco={gastroFoco}
               modoAventura={gastroModoAventura}
               modoRanking={salidasModoRanking}
             />

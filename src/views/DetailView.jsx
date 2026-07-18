@@ -1434,27 +1434,27 @@ function AlojamientoGallery({ item, plan }) {
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px', gap: 8, height: 400, marginTop: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px', gap: 8, height: 400, marginTop: 20, overflow: 'hidden' }}>
         {/* Foto principal */}
-        <div className="rounded-2xl overflow-hidden cursor-pointer" onClick={() => setLight(0)}>
-          <img src={main} alt={item.name} className="w-full h-full object-cover" />
+        <div className="rounded-2xl overflow-hidden cursor-pointer" style={{ minHeight: 0, minWidth: 0 }} onClick={() => setLight(0)}>
+          <img src={main} alt={item.name} className="object-cover" style={{ width: '100%', height: '100%', display: 'block' }} />
         </div>
 
         {/* Columna 3 thumbs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0, overflow: 'hidden' }}>
           {thumbs.map((src, i) => {
             const isLast = i === 2 && extra > 0;
             return (
               <div
                 key={i}
                 className="rounded-xl overflow-hidden relative cursor-pointer"
-                style={{ flex: 1 }}
+                style={{ flex: 1, minHeight: 0 }}
                 onClick={() => setLight(Math.min(i + 1, fotos.length - 1))}
               >
                 <img
                   src={src} alt=""
-                  className="w-full h-full object-cover"
-                  style={{ filter: isLast ? 'brightness(0.42)' : 'none' }}
+                  className="object-cover"
+                  style={{ width: '100%', height: '100%', display: 'block', filter: isLast ? 'brightness(0.42)' : 'none' }}
                 />
                 {isLast && (
                   <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-sm pointer-events-none">
@@ -1705,10 +1705,12 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
 // ═══════════════════════════════════════════════════════════
 //  OfertasPropiasCard — ofertas del alojamiento con paginador
 // ═══════════════════════════════════════════════════════════
-function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }) {
+function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, sinSolicitud = false }) {
   const mostrarCreditos = useMostrarCreditos();
+  const { addCupon } = useCuponera();
   const _b = busqueda.get();
   const [idx, setIdx]           = useState(0);
+  const [added, setAdded]       = useState(false);
   const [fechas, setFechas]     = useState(() => ({ desde: _b.desde, hasta: _b.hasta }));
   const [adultos,  setAdultos]  = useState(2);
   const [ninos,    setNinos]    = useState(0);
@@ -1718,6 +1720,9 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
   const [exito, setExito]       = useState(false);
   const [formError, setFormError] = useState('');
   const touchStartX = useRef(null);
+  // Al cambiar de promo en el carrusel, volver a estado "Agregar" (modo cuponera).
+  // Debe ir ANTES de cualquier return temprano para no romper el orden de hooks.
+  useEffect(() => { setAdded(false); }, [idx]);
   if (!promos.length) return null;
 
   // Hasta 5 ofertas ACTIVAS visibles (puede tener ilimitadas publicadas)
@@ -1727,6 +1732,9 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
   const total   = activos.length;
   const isFlash = p.offerType === 'Flash';
   const creditos = creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
+  // ¿Este cupón pide reserva previa? Lo decide el socio por oferta (requiereReserva).
+  // Fallback al prop `sinSolicitud` para datos sin el flag (compat).
+  const pedirReserva = p.requiereReserva != null ? p.requiereReserva : !sinSolicitud;
 
   const prev = () => setIdx(i => (i - 1 + total) % total);
   const next = () => setIdx(i => (i + 1) % total);
@@ -1835,7 +1843,37 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar }
 
       {/* Contenido */}
       <div style={{ padding: '14px 16px' }}>
-        {exito ? (
+        {!pedirReserva ? (
+          /* Modo cuponera: sin solicitud de fechas, se agrega directo a la cuponera */
+          <>
+            <button
+              onClick={() => { addCupon(p); setAdded(true); }}
+              style={{ width: '100%', padding: '11px 0', borderRadius: 10, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: added ? C.green : C.primary, transition: 'background 0.2s' }}
+              onMouseEnter={e => { if (!added) e.currentTarget.style.background = C.primaryDark; }}
+              onMouseLeave={e => { if (!added) e.currentTarget.style.background = C.primary; }}
+            >
+              {added
+                ? <><Check size={15} strokeWidth={2.5} /> Agregado a tu cuponera</>
+                : <><Ticket size={15} /> Agregar a cuponera</>}
+            </button>
+            {/* Activalo con — debajo del CTA, una sola fila centrada */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
+              {mostrarCreditos ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                    <CoinSVG size={12} />
+                    <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: C.muted }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
+                  <CreditTooltip />
+                </>
+              ) : (
+                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
+              )}
+            </div>
+          </>
+        ) : exito ? (
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#EDFAF4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
               <Check size={22} color={C.green} />
@@ -2113,6 +2151,102 @@ function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  Normalizador de alianza (para "Más cupones")
+// ═══════════════════════════════════════════════════════════
+function normAlianzaItem(al) {
+  if (al.promociones) {
+    const p = al.promociones;
+    return {
+      ...p,
+      title: p.titulo || '',
+      image: p.imagen_url || '',
+      badge: p.badge || '',
+      proveedorNombre: p.negocios?.nombre || '',
+      negocioLocalidad: p.negocios?.localidad || '',
+      ahorroEstimado: p.ahorro_estimado || 0,
+      ahorroMax: p.ahorro_max || null,
+      tokens_costo: p.tokens_costo,
+    };
+  }
+  if (al.promo) return { ...al.promo };
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ZonaDescuentosSection — mapa interactivo "Otros descuentos"
+//  Compartida entre alojamiento y gastro/experiencia.
+// ═══════════════════════════════════════════════════════════
+function ZonaDescuentosSection({ item, promosLocalidad = [], onAddCupon, onOpenOferta, onOpenLocalidad }) {
+  if (!promosLocalidad.length) return null;
+  return (
+    <section style={{ background: '#fff', borderTop: `1px solid ${C.line}`, paddingTop: 56, paddingBottom: 56 }}>
+      <div className="max-w-[1328px] mx-auto px-10">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src="/ico-location.svg" alt="" style={{ width: 30, height: 30, filter: 'invert(36%) sepia(97%) saturate(600%) hue-rotate(205deg) brightness(90%)' }} />
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>Otros descuentos en la zona</h2>
+          </div>
+          {onOpenLocalidad && item.localidad && (
+            <button
+              onClick={() => onOpenLocalidad(item.localidad)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.primary, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
+            >
+              Ver todas <ChevronRight size={14} />
+            </button>
+          )}
+        </div>
+        <ZonaMap
+          item={item}
+          promos={promosLocalidad}
+          onAddCupon={onAddCupon}
+          onOpenOferta={onOpenOferta}
+        />
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MasCuponesSection — fila "¡Más cupones agregás…!"
+//  Última sección antes del footer. Compartida.
+// ═══════════════════════════════════════════════════════════
+function MasCuponesSection({ alianzasNorm = [], promosLocalidad = [], onAddCupon, onOpenOferta, sectionRef }) {
+  // Combinar alianzas + promos de localidad (no-alojamiento), sin duplicados
+  const seen = new Set();
+  const miniPromos = [...alianzasNorm, ...promosLocalidad].filter(p => {
+    const key = String(p.id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return p.categoria !== 'alojamiento';
+  });
+  if (!miniPromos.length) return null;
+  return (
+    <section ref={sectionRef} style={{ background: C.bg, borderTop: `1px solid ${C.line}`, paddingTop: 48, paddingBottom: 48 }}>
+      <div className="max-w-[1328px] mx-auto">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, paddingLeft: 40, paddingRight: 40 }}>
+          <img src="/ico-disc.svg" alt="" style={{ width: 30, height: 30 }} />
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: 0 }}>
+            ¡Más cupones agregás, más beneficios para vos!
+          </h2>
+        </div>
+        {/* Fila horizontal scrolleable con fade derecho */}
+        <div style={{ position: 'relative' }}>
+          <div style={{ overflowX: 'auto', paddingLeft: 40, paddingBottom: 8 }} className="no-scrollbar">
+            <div style={{ display: 'flex', gap: 14, width: 'max-content', paddingRight: 40 }}>
+              {miniPromos.map((p, i) => (
+                <MiniPromoCard key={p.id || i} promo={p} onAdd={() => onAddCupon(p)} onOpenOferta={onOpenOferta} />
+              ))}
+            </div>
+          </div>
+          {/* Fade derecho */}
+          <div style={{ position: 'absolute', top: 0, right: 0, bottom: 8, width: 120, background: `linear-gradient(to right, transparent, ${C.bg})`, pointerEvents: 'none', zIndex: 2 }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 //  AlojamientoDetail (main two-col + sections below)
 // ═══════════════════════════════════════════════════════════
 function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad, session, onLoginRequired }) {
@@ -2225,69 +2359,24 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
         </div>
       </div>
 
-      {/* ── Más cupones ───────────────────────────────────────── */}
-      {!loading && (alianzasNorm.length > 0 || promosLocalidad.length > 0) && (() => {
-        // Combinar alianzas + promos de localidad (no-alojamiento), sin duplicados
-        const seen = new Set();
-        const miniPromos = [...alianzasNorm, ...promosLocalidad].filter(p => {
-          const key = String(p.id);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return p.categoria !== 'alojamiento';
-        });
-        if (!miniPromos.length) return null;
-        return (
-          <section ref={cuponeraSectionRef} style={{ background: C.bg, borderTop: `1px solid ${C.line}`, paddingTop: 48, paddingBottom: 48 }}>
-            <div className="max-w-[1328px] mx-auto">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, paddingLeft: 40, paddingRight: 40 }}>
-                <img src="/ico-disc.svg" alt="" style={{ width: 30, height: 30 }} />
-                <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: 0 }}>
-                  ¡Más cupones agregás, más beneficios para vos!
-                </h2>
-              </div>
-              {/* Fila horizontal scrolleable con fade derecho */}
-              <div style={{ position: 'relative' }}>
-                <div style={{ overflowX: 'auto', paddingLeft: 40, paddingBottom: 8 }} className="no-scrollbar">
-                  <div style={{ display: 'flex', gap: 14, width: 'max-content', paddingRight: 40 }}>
-                    {miniPromos.map((p, i) => (
-                      <MiniPromoCard key={p.id || i} promo={p} onAdd={() => addCupon(p)} onOpenOferta={onOpenOferta} />
-                    ))}
-                  </div>
-                </div>
-                {/* Fade derecho */}
-                <div style={{ position: 'absolute', top: 0, right: 0, bottom: 8, width: 120, background: `linear-gradient(to right, transparent, ${C.bg})`, pointerEvents: 'none', zIndex: 2 }} />
-              </div>
-            </div>
-          </section>
-        );
-      })()}
+      {/* ── Otros descuentos en la zona — mapa interactivo (antes de "Más cupones") ── */}
+      <ZonaDescuentosSection
+        item={item}
+        promosLocalidad={promosLocalidad}
+        onAddCupon={addCupon}
+        onOpenOferta={onOpenOferta}
+        onOpenLocalidad={onOpenLocalidad}
+      />
 
-      {/* ── Más descuentos en la zona — mapa interactivo ─────── */}
-      {promosLocalidad.length > 0 && (
-        <section style={{ background: '#fff', borderTop: `1px solid ${C.line}`, paddingTop: 56, paddingBottom: 56 }}>
-          <div className="max-w-[1328px] mx-auto px-10">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img src="/ico-location.svg" alt="" style={{ width: 30, height: 30, filter: 'invert(36%) sepia(97%) saturate(600%) hue-rotate(205deg) brightness(90%)' }} />
-                <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>Otros descuentos en la zona</h2>
-              </div>
-              {onOpenLocalidad && item.localidad && (
-                <button
-                  onClick={() => onOpenLocalidad(item.localidad)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.primary, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
-                >
-                  Ver todas <ChevronRight size={14} />
-                </button>
-              )}
-            </div>
-            <ZonaMap
-              item={item}
-              promos={promosLocalidad}
-              onAddCupon={addCupon}
-              onOpenOferta={onOpenOferta}
-            />
-          </div>
-        </section>
+      {/* ── Más cupones — última sección antes del footer ── */}
+      {!loading && (
+        <MasCuponesSection
+          alianzasNorm={alianzasNorm}
+          promosLocalidad={promosLocalidad}
+          onAddCupon={addCupon}
+          onOpenOferta={onOpenOferta}
+          sectionRef={cuponeraSectionRef}
+        />
       )}
 
       {/* Modal de solicitud de reserva */}
@@ -2382,8 +2471,10 @@ function GastroPromoItem({ promo: p, onOpenOferta, onAdd }) {
 // ═══════════════════════════════════════════════════════════
 //  GastroExperienciaDetail — ficha de socio (info + promos)
 // ═══════════════════════════════════════════════════════════
-function GastroExperienciaDetail({ item, tipo, promos = [], onOpenOferta }) {
+function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promosLocalidad = [], loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired }) {
   const { addCupon } = useCuponera();
+  const plan = item.plan || 'PLUS';
+  const alianzasNorm = alianzas.map(normAlianzaItem).filter(Boolean);
   const category  = item.category || item.type || '';
   const pinColor  = TIPO_COLORS[category] || C.muted;
   const isGastro  = tipo === 'salidas';
@@ -2419,14 +2510,46 @@ function GastroExperienciaDetail({ item, tipo, promos = [], onOpenOferta }) {
 
   return (
     <>
-      <div className="max-w-[1328px] mx-auto px-10 py-10">
-        {/* Ficha de socio: dos columnas fijas, igual que alojamiento — la sidebar de
-            la derecha queda sticky con promociones (o el aviso de que no hay) y,
-            si está cargado, el horario. Todo lo demás vive en la columna izquierda. */}
-        <div className="grid gap-12 items-start" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
+      <div className="max-w-[1328px] mx-auto px-10">
 
-          {/* LEFT — info del lugar */}
+        {/* ── Título + acciones (igual que alojamiento) ────── */}
+        <div style={{ paddingTop: 20 }}>
+          <div className="flex justify-between items-start gap-6">
+            <div>
+              <div className="flex items-baseline gap-4 flex-wrap mb-1">
+                <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-tight m-0" style={{ color: C.ink }}>{item.name}</h1>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 15, flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                    <path fill="#ffffff" stroke="#415ce8" strokeWidth="1" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
+                    <path d="M9 12l2 2 4-4" stroke="#415ce8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span style={{ fontSize: 13, fontWeight: 400, color: '#415ce8', fontStyle: 'italic' }}>Socio verificado</span>
+                </span>
+              </div>
+              <LiveSocialProof negocioId={item.id} tipo={tipo} />
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <SeguirOfertasBtn negocioId={item.id} session={session} onLoginRequired={onLoginRequired} />
+              <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                <Heart size={15} /> Guardar
+              </button>
+              <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+                style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
+                <Share2 size={15} /> Compartir
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Grid dos columnas (igual que alojamiento) ────── */}
+        <div className="grid gap-12 items-start py-6" style={{ gridTemplateColumns: '1.65fr 1fr' }}>
+
+          {/* LEFT — galería + info del lugar */}
           <div>
+            <AlojamientoGallery item={item} plan={plan} />
+
+            <div style={{ marginTop: 36 }}>
             <h2 className="text-lg font-bold mb-2.5" style={{ color: C.ink }}>
               {isGastro ? 'Sobre el lugar' : 'Descripción de la experiencia'}
             </h2>
@@ -2487,29 +2610,33 @@ function GastroExperienciaDetail({ item, tipo, promos = [], onOpenOferta }) {
                 </div>
               )}
             </div>
+            </div>{/* end marginTop wrapper */}
           </div>
 
           {/* RIGHT — sidebar sticky: promociones (siempre) + horario (si está cargado) */}
           <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 18px 4px' }}>
-                <img src="/ico-disc.svg" style={{ width: 32, height: 42, objectFit: 'contain' }} alt="" />
-                <span style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>Promociones</span>
-              </div>
-              {promosVisibles.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16 }}>
-                  {promosVisibles.slice(0, 5).map((p, i) => (
-                    <GastroPromoItem key={p.id || i} promo={p} onOpenOferta={onOpenOferta} onAdd={addCupon} />
-                  ))}
+            {promosVisibles.length > 0 ? (
+              /* Misma tarjeta que alojamiento, pero sin la solicitud de fechas: se agrega directo a la cuponera */
+              <OfertasPropiasCard
+                promos={promosVisibles}
+                item={item}
+                session={session}
+                onOpenOferta={onOpenOferta}
+                sinSolicitud
+              />
+            ) : (
+              <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 18px 4px' }}>
+                  <img src="/ico-disc.svg" style={{ width: 32, height: 42, objectFit: 'contain' }} alt="" />
+                  <span style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>Promociones</span>
                 </div>
-              ) : (
                 <div style={{ padding: '20px 18px 22px', textAlign: 'center' }}>
                   <p className="text-[13px]" style={{ color: C.muted, lineHeight: 1.5, margin: 0 }}>
                     Este establecimiento no cuenta con cupones disponibles.
                   </p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {item.horario && (
               <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 18 }}>
@@ -2522,32 +2649,30 @@ function GastroExperienciaDetail({ item, tipo, promos = [], onOpenOferta }) {
                 </p>
               </div>
             )}
+
+            <MiCuponeraPanel />
           </div>
         </div>
       </div>
 
-      {/* Mapa section */}
-      <section className="py-16 bg-white" style={{ borderTop: `1px solid ${C.line}` }}>
-        <div className="max-w-[1328px] mx-auto px-10">
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest mb-3" style={{ color: C.primary }}>
-            <MapPin size={11} /> Ubicación
-          </div>
-          <h2 className="text-4xl font-extrabold tracking-tight mb-2" style={{ color: C.ink }}>Dónde queda</h2>
-          <p className="text-[15px] mb-6" style={{ color: C.muted }}>
-            En {item.localidad || 'Villa Gesell'}, Buenos Aires.
-          </p>
-          <BarrioMap item={item} plan="PLUS" />
-          {!(item.tieneLocalFisico && item.address) && (
-            <div className="mt-3 flex items-center gap-2.5 px-4 py-3 rounded-xl" style={{ background: C.bg, border: `1px solid ${C.line}`, maxWidth: 460 }}>
-              <Lock size={14} color={C.muted} />
-              <div>
-                <div className="text-[13px] font-semibold" style={{ color: C.ink }}>Dirección exacta</div>
-                <div className="text-[12px]" style={{ color: C.muted }}>Registrate gratis para ver la dirección exacta y cómo llegar.</div>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* ── Otros descuentos en la zona — mapa interactivo (antes de "Más cupones") ── */}
+      <ZonaDescuentosSection
+        item={item}
+        promosLocalidad={promosLocalidad}
+        onAddCupon={addCupon}
+        onOpenOferta={onOpenOferta}
+        onOpenLocalidad={onOpenLocalidad}
+      />
+
+      {/* ── Más cupones — última sección antes del footer ── */}
+      {!loading && (
+        <MasCuponesSection
+          alianzasNorm={alianzasNorm}
+          promosLocalidad={promosLocalidad}
+          onAddCupon={addCupon}
+          onOpenOferta={onOpenOferta}
+        />
+      )}
     </>
   );
 }
@@ -2672,39 +2797,6 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
           )}
         </nav>
 
-        {/* Title + Gallery — solo para gastronomía y experiencia */}
-        {tipo !== 'alojamiento' && (
-          <div style={{ paddingTop: 20 }}>
-            <div className="flex justify-between items-start gap-6">
-              <div>
-                <div className="flex items-baseline gap-4 flex-wrap mb-1">
-                  <h1 className="text-[42px] font-extrabold leading-[1.05] tracking-tight m-0" style={{ color: C.ink }}>{item.name}</h1>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 15, flexShrink: 0 }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                      <path fill="#ffffff" stroke="#415ce8" strokeWidth="1" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
-                      <path d="M9 12l2 2 4-4" stroke="#415ce8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span style={{ fontSize: 13, fontWeight: 400, color: '#415ce8', fontStyle: 'italic' }}>Socio verificado</span>
-                  </span>
-                </div>
-                <LiveSocialProof negocioId={item.id} tipo={tipo} />
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <SeguirOfertasBtn negocioId={item.id} session={session} onLoginRequired={onLoginRequired} />
-                <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
-                  style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
-                  <Heart size={15} /> Guardar
-                </button>
-                <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
-                  style={{ background: '#fff', border: `1px solid ${C.line}`, color: C.ink }}>
-                  <Share2 size={15} /> Compartir
-                </button>
-              </div>
-            </div>
-            <Gallery item={item} plan={plan} />
-          </div>
-        )}
-
       </div>{/* end max-w wrapper */}
 
       {/* Body */}
@@ -2722,7 +2814,7 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
           onLoginRequired={onLoginRequired}
         />
       ) : (
-        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} session={session} onOpenOferta={onOpenOferta} onLoginRequired={onLoginRequired} />
+        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} alianzas={alianzas} promosLocalidad={promosLocalidad} loading={loading} session={session} onOpenOferta={onOpenOferta} onOpenLocalidad={onOpenLocalidad} onLoginRequired={onLoginRequired} />
       )}
 
       {/* Drawer */}

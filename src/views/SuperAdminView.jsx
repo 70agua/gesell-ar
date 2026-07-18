@@ -1,15 +1,15 @@
 // ============================================================
 //  src/views/SuperAdminView.jsx  —  Aire design (AdminA)
 // ============================================================
-import React, { useState, useEffect } from 'react';
-import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Calendar, List, LayoutGrid, BarChart2, Settings, Lock, Trash2, RefreshCw, Plus, Check, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Calendar, List, LayoutGrid, BarChart2, Settings, Lock, Trash2, RefreshCw, Plus, Check, Search, Upload, Link2 } from 'lucide-react';
 import { TabOfertas as SocioOfertasEditor } from './AdminNegocioView';
 import { CoinSVG } from '../components/Token';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { descontarToken, debeUsarTokens, CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
 import { getPlanesConfig, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
-import { PUBLI_CATEGORIAS, listarPublicidadesAdmin, crearPublicidad, actualizarPublicidad, eliminarPublicidad } from '../lib/publicidad';
+import { PORTADA_CATEGORIAS, listarPortadasAdmin, crearPortada, actualizarPortada, eliminarPortada } from '../lib/portadas';
 import { getDemandaDestinos } from '../lib/demanda';
 import { categoriaDeNegocio, normalizePromo } from '../lib/datos';
 import OfertaCard from '../components/OfertaCard';
@@ -57,10 +57,9 @@ const TABS = [
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'estadisticas', label: 'Estadísticas y ventas' },
   { id: 'consultas', label: 'Consultas' },
-  { id: 'ajustes',   label: 'Ajustes generales', sep: true, sub: [
+  { id: 'ajustes',   label: 'General', sep: true, sub: [
     { id: 'contenidos', label: 'Contenidos dinámicos' },
-    { id: 'usuarios', label: 'Usuarios' },
-    { id: 'config', label: 'Permisos' }
+    { id: 'imagenes', label: 'Imágenes de socios' },
   ] },
 ];
 
@@ -82,8 +81,26 @@ function ABtn({ onClick, children, variant = 'ghost', style: extStyle = {} }) {
   return <button onClick={onClick} style={{ ...base, ...variants[variant], ...extStyle }}>{children}</button>;
 }
 
+// Tab-bar de píldoras para navegación interna de una pantalla.
+function PillTabs({ tabs, value, onChange }) {
+  return (
+    <div style={{ display:'inline-flex', gap:4, background:A.bg, border:`1px solid ${A.line}`, borderRadius:12, padding:4 }}>
+      {tabs.map(t => (
+        <button key={t.id} onClick={() => onChange(t.id)} style={{
+          padding:'8px 16px', borderRadius:9, border:'none', cursor:'pointer',
+          fontFamily:A.font, fontSize:13, fontWeight:600,
+          background: value === t.id ? '#fff' : 'transparent',
+          color: value === t.id ? A.primary : A.muted,
+          boxShadow: value === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+          transition:'background .15s, color .15s',
+        }}>{t.label}</button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Sidebar ─────────────────────────────────────────────────
-function Sidebar({ tab, setTab, subTab, setSubTab, stats, perfil, onLogout, onGoHome, onEditarPerfil }) {
+function Sidebar({ tab, setTab, subTab, setSubTab, stats, perfil, onLogout, onGoHome, onOpenConfig }) {
   return (
     <aside style={{ background:A.navy, color:'#fff', padding:'22px 16px', display:'flex', flexDirection:'column', width:240, minWidth:240, minHeight:'100vh', position:'sticky', top:0, alignSelf:'flex-start' }}>
       {/* Logo */}
@@ -144,7 +161,7 @@ function Sidebar({ tab, setTab, subTab, setSubTab, stats, perfil, onLogout, onGo
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:A.font, fontSize:13, fontWeight:600 }}>{perfil?.nombre || 'Superadmin'}</div>
           </div>
-          <button onClick={() => onEditarPerfil?.()} title="Editar perfil del superadmin" style={{ background:'transparent', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', transition:'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
+          <button onClick={() => onOpenConfig?.()} title="Ajustes · usuarios y permisos" style={{ background:'transparent', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', transition:'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
             <Settings size={18} />
           </button>
         </div>
@@ -172,6 +189,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
   const [toast, setToast]         = useState(null);
   const [negocioEditando, setNegocioEditando] = useState(null);
   const [filtroNegocioId, setFiltroNegocioId] = useState(null);
+  const [showConfig, setShowConfig] = useState(false); // Panel del engranaje (usuarios y permisos)
 
   useEffect(() => { cargarTodo(); }, []);
 
@@ -259,7 +277,10 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
 
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:A.bg, fontFamily:A.font, color:A.ink }}>
-      <Sidebar tab={tab} setTab={setTab} subTab={subTab} setSubTab={setSubTab} stats={stats} perfil={perfil} onLogout={handleLogout} onGoHome={onGoHome} onEditarPerfil={() => showToast('Panel de perfil del superadmin (próximamente)', 'info')} />
+      <Sidebar tab={tab} setTab={setTab} subTab={subTab} setSubTab={setSubTab} stats={stats} perfil={perfil} onLogout={handleLogout} onGoHome={onGoHome} onOpenConfig={() => setShowConfig(true)} />
+
+      {/* Panel de ajustes (usuarios y permisos) — se abre con el engranaje */}
+      {showConfig && <ConfigPanel showToast={showToast} onClose={() => setShowConfig(false)} />}
 
       <main style={{ flex:1, padding:'22px 28px', overflow:'hidden' }}>
         {/* Drawer: Editar socio comercial */}
@@ -320,8 +341,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
               </div>
             )}
             {tab === 'ajustes' && subTab === 'contenidos' && <TabAjusteContenidos showToast={showToast} />}
-            {tab === 'ajustes' && subTab === 'usuarios' && <TabAjusteUsuarios showToast={showToast} />}
-            {tab === 'ajustes' && subTab === 'config' && <TabAjustePerfiles showToast={showToast} />}
+            {tab === 'ajustes' && subTab === 'imagenes' && <TabAjusteImagenes showToast={showToast} />}
           </>
         )}
       </main>
@@ -845,6 +865,7 @@ function CuponEditDrawer({ oferta, negocios, ofertas, showToast, onClose, onOfer
           ofertaInicial={oferta}
           dbPromos={promosDelNegocio}
           negocioId={oferta.negocio_id}
+          negocioTipo={neg?.tipo}
           showToast={(msg, type) => showToast(msg, type === 'err' ? 'error' : 'ok')}
           plan={neg?.plan || 'free'}
           onUpgrade={() => {}}
@@ -1407,6 +1428,22 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                     style={{ ...inputStyle, flex:1, minWidth:200, boxSizing:'border-box', fontSize:13, color:A.ink2 }} />
                 </div>
 
+                {/* Destacada en el menú "viajá con packs" (toggle + ícono) */}
+                <div style={{ padding:'0 16px 14px' }}>
+                  <label style={{ display:'flex', alignItems:'center', gap:9, cursor:'pointer', width:'fit-content' }}>
+                    <input type="checkbox" checked={!!set.destacada_en_menu}
+                      onChange={e => cambiar(set.id, { destacada_en_menu: e.target.checked })}
+                      style={{ width:16, height:16, cursor:'pointer', accentColor:A.primary }} />
+                    <span style={{ fontFamily:A.font, fontSize:13.5, fontWeight:600, color:A.ink }}>Destacada en el menú “viajá con packs”</span>
+                  </label>
+                  {set.destacada_en_menu && (
+                    <div style={{ marginTop:10, paddingLeft:25 }}>
+                      <div style={{ fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Ícono en el menú</div>
+                      <IconoBeneficioPicker value={set.menu_icono} onChange={id => cambiar(set.id, { menu_icono: id })} />
+                    </div>
+                  )}
+                </div>
+
                 {/* Beneficio adicional (texto amarillo + ícono + efecto en el precio) */}
                 <div style={{ padding:'0 16px 14px' }}>
                   <div style={{ fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Beneficio adicional</div>
@@ -1703,55 +1740,96 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
 }
 
 // ═══════════════════════════════════════════════════════════
-//  TAB: PUBLICIDAD
+//  TAB: PORTADAS
 // ═══════════════════════════════════════════════════════════
-function TabPublicidad({ showToast }) {
+function TabPortadas({ showToast }) {
   const [items, setItems]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoria, setCategoria] = useState('alojamiento');
   const [imagenUrl, setImagenUrl] = useState('');
   const [link, setLink]     = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [subiendo, setSubiendo] = useState(false);
+  const [drag, setDrag]     = useState(false);
+  const fileRef = useRef(null);
 
   async function cargar() {
     setLoading(true);
-    setItems(await listarPublicidadesAdmin());
+    setItems(await listarPortadasAdmin());
     setLoading(false);
   }
   useEffect(() => { cargar(); }, []);
 
-  const labelCat = v => PUBLI_CATEGORIAS.find(c => c.value === v)?.label || v;
+  // Evitar que el navegador abra la imagen si se suelta fuera del cuadro.
+  useEffect(() => {
+    const prevent = e => e.preventDefault();
+    window.addEventListener('dragover', prevent);
+    window.addEventListener('drop', prevent);
+    return () => { window.removeEventListener('dragover', prevent); window.removeEventListener('drop', prevent); };
+  }, []);
+
+  // Sube un archivo al bucket y deja su URL pública en el campo imagen.
+  async function subirImagen(file) {
+    if (!file || !file.type.startsWith('image/')) return showToast('Ese archivo no es una imagen', 'error');
+    setSubiendo(true);
+    try {
+      // Nombre de carpeta neutro a propósito: una ruta con "publicidad"/"ads" la bloquean los adblockers.
+      const url = await subirArchivo(`portadas/${categoria}-${Date.now()}.${extDeArchivo(file)}`, file);
+      setImagenUrl(url);
+    } catch (e) {
+      showToast('Error al subir la imagen: ' + (e.message || e), 'error');
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault(); setDrag(false);
+    const f = e.dataTransfer?.files?.[0];
+    if (f && f.type.startsWith('image/')) { subirImagen(f); return; }
+    // Arrastrada desde otra página → viene como URL
+    let url = e.dataTransfer?.getData?.('text/uri-list') || e.dataTransfer?.getData?.('text/plain') || '';
+    if (!url) {
+      const html = e.dataTransfer?.getData?.('text/html') || '';
+      const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (m) url = m[1];
+    }
+    url = (url || '').split(/[\r\n]+/).map(s => s.trim()).find(s => /^https?:\/\//i.test(s)) || '';
+    if (url) setImagenUrl(url);
+  }
+
+  const labelCat = v => PORTADA_CATEGORIAS.find(c => c.value === v)?.label || v;
 
   async function agregar() {
     if (!imagenUrl.trim()) return showToast('Pegá la URL de la imagen', 'error');
     setGuardando(true);
-    const { error } = await crearPublicidad({ categoria, imagen_url: imagenUrl.trim(), link: link.trim() || null });
+    const { error } = await crearPortada({ categoria, imagen_url: imagenUrl.trim(), link: link.trim() || null });
     setGuardando(false);
-    if (error) return showToast('Error al guardar la publicidad', 'error');
+    if (error) return showToast('Error al guardar la portada', 'error');
     setImagenUrl(''); setLink('');
-    showToast('Publicidad agregada');
+    showToast('Portada agregada');
     cargar();
   }
 
   async function toggle(p) {
-    const { error } = await actualizarPublicidad(p.id, { activa: !p.activa });
+    const { error } = await actualizarPortada(p.id, { activa: !p.activa });
     if (error) return showToast('Error al actualizar', 'error');
     setItems(prev => prev.map(x => x.id === p.id ? { ...x, activa: !x.activa } : x));
   }
 
   async function borrar(p) {
-    if (!window.confirm('¿Eliminar esta publicidad?')) return;
-    const { error } = await eliminarPublicidad(p.id);
+    if (!window.confirm('¿Eliminar esta portada?')) return;
+    const { error } = await eliminarPortada(p.id);
     if (error) return showToast('Error al eliminar', 'error');
     setItems(prev => prev.filter(x => x.id !== p.id));
-    showToast('Publicidad eliminada');
+    showToast('Portada eliminada');
   }
 
   const inputStyle = { padding:'10px 12px', borderRadius:10, border:`1px solid ${A.line}`, fontFamily:A.font, fontSize:13, outline:'none', background:'#fff', width:'100%', boxSizing:'border-box' };
 
   return (
     <div>
-      <h2 style={{ fontFamily:A.font, fontSize:20, fontWeight:800, color:A.ink, margin:'0 0 6px' }}>Publicidad</h2>
+      <h2 style={{ fontFamily:A.font, fontSize:20, fontWeight:800, color:A.ink, margin:'0 0 6px' }}>Portadas</h2>
       <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:'0 0 20px' }}>
         Imágenes que ocupan la primera ficha del listado. Rotan al azar, sin repetir, dentro de cada categoría.
       </p>
@@ -1762,12 +1840,34 @@ function TabPublicidad({ showToast }) {
           <div>
             <label style={{ display:'block', fontSize:11, fontWeight:700, color:A.muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Categoría</label>
             <select value={categoria} onChange={e => setCategoria(e.target.value)} style={{ ...inputStyle, cursor:'pointer' }}>
-              {PUBLI_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {PORTADA_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ display:'block', fontSize:11, fontWeight:700, color:A.muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>URL de la imagen</label>
-            <input value={imagenUrl} onChange={e => setImagenUrl(e.target.value)} placeholder="https://… o /bg-aloja.jpg" style={inputStyle} />
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:A.muted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Imagen — arrastrá, subí o pegá una URL</label>
+            <div style={{ display:'flex', gap:8, alignItems:'stretch' }}>
+              <div
+                onClick={() => !subiendo && fileRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); if (!drag) setDrag(true); }}
+                onDragLeave={e => { e.preventDefault(); setDrag(false); }}
+                onDrop={handleDrop}
+                title="Arrastrá una imagen o hacé click para subir un archivo"
+                style={{
+                  flex:'0 0 auto', width:96, borderRadius:10, cursor: subiendo ? 'default' : 'pointer',
+                  border: drag ? `2px dashed ${A.primary}` : `1px dashed ${A.line}`,
+                  background: drag ? 'rgba(37,69,230,0.08)' : A.bg,
+                  display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4,
+                  color: A.muted, fontFamily:A.font, fontSize:10, fontWeight:700, textAlign:'center', padding:6,
+                }}
+              >
+                {subiendo
+                  ? <span style={{ color:A.primary }}>Subiendo…</span>
+                  : <><Upload size={16} /><span>Subir / arrastrar</span></>}
+              </div>
+              <input value={imagenUrl} onChange={e => setImagenUrl(e.target.value)} placeholder="https://… o /bg-aloja.jpg" style={inputStyle} />
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }}
+              onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) subirImagen(f); }} />
           </div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 160px', gap:12, alignItems:'end' }}>
@@ -1776,25 +1876,27 @@ function TabPublicidad({ showToast }) {
             <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://… adónde lleva al hacer click" style={inputStyle} />
           </div>
           <ABtn variant="primary" onClick={agregar} style={{ justifyContent:'center', padding:'11px 0', opacity: guardando ? 0.6 : 1 }}>
-            {guardando ? 'Guardando…' : 'Agregar publicidad'}
+            {guardando ? 'Guardando…' : 'Agregar portada'}
           </ABtn>
         </div>
         {imagenUrl.trim() && (
-          <div style={{ width:200, aspectRatio:'3/4', borderRadius:12, overflow:'hidden', border:`1px solid ${A.line}` }}>
-            <img src={imagenUrl} alt="preview" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+          // Preview a proporción real (sin recortar): la altura sale de la imagen,
+          // así se ve tal cual es sin asumir un alto fijo de minificha.
+          <div style={{ maxWidth:200, borderRadius:12, overflow:'hidden', border:`1px solid ${A.line}`, alignSelf:'flex-start' }}>
+            <img src={imagenUrl} alt="preview" style={{ display:'block', width:'100%', height:'auto' }} />
           </div>
         )}
       </div>
 
       {/* Listado */}
       {loading ? <MiniLoader /> : items.length === 0 ? (
-        <p style={{ fontFamily:A.font, fontSize:14, color:A.muted }}>Todavía no hay publicidades cargadas.</p>
+        <p style={{ fontFamily:A.font, fontSize:14, color:A.muted }}>Todavía no hay portadas cargadas.</p>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:16 }}>
           {items.map(p => (
             <div key={p.id} style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden', display:'flex', flexDirection:'column', opacity: p.activa ? 1 : 0.55 }}>
-              <div style={{ aspectRatio:'3/4', overflow:'hidden', background:A.bg }}>
-                <img src={p.imagen_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+              <div style={{ background:A.bg }}>
+                <img src={p.imagen_url} alt="" style={{ display:'block', width:'100%', height:'auto' }} />
               </div>
               <div style={{ padding:'10px 12px', display:'flex', flexDirection:'column', gap:8 }}>
                 <span style={{ fontSize:11, fontWeight:700, color:A.primary, textTransform:'uppercase', letterSpacing:'0.04em' }}>{labelCat(p.categoria)}</span>
@@ -2237,7 +2339,341 @@ function PlanForm({ plan, onChange, showToast }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+//  TabAjusteImagenes — gestor de imágenes de PERFIL de socios
+//  (portada `imagen_url` + `galeria`; NO las imágenes de cupones)
+// ═══════════════════════════════════════════════════════════
+const IMG_BUCKET = 'negocios';
+const extDeArchivo = f => (f.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+const conBust = (url, bust) => !url ? '' : (bust ? url + (url.includes('?') ? '&' : '?') + 't=' + bust : url);
+// Relación de aspecto simplificada (p.ej. "3:2"); si los números quedan grandes, decimal.
+function aspecto(w, h) {
+  if (!w || !h) return '';
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const d = gcd(w, h), rw = w / d, rh = h / d;
+  return (rw <= 40 && rh <= 40) ? `${rw}:${rh}` : (w / h).toFixed(2) + ':1';
+}
+
+function pathDesdeUrl(url) {
+  const m = url && url.match(/\/storage\/v1\/object\/public\/negocios\/(.+)$/);
+  return m ? decodeURIComponent(m[1].split('?')[0]) : null;
+}
+async function borrarDeStorage(url) {
+  const p = pathDesdeUrl(url);
+  if (p) { try { await supabase.storage.from(IMG_BUCKET).remove([p]); } catch (_) {} }
+}
+async function subirArchivo(path, file) {
+  const { data, error } = await supabase.storage.from(IMG_BUCKET).upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data: pub } = supabase.storage.from(IMG_BUCKET).getPublicUrl(data.path);
+  return pub.publicUrl;
+}
+// Descarga una imagen desde una URL para poder subirla al bucket (puede fallar por CORS).
+async function archivoDesdeUrl(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const blob = await resp.blob();
+  if (!blob.type.startsWith('image/')) throw new Error('El enlace no apunta a una imagen');
+  const ext = (blob.type.split('/')[1] || 'jpg').split('+')[0];
+  return new File([blob], `url.${ext}`, { type: blob.type });
+}
+
+const IMG_TOOL_BTN = { width: 30, height: 30, borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 };
+const IMG_LBL = { fontFamily: A.font, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: A.muted, marginBottom: 5 };
+
+// Un cuadradito editable: arrastrar / URL / subir / eliminar
+function ImgThumb({ src, portada = false, busy = false, canDelete = true, onFile, onUrl, onDelete, onZoom }) {
+  const [drag, setDrag] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [url, setUrl] = useState('');
+  const inputRef = useRef(null);
+
+  const handleDrop = e => {
+    e.preventDefault(); setDrag(false);
+    const dt = e.dataTransfer;
+    // 1) Arrastrada desde el sistema de archivos → viene como File
+    const f = dt?.files?.[0];
+    if (f && f.type.startsWith('image/')) { onFile(f); return; }
+    // 2) Arrastrada desde otra página del navegador → viene como URL (no como archivo)
+    let url = dt?.getData?.('text/uri-list') || dt?.getData?.('text/plain') || '';
+    if (!url) {
+      const html = dt?.getData?.('text/html') || '';
+      const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (m) url = m[1];
+    }
+    // text/uri-list puede traer varias líneas (algunas son comentarios con #)
+    url = (url || '').split(/[\r\n]+/).map(s => s.trim()).find(s => /^https?:\/\//i.test(s)) || '';
+    if (url) onUrl(url);
+  };
+  const submitUrl = () => { const v = url.trim(); if (v) { onUrl(v); setUrl(''); setUrlOpen(false); } };
+
+  return (
+    <div
+      onDragOver={e => { e.preventDefault(); if (!drag) setDrag(true); }}
+      onDragLeave={e => { e.preventDefault(); setDrag(false); }}
+      onDrop={handleDrop}
+      style={{
+        position: 'relative', width: 128, height: 128, borderRadius: 12, overflow: 'hidden',
+        background: A.bg,
+        border: drag ? `2px dashed ${A.primary}` : portada ? `2px solid ${A.primary}` : `1px solid ${A.line}`,
+      }}
+    >
+      {src
+        ? <img src={src} alt="" onClick={() => onZoom?.(src)} title="Click para ver en grande" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
+        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C0C4CE', fontSize: 11, textAlign: 'center', padding: 8, fontFamily: A.font }}>{portada ? 'Sin portada' : 'Arrastrá o subí'}</div>}
+
+      {drag && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(37,69,230,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.primary, fontWeight: 700, fontSize: 12, fontFamily: A.font, pointerEvents: 'none' }}>Soltá para subir</div>
+      )}
+      {busy && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.primary, fontWeight: 700, fontSize: 11, fontFamily: A.font }}>Guardando…</div>
+      )}
+
+      {/* Toolbar: URL → Subir → Eliminar */}
+      {!drag && !busy && (
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', gap: 6, justifyContent: 'center', padding: 7, background: 'linear-gradient(to top, rgba(11,16,32,0.78), transparent)' }}>
+          <button title="Traer desde una URL" onClick={() => setUrlOpen(o => !o)} style={IMG_TOOL_BTN}><Link2 size={15} /></button>
+          <button title="Subir un archivo" onClick={() => inputRef.current?.click()} style={IMG_TOOL_BTN}><Upload size={15} /></button>
+          {canDelete && src && <button title="Eliminar" onClick={onDelete} style={IMG_TOOL_BTN}><Trash2 size={15} color="#EF4444" /></button>}
+        </div>
+      )}
+
+      {urlOpen && (
+        <div style={{ position: 'absolute', left: 6, right: 6, bottom: 44, background: '#fff', borderRadius: 8, boxShadow: '0 8px 24px rgba(11,16,32,0.22)', padding: 6, display: 'flex', gap: 5, zIndex: 3 }}>
+          <input autoFocus value={url} onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') submitUrl(); if (e.key === 'Escape') setUrlOpen(false); }}
+            placeholder="Pegá URL de imagen"
+            style={{ flex: 1, minWidth: 0, border: `1px solid ${A.line}`, borderRadius: 6, padding: '5px 7px', fontSize: 11, fontFamily: A.font, outline: 'none' }} />
+          <button onClick={submitUrl} style={{ border: 'none', background: A.primary, color: '#fff', borderRadius: 6, padding: '5px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}>Traer</button>
+        </div>
+      )}
+
+      <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }}
+        onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
+    </div>
+  );
+}
+
+function TabAjusteImagenes({ showToast }) {
+  const [negocios, setNegocios] = useState(null); // null = cargando
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState({}); // { [id]: bool }
+  const [lightbox, setLightbox] = useState(null); // src en grande
+  const [dims, setDims] = useState(null); // { w, h } naturales
+  const zoom = src => { setDims(null); setLightbox(src); };
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = e => { if (e.key === 'Escape') setLightbox(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
+  async function cargar() {
+    setNegocios(null);
+    const { data, error } = await supabase
+      .from('negocios')
+      .select('id, nombre, tipo, localidad, imagen_url, galeria, activo')
+      .order('nombre', { ascending: true });
+    if (error) { showToast('Error al cargar socios: ' + error.message, 'error'); setNegocios([]); return; }
+    setNegocios((data || []).map(n => ({ ...n, galeria: Array.isArray(n.galeria) ? n.galeria.filter(Boolean) : [], _bust: 0 })));
+  }
+  useEffect(() => { cargar(); }, []);
+
+  // Evitar que el navegador abra la imagen si se suelta fuera de un cuadrito.
+  useEffect(() => {
+    const prevent = e => e.preventDefault();
+    window.addEventListener('dragover', prevent);
+    window.addEventListener('drop', prevent);
+    return () => { window.removeEventListener('dragover', prevent); window.removeEventListener('drop', prevent); };
+  }, []);
+
+  const patch = (id, cambios) => setNegocios(prev => prev.map(n => n.id === id ? { ...n, ...cambios } : n));
+
+  async function guardar(id, cambios) {
+    const { error } = await supabase.from('negocios').update(cambios).eq('id', id);
+    if (error) throw error;
+  }
+  async function correr(id, fn) {
+    setBusy(b => ({ ...b, [id]: true }));
+    try { await fn(); }
+    catch (e) { showToast('Error: ' + (e.message || e), 'error'); }
+    finally { setBusy(b => ({ ...b, [id]: false })); }
+  }
+  // Resuelve una URL a un valor final: intenta descargarla al bucket; si falla (CORS), guarda el enlace directo.
+  async function urlAFinal(rawUrl, prefijo) {
+    try {
+      const file = await archivoDesdeUrl(rawUrl);
+      return await subirArchivo(`${prefijo}.${extDeArchivo(file)}`, file);
+    } catch (_) {
+      showToast('No pude descargar la imagen (CORS); guardé el enlace directo', 'info');
+      return rawUrl;
+    }
+  }
+
+  // ── Portada ──
+  const repPortadaFile = (n, file) => correr(n.id, async () => {
+    const url = await subirArchivo(`logos/${n.id}.${extDeArchivo(file)}`, file);
+    await guardar(n.id, { imagen_url: url });
+    if (n.imagen_url && n.imagen_url !== url) borrarDeStorage(n.imagen_url);
+    patch(n.id, { imagen_url: url, _bust: Date.now() });
+    showToast('Portada actualizada');
+  });
+  const repPortadaUrl = (n, rawUrl) => correr(n.id, async () => {
+    const url = await urlAFinal(rawUrl, `logos/${n.id}`);
+    await guardar(n.id, { imagen_url: url });
+    patch(n.id, { imagen_url: url, _bust: Date.now() });
+    showToast('Portada actualizada');
+  });
+  const delPortada = (n) => {
+    if (!window.confirm(`¿Eliminar la portada de "${n.nombre || ''}"?`)) return;
+    correr(n.id, async () => {
+      await guardar(n.id, { imagen_url: null });
+      borrarDeStorage(n.imagen_url);
+      patch(n.id, { imagen_url: null });
+      showToast('Portada eliminada');
+    });
+  };
+
+  // ── Galería ──
+  const repGalFile = (n, i, file) => correr(n.id, async () => {
+    const url = await subirArchivo(`galeria/${n.id}/${Date.now()}-${i}.${extDeArchivo(file)}`, file);
+    const galeria = [...n.galeria]; const old = galeria[i]; galeria[i] = url;
+    await guardar(n.id, { galeria });
+    borrarDeStorage(old);
+    patch(n.id, { galeria });
+    showToast('Imagen reemplazada');
+  });
+  const repGalUrl = (n, i, rawUrl) => correr(n.id, async () => {
+    const url = await urlAFinal(rawUrl, `galeria/${n.id}/${Date.now()}-${i}`);
+    const galeria = [...n.galeria]; galeria[i] = url;
+    await guardar(n.id, { galeria });
+    patch(n.id, { galeria });
+    showToast('Imagen reemplazada');
+  });
+  const delGal = (n, i) => {
+    if (!window.confirm('¿Eliminar esta imagen de la galería?')) return;
+    correr(n.id, async () => {
+      const old = n.galeria[i];
+      const galeria = n.galeria.filter((_, j) => j !== i);
+      await guardar(n.id, { galeria });
+      borrarDeStorage(old);
+      patch(n.id, { galeria });
+      showToast('Imagen eliminada');
+    });
+  };
+  const addGalFile = (n, file) => correr(n.id, async () => {
+    const url = await subirArchivo(`galeria/${n.id}/${Date.now()}-${n.galeria.length}.${extDeArchivo(file)}`, file);
+    const galeria = [...n.galeria, url];
+    await guardar(n.id, { galeria });
+    patch(n.id, { galeria });
+    showToast('Imagen agregada');
+  });
+  const addGalUrl = (n, rawUrl) => correr(n.id, async () => {
+    const url = await urlAFinal(rawUrl, `galeria/${n.id}/${Date.now()}-${n.galeria.length}`);
+    const galeria = [...n.galeria, url];
+    await guardar(n.id, { galeria });
+    patch(n.id, { galeria });
+    showToast('Imagen agregada');
+  });
+
+  if (negocios === null) return <MiniLoader />;
+
+  const term = q.trim().toLowerCase();
+  const visibles = term
+    ? negocios.filter(n => (n.nombre || '').toLowerCase().includes(term) || (n.localidad || '').toLowerCase().includes(term))
+    : negocios;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+        <h2 style={{ fontFamily: A.font, fontSize: 20, fontWeight: 800, color: A.ink, margin: 0 }}>Imágenes de socios</h2>
+        <span style={{ fontFamily: A.font, fontSize: 12, color: A.muted }}>{visibles.length} socio{visibles.length !== 1 ? 's' : ''}</span>
+        <span style={{ flex: 1 }} />
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: A.muted }} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por nombre o localidad…"
+            style={{ padding: '8px 12px 8px 30px', border: `1px solid ${A.line}`, borderRadius: 10, fontSize: 13, fontFamily: A.font, outline: 'none', minWidth: 240 }} />
+        </div>
+        <button onClick={cargar} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 14px', fontFamily: A.font, fontSize: 13, fontWeight: 600, color: A.ink2, cursor: 'pointer' }}><RefreshCw size={14} /> Recargar</button>
+      </div>
+      <p style={{ fontFamily: A.font, fontSize: 12.5, color: A.muted, margin: '0 0 18px', lineHeight: 1.5 }}>
+        Imágenes del <b>perfil</b> de cada socio (portada + galería), no las de sus cupones. En cada cuadrito podés <b>arrastrar</b> una imagen, traerla desde una <b>URL</b>, <b>subir</b> un archivo o <b>eliminarla</b>.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {visibles.map(n => (
+          <div key={n.id} style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 18, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 14, padding: '16px 18px' }}>
+            <div>
+              <div style={{ fontFamily: A.font, fontSize: 15, fontWeight: 800, color: A.ink, lineHeight: 1.25 }}>{n.nombre || '(sin nombre)'}</div>
+              <div style={{ fontFamily: A.font, fontSize: 12.5, color: A.muted, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span>{n.tipo || '—'}</span>
+                <span>{n.localidad || '—'}</span>
+              </div>
+              <span style={{ display: 'inline-block', marginTop: 8, fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: n.activo === false ? '#FEF2F2' : A.primarySoft, color: n.activo === false ? '#EF4444' : A.primary }}>
+                {n.activo === false ? 'inactivo' : 'activo'} · {n.galeria.length} en galería
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' }}>
+              <div>
+                <div style={IMG_LBL}>Portada / logo</div>
+                <ImgThumb src={conBust(n.imagen_url, n._bust)} portada busy={!!busy[n.id]} onZoom={zoom}
+                  onFile={f => repPortadaFile(n, f)} onUrl={u => repPortadaUrl(n, u)} onDelete={() => delPortada(n)} />
+              </div>
+              {n.galeria.map((src, i) => (
+                <div key={i}>
+                  <div style={IMG_LBL}>Galería {i + 1}</div>
+                  <ImgThumb src={src} busy={!!busy[n.id]} onZoom={zoom}
+                    onFile={f => repGalFile(n, i, f)} onUrl={u => repGalUrl(n, i, u)} onDelete={() => delGal(n, i)} />
+                </div>
+              ))}
+              <div>
+                <div style={IMG_LBL}>Agregar</div>
+                <ImgThumb src="" canDelete={false} busy={!!busy[n.id]}
+                  onFile={f => addGalFile(n, f)} onUrl={u => addGalUrl(n, u)} />
+              </div>
+            </div>
+          </div>
+        ))}
+        {!visibles.length && <div style={{ fontFamily: A.font, color: A.muted, padding: 40, textAlign: 'center' }}>No hay socios que coincidan.</div>}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(11,16,32,0.88)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+          <img src={lightbox} alt="" onClick={e => e.stopPropagation()}
+            onLoad={e => setDims({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+            style={{ maxWidth: '92vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: 12, boxShadow: '0 24px 90px rgba(0,0,0,0.55)', background: '#fff' }} />
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 16, fontFamily: A.font, color: '#fff', fontSize: 13 }}>
+            {dims
+              ? <span><b>{dims.w} × {dims.h}</b> px · relación <b>{aspecto(dims.w, dims.h)}</b> · {dims.w === dims.h ? 'cuadrada' : dims.w > dims.h ? 'horizontal' : 'vertical'}</span>
+              : <span style={{ opacity: 0.7 }}>Cargando dimensiones…</span>}
+            <a href={lightbox} target="_blank" rel="noopener noreferrer" style={{ color: '#fff', opacity: 0.8, fontSize: 12 }}>abrir original ↗</a>
+            <button onClick={() => setLightbox(null)} style={{ border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: '#fff', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>Cerrar ✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TabAjusteContenidos({ showToast }) {
+  const [sub, setSub] = useState('planes');
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <PillTabs
+        tabs={[{ id:'planes', label:'Planes' }, { id:'portadas', label:'Portadas' }]}
+        value={sub}
+        onChange={setSub}
+      />
+      {sub === 'planes'   && <ContenidosPlanes showToast={showToast} />}
+      {sub === 'portadas' && <TabPortadas showToast={showToast} />}
+    </div>
+  );
+}
+
+function ContenidosPlanes({ showToast }) {
   const [planesOrig, setPlanesOrig]   = useState([]);
   const [planes, setPlanes]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2494,6 +2930,50 @@ function TabAjusteUsuarios({ showToast }) {
         ))}
       </div>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PANEL DE AJUSTES (engranaje): usuarios y permisos
+// ═══════════════════════════════════════════════════════════
+function ConfigPanel({ showToast, onClose }) {
+  const [sub, setSub] = useState('usuarios');
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onClose} />
+      <div style={{
+        position:'fixed', top:'50%', left:'50%', transform:'translate(-50%, -50%)',
+        width:'min(920px, 94vw)', maxHeight:'88vh', zIndex:50,
+        background:'#fff', borderRadius:18, overflow:'hidden',
+        display:'flex', flexDirection:'column', boxShadow:'0 24px 90px rgba(0,0,0,0.3)',
+      }}>
+        {/* Header */}
+        <div style={{ padding:'18px 22px', borderBottom:`1px solid ${A.line}`, display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
+          <div style={{ flex:1, minWidth:180 }}>
+            <div style={{ fontFamily:A.font, fontWeight:700, fontSize:18, color:A.ink }}>Ajustes</div>
+            <div style={{ fontFamily:A.font, fontSize:12.5, color:A.muted, marginTop:2 }}>Usuarios del panel y perfiles de permisos</div>
+          </div>
+          <PillTabs
+            tabs={[{ id:'usuarios', label:'Usuarios' }, { id:'permisos', label:'Permisos' }]}
+            value={sub}
+            onChange={setSub}
+          />
+          <button onClick={onClose} title="Cerrar" style={{ background:'none', border:'none', color:A.muted, cursor:'pointer', fontSize:26, lineHeight:1, padding:'0 4px' }}>×</button>
+        </div>
+        {/* Body */}
+        <div style={{ flex:1, overflow:'auto', padding:'20px 22px', background:A.bg }}>
+          {sub === 'usuarios' && <TabAjusteUsuarios showToast={showToast} />}
+          {sub === 'permisos' && <TabAjustePerfiles showToast={showToast} />}
+        </div>
+      </div>
+    </>
   );
 }
 
