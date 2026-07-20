@@ -127,6 +127,36 @@ export async function gastarTokens(userId, cantidad, cuponeraId) {
   return { ok: true };
 }
 
+// ─── Acreditar puntos sueltos (contextuales, sin "única vez") ─
+// Para recompensas variables que no viven en ACCIONES: puntos del
+// Pase (+500 compra, +300 upgrade, +100 canje), etc. Registra el
+// movimiento y actualiza el wallet. `cantidad` puede ser negativa.
+export async function acreditarPuntos(userId, cantidad, tipo, descripcion, referenciaId = null) {
+  if (!userId || !cantidad) return { ok: false, mensaje: 'Faltan datos' };
+
+  await supabase.from('token_movimientos').insert({
+    user_id:       userId,
+    tipo,
+    cantidad,
+    descripcion,
+    referencia_id: referenciaId,
+  });
+
+  const wallet = await getWallet(userId);
+  if (wallet.user_id) {
+    await supabase
+      .from('usuario_tokens')
+      .update({ balance: wallet.balance + cantidad })
+      .eq('user_id', userId);
+  } else {
+    await supabase
+      .from('usuario_tokens')
+      .insert({ user_id: userId, balance: cantidad });
+  }
+
+  return { ok: true, tokens: cantidad };
+}
+
 // ─── Desbloqueos progresivos según items en carrito ──────────
 // Devuelve los desbloqueos activos según la combinación actual
 export function calcularDesbloqueos(items) {

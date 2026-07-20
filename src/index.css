@@ -34,77 +34,60 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/Montserrat-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   font-family: 'Inter', system-ui, sans-serif;
 }
 
-/* ── Hero: padding-left alineado con la nav (max-width 1328 + 40px inner) ── */
-/* max-width: 56vw mantiene el contenido dentro de la zona izquierda (imagen ocupa el 44vw derecho) */
-.hero-content {
-  padding-left: max(40px, calc((100vw - 1328px) / 2 + 40px));
-  max-width: 56vw;
-}
-
-/* ── Responsive: hero ── */
+/* ── Navbar flotante: se ajusta al marco en pantallas chicas ── */
 @media (max-width: 900px) {
-  .hero-grid {
-    flex-direction: column !important;
-    min-height: auto !important;
-  }
-  .hero-left {
-    flex: none !important;
-  }
-  .hero-content {
-    padding-left: 20px !important;
-    padding-right: 20px !important;
-    padding-top: 24px !important;
-    padding-bottom: 32px !important;
-    height: auto !important;
-    max-width: none !important;  /* sin restricción de ancho en mobile */
-  }
-  /* La imagen aparece primero (order -1) como strip compacto */
-  .hero-collage {
-    position: static !important;  /* resetea el position:absolute del desktop */
-    order: -1 !important;
-    flex: none !important;
-    height: 210px !important;
-    border-radius: 16px !important;
-    margin: 16px 16px 0 !important;
-    width: calc(100% - 32px) !important;
-    align-self: center !important;
-    top: auto !important;
-    bottom: auto !important;
-    right: auto !important;
-  }
-}
-@media (max-width: 480px) {
-  .hero-collage {
-    height: 175px !important;
-    margin: 12px 12px 0 !important;
-    width: calc(100% - 24px) !important;
+  .navbar-flotante {
+    width: calc(100% - 28px) !important;
   }
 }
 
-/* ── Hero search bar responsive ── */
-@media (max-width: 600px) {
-  .hero-search {
-    flex-wrap: wrap !important;
-    border-radius: 14px !important;
+@media (max-width: 480px) {
+  .navbar-flotante {
+    width: calc(100% - 20px) !important;
   }
-  .hero-search-dest {
-    border-right: none !important;
-    border-bottom: 1px solid #E7E9EE !important;
-    flex: 1 1 100% !important;
-    min-width: 0 !important;
+}
+
+/* ── Hero Pase: satélites con parallax + contenido central ── */
+/* Debajo de 1100px los satélites invaden la columna de texto: se ocultan
+   (mobile sin imágenes, por ahora). */
+@media (max-width: 1100px) {
+  .pase-deco, .pase-deco-fondo { display: none; }
+  .pase-stage {
+    min-height: 0 !important;
+    padding: 132px 22px 72px !important;
   }
-  .hero-search-guests {
-    border-right: none !important;
-    flex: 1 !important;
+}
+
+@media (max-width: 560px) {
+  .pase-stage {
+    padding: 116px 18px 56px !important;
   }
-  .hero-search-btn {
-    flex: 1 !important;
-    border-radius: 0 0 12px 12px !important;
-    justify-content: center !important;
+  /* Planes: de 3 columnas con divisor a una grilla apilada legible */
+  .pase-planes {
+    flex-wrap: wrap;
+    gap: 18px 0 !important;
+  }
+  .pase-planes > div {
+    flex: 1 0 100% !important;
+    border-left: none !important;
+    border-top: 1px solid #D8DEEA;
+    padding-top: 16px !important;
+  }
+  .pase-planes > div:first-child {
+    border-top: none;
+    padding-top: 4px !important;
   }
 }
 

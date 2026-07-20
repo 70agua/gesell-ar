@@ -24,6 +24,7 @@ import PublicarOfertaView    from './views/PublicarOfertaView';
 import BeneficiosPortalView  from './views/BeneficiosPortalView';
 import FavoritosView         from './views/FavoritosView';
 import CheckoutView          from './views/CheckoutView';
+import PaseDebugView         from './views/PaseDebugView'; // ⚠️ TEMPORAL (Brief 1) — entra por ?pase-debug=1
 
 import { getAlojamientos, getGastronomia, getAventura, getNegocioById } from './lib/datos';
 import { ALL_PROMOS }                      from './data/mockData';
@@ -41,7 +42,10 @@ import BienvenidaTuristaWizard           from './components/BienvenidaTuristaWiz
 function AppContent() {
   const { isLoading } = useLoading();
 
-  const [view, setView]                 = useState('home');
+  // ⚠️ TEMPORAL (Brief 1): ?pase-debug=1 arranca en el panel de prueba del Pase
+  const [view, setView]                 = useState(
+    () => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('pase-debug')) ? 'pase-debug' : 'home'
+  );
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedOferta, setSelectedOferta]     = useState(null);
   const [selectedPack, setSelectedPack]         = useState(null);
@@ -319,13 +323,6 @@ function AppContent() {
               onOpenDetail={handleOpenDetail}
               onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroModoAventura(false); setGastroFoco(null); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setOfertasTipoInicial(null); setView('ofertas'); } window.scrollTo(0, 0); }}
               onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
-              onVerMarketplace={(destino) => {
-                setOfertasCategoria(null);
-                setOfertasLocalidades(destino && destino !== 'Todos los destinos' ? [destino] : []);
-                setOfertasTipoInicial(null);
-                setView('ofertas');
-                window.scrollTo(0, 0);
-              }}
               onOpenPack={handleOpenPack}
               onOpenOferta={handleOpenOferta}
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
@@ -465,6 +462,14 @@ function AppContent() {
               session={session}
               onBack={() => { setView('home'); window.scrollTo(0, 0); }}
               onSuccess={() => { setView('home'); window.scrollTo(0, 0); }}
+            />
+          )}
+          {/* ⚠️ TEMPORAL (Brief 1): panel de prueba del Pase — borrar con Brief 2 */}
+          {view === 'pase-debug' && (
+            <PaseDebugView
+              session={session}
+              perfil={perfil}
+              onBack={() => { setView('home'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'login' && (

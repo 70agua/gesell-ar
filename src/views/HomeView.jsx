@@ -4,16 +4,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard, { PrecioCupon } from '../components/OfertaCard';
-import { locations, ALL_PROMOS } from '../data/mockData';
+import { ALL_PROMOS } from '../data/mockData';
 import CuponModal from '../components/CuponModal';
 import CuponModalMock from '../components/CuponModalMock';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
 import { aplicarBeneficioCuponera } from '../lib/beneficiosCuponera';
 import { useCuponera }  from '../lib/cuponera';
 import HeartButton      from '../components/HeartButton';
-import { busqueda } from '../lib/busqueda';
-import DateRangePicker from '../components/DateRangePicker';
 import { socialProof } from '../lib/socialProof';
+import HeroPase from '../components/landing/HeroPase';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -40,7 +39,6 @@ const PHOTOS = {
 
 // ─── SVG Icons ───────────────────────────────────────────────
 const IcoPin     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>;
-const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>;
 const IcoBolt    = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
 const IcoTicket  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>;
 const IcoChevR   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6"/></svg>;
@@ -95,54 +93,6 @@ const SECONDARY_FILTERS = [
   { id: 'piscina', label: 'Con piscina' },
   { id: 'mascotas', label: 'Acepta mascotas' },
 ];
-
-// ─── Destination dropdown ────────────────────────────────────
-
-function DestDropdown({ value, onChange }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-  return (
-    <div className="hero-search-dest" style={{ flex: 1, borderRight: `1px solid ${A.line}`, position: 'relative' }} ref={ref}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', padding: '20px 20px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 600, color: A.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ color: A.primary, display: 'flex' }}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
-          {value}
-        </div>
-      </button>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 14, boxShadow: '0 16px 48px -16px rgba(11,16,32,0.2)', zIndex: 999, overflow: 'hidden', minWidth: 340 }}>
-          <button
-            onClick={() => { onChange('Todos los destinos'); setOpen(false); }}
-            style={{ width: '100%', padding: '10px 16px', border: 'none', borderBottom: `1px solid ${A.line}`, background: value === 'Todos los destinos' ? A.primarySoft : 'none', textAlign: 'left', fontSize: 13, fontWeight: 600, color: A.primary, cursor: 'pointer' }}
-          >
-            Todos los destinos
-          </button>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-            {locations.map(loc => (
-              <button
-                key={loc}
-                onClick={() => { onChange(loc); setOpen(false); }}
-                style={{ padding: '10px 16px', border: 'none', background: value === loc ? A.primarySoft : 'none', textAlign: 'left', fontSize: 13, fontWeight: 500, color: value === loc ? A.primary : A.ink2, cursor: 'pointer' }}
-                onMouseEnter={e => { if (value !== loc) e.currentTarget.style.background = A.bg; }}
-                onMouseLeave={e => { if (value !== loc) e.currentTarget.style.background = 'none'; }}
-              >
-                {loc}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Guests dropdown (Adultos / Niños / Bebés) ───────────────
 function GuestsDropdown() {
@@ -252,23 +202,10 @@ function GuestsDropdown() {
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onVerMarketplace, onOpenPack, onOpenOferta, onVerOfertasRegalo, onNavMarketplaceTipo, onNavCuponear }) {
-  const [destino,        setDestino]        = useState('Todos los destinos');
-  const [fechas,         setFechas]         = useState({ desde: null, hasta: null });
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onOpenOferta, onVerOfertasRegalo, onNavMarketplaceTipo, onNavCuponear }) {
   const [activeTypes,    setActiveTypes]    = useState(new Set());
   const [activeSecondary, setActiveSecondary] = useState([]);
-  const [locIdx,         setLocIdx]         = useState(0);
-  const [locFade,        setLocFade]        = useState(false);
   const [tabAloj,        setTabAloj]        = useState('Todos'); // eslint-disable-line
-
-  // Location rotation
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setLocFade(true);
-      setTimeout(() => { setLocIdx(i => (i + 1) % locations.length); setLocFade(false); }, 150);
-    }, 1500);
-    return () => clearInterval(iv);
-  }, []);
 
   const toggleSecondary = id => setActiveSecondary(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
   const toggleType = id => setActiveTypes(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -277,68 +214,8 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
   return (
     <div style={{ color: A.ink, fontFamily: A.font }}>
 
-      {/* ── HERO — full-bleed right, alineado con la nav ─────── */}
-      <section style={{ background: '#fff', paddingTop: 70, position: 'relative', zIndex: 5 }}>
-        <div className="hero-grid" style={{ display: 'flex', minHeight: 540, position: 'relative' }}>
-
-          {/* ─ LEFT — ocupa el 100% (collage es absolute), contenido limitado a 56vw por CSS ─ */}
-          <div className="hero-left" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 10 }}>
-            <div className="hero-content" style={{
-              paddingRight: 56, paddingTop: 28, paddingBottom: 52,
-            }}>
-
-              {/* H1 rotating — tamaño fijo calibrado para la localidad más larga */}
-              <h1 style={{ fontSize: 'clamp(40px, 4.6vw, 70px)', lineHeight: 1.05, letterSpacing: '-0.04em', color: A.ink, margin: '0 0 18px', fontWeight: 800 }}>
-                <span style={{ fontWeight: 500, letterSpacing: '-0.03em' }}>Tu cuponera viajera<br />de descuentos en</span><br />
-                <span style={{
-                  fontFamily: "'NauryzRedkeds', cursive",
-                  fontSize: 'clamp(30px, 3.6vw, 54px)',
-                  letterSpacing: '0.03em',
-                  color: A.primary,
-                  display: 'inline-block',
-                  transition: 'opacity 0.28s',
-                  opacity: locFade ? 0 : 1,
-                  minWidth: 1,
-                  lineHeight: 1.1,
-                }}>
-                  {locations[locIdx]}
-                </span>
-              </h1>
-
-              <p style={{ fontSize: 19, lineHeight: 1.55, color: A.ink, margin: '0 0 26px', fontWeight: 400, maxWidth: 600 }}>
-                Empezá buscando ofertas en <b>alojamientos:</b>
-              </p>
-
-              {/* ─ Search widget — 1 fila ─ */}
-              <div className="hero-search" style={{ border: `1px solid ${A.line}`, borderRadius: 18, overflow: 'visible', boxShadow: '0 8px 32px -12px rgba(11,16,32,0.14)', background: '#fff', display: 'flex', alignItems: 'stretch' }}>
-                <DestDropdown value={destino} onChange={v => { setDestino(v); busqueda.setDestino(v); }} />
-                <div style={{ width: 1, background: A.line, flexShrink: 0, margin: '10px 0' }} />
-                <DateRangePicker
-                  value={fechas}
-                  onChange={f => { setFechas(f); busqueda.setFechas(f.desde, f.hasta); }}
-                />
-                <button
-                  className="hero-search-btn"
-                  onClick={() => { busqueda.setFechas(fechas.desde, fechas.hasta); onVerMarketplace && onVerMarketplace(destino); }}
-                  style={{ background: A.primary, color: '#fff', border: 'none', padding: '0 28px', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, borderRadius: '0 16px 16px 0', flexShrink: 0, fontFamily: A.font }}
-                >
-                  <IcoSearch /> Buscar ofertas
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* ─ RIGHT — absolute, 44vw anclado a la derecha, siempre completo ─ */}
-          <div className="hero-collage" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '44vw', overflow: 'hidden', zIndex: 1 }}>
-            <img
-              src="/img/banner-home.jpg"
-              alt="Villa Gesell"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
-            />
-          </div>
-        </div>
-
-      </section>
+      {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador) ── */}
+      <HeroPase onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }} />
 
       {/* ── Cuponeá en cada momento de tu viaje ──────────────── */}
       <CuponearCategoriasSection onVerOfertasRegalo={onVerOfertasRegalo} onNavCuponear={onNavCuponear} />
@@ -390,7 +267,9 @@ const CUPONEAR_CARDS = [
 
 function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
   return (
-    <section style={{ background: '#fff', padding: '72px 0' }}>
+    // zIndex por encima del hero (z:0) para tapar como bloque las imágenes
+    // que asoman desde atrás de la línea divisoria.
+    <section style={{ position: 'relative', zIndex: 1, background: 'linear-gradient(180deg, #EAF4FB 0%, #E2F0FB 100%)', padding: '72px 0' }}>
       <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px' }}>
         {/* Header */}
         <div style={{ marginBottom: 60, textAlign: 'center' }}>
@@ -436,10 +315,10 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
               {/* Texto */}
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, lineHeight: 1.2 }}>{card.titulo}</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: A.ink }}>con</span>
-                  {/* Logo Cuponear como wordmark */}
-                  <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 24, width: 'auto', opacity: 0.85 }} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 5 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: A.ink }}>con</span>
+                  {/* Pill Pass */}
+                  <img src="/pass.svg" alt="Pass" style={{ height: 20, width: 'auto', display: 'block' }} />
                 </div>
               </div>
             </div>

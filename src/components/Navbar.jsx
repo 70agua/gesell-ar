@@ -4,8 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { locations } from '../data/mockData';
 import { useCuponera } from '../lib/cuponera';
-import { EXPERIENCIAS_SALIDAS, getCuponerasDestacadas } from '../lib/datos';
-import { getBeneficioIcon } from '../lib/beneficioIconos';
+import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
 
 const A = {
   ink:         '#0B1020',
@@ -562,7 +561,6 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const animTimer = useRef(null);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
-  const [cuponerasDestacadas, setCuponerasDestacadas] = useState([]);
   const { openDrawer } = useCuponera();
 
   const sitiosRef = useRef(null);
@@ -603,18 +601,6 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // Limpiar timers al desmontar
   useEffect(() => () => { clearTimeout(closeTimer.current); clearTimeout(animTimer.current); }, []);
 
-  // Cargar cuponeras destacadas
-  useEffect(() => {
-    (async () => {
-      try {
-        const destacadas = await getCuponerasDestacadas();
-        setCuponerasDestacadas(destacadas);
-      } catch (e) {
-        console.error('Error cargando cuponeras destacadas:', e);
-      }
-    })();
-  }, []);
-
   const closeAll = () => { clearTimeout(closeTimer.current); setOpenMenu(null); setMobileOpen(false); };
 
   // nav: usa onNavbarNav si está disponible (con filtros), si no setView directo
@@ -639,52 +625,64 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
     : (perfil?.avatar_url || null);
   const avatarLetra = (nombreDisplay)[0]?.toUpperCase() || 'U';
 
+  // Pastilla blanca: texto oscuro, marca en azul.
+  const NAV_ON  = A.ink;
+  const NAV_OFF = A.ink2;
+  const NAV_SEP = A.line;
+
   const navBtnSt = {
     background: 'none', border: 'none', fontSize: 14, fontWeight: 500,
-    color: A.ink2, cursor: 'pointer', padding: '4px 0', fontFamily: A.font,
+    color: NAV_OFF, cursor: 'pointer', padding: '4px 0', fontFamily: A.font,
     display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
     transition: 'color .15s',
   };
 
   return (
     <>
-      <nav ref={navRef} style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        background: '#fff', borderBottom: `1px solid ${A.line}`,
-        boxShadow: scrolled ? '0 2px 20px -8px rgba(11,16,32,0.14)' : 'none',
-        transition: 'box-shadow 0.2s', fontFamily: A.font,
+      <nav ref={navRef} className="navbar-flotante" style={{
+        // Pastilla acotada y centrada: no se estira a todo el ancho.
+        position: 'fixed', top: 12, left: 0, right: 0, zIndex: 1000,
+        width: 'calc(100% - 44px)', maxWidth: 1040, margin: '0 auto',
+        borderRadius: 999,
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(16px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+        border: `1px solid ${A.line}`,
+        boxShadow: scrolled ? '0 10px 30px -10px rgba(11,16,32,0.18)' : '0 6px 22px -12px rgba(11,16,32,0.14)',
+        transition: 'box-shadow 0.25s', fontFamily: A.font,
       }}>
-        <div style={{ width: '100%', boxSizing: 'border-box', padding: '0 56px', height: 64, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20 }}>
+        <div style={{ width: '100%', boxSizing: 'border-box', padding: '0 22px', height: 56, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
 
-          {/* ── Logo ── */}
-          <div onClick={() => nav('home')} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
-            <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 40, width: 'auto', display: 'block' }} />
+          {/* ── Logo — el dominio del sitio es la marca, con su select de red ── */}
+          <div style={{ position: 'relative', flexShrink: 0, flex: 1 }} ref={sitiosRef}
+            onMouseEnter={() => hoverOpen('sitios')}
+            onMouseLeave={hoverLeave}
+          >
+            <button
+              onClick={() => nav('home')}
+              style={{
+                ...navBtnSt, color: A.primary, fontWeight: 700,
+                fontSize: 19, letterSpacing: '-0.03em', gap: 6,
+              }}
+            >
+              {siteHost()} <ChevD />
+            </button>
+            {(openMenu === 'sitios' || closingMenu === 'sitios') && (
+              <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'sitios' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
+                <SitiosDrop />
+              </div>
+            )}
           </div>
 
           {/* ── Desktop nav links ── */}
-          <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, paddingLeft: 8 }}>
-
-            {/* Sitios de la red — gesell.ar + dominios */}
-            <div style={{ position: 'relative' }} ref={sitiosRef}
-              onMouseEnter={() => hoverOpen('sitios')}
-              onMouseLeave={hoverLeave}
-            >
-              <button onClick={() => nav('home')} style={{ ...navBtnSt, color: A.primary, fontWeight: 600 }}>
-                {siteHost()} <ChevD />
-              </button>
-              {(openMenu === 'sitios' || closingMenu === 'sitios') && (
-                <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'sitios' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
-                  <SitiosDrop />
-                </div>
-              )}
-            </div>
+          <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 30, flexShrink: 0 }}>
 
             {/* Alojamientos */}
             <div style={{ position: 'relative' }} ref={alojRef}
               onMouseEnter={() => hoverOpen('aloj')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('ofertas', { ofertasCategoria: 'alojamiento' })} style={{ ...navBtnSt, color: openMenu === 'aloj' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('ofertas', { ofertasCategoria: 'alojamiento' })} style={{ ...navBtnSt, color: openMenu === 'aloj' ? NAV_ON : NAV_OFF }}>
                 alojamientos <ChevD />
               </button>
               {(openMenu === 'aloj' || closingMenu === 'aloj') && (
@@ -699,7 +697,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('gastro')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('salidas')} style={{ ...navBtnSt, color: openMenu === 'gastro' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('salidas')} style={{ ...navBtnSt, color: openMenu === 'gastro' ? NAV_ON : NAV_OFF }}>
                 salidas <ChevD />
               </button>
               {(openMenu === 'gastro' || closingMenu === 'gastro') && (
@@ -714,7 +712,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseEnter={() => hoverOpen('aventura')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('ofertas', { ofertasCategoria: 'aventura_relax' })} style={{ ...navBtnSt, color: openMenu === 'aventura' ? A.primary : A.ink2 }}>
+              <button onClick={() => nav('ofertas', { ofertasCategoria: 'aventura_relax' })} style={{ ...navBtnSt, color: openMenu === 'aventura' ? NAV_ON : NAV_OFF }}>
                 aventura & relax <ChevD />
               </button>
               {(openMenu === 'aventura' || closingMenu === 'aventura') && (
@@ -725,51 +723,19 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             </div>
 
             {/* Separador visual */}
-            <div style={{ width: 1, height: 18, background: A.line, margin: '0 2px', flexShrink: 0 }} />
+            <div style={{ width: 1, height: 18, background: NAV_SEP, margin: '0 2px', flexShrink: 0 }} />
 
-            {/* Cuponeras */}
-            <div style={{ position: 'relative' }} ref={packsRef}
-              onMouseEnter={() => hoverOpen('packs')}
-              onMouseLeave={hoverLeave}
-            >
-              <button style={{ ...navBtnSt, fontWeight: 600, color: openMenu === 'packs' ? A.primary : A.ink }}>
-                viajá con packs <ChevD />
+            {/* Planes todo incluido — destino a definir */}
+            <div style={{ position: 'relative' }} ref={packsRef}>
+              <button onClick={() => nav('home')} style={{ ...navBtnSt, fontWeight: 500, color: NAV_OFF }}>
+                planes todo incluido
               </button>
-              {(openMenu === 'packs' || closingMenu === 'packs') && (
-                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', minWidth: 220, animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
-                  <div style={{ padding: '8px 0' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Cuponeras</p>
-                    {cuponerasDestacadas.map(cuponera => {
-                      const MenuIcon = getBeneficioIcon(cuponera.menuIcono);
-                      return (
-                      <button key={cuponera.id} onClick={() => { nav('packs'); }}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 400, color: A.ink2, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
-                        onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
-                      >
-                        <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}><MenuIcon size={16} strokeWidth={1.9} /></span>
-                        {cuponera.title}
-                      </button>
-                      );
-                    })}
-                    <div style={{ height: 1, background: A.line, margin: '4px 16px' }} />
-                    <button onClick={() => nav('packs')}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: A.primary, cursor: 'pointer', textAlign: 'left', fontFamily: A.font }}
-                      onMouseEnter={e => { e.currentTarget.style.background = A.bg; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      <span style={{ opacity: 0.7, flexShrink: 0, display: 'flex' }}>📦</span>
-                      Ver todas las cuponeras
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
           </div>
 
           {/* ── Derecha ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, flex: 1 }}>
 
             {mostrarPublicarOferta && (
               <button
@@ -795,8 +761,8 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                     ? <img src={avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${A.line}` }} />
                     : <div style={{ width: 32, height: 32, borderRadius: '50%', background: A.ink, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{avatarLetra}</div>
                   }
-                  <span style={{ fontSize: 13, fontWeight: 600, color: A.ink, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreDisplay}</span>
-                  <span style={{ color: A.muted, display: 'flex', transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}><ChevD /></span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: NAV_ON, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreDisplay}</span>
+                  <span style={{ color: NAV_OFF, display: 'flex', transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}><ChevD /></span>
                 </button>
 
                 {userMenuOpen && (
@@ -825,16 +791,13 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: A.font }} className="navbar-auth">
-                <button onClick={() => onLoginClick && onLoginClick('ingresar')}
-                  style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 500, color: A.ink2, cursor: 'pointer', padding: '6px 6px', fontFamily: A.font, whiteSpace: 'nowrap' }}
-                  onMouseEnter={e => e.currentTarget.style.color = A.primary}
-                  onMouseLeave={e => e.currentTarget.style.color = A.ink2}
-                >Ingresar</button>
-                <button onClick={() => onRegisterClick && onRegisterClick('registrarse')}
-                  style={{ background: A.ink, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', padding: '8px 16px', fontFamily: A.font, whiteSpace: 'nowrap', transition: 'background 0.15s' }}
+                {/* Calco del boceto: única acción a la derecha. Destino a
+                    definir (hoy → convertirse en socio). */}
+                <button onClick={() => (onConvertirseSocio || onRegisterClick)?.('registrarse')}
+                  style={{ background: A.ink, border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: '10px 20px', fontFamily: A.font, whiteSpace: 'nowrap', transition: 'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
                   onMouseLeave={e => e.currentTarget.style.background = A.ink}
-                >Registrarse gratis</button>
+                >Sumá tu negocio</button>
               </div>
             )}
 
