@@ -502,7 +502,10 @@ function SitiosDrop() {
   const host = siteHost();
   return (
     <div style={{ padding: '8px 0', minWidth: 220 }}>
-      <p style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '8px 16px 4px', margin: 0, fontFamily: A.font }}>Otros sitios de la red</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px 4px' }}>
+        <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 22, width: 'auto', display: 'block' }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: A.font }}>en:</span>
+      </div>
       {SITIOS_RED.filter(d => d !== host).map(dominio => (
         <a key={dominio} href={`https://${dominio}`} target="_blank" rel="noopener noreferrer"
           style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, color: A.ink2, textDecoration: 'none', cursor: 'pointer', fontFamily: A.font }}
@@ -642,7 +645,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
       <nav ref={navRef} className="navbar-flotante" style={{
         // Pastilla acotada y centrada: no se estira a todo el ancho.
         position: 'fixed', top: 12, left: 0, right: 0, zIndex: 1000,
-        width: 'calc(100% - 44px)', maxWidth: 1040, margin: '0 auto',
+        width: 'calc(100% - 44px)', maxWidth: 1240, margin: '0 auto',
         borderRadius: 999,
         background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(16px) saturate(140%)',
@@ -683,7 +686,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseLeave={hoverLeave}
             >
               <button onClick={() => nav('ofertas', { ofertasCategoria: 'alojamiento' })} style={{ ...navBtnSt, color: openMenu === 'aloj' ? NAV_ON : NAV_OFF }}>
-                alojamientos <ChevD />
+                Alojamientos <ChevD />
               </button>
               {(openMenu === 'aloj' || closingMenu === 'aloj') && (
                 <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'aloj' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
@@ -698,7 +701,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseLeave={hoverLeave}
             >
               <button onClick={() => nav('salidas')} style={{ ...navBtnSt, color: openMenu === 'gastro' ? NAV_ON : NAV_OFF }}>
-                salidas <ChevD />
+                Salidas <ChevD />
               </button>
               {(openMenu === 'gastro' || closingMenu === 'gastro') && (
                 <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'gastro' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
@@ -713,7 +716,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onMouseLeave={hoverLeave}
             >
               <button onClick={() => nav('ofertas', { ofertasCategoria: 'aventura_relax' })} style={{ ...navBtnSt, color: openMenu === 'aventura' ? NAV_ON : NAV_OFF }}>
-                aventura & relax <ChevD />
+                Aventura & Relax <ChevD />
               </button>
               {(openMenu === 'aventura' || closingMenu === 'aventura') && (
                 <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'aventura' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
@@ -728,7 +731,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             {/* Planes todo incluido — destino a definir */}
             <div style={{ position: 'relative' }} ref={packsRef}>
               <button onClick={() => nav('home')} style={{ ...navBtnSt, fontWeight: 500, color: NAV_OFF }}>
-                planes todo incluido
+                Planes todo incluido
               </button>
             </div>
 
@@ -819,10 +822,10 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         <div style={{ position: 'fixed', inset: 0, zIndex: 40, background: '#fff', paddingTop: 64, overflowY: 'auto', fontFamily: A.font }}>
           <div style={{ padding: '20px 24px 48px' }}>
             {[
-              { label: 'alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
-              { label: 'salidas',          action: () => nav('salidas') },
-              { label: 'aventura & relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
-              { label: 'packs inteligentes', action: () => nav('packs') },
+              { label: 'Alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
+              { label: 'Salidas',          action: () => nav('salidas') },
+              { label: 'Aventura & Relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
+              { label: 'Planes todo incluido', action: () => nav('packs') },
             ].map(item => (
               <button key={item.label} onClick={item.action}
                 style={{ width: '100%', textAlign: 'left', padding: '14px 0', border: 'none', borderBottom: `1px solid ${A.line}`, background: 'none', fontSize: 16, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}>

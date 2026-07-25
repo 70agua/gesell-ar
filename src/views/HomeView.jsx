@@ -282,16 +282,16 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
               <img src="/ico-disc.svg" alt="" style={{ width: 48, position: 'absolute', top: 0, left: 0, zIndex: 2 }} />
               <img src="/ico-disc.svg" alt="" style={{ width: 48, position: 'absolute', top: 0, left: 26, zIndex: 1, opacity: 0.55 }} />
             </div>
-            <div style={{ position: 'relative', padding: '12px 18px', background: A.primarySoft, borderRadius: 14, border: `1px solid ${A.primary}22`, marginLeft: 10 }}>
+            <div style={{ position: 'relative', padding: '12px 18px', background: '#fff', borderRadius: 14, border: `1px solid ${A.primary}22`, marginLeft: 10 }}>
               <div style={{ position: 'absolute', top: -5, right: -5, width: 14, height: 14, borderRadius: '50%', background: 'rgb(230, 57, 70)', border: '3px solid #fff' }} />
               <div style={{ position: 'absolute', left: -9, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '8px solid transparent', borderBottom: '8px solid transparent', borderRight: `8px solid #c7cdf5` }} />
-              <div style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderRight: `7px solid ${A.primarySoft}` }} />
+              <div style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderRight: `7px solid #fff` }} />
               <p style={{ fontSize: 14.5, color: A.ink, fontWeight: 400, lineHeight: 1.5, margin: 0 }}>
-                🎁 <span style={{ fontWeight: 700 }}>2 descuentos de regalo</span> te esperan.{' '}
+                🎁 <span style={{ fontWeight: 700 }}>Un descuento de bienvenida</span> te espera.{' '}
                 <button
                   onClick={() => onVerOfertasRegalo?.()}
                   style={{ background: 'none', border: 'none', padding: 0, color: A.primary, fontWeight: 700, fontSize: 14.5, cursor: 'pointer', fontFamily: A.font, textDecoration: 'underline' }}
-                >¡Reclamalos ahora!</button>{' '}
+                >¡Reclamalo ahora!</button>{' '}
               </p>
             </div>
           </div>

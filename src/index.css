@@ -60,10 +60,31 @@
 }
 
 /* ── Hero Pase: satélites con parallax + contenido central ── */
-/* Debajo de 1100px los satélites invaden la columna de texto: se ocultan
-   (mobile sin imágenes, por ahora). */
+/* La decoración mobile (sutil, en esquinas) solo aparece en pantallas
+   chicas; el resto de los satélites (que invaden el texto) se ocultan. */
+.pase-deco-mobile { display: none; }
+
+/* Deriva ambiental muy sutil: la imagen crece apenas y se desliza hacia
+   un punto cercano, en loop lento. Punto/escala/duración/desfase se
+   pasan por variables inline para que cada satélite respire distinto.
+   Va sobre el <img> interno para no pisar el translate del parallax
+   (que vive en el wrapper). */
+@keyframes paseDrift {
+  from { transform: scale(1)                translate3d(0, 0, 0); }
+  to   { transform: scale(var(--drift-sc, 1.08)) translate3d(var(--drift-x, -8px), var(--drift-y, -10px), 0); }
+}
+.pase-drift {
+  animation: paseDrift var(--drift-dur, 20s) ease-in-out infinite alternate;
+  animation-delay: var(--drift-delay, 0s);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pase-drift { animation: none; }
+}
+
 @media (max-width: 1100px) {
   .pase-deco, .pase-deco-fondo { display: none; }
+  .pase-deco-mobile { display: block; }
   .pase-stage {
     min-height: 0 !important;
     padding: 132px 22px 72px !important;
