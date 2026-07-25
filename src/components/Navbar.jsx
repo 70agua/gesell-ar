@@ -502,9 +502,9 @@ function SitiosDrop() {
   const host = siteHost();
   return (
     <div style={{ padding: '8px 0', minWidth: 220 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px 4px' }}>
-        <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 22, width: 'auto', display: 'block' }} />
-        <span style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: A.font }}>en:</span>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '10px 16px 4px' }}>
+        <span style={{ fontFamily: "'NauryzRedkeds', 'Inter', sans-serif", color: A.primary, fontSize: 17, lineHeight: 1 }}>CUPONEaR</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: A.font }}>es:</span>
       </div>
       {SITIOS_RED.filter(d => d !== host).map(dominio => (
         <a key={dominio} href={`https://${dominio}`} target="_blank" rel="noopener noreferrer"
@@ -556,6 +556,28 @@ const PACKS_ICONS = {
   ),
 };
 const PACKS_TIPOS = ['Todas las cuponeras', 'Románticos', 'Familias', 'Aventura', 'Relax & Bienestar', 'Salidas + alojamiento'];
+
+// ─── Dropdown "Packs todo incluido" — cuponeras Cuponear ─────
+function PacksDrop({ onNavigate }) {
+  return (
+    <div style={{ padding: '18px 18px 16px', width: 290 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4, fontFamily: A.font }}>Packs Cuponear</div>
+      <p style={{ fontSize: 12.5, color: A.muted, margin: '0 0 12px', lineHeight: 1.4, fontFamily: A.font }}>Cuponeras armadas para cada plan.</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {PACKS_TIPOS.map(tipo => (
+          <button key={tipo} onClick={() => onNavigate('packs', { packTipo: tipo })}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '9px 10px', borderRadius: 10, cursor: 'pointer', fontFamily: A.font, fontSize: 14, fontWeight: 500, color: A.ink2, transition: 'background .13s, color .13s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
+          >
+            <span style={{ color: A.primary, display: 'flex', flexShrink: 0 }}>{PACKS_ICONS[tipo]}</span>
+            {tipo}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════
 export default function Navbar({ scrolled, view, setView, session, perfil, onLoginClick, onRegisterClick, onLogout, onPublicarOferta, onConvertirseSocio, onNavbarNav }) {
@@ -647,9 +669,9 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         position: 'fixed', top: 12, left: 0, right: 0, zIndex: 1000,
         width: 'calc(100% - 44px)', maxWidth: 1240, margin: '0 auto',
         borderRadius: 999,
-        background: 'rgba(255,255,255,0.92)',
-        backdropFilter: 'blur(16px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+        background: 'rgba(255,255,255,0.80)',
+        backdropFilter: 'blur(8px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(150%)',
         border: `1px solid ${A.line}`,
         boxShadow: scrolled ? '0 10px 30px -10px rgba(11,16,32,0.18)' : '0 6px 22px -12px rgba(11,16,32,0.14)',
         transition: 'box-shadow 0.25s', fontFamily: A.font,
@@ -725,13 +747,28 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               )}
             </div>
 
+            {/* Packs todo incluido */}
+            <div style={{ position: 'relative' }} ref={packsRef}
+              onMouseEnter={() => hoverOpen('packs')}
+              onMouseLeave={hoverLeave}
+            >
+              <button onClick={() => nav('packs')} style={{ ...navBtnSt, color: openMenu === 'packs' ? NAV_ON : NAV_OFF }}>
+                Packs todo incluido <ChevD />
+              </button>
+              {(openMenu === 'packs' || closingMenu === 'packs') && (
+                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
+                  <PacksDrop onNavigate={(v, opts) => nav(v, opts)} />
+                </div>
+              )}
+            </div>
+
             {/* Separador visual */}
             <div style={{ width: 1, height: 18, background: NAV_SEP, margin: '0 2px', flexShrink: 0 }} />
 
-            {/* Planes todo incluido — destino a definir */}
-            <div style={{ position: 'relative' }} ref={packsRef}>
-              <button onClick={() => nav('home')} style={{ ...navBtnSt, fontWeight: 500, color: NAV_OFF }}>
-                Planes todo incluido
+            {/* Planes y suscripción — pricing/contratación (paso previo al registro) */}
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => nav('planes')} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
+                Planes y suscripción
               </button>
             </div>
 
@@ -800,7 +837,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                   style={{ background: A.ink, border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: '10px 20px', fontFamily: A.font, whiteSpace: 'nowrap', transition: 'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
                   onMouseLeave={e => e.currentTarget.style.background = A.ink}
-                >Sumá tu negocio</button>
+                >Publicá una oferta</button>
               </div>
             )}
 
@@ -825,7 +862,8 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'Alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
               { label: 'Salidas',          action: () => nav('salidas') },
               { label: 'Aventura & Relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
-              { label: 'Planes todo incluido', action: () => nav('packs') },
+              { label: 'Packs todo incluido', action: () => nav('packs') },
+              { label: 'Planes y suscripción', action: () => nav('planes') },
             ].map(item => (
               <button key={item.label} onClick={item.action}
                 style={{ width: '100%', textAlign: 'left', padding: '14px 0', border: 'none', borderBottom: `1px solid ${A.line}`, background: 'none', fontSize: 16, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}>

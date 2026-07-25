@@ -21,37 +21,32 @@ const A = {
 };
 
 // ─── Planes (copy y precios del mockup nuevo) ────────────────
-const PLANES = [
+// Dos grupos de marca; cada uno con su lockup + descripción y DOS planes.
+const GRUPOS = [
   {
-    brand: 'pass', sufijo: 'x3', id: 'x3',
-    desc: <><b>3 días</b> de acceso ilimitado<br />al catálogo de descuentos.</>,
-    cta: 'Elegir 3 días', variant: 'fill',
-    precio: '$20.000', precioNota: 'por única vez',
+    marca: 'pass',
+    desc: 'Accedé a todo el catálogo de descuentos locales.',
+    planes: [
+      { id: 'x3', cta: 'Pase x 3 días', variant: 'fill', precio: '$20.000', nota: 'por única vez' },
+      { id: 'x7', cta: 'Pase x 7 días', variant: 'fill', precio: '$35.000', nota: 'por única vez' },
+    ],
   },
   {
-    brand: 'pass', sufijo: 'x7', id: 'x7',
-    desc: <><b>7 días</b> de acceso ilimitado<br />al catálogo de descuentos.</>,
-    cta: 'Elegir 7 días', variant: 'fill',
-    precio: '$35.000', precioNota: 'por única vez',
-  },
-  {
-    brand: 'club', id: 'club',
-    desc: <><b>¡Asociate ya!</b> Promos y descuentos en todo el país.</>,
-    cta: 'Suscribite ahora', variant: 'outline',
-    precio: '$8.333', precioNota: 'por mes',
+    marca: 'club',
+    desc: 'Promos y descuentos en todos los destinos, sin límites.',
+    planes: [
+      { id: 'club',     cta: 'Suscribite ahora', variant: 'outline', precio: '$8.333', nota: 'por mes' },
+      { id: 'premium', cta: 'Premium',         variant: 'outline',
+        notaEspecial: <><b style={{ fontStyle: 'italic', color: A.primary, fontSize: '0.92em' }}>¡Regalá pases ilimitados!</b><br /><span style={{ fontStyle: 'italic', fontSize: '0.92em' }}>Ideal para hoteleros.</span></> },
+    ],
   },
 ];
 
-// Lockup "GESELL Pass x3/x7" en NauryzRedkeds (la display que venimos
-// usando); "Pass" en pastilla y el sufijo x3/x7 en Inter itálica, chico.
+// Lockup Gesell Pass: SVG del último boceto (público /gesell-pass-03.svg).
 const NAURYZ = "'NauryzRedkeds', 'Inter', sans-serif";
-function PassLockup({ sufijo }) {
+function PassLockup() {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, fontSize: 'clamp(14px, 1.15vw, 17px)', whiteSpace: 'nowrap', lineHeight: 1 }}>
-      <span style={{ fontFamily: NAURYZ, color: A.ink }}>GESELL</span>
-      <span style={{ fontFamily: NAURYZ, color: A.primary }}>Pass</span>
-      <span style={{ fontFamily: A.font, fontStyle: 'italic', fontWeight: 400, fontSize: '0.92em', color: A.primary }}>{sufijo}</span>
-    </span>
+    <img src="/gesell-pass-03.svg" alt="Gesell Pass" style={{ display: 'block', height: 76, width: 'auto', transform: 'translateY(-15px)' }} />
   );
 }
 
@@ -60,8 +55,8 @@ function PassLockup({ sufijo }) {
 function ClubLockup() {
   return (
     <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0, lineHeight: 1 }}>
-      <span style={{ fontSize: 12.65, fontWeight: 600, letterSpacing: '0.04em', color: A.ink, marginBottom: -4.5 }}>CLUB</span>
-      <img src="/logo-cuponera.svg" alt="Cuponear" style={{ display: 'block', height: 34.5, width: 'auto' }} />
+      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: A.primary, marginBottom: -5 }}>CLUB</span>
+      <img src="/logo-cuponera.svg" alt="Cuponear" style={{ display: 'block', height: 40, width: 'auto' }} />
     </span>
   );
 }
@@ -88,23 +83,19 @@ const GRILLA_IMGS = [
 const COL_ASPECT = [
   [1.33, 1.50, 1.25, 1.50],
   [1.50, 1.33, 1.50, 1.25],
-  [1.25, 1.50, 1.33, 1.50],
 ];
 
-// Metadata por columna: desfase vertical (spacer superior, px) + factor de
-// parallax (f). Parallax exagerado; el colchón (BUFFER) evita descubrir
-// bordes al moverse.
+// Metadata por columna: factor de parallax (f), duración del loop continuo
+// (dur, seg) y dirección (dir). Dos columnas: la 1 sube, la 2 baja — flujo
+// continuo en una sola dirección, sin rebote.
 const COL_META = [
-  { spacer: 0,  f: 0.10 },
-  { spacer: 58, f: 0.20 },
-  { spacer: 28, f: 0.15 },
+  { f: 0.12, dur: 144, dir: 'up' },
+  { f: 0.19, dur: 180, dir: 'down' },
 ];
 const NUM_COLS = COL_META.length;
 
-// Máximo de fotos visibles por vista (contando cortadas + enteras).
-const MAX_FOTOS = 12;
 // Colchón vertical (px) por encima/debajo de la ventana: aire para que el
-// parallax (exagerado) mueva las columnas sin descubrir bordes.
+// parallax mueva las columnas sin descubrir bordes.
 const BUFFER = 220;
 
 // Barajado Fisher-Yates (no muta el original).
@@ -122,9 +113,15 @@ function shuffle(arr) {
 // repite dentro de la misma vista. Se llama una vez por montaje → random
 // en cada carga.
 function buildColumns() {
-  const imgs = shuffle(GRILLA_IMGS).slice(0, MAX_FOTOS);
+  // Usa TODAS las fotos del pool (repartidas entre las columnas) para que el
+  // loop continuo tarde en repetir → "levanta" muchas imágenes de la carpeta.
+  const imgs = shuffle(GRILLA_IMGS);
   const cols = Array.from({ length: NUM_COLS }, () => []);
-  imgs.forEach((src, i) => { cols[i % NUM_COLS].push(src); });
+  // Opacidad arbitraria por foto, entre 0.60 y 0.85.
+  imgs.forEach((src, i) => {
+    const opacity = +(0.60 + Math.random() * 0.25).toFixed(3);
+    cols[i % NUM_COLS].push({ src, opacity });
+  });
   return cols;
 }
 
@@ -135,35 +132,15 @@ const MOBILE_DECO = [
 ];
 
 // Trazo a mano bajo "de local" (mismo asset y técnica que el hero actual).
-function Swoosh() {
-  return (
-    <img src="/subraya-01.svg" alt="" aria-hidden="true"
-      style={{ position: 'absolute', left: '50%', bottom: 'calc(-0.5em - 12px)', transform: 'translateX(-50%)', width: '145%', height: 'auto', pointerEvents: 'none' }} />
-  );
-}
-
-// ─── Tarjeta de plan ─────────────────────────────────────────
-function PlanCard({ plan, onClick }) {
+// ─── Un plan (botón + precio/nota) dentro de un grupo ────────
+function SubPlan({ plan, onClick }) {
   const fill = plan.variant === 'fill';
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: '1 1 0', minWidth: 140 }}>
-      {/* Lockup de marca (texto) — bajado 15px para acercarlo a su descripción
-          (translateY no altera el layout, así el resto queda en su lugar) */}
-      <div style={{ height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, transform: 'translateY(15px)' }}>
-        {plan.brand === 'pass' ? <PassLockup sufijo={plan.sufijo} /> : <ClubLockup />}
-      </div>
-
-      {/* Descripción — altura fija en el contenedor (no en el <p>) para que
-          CTA y precio alineen entre las 3 tarjetas sin romper el párrafo */}
-      <div style={{ height: 58, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 16px' }}>
-        <p style={{ fontSize: 13, lineHeight: 1.45, color: A.ink, margin: 0 }}>{plan.desc}</p>
-      </div>
-
-      {/* CTA */}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 120 }}>
       <button
         onClick={onClick}
         style={{
-          width: '100%', maxWidth: 190, padding: '13px 16px', borderRadius: 999, cursor: 'pointer',
+          width: '100%', maxWidth: 200, padding: '13px 14px', borderRadius: 999, cursor: 'pointer',
           fontFamily: A.font, fontWeight: 700, fontSize: 14, transition: 'background .15s, color .15s',
           background: fill ? A.primary : '#fff', color: fill ? '#fff' : A.primary,
           border: fill ? 'none' : `1.5px solid ${A.primary}`,
@@ -173,10 +150,25 @@ function PlanCard({ plan, onClick }) {
       >
         {plan.cta}
       </button>
+      <div style={{ marginTop: 12, fontSize: 13.5, textAlign: 'center', lineHeight: 1.4 }}>
+        {plan.notaEspecial
+          ? <span style={{ color: A.ink }}>{plan.notaEspecial}</span>
+          : <span style={{ color: A.primary }}><b>{plan.precio}</b> <span style={{ fontStyle: 'italic', color: A.ink2 }}>{plan.nota}</span></span>}
+      </div>
+    </div>
+  );
+}
 
-      {/* Precio */}
-      <div style={{ marginTop: 12, fontSize: 13.5, color: A.primary }}>
-        <b>{plan.precio}</b> <span style={{ fontStyle: 'italic', color: A.ink2 }}>{plan.precioNota}</span>
+// ─── Grupo de marca: lockup + descripción + sus dos planes ───
+function GrupoPlanes({ grupo, onSelect }) {
+  return (
+    <div className="pv2-grupo">
+      <div className="pv2-grupo-logo">
+        {grupo.marca === 'pass' ? <PassLockup /> : <ClubLockup />}
+      </div>
+      <div className="pv2-grupo-desc">{grupo.desc}</div>
+      <div className="pv2-grupo-planes">
+        {grupo.planes.map(plan => <SubPlan key={plan.id} plan={plan} onClick={() => onSelect(plan.id)} />)}
       </div>
     </div>
   );
@@ -218,14 +210,19 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
             <div key={ci} className="pv2-col" style={{
               transform: `translate3d(0, ${scrollY * COL_META[ci].f}px, 0)`, willChange: 'transform',
             }}>
-              {COL_META[ci].spacer > 0 && <div style={{ flex: '0 0 auto', height: COL_META[ci].spacer }} />}
-              {items.map((src, idx) => (
-                <div key={`${ci}-${idx}`} className="pv2-cell"
-                  style={{ aspectRatio: 1 / (COL_ASPECT[ci][idx % COL_ASPECT[ci].length]) }}>
-                  <img src={src} alt="" loading="lazy"
-                    onError={e => { const c = e.currentTarget.parentElement; if (c) c.style.display = 'none'; }} />
-                </div>
-              ))}
+              {/* Wrapper interno: loop continuo en una dirección (no pisa el
+                  parallax del padre). Las fotos van DUPLICADAS para que el
+                  bucle sea sin costura (translateY -50% = exactamente un set). */}
+              <div className={`pv2-coldrift pv2-marquee-${COL_META[ci].dir}`}
+                style={{ animationDuration: `${COL_META[ci].dur}s` }}>
+                {[...items, ...items].map((item, idx) => (
+                  <div key={`${ci}-${idx}`} className="pv2-cell"
+                    style={{ aspectRatio: 1 / (COL_ASPECT[ci][(idx % items.length) % COL_ASPECT[ci].length]) }}>
+                    <img src={item.src} alt="" loading="lazy" style={{ opacity: item.opacity }}
+                      onError={e => { const c = e.currentTarget.parentElement; if (c) c.style.display = 'none'; }} />
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -235,29 +232,24 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
 
         {/* ─── Columna izquierda: texto ─── */}
         <div className="pv2-left">
-          {/* Título */}
-          <h1 className="pv2-title" style={{ position: 'relative', margin: 0, lineHeight: 1.16, letterSpacing: 0 }}>
-            <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.primary, fontSize: 'clamp(48px, 5.7vw, 82px)' }}>Viví gesell</span>
-            <span style={{ display: 'block', fontWeight: 600, color: A.ink, letterSpacing: '-0.02em', fontSize: 'clamp(34px, 3.7vw, 54px)' }}>
-              a precio{' '}
-              <span style={{ position: 'relative', whiteSpace: 'nowrap' }}>
-                de local
-                <Swoosh />
-              </span>
-            </span>
+          {/* Título — 3 líneas: dos itálicas (con GESELL en NauryzRedkeds azul)
+              + una en negrita */}
+          <h1 className="pv2-title" style={{ position: 'relative', margin: 0, lineHeight: 1.12, letterSpacing: 0 }}>
+            <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.ink, fontSize: 'clamp(34px, 4.3vw, 53px)' }}>Viví cuponeando</span>
+            <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.ink, fontSize: 'clamp(34px, 4.3vw, 62px)' }}>en <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.82em' }}>GESELL</span> y alrededores</span>
+            <span style={{ display: 'block', fontWeight: 600, color: A.ink, letterSpacing: '-0.02em', fontSize: 'clamp(26px, 3.2vw, 44px)', marginTop: '0.12em' }}>a precio de local y sin gastar de más</span>
           </h1>
 
-          {/* Bajada con logo cuponear inline */}
-          <p className="pv2-sub" style={{ color: A.ink, margin: '48px 0 0', lineHeight: 1.6, fontStyle: 'italic', letterSpacing: '0.01em' }}>
+          {/* Bajada con línea azul a la izquierda + "CUPONEaR" en texto */}
+          <p className="pv2-sub" style={{ color: A.ink, margin: '44px 0 0', lineHeight: 1.6, fontStyle: 'italic', letterSpacing: '0.01em', borderLeft: `3px solid ${A.primary}`, paddingLeft: 18 }}>
             Pases de ahorro en <b>gastronomía, experiencias y compras.</b><br />
-            <img src="/logo-cuponera.svg" alt="cuponear" style={{ display: 'inline-block', height: 27, width: 'auto', verticalAlign: '-6px', marginRight: 5 }} />
-            es saber ahorrar y viajar sin gastar de más!
+            <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.8em', letterSpacing: 0 }}>CUPONEaR</span> es saber ahorrar y viajar sin gastar de más!
           </p>
 
-          {/* Tarjetas de pase */}
-          <div className="pv2-planes" style={{ display: 'flex', alignItems: 'flex-start', gap: 28, margin: '68px 0 0' }}>
-            {PLANES.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} onClick={() => suscribir(plan.id)} />
+          {/* Planes — 2 grupos (Gesell Pass · Club Cuponear), 2 planes c/u */}
+          <div className="pv2-planes">
+            {GRUPOS.map((grupo) => (
+              <GrupoPlanes key={grupo.marca} grupo={grupo} onSelect={(id) => suscribir(id)} />
             ))}
           </div>
         </div>
@@ -288,8 +280,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
           display: flex;
           align-items: center;
         }
-        .pv2-left { max-width: 600px; }
-        .pv2-sub  { font-size: clamp(16px, 1.5vw, 20px); max-width: 600px; white-space: nowrap; }
+        .pv2-left { max-width: 900px; }
+        .pv2-sub  { font-size: clamp(16px, 1.5vw, 20px); max-width: 560px; white-space: nowrap; }
         /* En pantallas más chicas sí puede cortarse la frase */
         @media (max-width: 1340px) { .pv2-sub { white-space: normal; } }
 
@@ -301,7 +293,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
           top: 0;
           bottom: 6px;            /* deja ver la barra divisoria de 6px */
           right: 15px;
-          width: clamp(460px, 44vw, 820px);
+          width: clamp(300px, 28vw, 540px);
           overflow: hidden;
           z-index: 0;
           pointer-events: none;
@@ -316,10 +308,31 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
           display: flex;
           gap: 16px;
         }
-        .pv2-col  { flex: 1 1 0; display: flex; flex-direction: column; gap: 16px; }
-        .pv2-cell { flex: 0 0 auto; border-radius: 20px; overflow: hidden; box-shadow: 0 22px 44px -30px rgba(11,16,32,0.28); }
+        .pv2-col  { flex: 1 1 0; }
+        /* Wrapper interno: loop continuo en una dirección (marquee) sin costura.
+           El translate de la animación se compone con el del parallax (padre).
+           Sin gap: el espaciado va como margin-bottom en cada celda (incluida la
+           última) para que translateY(-50%) sea exactamente un set. */
+        .pv2-coldrift { display: flex; flex-direction: column; will-change: transform; }
+        .pv2-marquee-up   { animation: pv2MarqueeUp   linear infinite; }
+        .pv2-marquee-down { animation: pv2MarqueeDown linear infinite; }
+        @keyframes pv2MarqueeUp   { from { transform: translateY(0); }    to { transform: translateY(-50%); } }
+        @keyframes pv2MarqueeDown { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) {
+          .pv2-marquee-up, .pv2-marquee-down { animation: none; }
+        }
+        .pv2-cell { flex: 0 0 auto; margin-bottom: 16px; border-radius: 20px; overflow: hidden; box-shadow: 0 22px 44px -30px rgba(11,16,32,0.28); }
         .pv2-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pv2-mobile-deco { display: none; }
+
+        /* Planes: 2 grupos (Gesell Pass · Club Cuponear) con 2 planes c/u */
+        .pv2-planes { display: flex; align-items: flex-start; gap: 56px; margin-top: 52px; }
+        .pv2-grupo { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; }
+        .pv2-grupo-logo { height: 62px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; transform: translateY(10px); }
+        .pv2-grupo-desc { font-size: 13px; line-height: 1.4; color: #0B1020; text-align: center; white-space: nowrap; height: 22px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+        /* En pantallas donde no entra en una línea, se permite cortar */
+        @media (max-width: 1280px) { .pv2-grupo-desc { white-space: normal; height: 40px; } }
+        .pv2-grupo-planes { display: flex; gap: 16px; width: 100%; justify-content: center; }
 
         @media (max-width: 1180px) {
           .pv2-inner {

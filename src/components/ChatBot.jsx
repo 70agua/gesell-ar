@@ -741,7 +741,9 @@ export default function ChatBot({ view = 'home' }) {
 
   useEffect(() => {
     const handler = () => {
-      if (window.scrollY > 220 && !scrolledRef.current) {
+      // Aparece recién al llegar a la mitad del sitio (50% del scroll total).
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollable > 0 && window.scrollY >= scrollable * 0.5 && !scrolledRef.current) {
         scrolledRef.current = true;
         setScrolledDown(true);
       }
