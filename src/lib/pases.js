@@ -10,7 +10,12 @@
 //  de "tramo", la comisión se calcula en cobros.js):
 //    · base    = comisión 25% / 20%  → ahorro declarado <= $15.000
 //    · premium = comisión 15/10/7    → ahorro declarado >  $15.000
-//  Ambas: Salidas + Aventura & Relax. Alojamiento SIEMPRE afuera.
+//  Ambas: Salidas + Aventura & Relax, uso libre durante los N días.
+//
+//  Aparte va el DESCUENTO DE ESTADÍA (alojamiento): un uso por pase, y
+//  utilizable con el pase todavía sin activar, para que el turista reserve
+//  con descuento antes de viajar sin quemar los días. Los pases-regalo de
+//  hotelero no lo incluyen.
 //
 //  Pagos: MOCK (mismo patrón que el resto de la app). Las refs de
 //  MercadoPago se guardan como texto libre; no hay webhook real.
@@ -38,19 +43,27 @@ const TIPOS_ALOJAMIENTO = new Set([
 
 const esAlojamiento = (promo) => TIPOS_ALOJAMIENTO.has(promo.negocioTipo || '');
 
-// Categorías elegibles del pase: Salidas + Aventura & Relax. Alojamiento
-// SIEMPRE afuera. Único lugar donde vive la regla — la consume también
-// usePaseStats para contar el catálogo vivo del hero.
-export const esCategoriaPase = (promo) => !esAlojamiento(promo);
+// El pase tiene DOS mitades, con relojes distintos:
+//   · estadía  = alojamiento. UN uso por pase, y se puede usar con el pase
+//                todavía sin activar → el turista reserva con descuento
+//                meses antes sin quemar los días.
+//   · libres   = Salidas + Aventura & Relax. Uso libre (1 por comercio)
+//                durante los N días, desde que activa el pase.
+export const esOfertaEstadia = (promo) => esAlojamiento(promo);
+export const esOfertaLibre   = (promo) => !esAlojamiento(promo);
+
+// Todo el catálogo entra al pase. Único lugar donde vive la regla — la
+// consume también usePaseStats para el catálogo vivo del hero.
+export const esCategoriaPase = () => true;
 
 const esBase        = (promo) => (promo.ahorroEstimado || 0) <= AHORRO_BASE_MAX;
 const esPremium     = (promo) => (promo.ahorroEstimado || 0) >  AHORRO_BASE_MAX;
 
-// Flag de upsell (Brief 6): true si la oferta entra "gratis" en la capa
-// base del pase (tramo 25/20 + categoría elegible). Lo consume la UI de
-// Brief 2 en el detalle de oferta: "esto lo tenías incluido en el Pase".
+// Flag de upsell (Brief 6): true si la oferta entra "gratis" con el pase.
+// Alojamiento entra siempre (vía descuento de estadía); el resto, si está
+// en la capa base. Lo consume el detalle de oferta: "esto lo tenías incluido".
 export function incluidaEnPase(promo) {
-  return !esAlojamiento(promo) && esBase(promo);
+  return esAlojamiento(promo) || esBase(promo);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -115,6 +128,35 @@ export async function getOfertasPremium({ soloConCupo = true } = {}) {
     .filter(p => !esAlojamiento(p) && esPremium(p))
     .filter(p => (p.cupoMensualPremium || 0) > 0)          // el socio habilitó premium
     .filter(p => !soloConCupo || (p.cupoRestante || 0) > 0);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Descuento de estadía — el alojamiento del pase.
+//  Sin capas base/premium: cualquier oferta de alojamiento vigente,
+//  una sola vez por pase.
+// ═══════════════════════════════════════════════════════════
+export async function getOfertasEstadia() {
+  const { data } = await supabase
+    .from('promociones')
+    .select('*, negocios(nombre, tipo, categoria, localidad, zona, foto_perfil, imagen_url, activo)')
+    .eq('activa', true)
+    .eq('aprobada', true)
+    .order('creado_en', { ascending: false });
+
+  return (data || [])
+    .filter(p => p.negocios?.activo !== false)
+    .map(normalizePromo)
+    .filter(esOfertaEstadia);
+}
+
+// Estado del descuento de estadía de un pase, para la UI.
+//   disponible → se puede usar ahora (incluso con el pase sin activar)
+export function estadoEstadia(usuarioPase) {
+  if (!usuarioPase)                     return { disponible: false, motivo: 'sin_pase' };
+  if (!usuarioPase.incluye_estadia)     return { disponible: false, motivo: 'no_incluida' };
+  if (usuarioPase.estadia_usada_el)     return { disponible: false, motivo: 'ya_usada', usadaEl: usuarioPase.estadia_usada_el };
+  if (usuarioPase.estado === 'vencido') return { disponible: false, motivo: 'pase_vencido' };
+  return { disponible: true, motivo: null };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -261,6 +303,18 @@ export async function canjearPase({ usuarioPaseId, userId, promocionId }) {
   const { data: up } = await supabase
     .from('usuario_pases').select('*').eq('id', usuarioPaseId).single();
   if (!up) return { ok: false, error: 'pase_no_encontrado' };
+
+  // Alojamiento va por la ruta de estadía: no exige el pase activado ni
+  // consume días. Se resuelve antes del chequeo de estado.
+  const { data: rawAloj } = await supabase
+    .from('promociones')
+    .select('id, negocios(tipo)')
+    .eq('id', promocionId)
+    .single();
+  if (TIPOS_ALOJAMIENTO.has(rawAloj?.negocios?.tipo || '')) {
+    return canjearEstadia({ usuarioPaseId, userId, promocionId, usuarioPase: up });
+  }
+
   if (up.estado !== 'activo') return { ok: false, error: 'pase_no_activo' };
   if (up.vence_el && new Date(up.vence_el).getTime() < Date.now()) {
     await supabase.from('usuario_pases').update({ estado: 'vencido' }).eq('id', usuarioPaseId);
@@ -274,7 +328,6 @@ export async function canjearPase({ usuarioPaseId, userId, promocionId }) {
     .single();
   if (!rawPromo || rawPromo.activa !== true) return { ok: false, error: 'promo_no_disponible' };
   const promo = normalizePromo(rawPromo);
-  if (esAlojamiento(promo)) return { ok: false, error: 'categoria_excluida' };
 
   // Elegibilidad: base (tramo 25/20) directa; premium (15/10/7) sólo si fue elegida
   let elegible = esBase(promo);
@@ -306,6 +359,68 @@ export async function canjearPase({ usuarioPaseId, userId, promocionId }) {
     await acreditarPuntos(userId, PUNTOS_PASE.canje, 'pase_canje', 'Canje con el Pase', usuarioPaseId);
   }
   return { ok: true, ahorro };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Canje del descuento de estadía (alojamiento).
+//  Es el que se puede usar ANTES de viajar: acepta el pase en
+//  'pendiente' (dentro de la ventana de activación) y no toca
+//  fecha_activacion ni vence_el — los días del pase no arrancan acá.
+// ═══════════════════════════════════════════════════════════
+export async function canjearEstadia({ usuarioPaseId, userId, promocionId, usuarioPase = null }) {
+  const up = usuarioPase || (await supabase
+    .from('usuario_pases').select('*').eq('id', usuarioPaseId).single()).data;
+  if (!up) return { ok: false, error: 'pase_no_encontrado' };
+  // Los pases-regalo del hotelero vienen sin estadía (no financia la
+  // reserva de la competencia). Legacy sin la columna → se asume incluida.
+  if (up.incluye_estadia === false) return { ok: false, error: 'estadia_no_incluida' };
+  if (up.estadia_usada_el) return { ok: false, error: 'estadia_ya_usada' };
+
+  // Pendiente: vale mientras no se pase la ventana de 12 meses desde la
+  // compra. Activo: vale mientras el pase no haya vencido.
+  if (up.estado === 'pendiente') {
+    const limite = new Date(up.fecha_compra).getTime() + VENTANA_ACTIVACION_MESES * 30 * 24 * 3600 * 1000;
+    if (Date.now() > limite) return { ok: false, error: 'ventana_vencida' };
+  } else if (up.estado === 'activo') {
+    if (up.vence_el && new Date(up.vence_el).getTime() < Date.now()) {
+      await supabase.from('usuario_pases').update({ estado: 'vencido' }).eq('id', usuarioPaseId);
+      return { ok: false, error: 'pase_vencido' };
+    }
+  } else {
+    return { ok: false, error: 'pase_no_activo' };
+  }
+
+  const { data: rawPromo } = await supabase
+    .from('promociones')
+    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
+    .eq('id', promocionId)
+    .single();
+  if (!rawPromo || rawPromo.activa !== true) return { ok: false, error: 'promo_no_disponible' };
+  const promo = normalizePromo(rawPromo);
+  if (!esOfertaEstadia(promo)) return { ok: false, error: 'no_es_estadia' };
+
+  const ahorro = promo.ahorroEstimado || 0;
+  const { error } = await supabase.from('pase_canjes').insert({
+    usuario_pase_id: usuarioPaseId,
+    promocion_id:    promocionId,
+    negocio_id:      promo.negocioId,
+    ahorro_monto:    ahorro,
+  });
+  if (error) {
+    if (error.code === '23505') return { ok: false, error: 'ya_canjeado_comercio' };
+    return { ok: false, error: error.message };
+  }
+
+  const { error: e2 } = await supabase
+    .from('usuario_pases')
+    .update({ estadia_usada_el: new Date().toISOString(), estadia_promocion_id: promocionId })
+    .eq('id', usuarioPaseId);
+  if (e2) return { ok: false, error: e2.message };
+
+  if (up.tipo === 'comprado' || up.upgrade_aplicado) {
+    await acreditarPuntos(userId, PUNTOS_PASE.canje, 'pase_canje', 'Descuento de estadía', usuarioPaseId);
+  }
+  return { ok: true, ahorro, estadia: true };
 }
 
 export async function getCanjes(usuarioPaseId) {

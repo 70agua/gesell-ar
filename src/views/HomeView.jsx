@@ -217,6 +217,10 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
       {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador) ── */}
       <HeroPase onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }} />
 
+      {/* Marca el fin del hero: cuando este punto pasa bajo la navbar,
+          la navbar se estrecha (ver Navbar.jsx → [data-navbar-shrink]). */}
+      <div data-navbar-shrink aria-hidden="true" />
+
       {/* ── Cuponeá en cada momento de tu viaje ──────────────── */}
       <CuponearCategoriasSection onVerOfertasRegalo={onVerOfertasRegalo} onNavCuponear={onNavCuponear} />
 
@@ -266,6 +270,23 @@ const CUPONEAR_CARDS = [
 ];
 
 function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
+  // Ahorro máximo real por bucket, leído de las ofertas vigentes. Si un
+  // bucket no tiene ninguna oferta con % cargado, no se muestra nada debajo
+  // de esa pastilla — antes que prometer un número que no existe.
+  const [ahorros, setAhorros] = useState({});
+  const [totalOfertas, setTotalOfertas] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { getPromos, ahorroMaxPorBucket } = await import('../lib/datos');
+      const promos = await getPromos(300);
+      if (!vivo) return;
+      setAhorros(ahorroMaxPorBucket(promos));
+      setTotalOfertas(promos.filter(p => p.tokens_costo !== 0).length);
+    })();
+    return () => { vivo = false; };
+  }, []);
+
   return (
     // zIndex por encima del hero (z:0) para tapar como bloque las imágenes
     // que asoman desde atrás de la línea divisoria.
@@ -273,28 +294,14 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
       <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px' }}>
         {/* Header */}
         <div style={{ marginBottom: 60, textAlign: 'center' }}>
-          <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0, lineHeight: 1.1 }}>
-            <em style={{ fontStyle: 'italic', fontWeight: 400, color: A.primary }}>Cuponeá</em> cada momento de tu viaje
-          </h2>
-          {/* ── Banner regalo ───────────────────────────────── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginTop: 20 }}>
-            <div style={{ position: 'relative', width: 72, height: 52, flexShrink: 0, zIndex: 2 }}>
-              <img src="/ico-disc.svg" alt="" style={{ width: 48, position: 'absolute', top: 0, left: 0, zIndex: 2 }} />
-              <img src="/ico-disc.svg" alt="" style={{ width: 48, position: 'absolute', top: 0, left: 26, zIndex: 1, opacity: 0.55 }} />
-            </div>
-            <div style={{ position: 'relative', padding: '12px 18px', background: '#fff', borderRadius: 14, border: `1px solid ${A.primary}22`, marginLeft: 10 }}>
-              <div style={{ position: 'absolute', top: -5, right: -5, width: 14, height: 14, borderRadius: '50%', background: 'rgb(230, 57, 70)', border: '3px solid #fff' }} />
-              <div style={{ position: 'absolute', left: -9, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '8px solid transparent', borderBottom: '8px solid transparent', borderRight: `8px solid #c7cdf5` }} />
-              <div style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderRight: `7px solid #fff` }} />
-              <p style={{ fontSize: 14.5, color: A.ink, fontWeight: 400, lineHeight: 1.5, margin: 0 }}>
-                🎁 <span style={{ fontWeight: 700 }}>Un descuento de bienvenida</span> te espera.{' '}
-                <button
-                  onClick={() => onVerOfertasRegalo?.()}
-                  style={{ background: 'none', border: 'none', padding: 0, color: A.primary, fontWeight: 700, fontSize: 14.5, cursor: 'pointer', fontFamily: A.font, textDecoration: 'underline' }}
-                >¡Reclamalo ahora!</button>{' '}
-              </p>
-            </div>
+          {/* Icono de los cuponcitos, encima del título */}
+          <div style={{ position: 'relative', width: 72, height: 52, margin: '0 auto 16px' }}>
+            <img src="/ico-disc.svg" alt="" style={{ width: 48, position: 'absolute', top: 0, left: 12, zIndex: 2 }} />
+            <img src="/ico-disc.svg" alt="" style={{ width: 48, position: 'absolute', top: 0, left: 38, zIndex: 1, opacity: 0.55 }} />
           </div>
+          <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0, lineHeight: 1.1 }}>
+            <em style={{ fontStyle: 'italic', fontWeight: 400, color: A.primary }}>Cuponeá</em> antes de pagar
+          </h2>
         </div>
 
         {/* 4 cards */}
@@ -315,14 +322,39 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
               {/* Texto */}
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, lineHeight: 1.2 }}>{card.titulo}</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 5 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: A.ink }}>con</span>
-                  {/* Pill Pass */}
-                  <img src="/pass.svg" alt="Pass" style={{ height: 20, width: 'auto', display: 'block' }} />
-                </div>
+                {ahorros[card.navTarget] != null && (
+                  <div style={{ fontSize: 13, fontWeight: 500, color: A.muted, marginTop: 5 }}>
+                    hasta <strong style={{ color: A.primary, fontWeight: 700 }}>{ahorros[card.navTarget]}% menos</strong>
+                  </div>
+                )}
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Atribución al producto — una sola vez, debajo de toda la fila.
+            La segunda línea es la regla de los dos relojes: el descuento de
+            estadía se usa al reservar; los días del pase arrancan al llegar
+            (ver canjearEstadia en lib/pases.js). */}
+        <div style={{ marginTop: 56, textAlign: 'center', lineHeight: 1.6 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'center', fontSize: 15, color: A.muted }}>
+            Todo esto entra en tu
+            <img src="/pass.svg" alt="Gesell Pass" style={{ height: 22, width: 'auto', display: 'block' }} />
+          </span>
+          <div style={{ fontSize: 13, color: A.muted, marginTop: 4 }}>
+            Usá el descuento de alojamiento cuando reserves. Tus días de pase arrancan cuando llegás.
+          </div>
+
+          {totalOfertas > 0 && (
+            <button
+              onClick={() => onNavCuponear?.('alojamientos')}
+              style={{ marginTop: 26, background: 'none', border: `1.5px solid ${A.primary}`, color: A.primary, borderRadius: 999, padding: '11px 26px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s, color 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = A.primary; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = A.primary; }}
+            >
+              Ver los {totalOfertas} descuentos →
+            </button>
+          )}
         </div>
       </div>
     </section>
@@ -1217,7 +1249,7 @@ function CuponerasSection({ onOpenPack }) {
             <IcoBolt /> Viajá con packs de cupones
           </div>
           <h2 style={{ fontSize: 'clamp(34px, 3vw, 52px)', fontWeight: 700, lineHeight: 1.05, margin: '0 0 10px' }}>
-            Packs Cuponear
+            Packs <span style={{ color: A.yellow }}>todo incluído</span>
           </h2>
           <div className="cuponeras-intro" style={{ display: 'flex', alignItems: 'flex-start', gap: 56 }}>
             <p style={{ flex: '0 0 66%', maxWidth: '66%', fontSize: 17, color: 'rgba(255,255,255,0.62)', lineHeight: 1.5, margin: 0 }}>

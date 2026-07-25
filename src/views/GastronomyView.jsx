@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { getGastronomia, getAventura, getPromos, CATS_RUBRO } from '../lib/datos';
+import { getGastronomia, getAventura, getPromos, CATS_RUBRO, CATS_MIMO } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:220 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { LOCALIDADES } from '../lib/localidades';
 import { useCuponera } from '../lib/cuponera';
@@ -36,9 +36,9 @@ const A = {
 // Los filtros usan el MISMO vocabulario que se guarda en `negocios.categoria`
 // (CATS_RUBRO), para que tildar una subcategoría matchee de verdad. Label = val.
 const optsFrom = arr => arr.map(c => ({ label: c, val: c }));
-// "Mimo" = subcategorías de bienestar dentro de aventura_relax; el resto es
-// "experiencia". Así los dos accesos de Home muestran filtros acordes.
-const CATS_MIMO = ['Yoga & Mindfulness', 'Masajes', 'Salón de belleza'];
+// CATS_MIMO ("mimo" = bienestar dentro de aventura_relax; el resto es
+// "experiencia") vive en datos.js: la comparten estos filtros y los buckets
+// de ahorro de la home.
 const TIPOS_GASTRO   = optsFrom(CATS_RUBRO.salidas);
 const TIPOS_AVENTURA = optsFrom(CATS_RUBRO.aventura_relax.filter(c => !CATS_MIMO.includes(c)));
 const TIPOS_MIMO     = optsFrom(CATS_MIMO);

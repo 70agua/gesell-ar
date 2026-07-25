@@ -19,6 +19,15 @@ const A = {
   font:        "'Inter', system-ui, sans-serif",
 };
 
+// ─── Medidas de la pastilla: expandida (max) / estrechada (min) ──
+const NAV_TOP     = 12;
+const NAV_TOP_MIN = 8;
+const NAV_W_MAX   = 1240;
+const NAV_W_MIN   = 1020;
+const NAV_H_MAX   = 56;
+const NAV_H_MIN   = 48;
+const NAV_EASE    = 'cubic-bezier(.4,0,.2,1)';
+
 // ─── Chevrons ────────────────────────────────────────────────
 function ChevD({ size = 12 }) {
   return (
@@ -586,6 +595,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const animTimer = useRef(null);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
+  const [condensed,   setCondensed]   = useState(false);
   const { openDrawer } = useCuponera();
 
   const sitiosRef = useRef(null);
@@ -626,6 +636,22 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // Limpiar timers al desmontar
   useEffect(() => () => { clearTimeout(closeTimer.current); clearTimeout(animTimer.current); }, []);
 
+  // ── Estrechado al pasar la primera sección ────────────────
+  // La vista marca el fin del hero con <div data-navbar-shrink />. Cuando ese
+  // punto cruza por debajo de la pastilla, la navbar se compacta. Si la vista
+  // no pone el ancla, la navbar queda siempre expandida.
+  useEffect(() => {
+    const anchor = document.querySelector('[data-navbar-shrink]');
+    if (!anchor) { setCondensed(false); return; }
+    const linea = NAV_TOP + NAV_H_MAX; // borde inferior de la pastilla expandida
+    const obs = new IntersectionObserver(
+      ([e]) => setCondensed(e.boundingClientRect.top <= linea),
+      { rootMargin: `-${linea}px 0px 0px 0px`, threshold: 0 }
+    );
+    obs.observe(anchor);
+    return () => obs.disconnect();
+  }, [view]);
+
   const closeAll = () => { clearTimeout(closeTimer.current); setOpenMenu(null); setMobileOpen(false); };
 
   // nav: usa onNavbarNav si está disponible (con filtros), si no setView directo
@@ -656,27 +682,37 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const NAV_SEP = A.line;
 
   const navBtnSt = {
-    background: 'none', border: 'none', fontSize: 14, fontWeight: 500,
+    background: 'none', border: 'none', fontSize: condensed ? 13 : 14, fontWeight: 500,
     color: NAV_OFF, cursor: 'pointer', padding: '4px 0', fontFamily: A.font,
     display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-    transition: 'color .15s',
+    transition: `color .15s, font-size .35s ${NAV_EASE}`,
   };
 
   return (
     <>
       <nav ref={navRef} className="navbar-flotante" style={{
         // Pastilla acotada y centrada: no se estira a todo el ancho.
-        position: 'fixed', top: 12, left: 0, right: 0, zIndex: 1000,
-        width: 'calc(100% - 44px)', maxWidth: 1240, margin: '0 auto',
+        // Al pasar la primera sección (condensed) se estrecha y se achica.
+        position: 'fixed', top: condensed ? NAV_TOP_MIN : NAV_TOP, left: 0, right: 0, zIndex: 1000,
+        width: 'calc(100% - 44px)', maxWidth: condensed ? NAV_W_MIN : NAV_W_MAX, margin: '0 auto',
         borderRadius: 999,
-        background: 'rgba(255,255,255,0.80)',
+        background: condensed ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.80)',
         backdropFilter: 'blur(8px) saturate(150%)',
         WebkitBackdropFilter: 'blur(22px) saturate(150%)',
         border: `1px solid ${A.line}`,
-        boxShadow: scrolled ? '0 10px 30px -10px rgba(11,16,32,0.18)' : '0 6px 22px -12px rgba(11,16,32,0.14)',
-        transition: 'box-shadow 0.25s', fontFamily: A.font,
+        boxShadow: condensed
+          ? '0 14px 34px -12px rgba(11,16,32,0.22)'
+          : scrolled ? '0 10px 30px -10px rgba(11,16,32,0.18)' : '0 6px 22px -12px rgba(11,16,32,0.14)',
+        transition: `max-width .38s ${NAV_EASE}, top .38s ${NAV_EASE}, box-shadow .25s, background .25s`,
+        fontFamily: A.font,
       }}>
-        <div style={{ width: '100%', boxSizing: 'border-box', padding: '0 22px', height: 56, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: '100%', boxSizing: 'border-box',
+          padding: condensed ? '0 16px' : '0 22px',
+          height: condensed ? NAV_H_MIN : NAV_H_MAX,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14,
+          transition: `height .38s ${NAV_EASE}, padding .38s ${NAV_EASE}`,
+        }}>
 
           {/* ── Logo — el dominio del sitio es la marca, con su select de red ── */}
           <div style={{ position: 'relative', flexShrink: 0, flex: 1 }} ref={sitiosRef}
@@ -687,7 +723,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               onClick={() => nav('home')}
               style={{
                 ...navBtnSt, color: A.primary, fontWeight: 700,
-                fontSize: 19, letterSpacing: '-0.03em', gap: 6,
+                fontSize: condensed ? 17 : 19, letterSpacing: '-0.03em', gap: 6,
               }}
             >
               {siteHost()} <ChevD />
@@ -700,7 +736,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           </div>
 
           {/* ── Desktop nav links ── */}
-          <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 30, flexShrink: 0 }}>
+          <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: condensed ? 20 : 30, flexShrink: 0, transition: `gap .38s ${NAV_EASE}` }}>
 
             {/* Alojamientos */}
             <div style={{ position: 'relative' }} ref={alojRef}
@@ -781,7 +817,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <button
                 onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
                 className="navbar-publicar-btn"
-                style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 999, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: A.font, boxShadow: '0 2px 10px rgba(37,69,230,0.28)', transition: 'background .15s' }}
+                style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 999, padding: condensed ? '7px 16px' : '9px 20px', fontWeight: 700, fontSize: condensed ? 12.5 : 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: A.font, boxShadow: '0 2px 10px rgba(37,69,230,0.28)', transition: `background .15s, padding .38s ${NAV_EASE}` }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#1a35cc'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = A.primary; }}
               >
@@ -834,7 +870,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                 {/* Calco del boceto: única acción a la derecha. Destino a
                     definir (hoy → convertirse en socio). */}
                 <button onClick={() => (onConvertirseSocio || onRegisterClick)?.('registrarse')}
-                  style={{ background: A.ink, border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: '10px 20px', fontFamily: A.font, whiteSpace: 'nowrap', transition: 'background 0.15s' }}
+                  style={{ background: A.ink, border: 'none', borderRadius: 999, fontSize: condensed ? 12.5 : 13, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: condensed ? '8px 16px' : '10px 20px', fontFamily: A.font, whiteSpace: 'nowrap', transition: `background 0.15s, padding .38s ${NAV_EASE}` }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
                   onMouseLeave={e => e.currentTarget.style.background = A.ink}
                 >Publicá una oferta</button>

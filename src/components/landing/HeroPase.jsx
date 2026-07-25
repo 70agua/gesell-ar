@@ -25,7 +25,11 @@ const A = {
 const GRUPOS = [
   {
     marca: 'pass',
-    desc: 'Accedé a todo el catálogo de descuentos locales.',
+    // Alojamiento incluido = el argumento de compra más fuerte (una estadía
+    // paga el pase entero). La segunda línea desactiva la objeción obvia:
+    // "lo compro ahora para reservar y se me queman los días".
+    desc: <>Todo el catálogo de descuentos locales, <b>alojamiento incluido.</b></>,
+    nota: 'Reservá con descuento hoy. Los días del pase empiezan cuando llegás.',
     planes: [
       { id: 'x3', cta: 'Pase x 3 días', variant: 'fill', precio: '$20.000', nota: 'por única vez' },
       { id: 'x7', cta: 'Pase x 7 días', variant: 'fill', precio: '$35.000', nota: 'por única vez' },
@@ -33,11 +37,14 @@ const GRUPOS = [
   },
   {
     marca: 'club',
-    desc: 'Promos y descuentos en todos los destinos, sin límites.',
+    desc: <>Promos y descuentos en {' '}<b>todos los destinos, sin límites.</b></>,
     planes: [
       { id: 'club',     cta: 'Suscribite ahora', variant: 'outline', precio: '$8.333', nota: 'por mes' },
+      // Los pases-regalo del hotelero no llevan descuento de estadía: regala
+      // salidas, experiencias y relax, nunca la reserva de la competencia
+      // (regla en activar_regalo_pase / canjearEstadia).
       { id: 'premium', cta: 'Premium',         variant: 'outline',
-        notaEspecial: <><b style={{ fontStyle: 'italic', color: A.primary, fontSize: '0.92em' }}>¡Regalá pases ilimitados!</b><br /><span style={{ fontStyle: 'italic', fontSize: '0.92em' }}>Ideal para hoteleros.</span></> },
+        notaEspecial: <><b style={{ fontStyle: 'italic', color: A.primary, fontSize: '0.92em' }}>¡Regalá pases ilimitados!</b><br /><span style={{ fontStyle: 'italic', fontSize: '0.92em' }}>Ideal para hoteleros: regalás salidas, experiencias y relax.</span></> },
     ],
   },
 ];
@@ -167,6 +174,9 @@ function GrupoPlanes({ grupo, onSelect }) {
         {grupo.marca === 'pass' ? <PassLockup /> : <ClubLockup />}
       </div>
       <div className="pv2-grupo-desc">{grupo.desc}</div>
+      {/* Siempre presente (nbsp si el grupo no tiene nota) para que las dos
+          columnas mantengan los botones alineados. */}
+      <div className="pv2-grupo-nota">{grupo.nota || ' '}</div>
       <div className="pv2-grupo-planes">
         {grupo.planes.map(plan => <SubPlan key={plan.id} plan={plan} onClick={() => onSelect(plan.id)} />)}
       </div>
@@ -236,14 +246,14 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
               + una en negrita */}
           <h1 className="pv2-title" style={{ position: 'relative', margin: 0, lineHeight: 1.12, letterSpacing: 0 }}>
             <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.ink, fontSize: 'clamp(34px, 4.3vw, 53px)' }}>Viví cuponeando</span>
-            <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.ink, fontSize: 'clamp(34px, 4.3vw, 62px)' }}>en <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.82em' }}>GESELL</span> y alrededores</span>
-            <span style={{ display: 'block', fontWeight: 600, color: A.ink, letterSpacing: '-0.02em', fontSize: 'clamp(26px, 3.2vw, 44px)', marginTop: '0.12em' }}>a precio de local y sin gastar de más</span>
+            <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.ink, fontSize: 'clamp(34px, 4.3vw, 53px)' }}>en <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.72em' }}>GESELL</span> y alrededores</span>
+            <span style={{ display: 'block', fontWeight: 700, color: A.ink, letterSpacing: '0em', fontSize: 'clamp(26px, 3.2vw, 34px)', marginTop: '0.22em' }}>a precio local, sin gastar de más</span>
           </h1>
 
           {/* Bajada con línea azul a la izquierda + "CUPONEaR" en texto */}
-          <p className="pv2-sub" style={{ color: A.ink, margin: '44px 0 0', lineHeight: 1.6, fontStyle: 'italic', letterSpacing: '0.01em', borderLeft: `3px solid ${A.primary}`, paddingLeft: 18 }}>
-            Pases de ahorro en <b>gastronomía, experiencias y compras.</b><br />
-            <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.8em', letterSpacing: 0 }}>CUPONEaR</span> es saber ahorrar y viajar sin gastar de más!
+          <p className="pv2-sub" style={{ color: A.ink, margin: '44px 0 0', lineHeight: 1.6, letterSpacing: '0.01em', borderLeft: `3px solid ${A.primary}`, paddingLeft: 18 }}>
+            Ahorrá en <b>alojamiento, gastronomía, experiencias y compras.</b><br />
+            <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.8em', letterSpacing: 0 }}>CUPONEaR</span> <span style={{ fontStyle: 'italic' }}>es tu cuponera viajera.</span>
           </p>
 
           {/* Planes — 2 grupos (Gesell Pass · Club Cuponear), 2 planes c/u */}
@@ -329,9 +339,10 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
         .pv2-planes { display: flex; align-items: flex-start; gap: 56px; margin-top: 52px; }
         .pv2-grupo { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; }
         .pv2-grupo-logo { height: 62px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; transform: translateY(10px); }
-        .pv2-grupo-desc { font-size: 13px; line-height: 1.4; color: #0B1020; text-align: center; white-space: nowrap; height: 22px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+        .pv2-grupo-desc { font-size: 13px; line-height: 1.4; color: #0B1020; text-align: center; white-space: nowrap; height: 22px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+        .pv2-grupo-nota { font-size: 12px; line-height: 1.35; color: #6B7280; font-style: italic; text-align: center; min-height: 17px; margin-bottom: 14px; }
         /* En pantallas donde no entra en una línea, se permite cortar */
-        @media (max-width: 1280px) { .pv2-grupo-desc { white-space: normal; height: 40px; } }
+        @media (max-width: 1280px) { .pv2-grupo-desc { white-space: normal; height: 40px; } .pv2-grupo-nota { min-height: 34px; } }
         .pv2-grupo-planes { display: flex; gap: 16px; width: 100%; justify-content: center; }
 
         @media (max-width: 1180px) {

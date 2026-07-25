@@ -32,6 +32,49 @@ export const CATS_RUBRO = {
   aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga & Mindfulness', 'Masajes', 'Salón de belleza', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
 };
 
+// "Mimo" = subcategorías de bienestar dentro de aventura_relax; el resto de
+// aventura_relax es "experiencia". Fuente única: la consumen los filtros de
+// GastronomyView y los buckets de la home.
+export const CATS_MIMO   = ['Yoga & Mindfulness', 'Masajes', 'Salón de belleza'];
+// Subcategorías de `salidas` que son gastronomía. El resto de salidas
+// (shows, centros culturales, otros) cae en el bucket de compras/recuerdos.
+export const CATS_GASTRO = ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías', 'Panaderías'];
+
+// ─── Buckets de la home ("Cuponeá antes de pagar") ────────────
+// Mismo criterio de agrupación que la navegación de esas pastillas
+// (App.jsx → onNavCuponear), para que el ahorro que promete cada una se
+// corresponda con las ofertas que el usuario ve al entrar.
+export function bucketCuponear(promo) {
+  if (promo.categoria === 'alojamiento') return 'alojamientos';
+  const subs = promo.subcategorias || [];
+  if (promo.categoria === 'salidas') {
+    return subs.some(s => CATS_GASTRO.includes(s)) ? 'comer' : 'compras';
+  }
+  return subs.some(s => CATS_MIMO.includes(s)) ? 'mimo' : 'experiencia';
+}
+
+// El descuento vive en `badge` como texto libre ('-35%', '25%', '2x1',
+// 'Cortesía'). Sólo tomamos los que son porcentaje puro: nunca se muestra
+// un número que el socio no cargó.
+export function pctDeBadge(badge) {
+  const m = /^-?\s*(\d{1,2})\s*%$/.exec(String(badge || '').trim());
+  return m ? Number(m[1]) : null;
+}
+
+// { bucket: mayor % de descuento vigente }. Los buckets sin ninguna oferta
+// porcentual quedan afuera del objeto → la UI no muestra nada ahí.
+export function ahorroMaxPorBucket(promos) {
+  const out = {};
+  for (const p of promos || []) {
+    if (p.tokens_costo === 0) continue;
+    const pct = pctDeBadge(p.badge);
+    if (pct == null) continue;
+    const b = bucketCuponear(p);
+    if (!out[b] || pct > out[b]) out[b] = pct;
+  }
+  return out;
+}
+
 // "Tipo de experiencia" — el socio de Salidas lo elige al darse de alta
 // (PerfilNegocioForm) y queda guardado en `negocios.tags`. El filtro de
 // "Tipo de experiencia" en OfertasView y el dropdown del Navbar usan esta
