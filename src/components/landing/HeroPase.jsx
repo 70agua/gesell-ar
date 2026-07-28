@@ -162,29 +162,54 @@ function PaseBoton({ pase, onClick }) {
 }
 
 export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }) {
-  const [scrollY, setScrollY] = useState(0);
   const [cols] = useState(buildColumns); // random por carga, estable en la sesión
-  const rafRef = useRef(0);
+  const rafRef  = useRef(0);
+  const heroRef = useRef(null);
+  const colRefs = useRef([]);
+  const visibleRef = useRef(true);
 
+  // El parallax NO pasa por el estado de React: un setState por frame de scroll
+  // obliga a re-renderizar toda la sección (34 celdas + el bloque <style>) 60
+  // veces por segundo. Acá el rAF escribe el transform directo en el DOM.
+  //
+  // Y con el hero fuera del viewport se corta todo: se congela el marquee —y
+  // con él la recomposición de una capa grande, rotada y enmascarada— y ni se
+  // agendan los frames de scroll. Al volver, se repinta una vez para tomar el
+  // scroll que pasó mientras tanto.
   useEffect(() => {
-    const onScroll = () => {
-      if (rafRef.current) return;
-      rafRef.current = requestAnimationFrame(() => {
-        setScrollY(window.scrollY || 0);
-        rafRef.current = 0;
+    const pintar = () => {
+      rafRef.current = 0;
+      const y = window.scrollY || 0;
+      colRefs.current.forEach((nodo, i) => {
+        if (nodo) nodo.style.transform = `translate3d(0, ${y * COL_META[i].f}px, 0)`;
       });
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
+    const agendar = () => {
+      if (rafRef.current || !visibleRef.current) return;
+      rafRef.current = requestAnimationFrame(pintar);
+    };
+    pintar();
+    window.addEventListener('scroll', agendar, { passive: true });
+
+    const hero = heroRef.current;
+    const obs = hero && new IntersectionObserver(([e]) => {
+      visibleRef.current = e.isIntersecting;
+      hero.classList.toggle('pv2-quieto', !e.isIntersecting);
+      if (e.isIntersecting) agendar();
+    }, { threshold: 0 });
+    if (obs) obs.observe(hero);
+
     return () => {
-      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('scroll', agendar);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (obs) obs.disconnect();
     };
   }, []);
 
   const suscribir = (plan) => (onSuscribir || onVerDescuentos)?.(plan);
 
   return (
-    <section className="pv2-hero" style={{ position: 'relative', zIndex: 0, fontFamily: A.font, background: 'linear-gradient(180deg, #FFF7EB 0%, #FFFFFF 60%)', overflowX: 'clip' }}>
+    <section ref={heroRef} className="pv2-hero" style={{ position: 'relative', zIndex: 0, fontFamily: A.font, background: 'linear-gradient(180deg, #FFF7EB 0%, #FFFFFF 60%)', overflowX: 'clip' }}>
 
       {/* ─── Galería derecha: capa detrás, de techo a piso, sin huecos ───
           `pv2-galwin` es la ventana que recorta (al corte). Dentro, una capa
@@ -193,9 +218,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
       <div className="pv2-galwin" aria-hidden="true">
         <div className="pv2-gallery">
           {cols.map((items, ci) => (
-            <div key={ci} className="pv2-col" style={{
-              transform: `translate3d(0, ${scrollY * COL_META[ci].f}px, 0)`, willChange: 'transform',
-            }}>
+            <div key={ci} className="pv2-col" ref={n => { colRefs.current[ci] = n; }}
+              style={{ willChange: 'transform' }}>
               {/* Wrapper interno: loop continuo en una dirección (no pisa el
                   parallax del padre). Las fotos van DUPLICADAS para que el
                   bucle sea sin costura (translateY -50% = exactamente un set). */}
@@ -209,7 +233,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
                         aspectRatio: 1 / (COL_ASPECT[ci][(idx % items.length) % COL_ASPECT[ci].length]),
                         boxShadow: capa.shadow,
                       }}>
-                      <img src={item.src} alt="" loading="lazy" style={{ opacity: capa.opacity }}
+                      <img src={item.src} alt="" loading="lazy" decoding="async" style={{ opacity: capa.opacity }}
                         onError={e => { const c = e.currentTarget.parentElement; if (c) c.style.display = 'none'; }} />
                     </div>
                   );
@@ -255,8 +279,13 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
                 {PASES.map(pase => (
                   <PaseBoton key={pase.id} pase={pase} onClick={() => onComprarPase?.(pase.dias)} />
                 ))}
+                {/* Al apoyar el mouse la pastilla se estira a la derecha y
+                    completa la palabra: "+ días". */}
                 <button className="pv2-mas" onClick={() => suscribir('mas')}
-                  aria-label="Ver todos los planes" title="Ver todos los planes">+</button>
+                  aria-label="Más días" title="Más días">
+                  <span className="pv2-mas-ico">+</span>
+                  <span className="pv2-mas-txt">días</span>
+                </button>
               </div>
             </div>
           </div>
@@ -354,13 +383,28 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         .pv2-btn-pase:hover { background: ${A.primaryDark}; }
         .pv2-pase-precio { margin-top: 11px; font-size: 13px; line-height: 1.3; white-space: nowrap; color: ${A.primary}; }
         .pv2-pase-precio i { font-style: italic; }
+        /* Pastilla que arranca como círculo de 50px y, al hover, se estira
+           hacia la derecha para que el "+" termine de decir "+ días". El ancho
+           lo da el contenido: el texto pasa de max-width 0 a su medida. */
         .pv2-mas {
-          flex: 0 0 auto; width: 50px; height: 50px; border: none; border-radius: 999px;
+          flex: 0 0 auto; height: 50px; min-width: 50px; padding: 0 12px;
+          display: inline-flex; align-items: center; justify-content: center; gap: 0;
+          border: none; border-radius: 999px;
           background: ${A.primarySoft}; color: #fff;
-          font-family: inherit; font-size: 26px; font-weight: 400; line-height: 1; cursor: pointer;
-          transition: background .15s;
+          font-family: inherit; font-weight: 400; line-height: 1; cursor: pointer;
+          transition: background .15s, gap .28s ease;
         }
-        .pv2-mas:hover { background: ${A.primary}; }
+        .pv2-mas-ico { font-size: 26px; line-height: 1; }
+        .pv2-mas-txt {
+          max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap;
+          font-size: 15.5px; font-weight: 700;
+          transition: max-width .28s ease, opacity .2s ease;
+        }
+        .pv2-mas:hover, .pv2-mas:focus-visible { background: ${A.primary}; gap: 7px; }
+        .pv2-mas:hover .pv2-mas-txt, .pv2-mas:focus-visible .pv2-mas-txt { max-width: 90px; opacity: 1; }
+        @media (prefers-reduced-motion: reduce) {
+          .pv2-mas, .pv2-mas-txt { transition: background .15s; }
+        }
 
         /* Ventana de la galería: recorta al corte (techo → piso), detrás del
            texto (z-index 0) y sin capturar clicks. No afecta el layout: es
@@ -423,6 +467,9 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         @media (prefers-reduced-motion: reduce) {
           .pv2-marquee-up, .pv2-marquee-down { animation: none; }
         }
+        /* Hero fuera del viewport: se congela el loop en vez de seguir
+           recomponiendo una capa grande, rotada y con máscara. */
+        .pv2-quieto .pv2-coldrift { animation-play-state: paused; }
         /* La sombra la pone cada celda inline (varía según la capa). */
         .pv2-cell { flex: 0 0 auto; margin-bottom: 16px; border-radius: 20px; overflow: hidden; }
         .pv2-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }

@@ -679,28 +679,47 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // Las vistas marcan sus bloques con <section data-nav-section="aloj|gastro|
   // aventura|packs">. Se subraya el ítem del bloque que cruza la línea de
   // lectura (40% del alto de la ventana); fuera de esos bloques, nada.
+  // Antes esto medía con getBoundingClientRect() en cada frame de scroll, o sea
+  // forzaba un layout sincrónico por frame. Ahora lo resuelve el navegador: un
+  // IntersectionObserver con un rootMargin que deja una franja de alto cero
+  // justo sobre la línea de lectura — una sección "intersecta" exactamente
+  // cuando la cruza. Cero trabajo en el hilo principal mientras se scrollea.
   const [seccionActiva, setSeccionActiva] = useState(null);
   useEffect(() => {
-    let raf = 0;
-    const medir = () => {
-      raf = 0;
-      const linea = window.innerHeight * 0.4;
-      let activa = null;
+    const cruzando = new Set();
+    const obs = new IntersectionObserver(
+      entries => {
+        for (const e of entries) {
+          if (e.isIntersecting) cruzando.add(e.target);
+          else cruzando.delete(e.target);
+        }
+        // Si hay solape, gana la primera en el orden del documento (mismo
+        // criterio que el `break` del recorrido anterior).
+        const activa = [...cruzando]
+          .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))[0];
+        setSeccionActiva(prev => {
+          const val = activa?.dataset.navSection ?? null;
+          return prev === val ? prev : val;
+        });
+      },
+      { rootMargin: '-40% 0px -60% 0px', threshold: 0 }
+    );
+
+    // Las secciones se montan cuando llegan sus datos, así que hay que
+    // reengancharlas: un MutationObserver avisa y se observa lo nuevo.
+    const vistas = new WeakSet();
+    const enganchar = () => {
       for (const nodo of document.querySelectorAll('[data-nav-section]')) {
-        const r = nodo.getBoundingClientRect();
-        if (r.top <= linea && r.bottom >= linea) { activa = nodo.dataset.navSection; break; }
+        if (vistas.has(nodo)) continue;
+        vistas.add(nodo);
+        obs.observe(nodo);
       }
-      setSeccionActiva(prev => (prev === activa ? prev : activa));
     };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(medir); };
-    medir();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
+    enganchar();
+    const mo = new MutationObserver(enganchar);
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    return () => { mo.disconnect(); obs.disconnect(); };
   }, [view]);
 
   // Sólo hay un dropdown montado por vez, así que una sola ref alcanza para los cuatro.
