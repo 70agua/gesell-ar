@@ -122,6 +122,22 @@ export function CuponeraProvider({ children, session, onLoginRequired, onCheckou
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Compra directa de una cuponera entera: mete todos los cupones de una y va
+  // al pago sin abrir el drawer — el turista no arma nada, se lleva el pack.
+  const comprarAhora = useCallback((ofertas) => {
+    if (!session) {
+      onLoginRequired?.();
+      return;
+    }
+    const nuevos = (ofertas || []).map(ofertaToCupon);
+    setCupones(prev => {
+      const yaEstan = new Set(prev.map(c => c.id));
+      return [...nuevos.filter(c => !yaEstan.has(c.id)), ...prev];
+    });
+    setDrawerOpen(false);
+    onCheckout?.();
+  }, [session, onLoginRequired, onCheckout]);
+
   const removeCupon   = useCallback((id) => setCupones(prev => prev.filter(c => c.id !== id)), []);
   const clearCuponera = useCallback(() => setCupones([]), []);
   const openDrawer    = useCallback(() => setDrawerOpen(true),  []);
@@ -134,7 +150,7 @@ export function CuponeraProvider({ children, session, onLoginRequired, onCheckou
   }, [closeDrawer, onCheckout]);
 
   return (
-    <CuponeraContext.Provider value={{ cupones, drawerOpen, addCupon, removeCupon, clearCuponera, openDrawer, closeDrawer, handleCheckout }}>
+    <CuponeraContext.Provider value={{ cupones, drawerOpen, addCupon, comprarAhora, removeCupon, clearCuponera, openDrawer, closeDrawer, handleCheckout }}>
       {children}
       <CuponAgregadoToast open={toast} onClose={dismissToast} onOpenDrawer={() => { dismissToast(); openDrawer(); }} />
     </CuponeraContext.Provider>

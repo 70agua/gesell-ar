@@ -13,6 +13,8 @@ import { PORTADA_CATEGORIAS, listarPortadasAdmin, crearPortada, actualizarPortad
 import { getDemandaDestinos } from '../lib/demanda';
 import { categoriaDeNegocio, normalizePromo } from '../lib/datos';
 import OfertaCard from '../components/OfertaCard';
+import PortadaCuponera from '../components/PortadaCuponera';
+import { FAMILIAS_PACK } from '../lib/familiasPack';
 import { listarCuponerasLocales, crearCuponeraLocal, actualizarCuponeraLocal, eliminarCuponeraLocal, agregarCuponASet, quitarCuponDeSet } from '../lib/cuponerasLocales';
 import { BENEFICIO_ICONOS, getBeneficioIcon } from '../lib/beneficioIconos';
 import { BENEFICIO_TIPOS, tipoBeneficio } from '../lib/beneficiosCuponera';
@@ -1326,6 +1328,13 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
         const precioTotal = cupones.reduce((acc, o) => acc + precioDe(o), 0);
         const editando = pickerAbierto === set.id;
         const activa = set.estado === 'activa';
+        // El mosaico se arma con la forma normalizada de datos.js ({ imagen,
+        // categoria }); acá los cupones vienen crudos de la tabla.
+        const esMosaico = (set.portada_modo || 'imagen') === 'mosaico';
+        const cuponesConFoto = cupones
+          .filter(o => o.imagen_url)
+          .map(o => ({ id: o.id, imagen: o.imagen_url, categoria: categoriaDeNegocio(o.negocios?.tipo, o.negocio_id) }));
+        const previewPortada = { portadaModo: 'mosaico', images: [set.imagen_url], cupones: cuponesConFoto };
         return (
           <div key={set.id} style={{ background:'#fff', border:`1px solid ${editando ? A.primary : A.line}`, borderRadius:16, overflow:'hidden' }}>
 
@@ -1333,10 +1342,12 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
               /* ═══ PREVIEW ═══ */
               <div style={{ display:'flex' }}>
                 {/* Foto principal — ocupa todo el alto, a la izquierda */}
-                <div style={{ width:180, flexShrink:0, alignSelf:'stretch', background:A.bg, borderRight:`1px solid ${A.line}` }}>
-                  {set.imagen_url
+                <div style={{ position:'relative', width:180, flexShrink:0, alignSelf:'stretch', minHeight:150, background:A.bg, borderRight:`1px solid ${A.line}` }}>
+                  {esMosaico && cuponesConFoto.length > 0
+                    ? <PortadaCuponera cuponera={previewPortada} alt={set.nombre} />
+                    : set.imagen_url
                     ? <img src={set.imagen_url} alt={set.nombre} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
-                    : <div style={{ width:'100%', height:'100%', minHeight:150, display:'grid', placeItems:'center', fontSize:30, color:A.muted }}>🖼️</div>
+                    : <div style={{ width:'100%', height:'100%', display:'grid', placeItems:'center', fontSize:30, color:A.muted }}>🖼️</div>
                   }
                 </div>
 
@@ -1396,6 +1407,13 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                     <option value="">Sin localidad</option>
                     {localidades.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
+                  {/* Familia: define bajo qué ícono aparece en el menú y en el
+                      filtro del listado de "Packs todo incluido". */}
+                  <select value={set.familia || ''} onChange={e => cambiar(set.id, { familia: e.target.value || null })}
+                    title="Familia con la que se filtra en el listado de packs" style={selStyle}>
+                    <option value="">Sin familia</option>
+                    {FAMILIAS_PACK.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                  </select>
                   <button onClick={() => borrar(set.id)} title="Eliminar cuponera" style={{ background:'none', border:`1px solid ${A.line}`, borderRadius:8, padding:'7px 9px', cursor:'pointer', color:'#C03030', display:'flex', alignItems:'center' }}>
                     <Trash2 size={14} />
                   </button>
@@ -1415,18 +1433,32 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                     style={{ ...inputStyle, width:200, boxSizing:'border-box', fontSize:13, color:A.ink2 }} />
                 </div>
 
-                {/* Foto principal (portada) */}
-                <div style={{ padding:'0 16px 12px', display:'flex', gap:10, alignItems:'center' }}>
-                  <div style={{ width:52, height:52, borderRadius:10, overflow:'hidden', background:A.bg, border:`1px solid ${A.line}`, flexShrink:0, display:'grid', placeItems:'center' }}>
-                    {set.imagen_url
+                {/* Portada: foto cargada a mano o mosaico con las ofertas del set */}
+                <div style={{ padding:'0 16px 12px', display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+                  <div style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', background:A.bg, border:`1px solid ${A.line}`, flexShrink:0, display:'grid', placeItems:'center' }}>
+                    {esMosaico
+                      ? <PortadaCuponera cuponera={previewPortada} alt="portada" />
+                      : set.imagen_url
                       ? <img src={set.imagen_url} alt="portada" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                       : <span style={{ fontSize:18 }}>🖼️</span>}
                   </div>
+                  <select value={set.portada_modo || 'imagen'} onChange={e => cambiar(set.id, { portada_modo: e.target.value })}
+                    title="Con qué imagen se muestra la cuponera en la home"
+                    style={{ ...selStyle, width:230 }}>
+                    <option value="imagen">Portada: foto cargada</option>
+                    <option value="mosaico">Portada: grilla de las ofertas</option>
+                  </select>
                   <input value={set.imagen_url || ''} onChange={e => cambiar(set.id, { imagen_url: e.target.value })}
                     onBlur={e => cambiar(set.id, { imagen_url: e.target.value.trim() || null })}
                     placeholder="URL de la foto principal (https://...)"
-                    style={{ ...inputStyle, flex:1, minWidth:200, boxSizing:'border-box', fontSize:13, color:A.ink2 }} />
+                    disabled={esMosaico}
+                    style={{ ...inputStyle, flex:1, minWidth:200, boxSizing:'border-box', fontSize:13, color:A.ink2, opacity: esMosaico ? 0.45 : 1 }} />
                 </div>
+                {esMosaico && cuponesConFoto.length === 0 && (
+                  <div style={{ padding:'0 16px 12px', fontFamily:A.font, fontSize:12, color:'#C03030' }}>
+                    Ninguna oferta del set tiene foto: hasta que carguen una, la cuponera muestra la portada de arriba.
+                  </div>
+                )}
 
                 {/* Destacada en el menú "viajá con packs" (toggle + ícono) */}
                 <div style={{ padding:'0 16px 14px' }}>

@@ -2,7 +2,7 @@
 //  src/components/Footer.jsx
 // ============================================================
 import React from 'react';
-import { Mail } from 'lucide-react';
+import { Mail, LogIn } from 'lucide-react';
 
 const IcoInstagram = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -114,7 +114,24 @@ export default function Footer({ onNavigate }) {
       {/* ── Barra inferior ── */}
       <div style={{ borderTop: `1px solid ${LINE}`, padding: '18px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, maxWidth: 1200, margin: '0 auto' }}>
         <span style={{ fontSize: 12, color: MUTED }}>© {new Date().getFullYear()} Cuponera — Todos los derechos reservados</span>
-        <span style={{ fontSize: 12, color: 'rgb(148, 163, 184)' }}>Hecho con <span style={{ color: 'rgb(37, 69, 230)' }}>♥</span> en Argentina</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+          {/* Puerta de entrada a la cuenta: es el único acceso al login desde
+              que salió de la navbar, así que va acá, siempre visible. */}
+          <button
+            onClick={() => nav('login')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: FONT,
+              fontSize: 12.5, fontWeight: 600, color: '#cbd5e1', cursor: 'pointer',
+              background: '#111827', border: `1px solid ${LINE}`, borderRadius: 999,
+              padding: '7px 15px', transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = P; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = P; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#111827'; e.currentTarget.style.color = '#cbd5e1'; e.currentTarget.style.borderColor = LINE; }}
+          >
+            <LogIn size={14} /> Acceso a usuarios
+          </button>
+          <span style={{ fontSize: 12, color: 'rgb(148, 163, 184)' }}>Hecho con <span style={{ color: 'rgb(37, 69, 230)' }}>♥</span> en Argentina</span>
+        </div>
       </div>
 
     </footer>

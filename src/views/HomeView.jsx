@@ -13,6 +13,7 @@ import { useCuponera }  from '../lib/cuponera';
 import HeartButton      from '../components/HeartButton';
 import { socialProof } from '../lib/socialProof';
 import HeroPase from '../components/landing/HeroPase';
+import PortadaCuponera from '../components/PortadaCuponera';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -202,7 +203,7 @@ function GuestsDropdown() {
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onOpenOferta, onVerOfertasRegalo, onNavMarketplaceTipo, onNavCuponear }) {
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase }) {
   const [activeTypes,    setActiveTypes]    = useState(new Set());
   const [activeSecondary, setActiveSecondary] = useState([]);
   const [tabAloj,        setTabAloj]        = useState('Todos'); // eslint-disable-line
@@ -211,11 +212,30 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
   const toggleType = id => setActiveTypes(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const filteredAloj = tabAloj === 'Todos' ? accommodations : accommodations.filter(a => a.type === tabAloj);
 
+  // Las ofertas se traen una sola vez para las 5 tiras y se etiquetan con su
+  // bucket acá: cada PromosSection filtra sobre el mismo array en memoria.
+  const [promos, setPromos]             = useState([]);
+  const [loadingPromos, setLoadingPromos] = useState(true);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { getPromos, bucketCuponear } = await import('../lib/datos');
+      const rows = await getPromos(300);
+      if (!vivo) return;
+      setPromos(rows.map(p => ({ ...p, bucket: bucketCuponear(p) })));
+      setLoadingPromos(false);
+    })();
+    return () => { vivo = false; };
+  }, []);
+
   return (
     <div style={{ color: A.ink, fontFamily: A.font }}>
 
       {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador) ── */}
-      <HeroPase onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }} />
+      <HeroPase
+        onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }}
+        onComprarPase={onComprarPase}
+      />
 
       {/* Marca el fin del hero: cuando este punto pasa bajo la navbar,
           la navbar se estrecha (ver Navbar.jsx → [data-navbar-shrink]). */}
@@ -224,11 +244,24 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
       {/* ── Cuponeá en cada momento de tu viaje ──────────────── */}
       <CuponearCategoriasSection onVerOfertasRegalo={onVerOfertasRegalo} onNavCuponear={onNavCuponear} />
 
-      {/* ── Packs / Cuponeras prediseñadas — subido justo bajo el hero + título ── */}
-      <CuponerasSection onOpenPack={onOpenPack} />
+      {/* ── Una tira de ofertas por grupo: alojamientos, gastronomía,
+             aventura & relax y compras ───────────────────────── */}
+      {HOME_BUCKETS.map((g, i) => (
+        <PromosSection
+          key={g.id}
+          grupo={g}
+          promos={promos}
+          loading={loadingPromos}
+          conBordeSuperior={i === 0}
+          onOpenDetail={onOpenDetail}
+          accommodations={accommodations}
+          onOpenOferta={onOpenOferta}
+          onNavCuponear={onNavCuponear}
+        />
+      ))}
 
-      {/* ── Ofertas en alojamientos ───────────────────────────── */}
-      <PromosSection onOpenDetail={onOpenDetail} accommodations={accommodations} onVerTodas={onVerTodas} onOpenOferta={onOpenOferta} onNavMarketplaceTipo={onNavMarketplaceTipo} />
+      {/* ── Packs / Cuponeras prediseñadas ─────────────────────── */}
+      <CuponerasSection onOpenPack={onOpenPack} onVerPacks={onVerPacks} />
     </div>
   );
 }
@@ -337,20 +370,29 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
             estadía se usa al reservar; los días del pase arrancan al llegar
             (ver canjearEstadia en lib/pases.js). */}
         <div style={{ marginTop: 56, textAlign: 'center', lineHeight: 1.6 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'center', fontSize: 15, color: A.muted }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontSize: 19, color: A.muted }}>
             Todo esto entra en tu
-            <img src="/pass.svg" alt="Gesell Pass" style={{ height: 22, width: 'auto', display: 'block' }} />
+            <span style={{ fontFamily: "'NauryzRedkeds', sans-serif", fontSize: 20, letterSpacing: 1, color: A.primary, lineHeight: 1 }}>GESELL</span>
+            {/* El fondito va corrido porque la NauryzRedkeds trae los glifos
+                descentrados en su caja. Se mueve la pastilla por su cuenta y el
+                texto por la suya, para que "PaSS" siga alineado con la frase. */}
+            <span style={{ position: 'relative', display: 'inline-block', fontSize: 20, lineHeight: 1, padding: '5px 13px 6px' }}>
+              <span aria-hidden="true" style={{ position: 'absolute', inset: 0, transform: 'translate(-7px, -2px)', background: A.primary, borderRadius: 999 }} />
+              {/* La fuente va acá y no sólo en el padre: index.css tiene una regla
+                  `* { font-family: Inter }` que le gana a la herencia. */}
+              <span style={{ position: 'relative', left: -5, fontFamily: "'NauryzRedkeds', sans-serif", fontSize: 20, letterSpacing: 1, color: '#fff', lineHeight: 1 }}>PaSS</span>
+            </span>
           </span>
-          <div style={{ fontSize: 13, color: A.muted, marginTop: 4 }}>
-            Usá el descuento de alojamiento cuando reserves. Tus días de pase arrancan cuando llegás.
+          <div style={{ fontSize: 15, color: A.ink, marginTop: 8 }}>
+            Alojamientos y servicios que requieren reserva previa los usás cuando querés.<br></br>El resto de los cupones, en las fechas que elijas.
           </div>
 
           {totalOfertas > 0 && (
             <button
               onClick={() => onNavCuponear?.('alojamientos')}
-              style={{ marginTop: 26, background: 'none', border: `1.5px solid ${A.primary}`, color: A.primary, borderRadius: 999, padding: '11px 26px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s, color 0.2s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = A.primary; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = A.primary; }}
+              style={{ marginTop: 26, background: A.primary, border: `none`, color: 'white', borderRadius: 999, padding: '11px 26px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s, color 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = A.primary; }}
+              onMouseLeave={e => { e.currentTarget.style.background = A.primary; e.currentTarget.style.color = 'white'; }}
             >
               Ver los {totalOfertas} descuentos →
             </button>
@@ -950,53 +992,37 @@ const TIPO_FILTER_MAP = {
   camping: ['Dormi'],
 };
 
-const CATEGORIA_LABELS = [
-  { value: 'alojamiento',    label: 'alojamientos' },
-  { value: 'salidas',        label: 'salidas' },
-  { value: 'aventura_relax', label: 'aventura & relax' },
+// Una tira por grupo de la home, en el orden en que se muestran. Los valores de
+// `buckets` son los que devuelve bucketCuponear() en lib/datos.js — el mismo
+// criterio con el que navegan las pastillas de "Cuponeá antes de pagar".
+// Aventura y relax van juntas en una sola tira; `navTarget` es a dónde manda el
+// botón negro (App.jsx → onNavCuponear).
+// `navSection` es el ítem del navbar que se subraya mientras la tira está en
+// pantalla (ver el data-nav-section que lee Navbar.jsx).
+const HOME_BUCKETS = [
+  { id: 'alojamientos', buckets: ['alojamientos'],       label: 'alojamientos',    labelBoton: 'en Alojamiento',        navTarget: 'alojamientos', navSection: 'aloj' },
+  { id: 'comer',        buckets: ['comer'],              label: 'gastronomía',     labelBoton: 'en Salidas',            navTarget: 'comer',        navSection: 'gastro' },
+  { id: 'compras',      buckets: ['compras'],            label: 'compras',         labelBoton: 'en Compras',            navTarget: 'compras',      navSection: 'gastro' },
+  { id: 'aventura',     buckets: ['experiencia', 'mimo'], label: 'aventura & relax', labelBoton: 'en Aventura & Relax', navTarget: 'experiencia',  navSection: 'aventura' },
 ];
 
-function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta, onNavMarketplaceTipo }) {
-  const [promos, setPromos]             = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [categoria, setCategoria]       = useState('alojamiento');
+function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, onOpenOferta, onNavCuponear, conBordeSuperior = false }) {
+  const { id, buckets, label, labelBoton, navTarget, navSection } = grupo;
   const [filtroTipo, setFiltroTipo]     = useState(null);
   const [visibleCount, setVisibleCount] = useState(10);
   const [loadingMore, setLoadingMore]   = useState(false);
-  const [catOpen, setCatOpen]           = useState(false);
   const scrollRef = useRef(null);
-  const catRef    = useRef(null);
   const { addCupon } = useCuponera();
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
-  useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
-  }, []);
+  useEffect(() => { setVisibleCount(10); scrollRef.current?.scrollTo({ left: 0 }); }, [filtroTipo]);
 
-  useEffect(() => {
-    (async () => {
-      const { getPromos } = await import('../lib/datos');
-      setPromos(await getPromos(200));
-      setLoading(false);
-    })();
-  }, []);
-
-  useEffect(() => {
-    const h = e => { if (catRef.current && !catRef.current.contains(e.target)) setCatOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  useEffect(() => { setVisibleCount(10); scrollRef.current?.scrollTo({ left: 0 }); }, [filtroTipo, categoria]);
-
-  const cambiarCategoria = (cat) => { setCategoria(cat); setFiltroTipo(null); };
-
-  const promosCat = promos.filter(p => p.tokens_costo !== 0 && p.categoria === categoria);
-  const promosFiltradas = (categoria === 'alojamiento' && filtroTipo)
+  const promosCat = promos.filter(p => p.tokens_costo !== 0 && buckets.includes(p.bucket));
+  const promosFiltradas = (id === 'alojamientos' && filtroTipo)
     ? promosCat.filter(p => filtroTipo.split(',').map(t => t.trim()).includes(p.negocioTipo))
     : promosCat;
+
+  // Un bucket sin una sola oferta no aparece: antes que una tira vacía, nada.
+  if (!loading && promosCat.length === 0) return null;
 
   const alojMostrados = promosFiltradas.slice(0, visibleCount);
   const hayMas = visibleCount < promosFiltradas.length;
@@ -1021,45 +1047,23 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
   };
 
   return (
-    <section style={{ background: A.bg, padding: '72px 0', borderTop: `1px solid ${A.line}`, borderBottom: `1px solid ${A.line}` }}>
+    <section data-nav-section={navSection} style={{ background: A.bg, padding: '57px 0', borderTop: conBordeSuperior ? `1px solid ${A.line}` : 'none', borderBottom: `1px solid ${A.line}` }}>
       <style>{`@keyframes skelPulse { 0%, 100% { opacity: 0.9 } 50% { opacity: 0.3 } }`}</style>
       {/* Header */}
       <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 28 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-          <IcoBolt /> DESCUENTOS Y PROMOCIONES
-        </div>
         <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.01em', color: A.ink, margin: '0 0 20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
           <span>Ofertas en&nbsp;</span>
-          <span ref={catRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-            <button
-              onClick={() => setCatOpen(o => !o)}
-              aria-label="Elegí la categoría de ofertas"
-              style={{ background: 'none', border: 'none', font: 'inherit', letterSpacing: 'inherit', color: A.primary, fontWeight: 700, cursor: 'pointer', padding: 0, margin: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              {CATEGORIA_LABELS.find(c => c.value === categoria)?.label}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: catOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s', marginTop: 4 }}><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            {catOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 12, boxShadow: '0 20px 48px -16px rgba(11,16,32,0.24)', zIndex: 20, minWidth: 210, overflow: 'hidden', fontFamily: A.font }}>
-                {CATEGORIA_LABELS.map(c => {
-                  const activo = c.value === categoria;
-                  return (
-                    <button key={c.value} onClick={() => { cambiarCategoria(c.value); setCatOpen(false); }}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 16px', background: activo ? A.bg : '#fff', border: 'none', fontSize: 15, fontWeight: activo ? 700 : 500, color: activo ? A.primary : A.ink, cursor: 'pointer', fontFamily: A.font }}
-                      onMouseEnter={e => { if (!activo) e.currentTarget.style.background = A.bg; }}
-                      onMouseLeave={e => { if (!activo) e.currentTarget.style.background = '#fff'; }}
-                    >
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </span>
+          {/* La categoría en azul es el mismo atajo que el botón negro del pie */}
+          <button
+            onClick={() => onNavCuponear?.(navTarget)}
+            style={{ background: 'none', border: 'none', font: 'inherit', letterSpacing: 'inherit', color: A.primary, cursor: 'pointer', padding: 0, margin: 0, textDecoration: 'none' }}
+          >
+            {label}
+          </button>
         </h2>
 
         {/* Pills de filtro (solo en alojamientos) */}
-        {categoria === 'alojamiento' && (
+        {id === 'alojamientos' && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <button onClick={() => setFiltroTipo(null)} style={{ ...PILL_BASE, background: filtroTipo === null ? A.primary : '#fff', color: filtroTipo === null ? '#fff' : A.ink2, borderColor: filtroTipo === null ? A.primary : A.line }}>
               Todos
@@ -1077,19 +1081,19 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
         )}
       </div>
 
-      {/* Desktop: grilla que envuelve (sin scroll horizontal). Mobile: scroll horizontal con fade. */}
+      {/* Scroll horizontal en todos los anchos: arrancan 10 fichas y entran de
+          a 10 al llegar al final, para no cargar la tira entera de una. */}
       <div style={{ position: 'relative' }}>
         <div
           ref={scrollRef}
-          onScroll={isMobile ? handleScroll : undefined}
-          style={isMobile
-            ? { overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 44 }
-            : { maxWidth: 1328, margin: '0 auto', padding: '0 40px 44px' }}
+          onScroll={handleScroll}
+          style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 44 }}
           className="no-scrollbar"
         >
-          <div style={isMobile
-            ? { display: 'flex', gap: 24, width: 'max-content', paddingRight: 56, alignItems: 'flex-start' }
-            : { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, alignItems: 'flex-start' }}>
+          {/* stretch: todas las fichas toman el alto de la más alta. Con
+              flex-start las más bajas dejaban aire abajo y el botón parecía
+              alejarse de la tira en las categorías con títulos largos. */}
+          <div style={{ display: 'flex', gap: 24, width: 'max-content', paddingRight: 56, alignItems: 'stretch' }}>
             {loading ? (
               /* Placeholders: bloques grises parpadeando hasta la primera tanda */
               Array.from({ length: 8 }).map((_, i) => (
@@ -1097,8 +1101,8 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
               ))
             ) : (
               <>
-                {(isMobile ? alojMostrados : promosFiltradas.slice(0, 4)).map(promo => (
-                  <div key={promo.id} style={isMobile ? { width: 340, flexShrink: 0 } : { width: '100%', minWidth: 0 }}>
+                {alojMostrados.map(promo => (
+                  <div key={promo.id} style={{ width: 340, flexShrink: 0, display: 'flex' }}>
                     <OfertaCard
                       promo={promo}
                       onOpen={p => {
@@ -1111,8 +1115,8 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
                     />
                   </div>
                 ))}
-                {/* Preloader al final del scroll — sólo en mobile (desktop no scrollea) */}
-                {isMobile && (hayMas || loadingMore) && (
+                {/* Preloader al final del scroll, mientras entra la tanda siguiente */}
+                {(hayMas || loadingMore) && (
                   <div style={{ width: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <video autoPlay loop muted playsInline style={{ width: 56, height: 'auto', opacity: 0.7 }}>
                       <source src="/loading-casa.webm" type="video/webm" />
@@ -1128,18 +1132,18 @@ function PromosSection({ onOpenDetail, accommodations, onVerTodas, onOpenOferta,
             )}
           </div>
         </div>
-        {/* Fade derecho — sólo tiene sentido con scroll horizontal (mobile) */}
-        {isMobile && <div style={{ position: 'absolute', top: 0, right: 0, bottom: 8, width: 120, background: `linear-gradient(to right, transparent, ${A.bg})`, pointerEvents: 'none', zIndex: 2 }} />}
+        {/* Fade derecho: la tira se desvanece a 0% contra el fondo de la sección */}
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 8, width: 120, background: 'linear-gradient(to right, rgba(247,247,248,0), rgba(247,247,248,1))', pointerEvents: 'none', zIndex: 2 }} />
       </div>
 
-      {/* Desktop: 4 fichas en una fila + botón negro centrado */}
-      {!isMobile && !loading && promosFiltradas.length > 4 && (
+      {/* Botón negro centrado — sólo si hay más ofertas que las que se ven */}
+      {!loading && promosFiltradas.length > 4 && (
         <div style={{ maxWidth: 1328, margin: '0 auto', padding: '8px 40px 0', display: 'flex', justifyContent: 'center' }}>
           <button
-            onClick={() => onVerTodas?.(categoria)}
+            onClick={() => onNavCuponear?.(navTarget)}
             style={{ background: A.ink, color: '#fff', border: 'none', borderRadius: 999, padding: '13px 30px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}
           >
-            Ver más ofertas
+            Ver más ofertas {labelBoton}
           </button>
         </div>
       )}
@@ -1172,7 +1176,7 @@ function CuponeraCard({ cuponera, onVerCuponera }) {
       onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
       onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
     >
-      <img src={portada} alt={cuponera.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      <PortadaCuponera cuponera={{ ...cuponera, images: [portada] }} alt={cuponera.title} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(5,10,25,0.95) 0%, rgba(5,10,25,0.35) 52%, rgba(5,10,25,0.5) 100%)' }} />
 
       {/* Beneficio adicional (círculo amarillo + texto amarillo) */}
@@ -1187,14 +1191,6 @@ function CuponeraCard({ cuponera, onVerCuponera }) {
 
       {/* Contenido inferior */}
       <div style={{ position: 'relative', marginTop: 'auto', padding: '0 26px 26px', textAlign: 'left' }}>
-        {cuponera.incluyeAlojamiento && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 10, padding: '5px 11px 5px 8px', background: 'rgba(5,10,25,0.3)', borderRadius: 999 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={A.yellow} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9.5 12 3l9 6.5" /><path d="M5 10v10h14V10" /><path d="M9 20v-6h6v6" />
-            </svg>
-            <span style={{ fontSize: 12, fontWeight: 700, color: A.yellow, letterSpacing: '0.01em' }}>Incluye descuento en alojamiento</span>
-          </div>
-        )}
         <h3 style={{ fontSize: 30, fontWeight: 800, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1.1, margin: '0 0 12px' }}>{cuponera.title}</h3>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', lineHeight: 1.5, margin: '0 0 22px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cuponera.subtitle}</p>
 
@@ -1203,14 +1199,14 @@ function CuponeraCard({ cuponera, onVerCuponera }) {
             <img src="/ico-disc.svg" alt="" style={{ width: 33, height: 33, position: 'absolute', top: 0, left: 0, zIndex: 2 }} />
             <img src="/ico-disc.svg" alt="" style={{ width: 33, height: 33, position: 'absolute', top: 0, left: 18, zIndex: 1, opacity: 0.55 }} />
           </div>
-          Contiene {nCupones} cupones{precioCuponera > 0 ? `, por $${Math.round(precioCuponera).toLocaleString('es-AR')}` : ''}
+          {nCupones} cupones{precioCuponera > 0 ? `. Valor total: $${Math.round(precioCuponera).toLocaleString('es-AR')}` : ''}
         </div>
       </div>
     </button>
   );
 }
 
-function CuponerasSection({ onOpenPack }) {
+function CuponerasSection({ onOpenPack, onVerPacks }) {
   const [modal, setModal] = useState(null); // { cuponera, startIndex }
   const [cuponeras, setCuponeras] = useState(null); // null = cargando
 
@@ -1228,19 +1224,15 @@ function CuponerasSection({ onOpenPack }) {
   if (cuponeras !== null && cuponeras.length === 0) return null;
 
   return (
-    <section style={{ background: '#fff', position: 'relative' }}>
+    <section data-nav-section="packs" style={{ background: '#fff', position: 'relative' }}>
       <style>{`
         @media (max-width: 980px) { .cuponeras-grid { grid-template-columns: repeat(2, 1fr) !important; } }
         @media (max-width: 640px) { .cuponeras-grid { grid-template-columns: 1fr !important; } }
-        @media (max-width: 760px) {
-          .cuponeras-intro { flex-direction: column !important; gap: 18px !important; }
-          .cuponeras-intro > p { flex: none !important; max-width: 100% !important; }
-        }
         @keyframes cupSkel { 0%,100% { opacity: .35; } 50% { opacity: .12; } }
       `}</style>
 
       {/* Banda azul superior: cubre el header y baja hasta ~1/3 de la 1ª fila de cards */}
-      <div style={{ background: A.navy, color: '#fff', paddingTop: 88, paddingBottom: 200 }}>
+      <div style={{ background: A.navy, color: '#fff', paddingTop: 88, paddingBottom: 220 }}>
         <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 'max(40px, calc((100vw - 1328px) / 2 + 40px))' }}>
 
         {/* Header */}
@@ -1249,29 +1241,19 @@ function CuponerasSection({ onOpenPack }) {
             <IcoBolt /> Viajá con packs de cupones
           </div>
           <h2 style={{ fontSize: 'clamp(34px, 3vw, 52px)', fontWeight: 700, lineHeight: 1.05, margin: '0 0 10px' }}>
-            Packs <span style={{ color: A.yellow }}>todo incluído</span>
+            Packs{' '}
+            <button
+              onClick={onVerPacks}
+              style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: A.yellow, cursor: 'pointer', textDecoration: 'none', transition: 'opacity .15s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.78'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              todo incluído
+            </button>
           </h2>
-          <div className="cuponeras-intro" style={{ display: 'flex', alignItems: 'flex-start', gap: 56 }}>
-            <p style={{ flex: '0 0 66%', maxWidth: '66%', fontSize: 17, color: 'rgba(255,255,255,0.62)', lineHeight: 1.5, margin: 0 }}>
-              Ahorrá tiempo con cuponeras curadas por la plataforma. Llevate un pack cerrado de experiencias combinadas y asegurate un beneficio extra que no conseguís comprando los cupones por separado.
-            </p>
-            <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'flex-start', gap: 12, paddingTop: 2 }}>
-              <span style={{ position: 'relative', flexShrink: 0, display: 'grid', placeItems: 'center', width: 34, height: 34, borderRadius: 10, background: 'rgba(255,201,60,0.16)', color: A.yellow }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 9.5 12 3l9 6.5" /><path d="M5 10v10h14V10" /><path d="M9 20v-6h6v6" />
-                </svg>
-                {/* Tilde afuera del contenedor, arriba a la derecha */}
-                <span style={{ position: 'absolute', top: -6, right: -6, display: 'grid', placeItems: 'center', width: 16, height: 16, borderRadius: '50%', background: A.yellow, color: A.navy }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                </span>
-              </span>
-              <p style={{ margin: 0, fontSize: 13.5, color: 'rgba(255,255,255,0.72)', lineHeight: 1.45 }}>
-                Algunos packs vienen con descuento en alojamiento.
-              </p>
-            </div>
-          </div>
+          <p style={{ fontSize: 21, fontStyle: 'italic', fontWeight: 400, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45, letterSpacing: '-0.01em', margin: '18px 0 16px', maxWidth: 1120 }}>
+            Ahorrá tiempo y dinero con cuponeras curadas por la plataforma. Llevate un pack cerrado de experiencias que ya incluyen el alojamiento.
+          </p>
         </div>{/* /header */}
         </div>{/* /inner padding banda azul */}
       </div>{/* /banda azul */}
@@ -1291,6 +1273,18 @@ function CuponerasSection({ onOpenPack }) {
                 />
               ))
           }
+        </div>
+
+        {/* Salida al listado completo de packs */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 40 }}>
+          <button
+            onClick={onVerPacks}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '15px 30px', borderRadius: 999, border: 'none', background: A.ink, color: '#fff', fontSize: 15.5, fontWeight: 700, cursor: 'pointer', fontFamily: A.font, transition: 'background .15s, transform .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = A.navy; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = A.ink; e.currentTarget.style.transform = 'none'; }}
+          >
+            Ver más Packs todo incluido <IcoArrowR />
+          </button>
         </div>
       </div>
 

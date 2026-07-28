@@ -713,7 +713,7 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
 // ═══════════════════════════════════════════════════════════════
 //  PANTALLA LOGIN
 // ═══════════════════════════════════════════════════════════════
-export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete, onTuristaRegistrada, initialTab = 'ingresar' }) {
+export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete, onTuristaRegistrada, initialTab = 'ingresar', initialEmail = '', initialModoRegistro = null }) {
   const [tab,       setTab]       = useState(initialTab);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
@@ -731,7 +731,8 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
   // ── Datos de cuenta (común a visitante y comercial) ──
   const [rNombre,   setRNombre]   = useState('');
   const [rApellido, setRApellido] = useState('');
-  const [rEmail,    setREmail]    = useState('');
+  // Viene precargado cuando el turista ya compró el pase dejando su mail.
+  const [rEmail,    setREmail]    = useState(initialEmail);
   const [rPass,     setRPass]     = useState('');
   const [rPass2,    setRPass2]    = useState('');
   const [rShowPass, setRShowPass] = useState(false);
@@ -739,7 +740,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
   // ── Modo de registro: se elige en dos tarjetas ANTES del formulario.
   //    null = todavía no eligió · 'turista' · 'comercial'
-  const [modoRegistro,  setModoRegistro]  = useState(null);
+  const [modoRegistro,  setModoRegistro]  = useState(initialModoRegistro);
   const esComercial = modoRegistro === 'comercial';
   const [regUserId,     setRegUserId]     = useState(null); // userId creado en paso 1
 
@@ -951,10 +952,15 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
               {/* ── PASO 1b — Datos de cuenta (según el modo elegido) ── */}
               {regStep === 1 && modoRegistro && (
                 <form onSubmit={handleAccountSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <button type="button" onClick={() => { setModoRegistro(null); setError(''); }}
-                    style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: A.muted, fontSize: 13, fontWeight: 600, fontFamily: A.font }}>
-                    ← {esComercial ? 'Tengo un negocio' : 'Quiero aprovechar ofertas'} · Cambiar
-                  </button>
+                  {/* Si el modo vino fijado desde afuera (p. ej. "Publicá una
+                      oferta"), no se ofrece volver al selector: esa entrada es
+                      sólo de negocio. */}
+                  {!initialModoRegistro && (
+                    <button type="button" onClick={() => { setModoRegistro(null); setError(''); }}
+                      style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: A.muted, fontSize: 13, fontWeight: 600, fontFamily: A.font }}>
+                      ← {esComercial ? 'Tengo un negocio' : 'Quiero aprovechar ofertas'} · Cambiar
+                    </button>
+                  )}
 
                   <BtnGoogle onClick={() => handleGoogle(esComercial ? 'comercial' : undefined)} loading={loading}
                     label={esComercial ? 'Continuar con Google' : 'Registrarse con Google'} />

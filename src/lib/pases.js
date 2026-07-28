@@ -69,14 +69,93 @@ export function incluidaEnPase(promo) {
 // ═══════════════════════════════════════════════════════════
 //  Catálogo del pase
 // ═══════════════════════════════════════════════════════════
-export async function getPaseDestino(destino = DESTINO_DEFAULT) {
+// Todos los pases vigentes de un destino, del más corto al más largo. Hoy son
+// dos duraciones (3 y 7 días); el hero y el checkout leen los precios de acá,
+// así no quedan hardcodeados en la UI.
+export async function getPasesDestino(destino = DESTINO_DEFAULT) {
   const { data } = await supabase
     .from('pases')
     .select('*')
     .eq('destino_slug', destino)
     .eq('activo', true)
-    .maybeSingle();
-  return data || null;
+    .order('duracion_dias', { ascending: true });
+  return data || [];
+}
+
+// Un pase puntual. Sin `dias` devuelve el más largo, que es el histórico.
+export async function getPaseDestino(destino = DESTINO_DEFAULT, dias = null) {
+  const pases = await getPasesDestino(destino);
+  if (!pases.length) return null;
+  if (dias == null) return pases[pases.length - 1];
+  return pases.find(p => p.duracion_dias === dias) || null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Compra sin cuenta (MOCK de pago)
+//  El turista paga dejando mail y teléfono; el alta como turista viene
+//  después. La compra queda en `pase_compras` hasta que se registre.
+// ═══════════════════════════════════════════════════════════
+export async function comprarPaseAnonimo({ paseId, precio, email, telefono = null, nombre = null, apellido = null, pagoRef = null }) {
+  if (!paseId || !email) return { ok: false, error: 'datos_incompletos' };
+  const { data, error } = await supabase
+    .from('pase_compras')
+    .insert({
+      pase_id:  paseId,
+      email:    email.trim().toLowerCase(),
+      telefono: telefono?.trim() || null,
+      // Solo vienen cuando el comprador todavía no tiene cuenta; el que ya la
+      // tiene los trae en su perfil.
+      nombre:   nombre?.trim() || null,
+      apellido: apellido?.trim() || null,
+      precio,
+      // Sin pasarela real: la referencia es un mock, igual que el resto de la app.
+      pago_ref: pagoRef || `mock-${Date.now()}`,
+      estado:   'pagado',
+    })
+    .select()
+    .single();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, compra: data };
+}
+
+// Al terminar el registro, las compras hechas con ese mail se convierten en
+// pases del usuario. Es idempotente: una compra ya vinculada no se toca.
+export async function vincularComprasPase(userId, email) {
+  if (!userId || !email) return { ok: false, vinculadas: 0 };
+
+  const { data: compras } = await supabase
+    .from('pase_compras')
+    .select('*')
+    .eq('estado', 'pagado')
+    .is('user_id', null)
+    .ilike('email', email.trim());
+
+  if (!compras?.length) return { ok: true, vinculadas: 0 };
+
+  let vinculadas = 0;
+  for (const compra of compras) {
+    const { data: up, error } = await supabase
+      .from('usuario_pases')
+      .insert({
+        pase_id:       compra.pase_id,
+        user_id:       userId,
+        tipo:          'comprado',
+        estado:        'pendiente',
+        pago_ref_pase: compra.pago_ref,
+      })
+      .select()
+      .single();
+    if (error) continue;
+
+    await supabase
+      .from('pase_compras')
+      .update({ estado: 'vinculada', user_id: userId, vinculada_en: new Date().toISOString() })
+      .eq('id', compra.id);
+
+    await acreditarPuntos(userId, PUNTOS_PASE.compra, 'pase_compra', 'Compra del Pase', up.id);
+    vinculadas += 1;
+  }
+  return { ok: true, vinculadas };
 }
 
 // ═══════════════════════════════════════════════════════════

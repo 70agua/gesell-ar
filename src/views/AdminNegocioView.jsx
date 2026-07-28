@@ -1839,10 +1839,10 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Superadmin: guardado explícito arriba a la derecha (sin autoguardado) */}
             {modoAdmin && (
-              <button onClick={() => saveEdit()} disabled={savingOferta || !camposCompletos}
-                title="Guardar cambios"
+              <button onClick={() => saveEdit(() => (soloEditor && onCerrarEditor ? onCerrarEditor() : setEditorAbierto(false)))} disabled={savingOferta || !camposCompletos}
+                title="Guardar y cerrar"
                 style={{ background: (camposCompletos && !savingOferta) ? P : LINE, color: (camposCompletos && !savingOferta) ? '#fff' : MUTED, border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: (savingOferta || !camposCompletos) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                <Save size={14}/> {savingOferta ? 'Guardando…' : 'Guardar'}
+                <Save size={14}/> {savingOferta ? 'Guardando…' : 'Guardar y cerrar'}
               </button>
             )}
             {editingOferta !== 'new' && (

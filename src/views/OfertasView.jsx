@@ -722,7 +722,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
               {/* "Elegí un destino" + búsqueda */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, margin: '25px 0 20px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                 <h1 style={{ fontSize: isMobile ? 24 : 32, fontStyle: 'italic', fontWeight: 500, color: A.ink, letterSpacing: '-0.01em', margin: 0, lineHeight: 1.2 }}>
-                  Elegí un destino
+                  Elegí un destino:
                 </h1>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                   {isMobile && filtrosMobileBtn}

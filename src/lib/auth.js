@@ -12,6 +12,31 @@ export async function login(email, password) {
   return data;
 }
 
+// Ingreso con mail O teléfono: el checkout del pase deja escribir cualquiera de
+// los dos. Supabase acepta `email` o `phone` en el mismo método; acá se decide
+// por la forma de lo escrito (si tiene @, es mail).
+export const pareceEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
+
+export async function loginConIdentificador(identificador, password) {
+  const id = String(identificador || '').trim();
+  const credencial = pareceEmail(id)
+    ? { email: id.toLowerCase() }
+    // Supabase espera el teléfono en E.164; asumimos Argentina si no trae país.
+    : { phone: id.replace(/[^\d+]/g, '').replace(/^(?!\+)/, '+54') };
+  const { data, error } = await supabase.auth.signInWithPassword({ ...credencial, password });
+  if (error) throw error;
+  return data;
+}
+
+// Mail de recuperación de contraseña. El link vuelve a la app; el cambio en sí
+// lo maneja Supabase con la sesión temporal que trae ese link.
+export async function recuperarPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: window.location.origin,
+  });
+  if (error) throw error;
+}
+
 // Cerrar sesión
 export async function logout() {
   const { error } = await supabase.auth.signOut();

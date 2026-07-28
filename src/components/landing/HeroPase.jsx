@@ -1,10 +1,11 @@
 // ============================================================
 //  src/components/landing/HeroPase.jsx
 //  Hero de la home a DOS columnas:
-//   · Izquierda: título (Viví gesell / a precio de local) + swoosh,
-//     bajada con el logo cuponear y las 3 tarjetas de pase.
-//   · Derecha: galería masonry (tipo Pinterest) con parallax al
-//     scrollear; fotos random del pool /public/grilla por carga.
+//   · Izquierda: título (Viví cuponeando / en Villa Gesell), el claim de
+//     hotelería con su CTA negro y, abajo, el bloque de pases (ticket
+//     inclinado + localidades + los dos pases y el "+").
+//   · Derecha: galería masonry (tipo Pinterest) inclinada 10°, con parallax al
+//     scrollear; fotos random del pool src/assets/grilla por carga.
 //  Estilos responsive inyectados inline (<style> local, clases .pv2-*).
 // ============================================================
 
@@ -14,74 +15,42 @@ import { useEffect, useRef, useState } from 'react';
 const A = {
   primary:     '#2545E6',
   primaryDark: '#1731B8',
+  primarySoft: '#8C97E8',   // lavanda del botón "+"
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
   font:        "'Inter', system-ui, sans-serif",
 };
 
-// ─── Planes (copy y precios del mockup nuevo) ────────────────
-// Dos grupos de marca; cada uno con su lockup + descripción y DOS planes.
-const GRUPOS = [
-  {
-    marca: 'pass',
-    // Alojamiento incluido = el argumento de compra más fuerte (una estadía
-    // paga el pase entero). La segunda línea desactiva la objeción obvia:
-    // "lo compro ahora para reservar y se me queman los días".
-    desc: <>Todo el catálogo de descuentos locales, <b>alojamiento incluido.</b></>,
-    nota: 'Reservá con descuento hoy. Los días del pase empiezan cuando llegás.',
-    planes: [
-      { id: 'x3', cta: 'Pase x 3 días', variant: 'fill', precio: '$20.000', nota: 'por única vez' },
-      { id: 'x7', cta: 'Pase x 7 días', variant: 'fill', precio: '$35.000', nota: 'por única vez' },
-    ],
-  },
-  {
-    marca: 'club',
-    desc: <>Promos y descuentos en {' '}<b>todos los destinos, sin límites.</b></>,
-    planes: [
-      { id: 'club',     cta: 'Suscribite ahora', variant: 'outline', precio: '$8.333', nota: 'por mes' },
-      // Los pases-regalo del hotelero no llevan descuento de estadía: regala
-      // salidas, experiencias y relax, nunca la reserva de la competencia
-      // (regla en activar_regalo_pase / canjearEstadia).
-      { id: 'premium', cta: 'Premium',         variant: 'outline',
-        notaEspecial: <><b style={{ fontStyle: 'italic', color: A.primary, fontSize: '0.92em' }}>¡Regalá pases ilimitados!</b><br /><span style={{ fontStyle: 'italic', fontSize: '0.92em' }}>Ideal para hoteleros: regalás salidas, experiencias y relax.</span></> },
-    ],
-  },
+const NAURYZ = "'NauryzRedkeds', 'Inter', sans-serif";
+
+// ─── Pases (bloque de abajo del hero) ────────────────────────
+// Compra única, para el que viene unos días. El "+" abre el resto de los
+// planes: la suscripción mensual ya no vive en el hero (está en la navbar,
+// "Planes y suscripción"), y el hotelero entra por su propio CTA negro.
+// `dias` es la clave real: es lo que se busca en la tabla `pases` al entrar al
+// checkout, que además es de donde sale el precio que se cobra.
+const PASES = [
+  { id: 'x3', dias: 3, cta: 'Pase x 3 días', precio: '$20.000', nota: 'por única vez' },
+  { id: 'x7', dias: 7, cta: 'Pase x 7 días', precio: '$35.000', nota: 'por única vez' },
 ];
 
-// Lockup Gesell Pass: SVG del último boceto (público /gesell-pass-03.svg).
-const NAURYZ = "'NauryzRedkeds', 'Inter', sans-serif";
-function PassLockup() {
-  return (
-    <img src="/gesell-pass-03.svg" alt="Gesell Pass" style={{ display: 'block', height: 76, width: 'auto', transform: 'translateY(-15px)' }} />
-  );
-}
-
-// Lockup "CLUB cuponear": "CLUB" liviano, poca interletra, alineado a la
-// izquierda (arranca sobre la C del logo cuponear).
-function ClubLockup() {
-  return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0, lineHeight: 1 }}>
-      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: A.primary, marginBottom: -5 }}>CLUB</span>
-      <img src="/logo-cuponera.svg" alt="Cuponear" style={{ display: 'block', height: 40, width: 'auto' }} />
-    </span>
-  );
-}
+// Localidades que cubre el pase — línea de credibilidad arriba del bloque.
+const LOCALIDADES_PASE = '¡También en Mar de las Pampas, Mar Azul y Las Gaviotas!';
 
 // ─── Galería derecha: masonry tipo Pinterest ─────────────────
-// Pool = fotos de /public/grilla. OJO: esta lista es MANUAL, así que si
-// agregás/renombrás/borrás archivos en la carpeta hay que actualizarla
-// (un nombre viejo da 404 = imagen rota). Red de seguridad: la galería
-// OCULTA sola cualquier foto que no cargue (onError), así nunca queda el
-// ícono roto aunque la lista quede desfasada.
-const GRILLA_IMGS = [
-  '4x4.avif', 'almuerzo.jpg', 'bosque.jpg', 'cabalgata.jpg', 'cafe.webp',
-  'faro.jpg', 'feria.jpg', 'kite.jpeg', 'lobito.jpg', 'mar2.jpg',
-  'mar3.jpg', 'masaje.jpeg', 'muelle.jpeg', 'nido.jpg', 'pinocha.jpg',
-  'sandboard.jpeg',
-  // Nombre larguísimo — conviene renombrarla (p. ej. 'playa-bosque.jpeg'):
-  'no-es-carilo-ni-mar-del-plata-la-playa-con-un-pacifico-bosque-y-medanos-ideal-para-ir-el-proximo-feriado-foto-freepik-LNTHDWB4OVBIPCGIEFKITGJ56I.jpeg',
-].map(f => `/grilla/${f}`);
+// Pool = TODO lo que haya en src/assets/grilla. La carpeta es la única fuente
+// de verdad: tirás una foto adentro (o la borrás) y la galería se actualiza
+// sola, sin tocar código. Vite resuelve el glob en build — por eso las fotos
+// viven en src/assets y no en public/ (ahí no hay glob posible), y de paso
+// salen con hash y cacheo largo.
+const GRILLA_MODULES = import.meta.glob(
+  '../../assets/grilla/*.{jpg,jpeg,png,webp,avif}',
+  { eager: true, query: '?url', import: 'default' },
+);
+const GRILLA_IMGS = Object.values(GRILLA_MODULES);
+// Busca una foto puntual por nombre de archivo (para la deriva mobile).
+const foto = (nombre) => GRILLA_MODULES[`../../assets/grilla/${nombre}`];
 
 // Proporciones ESTÁNDAR por celda (multiplicador de alto respecto del ancho
 // de columna): 1.0 = cuadrado · 1.25 = 4:5 · 1.33 = 3:4 · 1.5 = 2:3. Nunca
@@ -105,6 +74,48 @@ const NUM_COLS = COL_META.length;
 // parallax mueva las columnas sin descubrir bordes.
 const BUFFER = 220;
 
+// Inclinación de las tiras (grados). Al rotar, el bloque de fotos se corre
+// lateralmente ≈ (mitad del alto de la ventana · sen θ) en cada extremo. Del
+// lado izquierdo eso no importa (ahí el bloque termina en el aire y el fundido
+// lo disuelve), pero del lado derecho da contra el borde de la página: por eso
+// el bloque se corre OVERHANG px hacia afuera, para que la rotación no destape
+// una cuña de fondo en la esquina superior derecha.
+const TILT = -10;
+const OVERHANG = Math.ceil(460 * Math.abs(Math.sin((TILT * Math.PI) / 180)));
+
+// Fundido contra el lado del texto. Dos cosas lo definen:
+//  · FADE_ANGLE: el gradiente va girado los mismos grados que las tiras, así sus
+//    líneas de iso-opacidad quedan PARALELAS a la galería y no se lee un borde
+//    vertical cruzando fotos inclinadas. 90deg = izq→der; sumarle TILT lo gira.
+//  · FADE_START / FADE: dónde el fundido vale 0 y dónde llega a opaco (% del
+//    recorrido). FADE_START cae sobre el borde izquierdo del bloque de fotos —
+//    como gradiente y bloque están inclinados lo mismo, esa línea de opacidad
+//    cero corre PARALELA al borde en toda la altura, y las fotos nacen de la
+//    nada en vez de aparecer con un escalón. FADE en 100 hace que el fundido
+//    recorra toda la galería y solo llegue a pleno contra el borde derecho;
+//    bajarlo (p. ej. 80) devuelve fotos plenas antes.
+const FADE_ANGLE = 90 + TILT;
+const FADE_START = 20;
+const FADE = 100;
+
+// Capas de profundidad: la foto "lejos" va tenue y casi sin sombra, la "cerca"
+// plena y con sombra marcada. Sin desenfoque — la profundidad la dan opacidad,
+// sombra y el parallax distinto de cada tira.
+// Rango acotado a 65–85%: alcanza para escalonar las capas sin que ninguna
+// foto se despinte contra el fondo.
+const CAPAS = {
+  lejos: { opacity: 0.65, shadow: '0 10px 26px -24px rgba(11,16,32,0.22)' },
+  medio: { opacity: 0.75, shadow: '0 18px 38px -30px rgba(11,16,32,0.26)' },
+  cerca: { opacity: 0.85, shadow: '0 22px 44px -28px rgba(11,16,32,0.34)' },
+};
+
+// Sorteo de capa por columna: la tira 1 (parallax lento) tira al fondo y la
+// tira 2 (parallax rápido) al frente — lo que se mueve más, se lee más cerca.
+const PESOS_CAPA = [
+  ['lejos', 'lejos', 'medio', 'medio', 'cerca'],
+  ['cerca', 'cerca', 'medio', 'medio', 'lejos'],
+];
+
 // Barajado Fisher-Yates (no muta el original).
 function shuffle(arr) {
   const a = [...arr];
@@ -115,76 +126,42 @@ function shuffle(arr) {
   return a;
 }
 
-// Elige hasta MAX_FOTOS fotos únicas al azar y las reparte en NUM_COLS
-// columnas. Al barajar un pool sin duplicados y cortar, ninguna imagen se
-// repite dentro de la misma vista. Se llama una vez por montaje → random
-// en cada carga.
+// Reparte el pool barajado entre las columnas. Al no haber duplicados, ninguna
+// imagen se repite dentro de la misma vista. Se llama una vez por montaje →
+// random en cada carga.
 function buildColumns() {
-  // Usa TODAS las fotos del pool (repartidas entre las columnas) para que el
-  // loop continuo tarde en repetir → "levanta" muchas imágenes de la carpeta.
   const imgs = shuffle(GRILLA_IMGS);
   const cols = Array.from({ length: NUM_COLS }, () => []);
-  // Opacidad arbitraria por foto, entre 0.60 y 0.85.
+  // Capa de profundidad arbitraria por foto (sesgada según la columna).
   imgs.forEach((src, i) => {
-    const opacity = +(0.60 + Math.random() * 0.25).toFixed(3);
-    cols[i % NUM_COLS].push({ src, opacity });
+    const ci = i % NUM_COLS;
+    const pesos = PESOS_CAPA[ci];
+    cols[ci].push({ src, capa: pesos[Math.floor(Math.random() * pesos.length)] });
   });
   return cols;
 }
 
-// Deriva mobile: apenas dos fotos tenues arriba para no dejar pelado.
+// Deriva mobile: apenas dos fotos tenues arriba para no dejar pelado. Estas sí
+// van por nombre; si alguna se borra de la carpeta, simplemente no se dibuja.
 const MOBILE_DECO = [
-  { src: '/grilla/mar3.jpg',  style: { top: -6, left: -6, width: 120, height: 140 }, radius: '0 0 40px 26px' },
-  { src: '/grilla/kite.jpeg', style: { top: -6, right: -6, width: 110, height: 128 }, radius: '0 0 26px 40px' },
-];
+  { src: foto('mar3.jpg'),  style: { top: -6, left: -6, width: 120, height: 140 }, radius: '0 0 40px 26px' },
+  { src: foto('kite.jpeg'), style: { top: -6, right: -6, width: 110, height: 128 }, radius: '0 0 26px 40px' },
+].filter(d => d.src);
 
-// Trazo a mano bajo "de local" (mismo asset y técnica que el hero actual).
-// ─── Un plan (botón + precio/nota) dentro de un grupo ────────
-function SubPlan({ plan, onClick }) {
-  const fill = plan.variant === 'fill';
+// ─── Un pase: botón azul + precio en una línea ───────────────
+function PaseBoton({ pase, onClick }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 120 }}>
-      <button
-        onClick={onClick}
-        style={{
-          width: '100%', maxWidth: 200, padding: '13px 14px', borderRadius: 999, cursor: 'pointer',
-          fontFamily: A.font, fontWeight: 700, fontSize: 14, transition: 'background .15s, color .15s',
-          background: fill ? A.primary : '#fff', color: fill ? '#fff' : A.primary,
-          border: fill ? 'none' : `1.5px solid ${A.primary}`,
-        }}
-        onMouseEnter={e => { if (fill) e.currentTarget.style.background = A.primaryDark; else { e.currentTarget.style.background = A.primary; e.currentTarget.style.color = '#fff'; } }}
-        onMouseLeave={e => { if (fill) e.currentTarget.style.background = A.primary; else { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = A.primary; } }}
-      >
-        {plan.cta}
-      </button>
-      <div style={{ marginTop: 12, fontSize: 13.5, textAlign: 'center', lineHeight: 1.4 }}>
-        {plan.notaEspecial
-          ? <span style={{ color: A.ink }}>{plan.notaEspecial}</span>
-          : <span style={{ color: A.primary }}><b>{plan.precio}</b> <span style={{ fontStyle: 'italic', color: A.ink2 }}>{plan.nota}</span></span>}
+    <div className="pv2-pase">
+      <button className="pv2-btn-pase" onClick={onClick}>{pase.cta}</button>
+      {/* Precio: chico y SIEMPRE en una línea, para no desalinear los botones. */}
+      <div className="pv2-pase-precio">
+        <b>{pase.precio}</b> <i>{pase.nota}</i>
       </div>
     </div>
   );
 }
 
-// ─── Grupo de marca: lockup + descripción + sus dos planes ───
-function GrupoPlanes({ grupo, onSelect }) {
-  return (
-    <div className="pv2-grupo">
-      <div className="pv2-grupo-logo">
-        {grupo.marca === 'pass' ? <PassLockup /> : <ClubLockup />}
-      </div>
-      <div className="pv2-grupo-desc">{grupo.desc}</div>
-      {/* Siempre presente (nbsp si el grupo no tiene nota) para que las dos
-          columnas mantengan los botones alineados. */}
-      <div className="pv2-grupo-nota">{grupo.nota || ' '}</div>
-      <div className="pv2-grupo-planes">
-        {grupo.planes.map(plan => <SubPlan key={plan.id} plan={plan} onClick={() => onSelect(plan.id)} />)}
-      </div>
-    </div>
-  );
-}
-
-export default function HeroPase({ onVerDescuentos, onSuscribir }) {
+export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }) {
   const [scrollY, setScrollY] = useState(0);
   const [cols] = useState(buildColumns); // random por carga, estable en la sesión
   const rafRef = useRef(0);
@@ -212,8 +189,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
       {/* ─── Galería derecha: capa detrás, de techo a piso, sin huecos ───
           `pv2-galwin` es la ventana que recorta (al corte). Dentro, una capa
           más alta (colchón arriba/abajo) permite el parallax sin descubrir
-          bordes. Cada columna llena SIEMPRE hasta abajo: la última celda
-          crece (flex) para tapar cualquier hueco. */}
+          bordes. Cada columna llena SIEMPRE hasta abajo. */}
       <div className="pv2-galwin" aria-hidden="true">
         <div className="pv2-gallery">
           {cols.map((items, ci) => (
@@ -225,13 +201,19 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
                   bucle sea sin costura (translateY -50% = exactamente un set). */}
               <div className={`pv2-coldrift pv2-marquee-${COL_META[ci].dir}`}
                 style={{ animationDuration: `${COL_META[ci].dur}s` }}>
-                {[...items, ...items].map((item, idx) => (
-                  <div key={`${ci}-${idx}`} className="pv2-cell"
-                    style={{ aspectRatio: 1 / (COL_ASPECT[ci][(idx % items.length) % COL_ASPECT[ci].length]) }}>
-                    <img src={item.src} alt="" loading="lazy" style={{ opacity: item.opacity }}
-                      onError={e => { const c = e.currentTarget.parentElement; if (c) c.style.display = 'none'; }} />
-                  </div>
-                ))}
+                {[...items, ...items].map((item, idx) => {
+                  const capa = CAPAS[item.capa];
+                  return (
+                    <div key={`${ci}-${idx}`} className="pv2-cell"
+                      style={{
+                        aspectRatio: 1 / (COL_ASPECT[ci][(idx % items.length) % COL_ASPECT[ci].length]),
+                        boxShadow: capa.shadow,
+                      }}>
+                      <img src={item.src} alt="" loading="lazy" style={{ opacity: capa.opacity }}
+                        onError={e => { const c = e.currentTarget.parentElement; if (c) c.style.display = 'none'; }} />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -242,25 +224,41 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
 
         {/* ─── Columna izquierda: texto ─── */}
         <div className="pv2-left">
-          {/* Título — 3 líneas: dos itálicas (con GESELL en NauryzRedkeds azul)
-              + una en negrita */}
-          <h1 className="pv2-title" style={{ position: 'relative', margin: 0, lineHeight: 1.12, letterSpacing: 0 }}>
-            <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.ink, fontSize: 'clamp(34px, 4.3vw, 53px)' }}>Viví cuponeando</span>
-            <span style={{ display: 'block', fontStyle: 'italic', fontWeight: 300, color: A.ink, fontSize: 'clamp(34px, 4.3vw, 53px)' }}>en <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.72em' }}>GESELL</span> y alrededores</span>
-            <span style={{ display: 'block', fontWeight: 700, color: A.ink, letterSpacing: '0em', fontSize: 'clamp(26px, 3.2vw, 34px)', marginTop: '0.22em' }}>a precio local, sin gastar de más</span>
+          {/* Título — 3 líneas: dos itálicas finas (con las palabras de marca en
+              NauryzRedkeds azul) + el remate en negrita, casi del mismo cuerpo. */}
+          <h1 className="pv2-title">
+            {/* El casing NO es decorativo: en NauryzRedkeds mayúscula y minúscula
+                son glifos distintos, así que "CUPONEaNdO" y "vILLa GESELL" van
+                tal cual — no normalizar ni "corregir". */}
+            <span className="pv2-t-it">Viví <span className="pv2-nauryz">CUPONEaNdO</span></span>
+            <span className="pv2-t-it">en <span className="pv2-nauryz">vILLa GESELL</span></span>
+            <span className="pv2-t-bold">a precio de local y sin gastar de más</span>
           </h1>
 
-          {/* Bajada con línea azul a la izquierda + "CUPONEaR" en texto */}
-          <p className="pv2-sub" style={{ color: A.ink, margin: '44px 0 0', lineHeight: 1.6, letterSpacing: '0.01em', borderLeft: `3px solid ${A.primary}`, paddingLeft: 18 }}>
-            Ahorrá en <b>alojamiento, gastronomía, experiencias y compras.</b><br />
-            <span style={{ fontFamily: NAURYZ, fontStyle: 'normal', fontWeight: 'normal', color: A.primary, fontSize: '0.8em', letterSpacing: 0 }}>CUPONEaR</span> <span style={{ fontStyle: 'italic' }}>es tu cuponera viajera.</span>
-          </p>
+          {/* Hotelería: claim + CTA negro (el único botón oscuro del hero, para
+              que no compita con el azul de los pases). */}
+          <p className="pv2-hotel-claim">¡Regalá cuponeras con descuentos locales a tus huéspedes!</p>
+          <button className="pv2-cta-negro" onClick={() => suscribir('premium')}>
+            Suscripción <b>para hotelería</b>
+          </button>
 
-          {/* Planes — 2 grupos (Gesell Pass · Club Cuponear), 2 planes c/u */}
-          <div className="pv2-planes">
-            {GRUPOS.map((grupo) => (
-              <GrupoPlanes key={grupo.marca} grupo={grupo} onSelect={(id) => suscribir(id)} />
-            ))}
+          {/* Pases: ticket inclinado + localidades + los dos pases y el "+" */}
+          <div className="pv2-pases">
+            <img className="pv2-ticket" src="/gesell-pass-03.svg" alt="Gesell Pass" />
+            <div className="pv2-pases-body">
+              <div className="pv2-pases-loc">{LOCALIDADES_PASE}</div>
+              <p className="pv2-pases-claim">
+                <b>¿Viajás por unos días?</b> Podés activar{' '}
+                <button className="pv2-link" onClick={() => onVerDescuentos?.()}>todo el catálogo</button>
+              </p>
+              <div className="pv2-pases-row">
+                {PASES.map(pase => (
+                  <PaseBoton key={pase.id} pase={pase} onClick={() => onComprarPase?.(pase.dias)} />
+                ))}
+                <button className="pv2-mas" onClick={() => suscribir('mas')}
+                  aria-label="Ver todos los planes" title="Ver todos los planes">+</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -291,32 +289,126 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
           align-items: center;
         }
         .pv2-left { max-width: 900px; }
-        .pv2-sub  { font-size: clamp(16px, 1.5vw, 20px); max-width: 560px; white-space: nowrap; }
-        /* En pantallas más chicas sí puede cortarse la frase */
-        @media (max-width: 1340px) { .pv2-sub { white-space: normal; } }
+
+        /* ── Título ───────────────────────────────────────────── */
+        .pv2-title { position: relative; margin: 0; line-height: 1.12; letter-spacing: 0; }
+        .pv2-title > span { display: block; }
+        .pv2-t-it   { font-style: italic; font-weight: 300; color: ${A.ink}; font-size: clamp(34px, 4.3vw, 53px); }
+        /* Palabras de marca dentro de la línea itálica */
+        .pv2-nauryz { font-family: ${NAURYZ}; font-style: normal; font-weight: normal; color: ${A.primary}; font-size: 0.8em; }
+        /* El remate va casi tan grande como las itálicas: es el que cierra el
+           argumento, no una bajada. */
+        .pv2-t-bold { font-weight: 600; color: ${A.ink}; font-size: clamp(26px, 3.9vw, 38px); margin-top: 0.2em; }
+
+        /* ── Hotelería ────────────────────────────────────────── */
+        .pv2-hotel-claim {
+          margin: 46px 0 0;
+          font-style: italic;
+          font-size: clamp(16px, 1.6vw, 21px);
+          line-height: 1.5;
+          color: ${A.ink};
+        }
+        .pv2-cta-negro {
+          margin-top: 24px;
+          padding: 17px 50px;
+          border: none;
+          border-radius: 999px;
+          background: ${A.ink};
+          color: #fff;
+          font-family: inherit;
+          font-size: 18px;
+          font-weight: 400;
+          cursor: pointer;
+          transition: background .15s;
+        }
+        .pv2-cta-negro b { font-weight: 700; }
+        .pv2-cta-negro:hover { background: #1B2340; }
+
+        /* ── Pases ────────────────────────────────────────────── */
+        .pv2-pases { display: flex; align-items: center; gap: 28px; margin-top: 50px; }
+        /* El ticket va inclinado al revés que la galería: cruza la diagonal
+           general y evita que el bloque se lea como un bloque más. */
+        .pv2-ticket { flex: 0 0 auto; width: 190px; height: auto; display: block; transform: rotate(-25deg); }
+        .pv2-pases-body { min-width: 0; }
+        .pv2-pases-loc {
+          font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+          color: ${A.ink}; text-transform: uppercase; white-space: nowrap;
+        }
+        .pv2-pases-claim { margin: 8px 0 0; font-size: clamp(15px, 1.45vw, 19px);font-style: italic;  line-height: 1.45; color: ${A.ink}; }
+        .pv2-pases-claim b { font-style: italic; font-weight: 700; }
+        /* "todo el catálogo": link de verdad (button), sin chrome de botón */
+        .pv2-link {
+          padding: 0; border: none; background: none; font: inherit; cursor: pointer;
+          color: ${A.primary}; text-decoration: underline; text-underline-offset: 4px;
+        }
+        .pv2-link:hover { color: ${A.primaryDark}; }
+        /* Alineados arriba: el "+" queda a la altura de los botones, no de los precios */
+        .pv2-pases-row { display: flex; align-items: flex-start; gap: 30px; margin-top: 22px; }
+        .pv2-pase { display: flex; flex-direction: column; align-items: center; }
+        .pv2-btn-pase {
+          width: 190px; padding: 14px 16px; border: none; border-radius: 999px;
+          background: ${A.primary}; color: #fff;
+          font-family: inherit; font-size: 15.5px; font-weight: 700; cursor: pointer;
+          transition: background .15s;
+        }
+        .pv2-btn-pase:hover { background: ${A.primaryDark}; }
+        .pv2-pase-precio { margin-top: 11px; font-size: 13px; line-height: 1.3; white-space: nowrap; color: ${A.primary}; }
+        .pv2-pase-precio i { font-style: italic; }
+        .pv2-mas {
+          flex: 0 0 auto; width: 50px; height: 50px; border: none; border-radius: 999px;
+          background: ${A.primarySoft}; color: #fff;
+          font-family: inherit; font-size: 26px; font-weight: 400; line-height: 1; cursor: pointer;
+          transition: background .15s;
+        }
+        .pv2-mas:hover { background: ${A.primary}; }
 
         /* Ventana de la galería: recorta al corte (techo → piso), detrás del
            texto (z-index 0) y sin capturar clicks. No afecta el layout: es
-           absoluta, así el alto del hero lo fija solo el contenido de texto. */
+           absoluta, así el alto del hero lo fija solo el contenido de texto.
+
+           Es MÁS ANCHA que el bloque de fotos a propósito: el sobrante de la
+           izquierda es la zona donde el fundido las disuelve. Así el borde
+           visible de la galería es el del propio bloque —inclinado como todo lo
+           demás— y no el corte vertical del contenedor, que era lo que delataba
+           que son dos canvas distintos. Ese sobrante además es la zona de
+           solape: el texto (z-index 2) pasa por encima de fotos ya casi
+           transparentes, así que pisarlas no rompe nada. */
         .pv2-galwin {
+          --gap: 16px;
+          --colw: clamp(190px, 21vw, 300px);
+          --blockw: calc(${NUM_COLS} * var(--colw) + ${NUM_COLS - 1} * var(--gap));
           position: absolute;
           top: 0;
           bottom: 6px;            /* deja ver la barra divisoria de 6px */
-          right: 15px;
-          width: clamp(300px, 28vw, 540px);
+          right: 0;               /* pegada al borde de la página, sin aire */
+          width: calc(var(--blockw) * 1.45);
           overflow: hidden;
           z-index: 0;
           pointer-events: none;
+          /* Se funde con el fondo hacia el lado del texto, en paralelo a la
+             inclinación de las tiras. */
+          -webkit-mask-image: linear-gradient(${FADE_ANGLE}deg, transparent ${FADE_START}%, #000 ${FADE}%);
+                  mask-image: linear-gradient(${FADE_ANGLE}deg, transparent ${FADE_START}%, #000 ${FADE}%);
         }
         /* Capa interna más alta (colchón arriba/abajo) para que el parallax
-           mueva las columnas sin descubrir bordes. */
+           mueva las columnas sin descubrir bordes.
+           Inclinada: la rotación va acá (el contenedor de las dos tiras) para
+           no pisar el transform del parallax (.pv2-col) ni el del loop
+           (.pv2-coldrift). Como esos dos transforms quedan DENTRO del marco
+           rotado, las tiras se desplazan sobre su propio eje inclinado: la
+           banda no se mueve de lugar, solo corren las fotos adentro. */
         .pv2-gallery {
           position: absolute;
-          left: 0; right: 0;
+          /* Ancho propio (no se estira a la ventana) y anclado a la derecha:
+             las tiras miden --colw pase lo que pase, y el sobrante de ventana
+             queda del lado del fundido. */
+          width: var(--blockw);
+          right: -${OVERHANG}px;
           top: -${BUFFER}px;
           bottom: -${BUFFER}px;
           display: flex;
-          gap: 16px;
+          gap: var(--gap);
+          transform: rotate(${TILT}deg);
         }
         .pv2-col  { flex: 1 1 0; }
         /* Wrapper interno: loop continuo en una dirección (marquee) sin costura.
@@ -331,19 +423,10 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
         @media (prefers-reduced-motion: reduce) {
           .pv2-marquee-up, .pv2-marquee-down { animation: none; }
         }
-        .pv2-cell { flex: 0 0 auto; margin-bottom: 16px; border-radius: 20px; overflow: hidden; box-shadow: 0 22px 44px -30px rgba(11,16,32,0.28); }
+        /* La sombra la pone cada celda inline (varía según la capa). */
+        .pv2-cell { flex: 0 0 auto; margin-bottom: 16px; border-radius: 20px; overflow: hidden; }
         .pv2-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pv2-mobile-deco { display: none; }
-
-        /* Planes: 2 grupos (Gesell Pass · Club Cuponear) con 2 planes c/u */
-        .pv2-planes { display: flex; align-items: flex-start; gap: 56px; margin-top: 52px; }
-        .pv2-grupo { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; }
-        .pv2-grupo-logo { height: 62px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; transform: translateY(10px); }
-        .pv2-grupo-desc { font-size: 13px; line-height: 1.4; color: #0B1020; text-align: center; white-space: nowrap; height: 22px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
-        .pv2-grupo-nota { font-size: 12px; line-height: 1.35; color: #6B7280; font-style: italic; text-align: center; min-height: 17px; margin-bottom: 14px; }
-        /* En pantallas donde no entra en una línea, se permite cortar */
-        @media (max-width: 1280px) { .pv2-grupo-desc { white-space: normal; height: 40px; } .pv2-grupo-nota { min-height: 34px; } }
-        .pv2-grupo-planes { display: flex; gap: 16px; width: 100%; justify-content: center; }
 
         @media (max-width: 1180px) {
           .pv2-inner {
@@ -353,13 +436,26 @@ export default function HeroPase({ onVerDescuentos, onSuscribir }) {
             justify-content: center;
           }
           .pv2-left { display: flex; flex-direction: column; align-items: center; max-width: 620px; }
-          .pv2-sub { margin-left: auto; margin-right: auto; }
-          .pv2-planes { flex-wrap: wrap; justify-content: center; max-width: 620px; }
+          /* El ticket pasa arriba del bloque y más chico */
+          .pv2-pases { flex-direction: column; gap: 14px; }
+          .pv2-ticket { width: 150px; }
+          .pv2-pases-loc { white-space: normal; }
+          .pv2-pases-row { flex-wrap: wrap; justify-content: center; }
+          /* Tablet: la galería NO se va, se queda de fondo. Al estar en z-index
+             0 con el texto en 2, el contenido simplemente la pisa; con menos
+             opacidad y las tiras más angostas, ese solape se lee como textura
+             de fondo y no como dos cosas peleándose el lugar. */
+          .pv2-galwin { opacity: 0.5; --colw: clamp(150px, 20vw, 220px); }
+        }
+        /* Recién en mobile la galería estorba de verdad: ahí sí sale y quedan
+           las dos fotos de la deriva. */
+        @media (max-width: 760px) {
           .pv2-galwin { display: none; }
           .pv2-mobile-deco { display: block; position: absolute; inset: 0; pointer-events: none; z-index: 0; }
         }
         @media (max-width: 560px) {
-          .pv2-planes > div { flex: 1 0 100% !important; }
+          .pv2-pases-row { gap: 18px; }
+          .pv2-btn-pase { width: 160px; }
         }
       `}</style>
     </section>

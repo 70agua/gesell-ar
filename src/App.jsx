@@ -24,6 +24,7 @@ import PublicarOfertaView    from './views/PublicarOfertaView';
 import BeneficiosPortalView  from './views/BeneficiosPortalView';
 import FavoritosView         from './views/FavoritosView';
 import CheckoutView          from './views/CheckoutView';
+import CheckoutPaseView      from './views/CheckoutPaseView';
 import PaseDebugView         from './views/PaseDebugView'; // ⚠️ TEMPORAL (Brief 1) — entra por ?pase-debug=1
 
 import { getAlojamientos, getGastronomia, getAventura, getNegocioById } from './lib/datos';
@@ -51,6 +52,8 @@ function AppContent() {
   const [selectedPack, setSelectedPack]         = useState(null);
   const [marketplaceLocalidad, setMarketplaceLocalidad] = useState('');
   const [marketplaceTipo,     setMarketplaceTipo]     = useState('todos');
+  const [packFamilia,         setPackFamilia]         = useState(null);
+  const [paseDias,            setPaseDias]            = useState(7);
   const [ofertasCategoria, setOfertasCategoria] = useState(null);
   const [ofertasLocalidades, setOfertasLocalidades] = useState([]);
   const [ofertasTipoInicial, setOfertasTipoInicial] = useState(null);
@@ -72,6 +75,8 @@ function AppContent() {
   const [salidas, setSalidas]   = useState([]);
   const [aventura, setAventura] = useState([]);
   const [loginInitialTab, setLoginInitialTab] = useState('ingresar');
+  // 'comercial' entra directo al alta de negocio; null muestra el selector.
+  const [loginModoRegistro, setLoginModoRegistro] = useState(null);
   // El login se disparó porque un visitante quiso agregar un cupón a su cuponera.
   // Al volver logueado lo mandamos a home (no al panel) y dejamos que la cuponera
   // reinyecte el cupón + muestre el aviso, sin interrumpir con el wizard.
@@ -201,6 +206,12 @@ function AppContent() {
     const s = await getSession();
     const p = await getPerfil();
     setSession(s); setPerfil(p);
+    // Si antes de registrarse compró un pase dejando sólo el mail, acá se
+    // convierte en un pase suyo (ver vincularComprasPase en lib/pases.js).
+    if (s?.user?.email) {
+      const { vincularComprasPase } = await import('./lib/pases');
+      await vincularComprasPase(s.user.id, s.user.email);
+    }
     setView('home');
     window.scrollTo(0, 0);
     // Si venía de agregar un cupón, la cuponera abre su drawer + aviso: no
@@ -243,7 +254,7 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout','checkout-pase'];
 
   return (
     <SesionProvider perfil={perfil}>
@@ -262,7 +273,11 @@ function AppContent() {
             session={session}
             perfil={perfil}
             onLoginClick={(tab = 'ingresar') => { setLoginInitialTab(tab); setView('login'); }}
-            onRegisterClick={(tab = 'registrarse') => { setLoginInitialTab(tab); setView('login'); }}
+            onRegisterClick={(tab = 'registrarse', modo = null) => {
+              // `modo` fija el tipo de cuenta y saltea el selector turista/negocio:
+              // lo usa "Publicá una oferta", que va derecho al alta de negocio.
+              setLoginInitialTab(tab); setLoginModoRegistro(modo); setView('login');
+            }}
             onLogout={handleLogout}
             onPublicarOferta={() => {
               // Turista logueado sin negocio: primero convierte su cuenta a comercial.
@@ -308,6 +323,9 @@ function AppContent() {
                 setGastroFoco(null);
                 setGastroNavKey(k => k + 1);
               }
+              // "Packs todo incluido": cada familia del menú entra al listado
+              // con ese filtro ya tildado; "Más packs" (null) entra sin filtro.
+              if (targetView === 'packs') setPackFamilia(opts.packFamilia || null);
               setView(targetView);
               window.scrollTo(0, 0);
             }}
@@ -324,8 +342,10 @@ function AppContent() {
               onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroModoAventura(false); setGastroFoco(null); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setOfertasTipoInicial(null); setView('ofertas'); } window.scrollTo(0, 0); }}
               onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
               onOpenPack={handleOpenPack}
+              onVerPacks={() => { setPackFamilia(null); setView('packs'); window.scrollTo(0, 0); }}
               onOpenOferta={handleOpenOferta}
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
+              onComprarPase={(dias) => { setPaseDias(dias || 7); setView('checkout-pase'); window.scrollTo(0, 0); }}
               onNavMarketplaceTipo={(filtro) => { setMarketplaceTipo(filtro || 'todos'); setView('marketplace'); window.scrollTo(0, 0); }}
               onNavCuponear={(target) => {
                 // Entramos SIEMPRE al listado con los filtros vacíos (inclusive):
@@ -356,15 +376,19 @@ function AppContent() {
             />
           )}
           {view === 'ofertas' && (
-            <OfertasView
-              key={ofertasCategoria + '|' + ofertasLocalidades.join(',') + '|' + ofertasTipoInicial + '|' + ofertasExperienciaInicial}
-              onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setOfertasTipoInicial(null); setOfertasExperienciaInicial(null); setView('home'); }}
-              onOpenOferta={handleOpenOferta}
-              initialCategoria={ofertasCategoria}
-              initialLocalidades={ofertasLocalidades}
-              initialTipo={ofertasTipoInicial}
-              initialExperiencia={ofertasExperienciaInicial}
-            />
+            /* data-nav-section: pinta y subraya el ítem del navbar mientras se
+               está dentro del listado (mismo mecanismo que las tiras de la home). */
+            <div data-nav-section={ofertasCategoria === 'aventura_relax' ? 'aventura' : ofertasCategoria === 'alojamiento' ? 'aloj' : undefined}>
+              <OfertasView
+                key={ofertasCategoria + '|' + ofertasLocalidades.join(',') + '|' + ofertasTipoInicial + '|' + ofertasExperienciaInicial}
+                onBack={() => { setOfertasCategoria(null); setOfertasLocalidades([]); setOfertasTipoInicial(null); setOfertasExperienciaInicial(null); setView('home'); }}
+                onOpenOferta={handleOpenOferta}
+                initialCategoria={ofertasCategoria}
+                initialLocalidades={ofertasLocalidades}
+                initialTipo={ofertasTipoInicial}
+                initialExperiencia={ofertasExperienciaInicial}
+              />
+            </div>
           )}
           {view === 'marketplace' && (
             <MarketplaceView
@@ -417,10 +441,13 @@ function AppContent() {
             />
           )}
           {view === 'packs' && (
-            <PacksListView
-              onBack={() => setView('home')}
-              onOpenPack={handleOpenPack}
-            />
+            <div data-nav-section="packs">
+              <PacksListView
+                onBack={() => setView('home')}
+                familia={packFamilia}
+                onFamiliaChange={setPackFamilia}
+              />
+            </div>
           )}
           {view === 'ofertas-regalo' && (
             <OfertasRegaloView
@@ -472,6 +499,21 @@ function AppContent() {
               onBack={() => { setView('home'); window.scrollTo(0, 0); }}
             />
           )}
+          {view === 'checkout-pase' && (
+            <CheckoutPaseView
+              paseDias={paseDias}
+              onSoyHotelero={() => { setView('socios'); window.scrollTo(0, 0); }}
+              onListo={async () => {
+                // La cuenta ya se creó (o se validó) dentro del checkout: acá
+                // sólo se refresca la sesión en memoria y se vuelve a la home.
+                const s = await getSession();
+                const p = await getPerfil();
+                setSession(s); setPerfil(p);
+                setView('home');
+                window.scrollTo(0, 0);
+              }}
+            />
+          )}
           {view === 'login' && (
             <LoginView
               onLoginSuccess={handleLoginSuccess}
@@ -479,6 +521,7 @@ function AppContent() {
               onOnboardingComplete={handleOnboardingComplete}
               onTuristaRegistrada={handleTuristaRegistroComplete}
               initialTab={loginInitialTab}
+              initialModoRegistro={loginModoRegistro}
             />
           )}
           {view === 'convertir-comercial' && session && (
@@ -496,21 +539,23 @@ function AppContent() {
             <SociosView onBack={() => setView('home')} />
           )}
           {view === 'salidas' && (
-            <GastronomyView
-              key={gastroNavKey}
-              onBack={() => { setGastroCategoria(''); setGastroAventura(''); setGastroFoco(null); setGastroModoAventura(false); setView('home'); }}
-              session={session}
-              onLoginClick={() => setView('login')}
-              onOpenDetail={handleOpenDetail}
-              onOpenOferta={handleOpenOferta}
-              onVerOfertas={() => { setOfertasCategoria(null); setOfertasTipoInicial(null); setView('ofertas'); window.scrollTo(0,0); }}
-              onVerRanking={() => { setSalidasModoRanking(true); window.scrollTo(0, 0); }}
-              initialCategoria={gastroCategoria}
-              initialAventura={gastroAventura}
-              foco={gastroFoco}
-              modoAventura={gastroModoAventura}
-              modoRanking={salidasModoRanking}
-            />
+            <div data-nav-section={gastroModoAventura ? 'aventura' : 'gastro'}>
+              <GastronomyView
+                key={gastroNavKey}
+                onBack={() => { setGastroCategoria(''); setGastroAventura(''); setGastroFoco(null); setGastroModoAventura(false); setView('home'); }}
+                session={session}
+                onLoginClick={() => setView('login')}
+                onOpenDetail={handleOpenDetail}
+                onOpenOferta={handleOpenOferta}
+                onVerOfertas={() => { setOfertasCategoria(null); setOfertasTipoInicial(null); setView('ofertas'); window.scrollTo(0,0); }}
+                onVerRanking={() => { setSalidasModoRanking(true); window.scrollTo(0, 0); }}
+                initialCategoria={gastroCategoria}
+                initialAventura={gastroAventura}
+                foco={gastroFoco}
+                modoAventura={gastroModoAventura}
+                modoRanking={salidasModoRanking}
+              />
+            </div>
           )}
           {view === 'superadmin' && (
             <SuperAdminView

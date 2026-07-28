@@ -3,6 +3,7 @@
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { locations } from '../data/mockData';
+import { FAMILIAS_PACK, MAS_PACKS } from '../lib/familiasPack';
 import { useCuponera } from '../lib/cuponera';
 import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
 
@@ -27,6 +28,9 @@ const NAV_W_MIN   = 1020;
 const NAV_H_MAX   = 56;
 const NAV_H_MIN   = 48;
 const NAV_EASE    = 'cubic-bezier(.4,0,.2,1)';
+// Scroll a partir del cual se condensa la navbar en las vistas sin ancla
+// (listados): alcanza para dejar atrás el título del listado.
+const SHRINK_FALLBACK_Y = 150;
 
 // ─── Chevrons ────────────────────────────────────────────────
 function ChevD({ size = 12 }) {
@@ -52,6 +56,62 @@ const DROP_BASE = {
   zIndex: 1001, overflow: 'hidden',
 };
 
+
+// Subrayado de sección: barrita al pie del ítem, 4px más corta por la derecha
+// para que no llegue al borde de la flechita. Entra creciendo desde el centro
+// para que el cambio de tira no se sienta un salto.
+function NavUnderline({ activo }) {
+  return (
+    <span aria-hidden="true" style={{
+      position: 'absolute', left: 0, right: 4, bottom: 0, height: 2,
+      borderRadius: 999, background: A.primary, pointerEvents: 'none',
+      transformOrigin: 'center',
+      transform: activo ? 'scaleX(1)' : 'scaleX(0.35)',
+      opacity: activo ? 1 : 0,
+      transition: `transform .34s ${NAV_EASE}, opacity .26s ease`,
+    }} />
+  );
+}
+
+// Los menús se despliegan centrados sobre la pastilla del navbar, no sobre su
+// botón: así todos caen en el mismo eje y ninguno se sale de pantalla. Se
+// corrige con `marginLeft` para no pisar las animaciones de entrada, que usan
+// transform. Se remide mientras la navbar se estrecha o se ensancha al
+// scrollear, para que el panel siga acompañando a la pastilla.
+const DROP_MARGEN = 12;
+function useDropCentrado(abierto, navRef) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!abierto) return;
+    let raf = 0;
+    const ajustar = () => {
+      raf = 0;
+      const el = ref.current;
+      if (!el) return;
+      el.style.marginLeft = '0px';
+      const r = el.getBoundingClientRect();
+      const nav = navRef?.current?.getBoundingClientRect();
+      // Centrado sobre la pastilla; si por ancho no entra, se pega al borde.
+      let destino = nav ? nav.left + (nav.width - r.width) / 2 : r.left;
+      destino = Math.min(Math.max(destino, DROP_MARGEN), window.innerWidth - DROP_MARGEN - r.width);
+      el.style.marginLeft = `${Math.round(destino - r.left)}px`;
+    };
+    const pedirAjuste = () => { if (!raf) raf = requestAnimationFrame(ajustar); };
+    ajustar();
+    // La pastilla tarda .38s en cambiar de ancho: el intervalo cubre ese tramo,
+    // que el scroll dispara pero termina después de que el scroll paró.
+    const tick = setInterval(ajustar, 100);
+    window.addEventListener('scroll', pedirAjuste, { passive: true });
+    window.addEventListener('resize', pedirAjuste);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      clearInterval(tick);
+      window.removeEventListener('scroll', pedirAjuste);
+      window.removeEventListener('resize', pedirAjuste);
+    };
+  }, [abierto, navRef]);
+  return ref;
+}
 
 function useOutsideClose(refs, fn) {
   useEffect(() => {
@@ -115,27 +175,75 @@ function MiniOfertaCard({ img, badge, subtitulo, titulo, proveedorNombre = 'Vill
 }
 
 // ─── Fila compacta de oferta (columna derecha) ──────────────
-function MiniOfertaRow({ badge, badgeColor = '#10A36B', titulo, proveedorNombre = 'Villa Gesell', onNavigate, destino, opts = {} }) {
+// Fila compacta de "Más ofertas": el badge va en pastilla azul suave, igual que
+// en el listado de packs, pegado al título en la misma línea para que entren
+// seis sin estirar el menú.
+function MiniOfertaRow({ badge, titulo, proveedorNombre = 'Villa Gesell', onNavigate, destino, opts = {} }) {
   return (
     <button
       onClick={() => onNavigate(destino || 'ofertas', opts)}
-      style={{ width: '100%', textAlign: 'left', border: 'none', background: 'none', padding: '9px 0', cursor: 'pointer', fontFamily: A.font, display: 'flex', flexDirection: 'column', gap: 4, transition: 'opacity .12s' }}
+      style={{ width: '100%', textAlign: 'left', border: 'none', background: 'none', padding: '7px 0', cursor: 'pointer', fontFamily: A.font, display: 'block', transition: 'opacity .12s' }}
       onMouseEnter={e => e.currentTarget.style.opacity = '0.72'}
       onMouseLeave={e => e.currentTarget.style.opacity = '1'}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <div style={{ width: 18, height: 18, borderRadius: '50%', background: A.primarySoft, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-          <span style={{ fontSize: 8, fontWeight: 800, color: A.primary }}>{(proveedorNombre)[0]}</span>
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: A.ink2, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{proveedorNombre}</span>
+      <div style={{ fontSize: 12, color: A.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+        <span style={{ background: A.primarySoft, color: A.primary, fontWeight: 800, borderRadius: 999, padding: '1px 7px', marginRight: 5, whiteSpace: 'nowrap' }}>{badge}</span>
+        <span style={{ fontWeight: 600 }}>{titulo}</span>
       </div>
-      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, color: '#fff', background: badgeColor, padding: '2px 8px', borderRadius: 999 }}>
-        {badge}
-      </span>
-      <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-        {titulo}
+      <div style={{ fontSize: 10.5, fontWeight: 500, color: A.muted, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+        {proveedorNombre}
       </div>
     </button>
+  );
+}
+
+// Las seis ofertas de la columna "Más ofertas" de cada menú. Son de muestra:
+// el día que salgan de la DB, se reemplaza este objeto por la consulta.
+const MAS_OFERTAS = {
+  alojamiento: [
+    { badge: 'Cortesía', titulo: 'Desayuno buffet incluido para 2 personas',   proveedorNombre: 'Hotel del Bosque' },
+    { badge: '-15%', titulo: 'Descuento en estadías de más de 3 noches',    proveedorNombre: 'Mar de las Pampas' },
+    { badge: '-25%', titulo: 'Cabaña en el pinar para 4, media semana',     proveedorNombre: 'Cabañas Aromo' },
+    { badge: '2x1', titulo: 'Segunda noche al 50% de domingo a jueves',    proveedorNombre: 'Apart Las Dunas' },
+    { badge: 'Cortesía', titulo: 'Late check-out sin cargo hasta las 15hs',     proveedorNombre: 'Hostería Médanos' },
+    { badge: '-10%', titulo: 'Domo con estufa a leña frente al bosque',     proveedorNombre: 'Glamping Mar Azul' },
+  ],
+  salidas: [
+    { badge: 'Cortesía', titulo: 'Postre y brindis de cortesía para tu mesa',   proveedorNombre: 'Restaurante Amarena' },
+    { badge: '-20%', titulo: 'Descuento en tragos y cocktails artesanales', proveedorNombre: 'Bar La Costa' },
+    { badge: '2x1', titulo: 'Dos cafés con medialunas por el precio de uno', proveedorNombre: 'Café del Bosque' },
+    { badge: '-15%', titulo: 'Menú de mar de tres pasos para dos',          proveedorNombre: 'Parador Windy' },
+    { badge: 'Cortesía', titulo: 'Entrada sin cargo al show de la noche',       proveedorNombre: 'Centro Cultural VG' },
+    { badge: '-25%', titulo: 'Cucurucho doble en la heladería del centro',  proveedorNombre: 'Heladería La Holandesa' },
+  ],
+  aventura_relax: [
+    { badge: 'Cortesía', titulo: 'Paseo en kayak con guía al atardecer',        proveedorNombre: 'Deportes Acuáticos VG' },
+    { badge: '-25%', titulo: 'Cabalgata nocturna por los médanos con fogón', proveedorNombre: 'Rancho El Viento' },
+    { badge: '-20%', titulo: 'Masaje descontracturante de 50 minutos',      proveedorNombre: 'Spa Pinamar Sur' },
+    { badge: '2x1', titulo: 'Clase de yoga al amanecer en la playa',       proveedorNombre: 'Yoga Mar Azul' },
+    { badge: 'Cortesía', titulo: 'Primera clase de kitesurf de prueba',         proveedorNombre: 'Kite Gesell' },
+    { badge: '-15%', titulo: 'Travesía 4x4 por los médanos del sur',        proveedorNombre: 'Travesías del Sur' },
+  ],
+};
+
+// Columna "Más ofertas" — misma lista y mismo destino en los tres menús.
+function MasOfertasCol({ categoria, onNavigate }) {
+  return (
+    <>
+      <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2, marginBottom: 4 }}>Más ofertas</span>
+      {MAS_OFERTAS[categoria].map((o, i) => (
+        <React.Fragment key={o.titulo}>
+          {i > 0 && <div style={{ height: 1, background: A.line }} />}
+          <MiniOfertaRow
+            {...o}
+            onNavigate={onNavigate}
+            destino="ofertas"
+            opts={{ ofertasCategoria: categoria }}
+          />
+        </React.Fragment>
+      ))}
+      <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
+    </>
   );
 }
 
@@ -244,30 +352,8 @@ function AlojDrop({ onNavigate }) {
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
       {/* Col 4: más ofertas + CTA */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 200, flexShrink: 0, justifyContent: 'flex-start' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2, marginBottom: 4 }}>Más ofertas</span>
-        <MiniOfertaRow
-          badge="Cortesía"
-          badgeColor="#10A36B"
-          titulo="Desayuno buffet incluido para 2 personas"
-          proveedorNombre="Hotel del Bosque"
-          tokens={1}
-          onNavigate={onNavigate}
-          destino="ofertas"
-          opts={{ ofertasCategoria: 'alojamiento' }}
-        />
-        <div style={{ height: 1, background: A.line }} />
-        <MiniOfertaRow
-          badge="-15%"
-          badgeColor={A.primary}
-          titulo="Descuento en estadías de más de 3 noches"
-          proveedorNombre="Mar de las Pampas"
-          tokens={2}
-          onNavigate={onNavigate}
-          destino="ofertas"
-          opts={{ ofertasCategoria: 'alojamiento' }}
-        />
-        <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 264, flexShrink: 0, justifyContent: 'flex-start' }}>
+        <MasOfertasCol categoria="alojamiento" onNavigate={onNavigate} />
         <button
           onClick={() => onNavigate('ofertas', { ofertasCategoria: 'alojamiento' })}
           style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
@@ -367,30 +453,8 @@ function GastroDrop({ onNavigate }) {
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
       {/* Col 4: más ofertas + CTA */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 200, flexShrink: 0 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2, marginBottom: 4 }}>Más ofertas</span>
-        <MiniOfertaRow
-          badge="Cortesía"
-          badgeColor="#10A36B"
-          titulo="Postre y brindis de cortesía para tu mesa"
-          proveedorNombre="Restaurante Amarena"
-          tokens={1}
-          onNavigate={onNavigate}
-          destino="ofertas"
-          opts={{ ofertasCategoria: 'salidas' }}
-        />
-        <div style={{ height: 1, background: A.line }} />
-        <MiniOfertaRow
-          badge="-20%"
-          badgeColor={A.primary}
-          titulo="Descuento en tragos y cocktails artesanales"
-          proveedorNombre="Bar La Costa"
-          tokens={1}
-          onNavigate={onNavigate}
-          destino="ofertas"
-          opts={{ ofertasCategoria: 'salidas' }}
-        />
-        <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 264, flexShrink: 0 }}>
+        <MasOfertasCol categoria="salidas" onNavigate={onNavigate} />
         <button
           onClick={() => onNavigate('ofertas', { ofertasCategoria: 'salidas' })}
           style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
@@ -453,30 +517,8 @@ function AventDrop({ onNavigate }) {
       <div style={{ width: 1, background: A.line, margin: '0 20px', alignSelf: 'stretch', flexShrink: 0 }} />
 
       {/* Derecha: filas compactas */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 200, flexShrink: 0, justifyContent: 'flex-start' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: A.font, paddingLeft: 2, marginBottom: 4 }}>Más ofertas</span>
-        <MiniOfertaRow
-          badge="Cortesía"
-          badgeColor="#10A36B"
-          titulo="Paseo en kayak con guía al atardecer"
-          proveedorNombre="Deportes Acuáticos VG"
-          tokens={1}
-          onNavigate={onNavigate}
-          destino="ofertas"
-          opts={{ ofertasCategoria: 'aventura_relax' }}
-        />
-        <div style={{ height: 1, background: A.line }} />
-        <MiniOfertaRow
-          badge="-25%"
-          badgeColor={A.primary}
-          titulo="Cabalgata nocturna por los médanos con fogón"
-          proveedorNombre="Rancho El Viento"
-          tokens={2}
-          onNavigate={onNavigate}
-          destino="ofertas"
-          opts={{ ofertasCategoria: 'aventura_relax' }}
-        />
-        <div style={{ height: 1, background: A.line, marginBottom: 8 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: 264, flexShrink: 0, justifyContent: 'flex-start' }}>
+        <MasOfertasCol categoria="aventura_relax" onNavigate={onNavigate} />
         <button
           onClick={() => onNavigate('ofertas', { ofertasCategoria: 'aventura_relax' })}
           style={{ width: '100%', background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, padding: '8px 0', fontSize: 12, fontWeight: 700, color: A.ink2, cursor: 'pointer', fontFamily: A.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'border-color .12s, color .12s' }}
@@ -529,58 +571,32 @@ function SitiosDrop() {
   );
 }
 
-// ─── Cuponeras ───────────────────────────────────────────────
-const PACKS_ICONS = {
-  'Todas las cuponeras': (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-    </svg>
-  ),
-  'Románticos': (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-    </svg>
-  ),
-  'Familias': (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  ),
-  'Aventura': (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="3 18 12 2 21 18"/><polyline points="3 18 21 18"/>
-    </svg>
-  ),
-  'Relax & Bienestar': (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12"/><path d="M12 6v6l4 2"/>
-    </svg>
-  ),
-  'Salidas + alojamiento': (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 11l19-9-9 19-2-8-8-2z"/>
-    </svg>
-  ),
-};
-const PACKS_TIPOS = ['Todas las cuponeras', 'Románticos', 'Familias', 'Aventura', 'Relax & Bienestar', 'Salidas + alojamiento'];
 
 // ─── Dropdown "Packs todo incluido" — cuponeras Cuponear ─────
 function PacksDrop({ onNavigate }) {
   return (
-    <div style={{ padding: '18px 18px 16px', width: 290 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4, fontFamily: A.font }}>Packs Cuponear</div>
-      <p style={{ fontSize: 12.5, color: A.muted, margin: '0 0 12px', lineHeight: 1.4, fontFamily: A.font }}>Cuponeras armadas para cada plan.</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {PACKS_TIPOS.map(tipo => (
-          <button key={tipo} onClick={() => onNavigate('packs', { packTipo: tipo })}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', border: 'none', background: 'transparent', padding: '9px 10px', borderRadius: 10, cursor: 'pointer', fontFamily: A.font, fontSize: 14, fontWeight: 500, color: A.ink2, transition: 'background .13s, color .13s' }}
+    <div style={{ padding: '30px 30px 28px', width: 740 }}>
+      <style>{`
+        @keyframes packIcoPop {
+          0%   { transform: scale(1)    rotate(0deg); }
+          35%  { transform: scale(1.18) rotate(-6deg); }
+          70%  { transform: scale(1.05) rotate(4deg); }
+          100% { transform: scale(1.12) rotate(0deg); }
+        }
+        .pack-fam .pack-fam-ico { transition: transform .25s ease; }
+        .pack-fam:hover .pack-fam-ico { animation: packIcoPop .55s cubic-bezier(.34,1.56,.64,1) forwards; }
+      `}</style>
+      <div style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 18, fontFamily: A.font }}>Packs Cuponear: Alojamiento + Experiencias</div>
+      {/* Íconos grandes, uno al lado del otro, con el título debajo */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+        {[...FAMILIAS_PACK, MAS_PACKS].map(f => (
+          <button key={f.label} className="pack-fam" onClick={() => onNavigate('packs', { packFamilia: f.id })}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, border: 'none', background: 'transparent', padding: '18px 6px 16px', borderRadius: 16, cursor: 'pointer', fontFamily: A.font, fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', color: A.ink2, transition: 'background .13s, color .13s' }}
             onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
           >
-            <span style={{ color: A.primary, display: 'flex', flexShrink: 0 }}>{PACKS_ICONS[tipo]}</span>
-            {tipo}
+            <img className="pack-fam-ico" src={f.icono} alt="" style={{ width: 64, height: 64, display: 'block' }} />
+            {f.label}
           </button>
         ))}
       </div>
@@ -638,12 +654,19 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
 
   // ── Estrechado al pasar la primera sección ────────────────
   // La vista marca el fin del hero con <div data-navbar-shrink />. Cuando ese
-  // punto cruza por debajo de la pastilla, la navbar se compacta. Si la vista
-  // no pone el ancla, la navbar queda siempre expandida.
+  // punto cruza por debajo de la pastilla, la navbar se compacta. Las vistas que
+  // no ponen el ancla —los listados— se condensan al pasar el alto del título.
   useEffect(() => {
-    const anchor = document.querySelector('[data-navbar-shrink]');
-    if (!anchor) { setCondensed(false); return; }
     const linea = NAV_TOP + NAV_H_MAX; // borde inferior de la pastilla expandida
+    const anchor = document.querySelector('[data-navbar-shrink]');
+
+    if (!anchor) {
+      const onScroll = () => setCondensed(window.scrollY > SHRINK_FALLBACK_Y);
+      onScroll();
+      window.addEventListener('scroll', onScroll, { passive: true });
+      return () => window.removeEventListener('scroll', onScroll);
+    }
+
     const obs = new IntersectionObserver(
       ([e]) => setCondensed(e.boundingClientRect.top <= linea),
       { rootMargin: `-${linea}px 0px 0px 0px`, threshold: 0 }
@@ -651,6 +674,37 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
     obs.observe(anchor);
     return () => obs.disconnect();
   }, [view]);
+
+  // ── Subrayado según la sección que se está mirando ────────────
+  // Las vistas marcan sus bloques con <section data-nav-section="aloj|gastro|
+  // aventura|packs">. Se subraya el ítem del bloque que cruza la línea de
+  // lectura (40% del alto de la ventana); fuera de esos bloques, nada.
+  const [seccionActiva, setSeccionActiva] = useState(null);
+  useEffect(() => {
+    let raf = 0;
+    const medir = () => {
+      raf = 0;
+      const linea = window.innerHeight * 0.4;
+      let activa = null;
+      for (const nodo of document.querySelectorAll('[data-nav-section]')) {
+        const r = nodo.getBoundingClientRect();
+        if (r.top <= linea && r.bottom >= linea) { activa = nodo.dataset.navSection; break; }
+      }
+      setSeccionActiva(prev => (prev === activa ? prev : activa));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(medir); };
+    medir();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [view]);
+
+  // Sólo hay un dropdown montado por vez, así que una sola ref alcanza para los cuatro.
+  const dropRef = useDropCentrado(openMenu || closingMenu, navRef);
 
   const closeAll = () => { clearTimeout(closeTimer.current); setOpenMenu(null); setMobileOpen(false); };
 
@@ -685,8 +739,12 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
     background: 'none', border: 'none', fontSize: condensed ? 13 : 14, fontWeight: 500,
     color: NAV_OFF, cursor: 'pointer', padding: '4px 0', fontFamily: A.font,
     display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-    transition: `color .15s, font-size .35s ${NAV_EASE}`,
+    transition: `color .26s, font-size .35s ${NAV_EASE}`,
   };
+
+  // El ítem de la sección que se está mirando va en color principal —la flechita
+  // del select lo hereda por currentColor—; si no, sólo se oscurece al abrir.
+  const colorNav = (name) => (seccionActiva === name ? A.primary : openMenu === name ? NAV_ON : NAV_OFF);
 
   return (
     <>
@@ -738,75 +796,92 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           {/* ── Desktop nav links ── */}
           <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: condensed ? 20 : 30, flexShrink: 0, transition: `gap .38s ${NAV_EASE}` }}>
 
-            {/* Alojamientos */}
-            <div style={{ position: 'relative' }} ref={alojRef}
+            {/* Alojamientos. El wrapper externo se estira a todo el alto de la
+                pastilla para colgar el subrayado del pie; el interno mantiene el
+                anclaje del dropdown, que sigue saliendo del botón. */}
+            <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={alojRef}
               onMouseEnter={() => hoverOpen('aloj')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('ofertas', { ofertasCategoria: 'alojamiento' })} style={{ ...navBtnSt, color: openMenu === 'aloj' ? NAV_ON : NAV_OFF }}>
-                Alojamientos <ChevD />
-              </button>
-              {(openMenu === 'aloj' || closingMenu === 'aloj') && (
-                <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'aloj' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
-                  <AlojDrop onNavigate={(v, opts) => nav(v, opts)} onVerOferta={navVerOferta} />
-                </div>
-              )}
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => nav('ofertas', { ofertasCategoria: 'alojamiento' })} style={{ ...navBtnSt, color: colorNav('aloj') }}>
+                  Alojamientos <ChevD />
+                </button>
+                {(openMenu === 'aloj' || closingMenu === 'aloj') && (
+                  <div ref={dropRef} style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'aloj' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
+                    <AlojDrop onNavigate={(v, opts) => nav(v, opts)} onVerOferta={navVerOferta} />
+                  </div>
+                )}
+              </div>
+              <NavUnderline activo={seccionActiva === 'aloj'} />
             </div>
 
             {/* Salidas */}
-            <div style={{ position: 'relative' }} ref={gastroRef}
+            <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={gastroRef}
               onMouseEnter={() => hoverOpen('gastro')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('salidas')} style={{ ...navBtnSt, color: openMenu === 'gastro' ? NAV_ON : NAV_OFF }}>
-                Salidas <ChevD />
-              </button>
-              {(openMenu === 'gastro' || closingMenu === 'gastro') && (
-                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'gastro' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
-                  <GastroDrop onNavigate={(v, opts) => nav(v, opts)} />
-                </div>
-              )}
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => nav('salidas')} style={{ ...navBtnSt, color: colorNav('gastro') }}>
+                  Salidas <ChevD />
+                </button>
+                {(openMenu === 'gastro' || closingMenu === 'gastro') && (
+                  <div ref={dropRef} style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'gastro' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
+                    <GastroDrop onNavigate={(v, opts) => nav(v, opts)} />
+                  </div>
+                )}
+              </div>
+              <NavUnderline activo={seccionActiva === 'gastro'} />
             </div>
 
             {/* Aventura & Relax */}
-            <div style={{ position: 'relative' }} ref={aventRef}
+            <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={aventRef}
               onMouseEnter={() => hoverOpen('aventura')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('ofertas', { ofertasCategoria: 'aventura_relax' })} style={{ ...navBtnSt, color: openMenu === 'aventura' ? NAV_ON : NAV_OFF }}>
-                Aventura & Relax <ChevD />
-              </button>
-              {(openMenu === 'aventura' || closingMenu === 'aventura') && (
-                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'aventura' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
-                  <AventDrop onNavigate={(v, opts) => nav(v, opts)} />
-                </div>
-              )}
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => nav('ofertas', { ofertasCategoria: 'aventura_relax' })} style={{ ...navBtnSt, color: colorNav('aventura') }}>
+                  Aventura & Relax <ChevD />
+                </button>
+                {(openMenu === 'aventura' || closingMenu === 'aventura') && (
+                  <div ref={dropRef} style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'aventura' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
+                    <AventDrop onNavigate={(v, opts) => nav(v, opts)} />
+                  </div>
+                )}
+              </div>
+              <NavUnderline activo={seccionActiva === 'aventura'} />
             </div>
 
             {/* Packs todo incluido */}
-            <div style={{ position: 'relative' }} ref={packsRef}
+            <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={packsRef}
               onMouseEnter={() => hoverOpen('packs')}
               onMouseLeave={hoverLeave}
             >
-              <button onClick={() => nav('packs')} style={{ ...navBtnSt, color: openMenu === 'packs' ? NAV_ON : NAV_OFF }}>
-                Packs todo incluido <ChevD />
-              </button>
-              {(openMenu === 'packs' || closingMenu === 'packs') && (
-                <div style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
-                  <PacksDrop onNavigate={(v, opts) => nav(v, opts)} />
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => nav('packs')} style={{ ...navBtnSt, color: colorNav('packs') }}>
+                  Packs todo incluido <ChevD />
+                </button>
+                {(openMenu === 'packs' || closingMenu === 'packs') && (
+                  <div ref={dropRef} style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
+                    <PacksDrop onNavigate={(v, opts) => nav(v, opts)} />
+                  </div>
+                )}
+              </div>
+              <NavUnderline activo={seccionActiva === 'packs'} />
+            </div>
+
+            {/* Planes y suscripción — pricing/contratación, paso previo al
+                registro: al que ya tiene cuenta no le decimos nada nuevo. */}
+            {!session && (
+              <>
+                <div style={{ width: 1, height: 18, background: NAV_SEP, margin: '0 2px', flexShrink: 0 }} />
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => nav('planes')} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
+                    Planes y suscripción
+                  </button>
                 </div>
-              )}
-            </div>
-
-            {/* Separador visual */}
-            <div style={{ width: 1, height: 18, background: NAV_SEP, margin: '0 2px', flexShrink: 0 }} />
-
-            {/* Planes y suscripción — pricing/contratación (paso previo al registro) */}
-            <div style={{ position: 'relative' }}>
-              <button onClick={() => nav('planes')} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
-                Planes y suscripción
-              </button>
-            </div>
+              </>
+            )}
 
           </div>
 
@@ -827,9 +902,13 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
 
             {session ? (
               <div style={{ position: 'relative' }} ref={userRef}>
+                {/* Sólo avatar + flecha: el nombre se comía ancho de la pastilla
+                    y ya está en el menú que se abre. Queda en el title/aria. */}
                 <button
                   onClick={() => setUserMenuOpen(o => !o)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 10, fontFamily: A.font }}
+                  title={nombreDisplay}
+                  aria-label={`Menú de ${nombreDisplay}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 10, fontFamily: A.font }}
                   onMouseEnter={e => e.currentTarget.style.background = A.bg}
                   onMouseLeave={e => e.currentTarget.style.background = 'none'}
                 >
@@ -837,7 +916,6 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                     ? <img src={avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${A.line}` }} />
                     : <div style={{ width: 32, height: 32, borderRadius: '50%', background: A.ink, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{avatarLetra}</div>
                   }
-                  <span style={{ fontSize: 13, fontWeight: 600, color: NAV_ON, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreDisplay}</span>
                   <span style={{ color: NAV_OFF, display: 'flex', transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}><ChevD /></span>
                 </button>
 
@@ -867,9 +945,10 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: A.font }} className="navbar-auth">
-                {/* Calco del boceto: única acción a la derecha. Destino a
-                    definir (hoy → convertirse en socio). */}
-                <button onClick={() => (onConvertirseSocio || onRegisterClick)?.('registrarse')}
+                {/* Única acción a la derecha para el visitante anónimo: entra
+                    por el registro/login de siempre (LoginView), no por el
+                    atajo de convertir una cuenta que todavía no existe. */}
+                <button onClick={() => onRegisterClick?.('registrarse', 'comercial')}
                   style={{ background: A.ink, border: 'none', borderRadius: 999, fontSize: condensed ? 12.5 : 13, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: condensed ? '8px 16px' : '10px 20px', fontFamily: A.font, whiteSpace: 'nowrap', transition: `background 0.15s, padding .38s ${NAV_EASE}` }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
                   onMouseLeave={e => e.currentTarget.style.background = A.ink}
@@ -899,7 +978,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'Salidas',          action: () => nav('salidas') },
               { label: 'Aventura & Relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
               { label: 'Packs todo incluido', action: () => nav('packs') },
-              { label: 'Planes y suscripción', action: () => nav('planes') },
+              ...(session ? [] : [{ label: 'Planes y suscripción', action: () => nav('planes') }]),
             ].map(item => (
               <button key={item.label} onClick={item.action}
                 style={{ width: '100%', textAlign: 'left', padding: '14px 0', border: 'none', borderBottom: `1px solid ${A.line}`, background: 'none', fontSize: 16, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}>

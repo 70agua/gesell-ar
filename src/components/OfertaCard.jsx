@@ -111,10 +111,13 @@ function ProveedorHeader({ promo, size = 44 }) {
 }
 
 // ─── Imagen con badge, heart y overlays ───────────────────────
-function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false }) {
+// `grow`: cuando la ficha se estira para igualar a la más alta de su fila, el
+// sobrante lo absorbe la foto (que recorta con object-fit) en vez de aparecer
+// como un blanco entre el contenido y la franja de ahorro.
+function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, grow = false }) {
   const esFlash = promo.offerType === 'Flash';
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', flexShrink: 0, ...(imgHeight ? { height: imgHeight } : { aspectRatio: '4/3' }) }}>
+    <div style={{ position: 'relative', overflow: 'hidden', flexShrink: 0, ...(grow ? { flexGrow: 1 } : null), ...(imgHeight ? { height: imgHeight } : { aspectRatio: '4/3' }) }}>
       <img src={promo.image} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }} />
 
@@ -317,7 +320,7 @@ export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, va
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
     >
       <ProveedorHeader promo={promo} />
-      <ImagenConBadge promo={promo} inMarketplace={inMarketplace} hideHeart={hideHeart} />
+      <ImagenConBadge promo={promo} inMarketplace={inMarketplace} hideHeart={hideHeart} grow={!fixedHeight} />
       <StockStrip tieneStock={promo.tieneStock} stockRestante={promo.stockRestante} />
       {/* Con alto fijo, la reseña se expande y empuja franja+precio al fondo */}
       {fixedHeight

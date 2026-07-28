@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { getGastronomia, getAventura, getPromos, CATS_RUBRO, CATS_MIMO } from '../lib/datos';
+import { getGastronomia, getAventura, getPromos, CATS_RUBRO, CATS_MIMO, CATS_COMPRAS } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:220 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { LOCALIDADES } from '../lib/localidades';
 import { useCuponera } from '../lib/cuponera';
@@ -39,11 +39,12 @@ const optsFrom = arr => arr.map(c => ({ label: c, val: c }));
 // CATS_MIMO ("mimo" = bienestar dentro de aventura_relax; el resto es
 // "experiencia") vive en datos.js: la comparten estos filtros y los buckets
 // de ahorro de la home.
-const TIPOS_GASTRO   = optsFrom(CATS_RUBRO.salidas);
+const TIPOS_GASTRO   = optsFrom(CATS_RUBRO.salidas.filter(c => !CATS_COMPRAS.includes(c)));
+const TIPOS_COMPRAS  = optsFrom(CATS_COMPRAS);
 const TIPOS_AVENTURA = optsFrom(CATS_RUBRO.aventura_relax.filter(c => !CATS_MIMO.includes(c)));
 const TIPOS_MIMO     = optsFrom(CATS_MIMO);
 
-const ALL_TIPOS = [...TIPOS_GASTRO, ...TIPOS_AVENTURA, ...TIPOS_MIMO];
+const ALL_TIPOS = [...TIPOS_GASTRO, ...TIPOS_COMPRAS, ...TIPOS_AVENTURA, ...TIPOS_MIMO];
 const tipoLabel = val => ALL_TIPOS.find(t => t.val === val)?.label || val;
 
 const EXPERIENCIA_OPTS = [
@@ -332,6 +333,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
   // Grupo de subcategorías que se ofrece en el sidebar según de dónde venimos.
   const tiposSidebar = foco === 'experiencia' ? TIPOS_AVENTURA
                      : foco === 'mimo'        ? TIPOS_MIMO
+                     : foco === 'compras'     ? TIPOS_COMPRAS
                      : modoAventura           ? [...TIPOS_AVENTURA, ...TIPOS_MIMO]
                      : TIPOS_GASTRO;
 
@@ -365,13 +367,22 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
     _lng: itemLatLng(item.id, item.zona)[1],
   }));
 
+  // Recorte por foco: "Traete un recuerdo" lista sólo comercios, y el listado
+  // de salidas los deja afuera. Sin esto ambos mostraban todo `salidas`.
+  const esCompra = item => (item.subcategorias || []).some(s => CATS_COMPRAS.includes(s));
+  const enFoco = item => {
+    if (modoAventura) return true;
+    return foco === 'compras' ? esCompra(item) : !esCompra(item);
+  };
+
   // Filtros sidebar + búsqueda
   const gastroFiltradaBase = itemsConLatLng.filter(item => {
+    const matchFoco      = enFoco(item);
     const matchLocalidad = !filtroLocalidad || item.localidad === filtroLocalidad;
     const matchTipo      = filtroTipos.size === 0 || (item.subcategorias || []).some(sc => filtroTipos.has(sc));
     const matchPrecio    = filtroPrecios.size === 0 || filtroPrecios.has(item.priceRange);
     const matchBusq      = !busqueda || item.name.toLowerCase().includes(busqueda.toLowerCase()) || (item.description||'').toLowerCase().includes(busqueda.toLowerCase());
-    return matchLocalidad && matchTipo && matchPrecio && matchBusq;
+    return matchFoco && matchLocalidad && matchTipo && matchPrecio && matchBusq;
   });
 
   // El ranking y el mapa muestran el mismo conjunto (filtros del sidebar),

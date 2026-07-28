@@ -28,7 +28,7 @@ const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Act
 // deben usar exactamente estos strings para que coincidan con los datos reales.
 export const CATS_RUBRO = {
   alojamiento:    ['Hotel', 'Apart', 'Complejo', 'Hostería', 'Resort', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Glamping'],
-  salidas:        ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Otros'],
+  salidas:        ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías', 'Panaderías', 'Discotecas', 'Cines y Teatros', 'Shows y Recitales', 'Centros Culturales', 'Indumentaria', 'Artesanías', 'Regalos y Recuerdos', 'Kioscos', 'Librerías', 'Jugueterías', 'Otros'],
   aventura_relax: ['Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga & Mindfulness', 'Masajes', 'Salón de belleza', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos'],
 };
 
@@ -36,9 +36,11 @@ export const CATS_RUBRO = {
 // aventura_relax es "experiencia". Fuente única: la consumen los filtros de
 // GastronomyView y los buckets de la home.
 export const CATS_MIMO   = ['Yoga & Mindfulness', 'Masajes', 'Salón de belleza'];
-// Subcategorías de `salidas` que son gastronomía. El resto de salidas
-// (shows, centros culturales, otros) cae en el bucket de compras/recuerdos.
-export const CATS_GASTRO = ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías', 'Panaderías'];
+// Subcategorías de `salidas` que son gastronomía.
+export const CATS_GASTRO  = ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías', 'Panaderías'];
+// Subcategorías de `salidas` que son comercio: lo que el turista se lleva
+// puesto o de regalo. Definen el bucket "compras" / "Traete un recuerdo".
+export const CATS_COMPRAS = ['Indumentaria', 'Artesanías', 'Regalos y Recuerdos', 'Kioscos', 'Librerías', 'Jugueterías'];
 
 // ─── Buckets de la home ("Cuponeá antes de pagar") ────────────
 // Mismo criterio de agrupación que la navegación de esas pastillas
@@ -47,8 +49,11 @@ export const CATS_GASTRO = ['Restaurantes', 'Bares', 'Cafeterías', 'Heladerías
 export function bucketCuponear(promo) {
   if (promo.categoria === 'alojamiento') return 'alojamientos';
   const subs = promo.subcategorias || [];
+  // "Compras" son los comercios (ropa, artesanías, kioscos, librerías…). El
+  // resto de salidas —gastronomía, pero también discos, cines y shows— queda
+  // en "comer": son planes para salir, no cosas que uno se lleva.
   if (promo.categoria === 'salidas') {
-    return subs.some(s => CATS_GASTRO.includes(s)) ? 'comer' : 'compras';
+    return subs.some(s => CATS_COMPRAS.includes(s)) ? 'compras' : 'comer';
   }
   return subs.some(s => CATS_MIMO.includes(s)) ? 'mimo' : 'experiencia';
 }
@@ -371,7 +376,7 @@ export async function getCuponeras() {
   const { data, error } = await supabase
     .from('cuponeras_locales')
     .select(`
-      id, nombre, descripcion, badge, imagen_url, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado,
+      id, nombre, descripcion, badge, imagen_url, portada_modo, familia, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado,
       cuponeras_locales_cupones (
         promociones (
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
@@ -397,6 +402,8 @@ export async function getCuponeras() {
       subtitle:         cl.descripcion || '',
       badge:            cl.badge || '',
       images:           [cl.imagen_url || FALLBACK_IMG],
+      portadaModo:      cl.portada_modo || 'imagen',
+      familia:          cl.familia || null,
       beneficioAdicional: cl.beneficio_adicional || '',
       beneficioIcono:   cl.beneficio_icono || '',
       menuIcono:        cl.menu_icono || '',
@@ -413,7 +420,7 @@ export async function getCuponerasDestacadas() {
   const { data, error } = await supabase
     .from('cuponeras_locales')
     .select(`
-      id, nombre, descripcion, badge, imagen_url, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado, menu_icono,
+      id, nombre, descripcion, badge, imagen_url, portada_modo, familia, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado, menu_icono,
       cuponeras_locales_cupones (
         promociones (
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
@@ -440,6 +447,8 @@ export async function getCuponerasDestacadas() {
       subtitle:         cl.descripcion || '',
       badge:            cl.badge || '',
       images:           [cl.imagen_url || FALLBACK_IMG],
+      portadaModo:      cl.portada_modo || 'imagen',
+      familia:          cl.familia || null,
       beneficioAdicional: cl.beneficio_adicional || '',
       beneficioIcono:   cl.beneficio_icono || '',
       menuIcono:        cl.menu_icono || '',
