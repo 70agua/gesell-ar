@@ -59,12 +59,40 @@ export const esCategoriaPase = () => true;
 const esBase        = (promo) => (promo.ahorroEstimado || 0) <= AHORRO_BASE_MAX;
 const esPremium     = (promo) => (promo.ahorroEstimado || 0) >  AHORRO_BASE_MAX;
 
-// Flag de upsell (Brief 6): true si la oferta entra "gratis" con el pase.
-// Alojamiento entra siempre (vía descuento de estadía); el resto, si está
-// en la capa base. Lo consume el detalle de oferta: "esto lo tenías incluido".
+// Flag de upsell (Brief 6): true si la oferta entra sin gastar elecciones.
+// Lo consume el detalle de oferta: "esto lo tenías incluido".
 export function incluidaEnPase(promo) {
-  return esAlojamiento(promo) || esBase(promo);
+  return esBase(promo);
 }
+
+// ─── Qué le pasa a una oferta cuando tenés pase ───────────────
+// DOS situaciones, y sólo dos. Es la regla que tiene que contar TODA la
+// comunicación del sitio, así que vive acá y nadie la reescribe por su cuenta:
+//
+//   'incluida' → ahorro <= $15.000. Entra siempre, uso libre (1 por comercio).
+//   'premium'  → ahorro > $15.000. Entran ELECCIONES_PREMIUM por pase; a partir
+//                de la siguiente, se compra suelta pero a mitad de precio.
+//
+// El alojamiento NO tiene régimen propio: como casi siempre ahorra más de
+// $15.000, cae en premium y consume una elección. Eso hace innecesario un cupo
+// aparte de "N alojamientos por pase" — el turista reparte sus 3 como quiera.
+// Lo único que el alojamiento conserva es su reloj: se puede usar con el pase
+// todavía sin activar (ver esOfertaEstadia), porque se reserva antes de viajar.
+// Las elecciones escalan con la duración: UNA POR DÍA de pase. No es capricho,
+// es lo único que evita el arbitraje — con un número fijo, dos pases de 3 días
+// ($40.000) daban el doble de premium que uno de 7 ($35.000) y nadie compraría
+// el largo. Atado a los días, el pase más largo siempre rinde mejor por premium.
+export const eleccionesPremium = (dias) => Math.max(1, Number(dias) || 0);
+export const DESCUENTO_SUELTO_CON_PASE = 0.5;
+
+export function nivelEnPase(promo) {
+  return esPremium(promo) ? 'premium' : 'incluida';
+}
+
+// Lo que sale la oferta suelta teniendo el pase: la mitad. Sin pase paga el
+// precio de lista, que es el que calcula cobros.js.
+export const precioSueltoConPase = (precioLista) =>
+  Math.round((Number(precioLista) || 0) * DESCUENTO_SUELTO_CON_PASE);
 
 // ═══════════════════════════════════════════════════════════
 //  Catálogo del pase
@@ -95,7 +123,7 @@ export async function getPaseDestino(destino = DESTINO_DEFAULT, dias = null) {
 //  El turista paga dejando mail y teléfono; el alta como turista viene
 //  después. La compra queda en `pase_compras` hasta que se registre.
 // ═══════════════════════════════════════════════════════════
-export async function comprarPaseAnonimo({ paseId, precio, email, telefono = null, nombre = null, apellido = null, pagoRef = null }) {
+export async function comprarPaseAnonimo({ paseId, precio, email, telefono = null, nombre = null, apellido = null, dias = null, pagoRef = null }) {
   if (!paseId || !email) return { ok: false, error: 'datos_incompletos' };
   const { data, error } = await supabase
     .from('pase_compras')
@@ -103,6 +131,9 @@ export async function comprarPaseAnonimo({ paseId, precio, email, telefono = nul
       pase_id:  paseId,
       email:    email.trim().toLowerCase(),
       telefono: telefono?.trim() || null,
+      // Los días REALES comprados. El pase a medida se registra contra la fila
+      // del de 7 días, así que sin esto perdería su duración y sus elecciones.
+      dias:     dias ? Number(dias) : null,
       // Solo vienen cuando el comprador todavía no tiene cuenta; el que ya la
       // tiene los trae en su perfil.
       nombre:   nombre?.trim() || null,
@@ -142,6 +173,10 @@ export async function vincularComprasPase(userId, email) {
         tipo:          'comprado',
         estado:        'pendiente',
         pago_ref_pase: compra.pago_ref,
+        // Días comprados y su cupo premium (uno por día). En null cuando la
+        // compra no los trae: ahí mandan los del catálogo.
+        dias:               compra.dias || null,
+        elecciones_premium: compra.dias ? eleccionesPremium(compra.dias) : null,
       })
       .select()
       .single();
@@ -173,6 +208,55 @@ export async function getOfertasBase() {
     .filter(p => p.negocios?.activo !== false)
     .map(normalizePromo)
     .filter(p => !esAlojamiento(p) && esBase(p));
+}
+
+// Cuántos descuentos hay hoy en el catálogo del pase, abiertos en sus dos
+// capas. NO depende de la duración: lo incluido entra entero en cualquier
+// pase, sin cupo ni elecciones — lo que crece con los días son los PLUS.
+//
+// Cuenta OFERTAS, no comercios, y NO deja afuera al alojamiento: la frontera
+// es exactamente la de nivelEnPase (ahorro <= AHORRO_BASE_MAX → incluida, por
+// encima → PLUS), sea del rubro que sea. Como esCategoriaPase() es true para
+// todo, `total` es el catálogo entero: es el número que puede prometer la home.
+//
+// Vive del lado del server y sin `limit`: cualquier conteo que traiga N filas y
+// las cuente en el cliente miente apenas el catálogo pasa de N.
+//
+// Se descuentan dos cosas que la tabla igual marca como activas:
+//   · Flash vencidas — siguen `activa` hasta que alguien las apague, pero ya
+//     no se pueden usar. Mismo criterio que getPromos.
+//   · Ofertas de regalo (tokens_costo = 0) — son otro producto y están
+//     ocultas de todos los listados regulares. Contarlas haría que el botón
+//     de la home prometa más cupones de los que después muestra el listado.
+//
+// Es un número de catálogo — cuántos cupones tenés disponibles —, no de canjes:
+// el tope de uso (1 por comercio, 1 estadía por pase) es otra regla y va aparte.
+// Devuelve ceros ante error o catálogo vacío; la UI oculta la línea, no inventa.
+export async function contarDescuentosDelPase() {
+  const { data, error } = await supabase
+    .from('promociones')
+    .select('id, ahorro_estimado, tokens_costo, offer_type, fecha_fin_flash, negocios(activo)')
+    .eq('activa', true)
+    .eq('aprobada', true);
+
+  if (error) return { incluidas: 0, plus: 0, total: 0 };
+
+  const ahora = Date.now();
+  const vigentes = (data || []).filter(p =>
+    p.negocios?.activo !== false &&
+    p.tokens_costo !== 0 &&
+    (p.offer_type !== 'Flash' || (p.fecha_fin_flash && new Date(p.fecha_fin_flash).getTime() > ahora))
+  );
+
+  const incluidas = vigentes.filter(p => (p.ahorro_estimado || 0) <= AHORRO_BASE_MAX).length;
+  return { incluidas, plus: vigentes.length - incluidas, total: vigentes.length };
+}
+
+// Atajo para la capa incluida sola, que es lo que muestra el checkout al pie
+// de cada pase. Una sola consulta y una sola regla, compartidas con el total.
+export async function contarIncluidasEnPase() {
+  const { incluidas } = await contarDescuentosDelPase();
+  return incluidas;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -302,7 +386,9 @@ export async function activarPase(usuarioPaseId) {
     return { ok: false, error: 'ventana_vencida' };
   }
 
-  const dias   = up.pases?.duracion_dias || 7;
+  // Los días de la instancia mandan sobre los del catálogo: el pase a medida
+  // se apoya en la fila del de 7 días pero puede durar hasta 30.
+  const dias   = up.dias || up.pases?.duracion_dias || 7;
   const venceEl = new Date(Date.now() + dias * 24 * 3600 * 1000).toISOString();
   const { data, error: e2 } = await supabase
     .from('usuario_pases')
@@ -340,6 +426,19 @@ export async function upgradePaseB2C({ usuarioPaseId, userId, pagoRef = null }) 
 //  Activación de pase-regalo (turista abre link/QR del hotel).
 //  Vía RPC: valida cupo mensual Free (10) atómicamente. Sin puntos.
 // ═══════════════════════════════════════════════════════════
+// El huésped valida el código ANTES de registrarse: si no sirve, no tiene
+// sentido pedirle una cuenta. Va por RPC porque socio_alias está cerrada por
+// RLS — ver db/20260728_validar_alias_regalo.sql.
+// Devuelve { ok, negocio_id, negocio_nombre } | { ok:false, error }
+// con error en 'formato' | 'inexistente' | 'negocio_inactivo' | 'cupo_agotado'.
+export async function validarAliasRegalo(codigo) {
+  const { data, error } = await supabase.rpc('validar_alias_regalo', {
+    p_codigo: String(codigo || ''),
+  });
+  if (error) return { ok: false, error: 'rpc' };
+  return data;
+}
+
 export async function activarRegalo({ destino = DESTINO_DEFAULT, origenNegocioId }) {
   const { data, error } = await supabase.rpc('activar_regalo_pase', {
     p_destino: destino,

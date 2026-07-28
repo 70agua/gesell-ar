@@ -6,7 +6,6 @@ import { ArrowLeft, Heart } from 'lucide-react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard from '../components/OfertaCard';
 import { useFavoritos } from '../lib/favoritos';
-import { useCuponera } from '../lib/cuponera';
 
 const A = {
   primary: '#2545E6', primarySoft: '#EEF1FF',
@@ -27,7 +26,6 @@ function Seccion({ titulo, children }) {
 
 export default function FavoritosView({ accommodations = [], dining = [], promos = [], onOpenDetail, onOpenOferta, onBack }) {
   const ctx = useFavoritos();
-  const { addCupon } = useCuponera();
   const idSet = new Set((ctx?.ids || []).map(String));
   const isFav = (id) => idSet.has(String(id));
 
@@ -86,7 +84,7 @@ export default function FavoritosView({ accommodations = [], dining = [], promos
         {favPromos.length > 0 && (
           <Seccion titulo="Ofertas">
             {favPromos.map(promo => (
-              <OfertaCard key={promo.id} promo={promo} onOpen={(p) => onOpenOferta?.(p)} onAddToCuponera={addCupon} />
+              <OfertaCard key={promo.id} promo={promo} onOpen={(p) => onOpenOferta?.(p)} />
             ))}
           </Seccion>
         )}

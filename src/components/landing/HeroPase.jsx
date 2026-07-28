@@ -25,9 +25,10 @@ const A = {
 const NAURYZ = "'NauryzRedkeds', 'Inter', sans-serif";
 
 // ─── Pases (bloque de abajo del hero) ────────────────────────
-// Compra única, para el que viene unos días. El "+" abre el resto de los
-// planes: la suscripción mensual ya no vive en el hero (está en la navbar,
-// "Planes y suscripción"), y el hotelero entra por su propio CTA negro.
+// Compra única, para el que viene unos días. El "+" abre el checkout de pases
+// posicionado en el pase a medida (8 a 30 días); la suscripción mensual ya no
+// vive en el hero (está en la navbar, "Planes y suscripción"), y el hotelero
+// entra por su propio CTA negro.
 // `dias` es la clave real: es lo que se busca en la tabla `pases` al entrar al
 // checkout, que además es de donde sale el precio que se cobra.
 const PASES = [
@@ -35,22 +36,28 @@ const PASES = [
   { id: 'x7', dias: 7, cta: 'Pase x 7 días', precio: '$35.000', nota: 'por única vez' },
 ];
 
+// Precio de entrada del plan de hotelería. El valor real sale de la tabla
+// `planes` (editable en Superadmin → Ajustes → Planes) vía getPlanesConfig();
+// esto es sólo el fallback para el primer pintado, antes de que conteste.
+const PRECIO_HOTELERIA_FALLBACK = 30000;
+
 // Localidades que cubre el pase — línea de credibilidad arriba del bloque.
 const LOCALIDADES_PASE = '¡También en Mar de las Pampas, Mar Azul y Las Gaviotas!';
 
 // ─── Galería derecha: masonry tipo Pinterest ─────────────────
-// Pool = TODO lo que haya en src/assets/grilla. La carpeta es la única fuente
-// de verdad: tirás una foto adentro (o la borrás) y la galería se actualiza
-// sola, sin tocar código. Vite resuelve el glob en build — por eso las fotos
-// viven en src/assets y no en public/ (ahí no hay glob posible), y de paso
-// salen con hash y cacheo largo.
+// Pool = TODO lo que haya en src/assets/grilla-web, que son las versiones
+// livianas (≤900px) de los originales de src/assets/grilla. Tirás una foto
+// nueva en grilla/, corrés `npm run fotos` y la galería se actualiza sola, sin
+// tocar código. Vite resuelve el glob en build — por eso las fotos viven en
+// src/assets y no en public/ (ahí no hay glob posible), y de paso salen con
+// hash y cacheo largo.
 const GRILLA_MODULES = import.meta.glob(
-  '../../assets/grilla/*.{jpg,jpeg,png,webp,avif}',
+  '../../assets/grilla-web/*.{jpg,jpeg,png,webp,avif}',
   { eager: true, query: '?url', import: 'default' },
 );
 const GRILLA_IMGS = Object.values(GRILLA_MODULES);
 // Busca una foto puntual por nombre de archivo (para la deriva mobile).
-const foto = (nombre) => GRILLA_MODULES[`../../assets/grilla/${nombre}`];
+const foto = (nombre) => GRILLA_MODULES[`../../assets/grilla-web/${nombre}`];
 
 // Proporciones ESTÁNDAR por celda (multiplicador de alto respecto del ancho
 // de columna): 1.0 = cuadrado · 1.25 = 4:5 · 1.33 = 3:4 · 1.5 = 2:3. Nunca
@@ -163,6 +170,7 @@ function PaseBoton({ pase, onClick }) {
 
 export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }) {
   const [cols] = useState(buildColumns); // random por carga, estable en la sesión
+  const [precioPlus, setPrecioPlus] = useState(PRECIO_HOTELERIA_FALLBACK);
   const rafRef  = useRef(0);
   const heroRef = useRef(null);
   const colRefs = useRef([]);
@@ -204,6 +212,19 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (obs) obs.disconnect();
     };
+  }, []);
+
+  // Precio del plan Plus desde su fuente de verdad, para que el hero no quede
+  // desfasado cuando lo editan en Superadmin.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { getPlanesConfig } = await import('../../lib/planes');
+      const planes = await getPlanesConfig();
+      const plus = planes.find(p => p.id === 'plus');
+      if (vivo && plus?.precioMes != null) setPrecioPlus(plus.precioMes);
+    })();
+    return () => { vivo = false; };
   }, []);
 
   const suscribir = (plan) => (onSuscribir || onVerDescuentos)?.(plan);
@@ -248,40 +269,62 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
 
         {/* ─── Columna izquierda: texto ─── */}
         <div className="pv2-left">
-          {/* Título — 3 líneas: dos itálicas finas (con las palabras de marca en
-              NauryzRedkeds azul) + el remate en negrita, casi del mismo cuerpo. */}
-          <h1 className="pv2-title">
-            {/* El casing NO es decorativo: en NauryzRedkeds mayúscula y minúscula
-                son glifos distintos, así que "CUPONEaNdO" y "vILLa GESELL" van
-                tal cual — no normalizar ni "corregir". */}
-            <span className="pv2-t-it">Viví <span className="pv2-nauryz">CUPONEaNdO</span></span>
-            <span className="pv2-t-it">en <span className="pv2-nauryz">vILLa GESELL</span></span>
-            <span className="pv2-t-bold">a precio de local y sin gastar de más</span>
-          </h1>
+          {/* Título + claim + CTA de hotelería viajan juntos: van corridos 30px
+              a la derecha respecto del bloque de pases, que queda a ras del
+              contenedor. En pantallas chicas el bloque se centra y ese corrimiento
+              se anula. */}
+          <div className="pv2-claim-pack">
+            {/* Título — 3 líneas: dos itálicas finas (con las palabras de marca en
+                NauryzRedkeds azul) + el remate en negrita, casi del mismo cuerpo. */}
+            <h1 className="pv2-title">
+              {/* El casing NO es decorativo: en NauryzRedkeds mayúscula y minúscula
+                  son glifos distintos, así que "CUPONEaNdO" y "vILLa GESELL" van
+                  tal cual — no normalizar ni "corregir". */}
+              <span className="pv2-t-it">Viví <span className="pv2-nauryz">CUPONEaNdO</span></span>
+              <span className="pv2-t-it">en <span className="pv2-nauryz">vILLa GESELL</span></span>
+              <span className="pv2-t-bold">a precio de local y sin gastar de más</span>
+            </h1>
 
-          {/* Hotelería: claim + CTA negro (el único botón oscuro del hero, para
-              que no compita con el azul de los pases). */}
-          <p className="pv2-hotel-claim">¡Regalá cuponeras con descuentos locales a tus huéspedes!</p>
-          <button className="pv2-cta-negro" onClick={() => suscribir('premium')}>
-            Suscripción <b>para hotelería</b>
-          </button>
+            {/* Hotelería: claim + CTA negro (el único botón oscuro del hero, para
+                que no compita con el azul de los pases). */}
+            <p className="pv2-hotel-claim">¡Regalá cuponeras con descuentos locales a tus huéspedes!</p>
+            {/* Botón + precio en una columna propia: así la leyenda queda
+                centrada respecto del botón y no del ancho de la sección. */}
+            <div className="pv2-hotel-cta">
+              <button className="pv2-cta-negro" onClick={() => suscribir('premium')}>
+                Suscripción <b>para hotelería</b>
+              </button>
+              <div className="pv2-cta-precio">
+                Desde <b>${Math.round(precioPlus).toLocaleString('es-AR')}</b> por mes
+              </div>
+            </div>
+          </div>
 
           {/* Pases: ticket inclinado + localidades + los dos pases y el "+" */}
           <div className="pv2-pases">
             <img className="pv2-ticket" src="/gesell-pass-03.svg" alt="Gesell Pass" />
             <div className="pv2-pases-body">
               <div className="pv2-pases-loc">{LOCALIDADES_PASE}</div>
+              {/* La promesa tiene que ser la de la regla real (ver nivelEnPase
+                  en lib/pases.js): la mayoría entra incluida, los descuentos
+                  grandes son 3 a elección y el resto va a mitad de precio.
+                  "Activar todo el catálogo" prometía de más. */}
               <p className="pv2-pases-claim">
-                <b>¿Viajás por unos días?</b> Podés activar{' '}
-                <button className="pv2-link" onClick={() => onVerDescuentos?.()}>todo el catálogo</button>
+                <b>¿Viajás por unos días?</b> Llevate los descuentos de{' '}
+                <button className="pv2-link" onClick={() => onVerDescuentos?.()}>toda la zona</button>
+              </p>
+              <p className="pv2-pases-letra">
+                La mayoría vienen incluidos y el resto, a mitad de precio.
               </p>
               <div className="pv2-pases-row">
                 {PASES.map(pase => (
                   <PaseBoton key={pase.id} pase={pase} onClick={() => onComprarPase?.(pase.dias)} />
                 ))}
                 {/* Al apoyar el mouse la pastilla se estira a la derecha y
-                    completa la palabra: "+ días". */}
-                <button className="pv2-mas" onClick={() => suscribir('mas')}
+                    completa la palabra: "+ días". Lleva al mismo checkout que
+                    los otros dos pases, pero con el pase a medida ya elegido
+                    (arranca en 8 días, que es donde termina el de 7). */}
+                <button className="pv2-mas" onClick={() => onComprarPase?.('custom')}
                   aria-label="Más días" title="Más días">
                   <span className="pv2-mas-ico">+</span>
                   <span className="pv2-mas-txt">días</span>
@@ -318,6 +361,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           align-items: center;
         }
         .pv2-left { max-width: 900px; }
+        /* Título + claim + CTA de hotelería, corridos como un solo paquete. */
+        .pv2-claim-pack { margin-left: 30px; }
 
         /* ── Título ───────────────────────────────────────────── */
         .pv2-title { position: relative; margin: 0; line-height: 1.12; letter-spacing: 0; }
@@ -337,8 +382,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           line-height: 1.5;
           color: ${A.ink};
         }
+        .pv2-hotel-cta { display: inline-flex; flex-direction: column; align-items: center; margin-top: 24px; }
         .pv2-cta-negro {
-          margin-top: 24px;
           padding: 17px 50px;
           border: none;
           border-radius: 999px;
@@ -352,6 +397,9 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         }
         .pv2-cta-negro b { font-weight: 700; }
         .pv2-cta-negro:hover { background: #1B2340; }
+        /* Precio de referencia, centrado bajo el botón */
+        .pv2-cta-precio { margin-top: 10px; font-size: 13px; line-height: 1.3; color: ${A.muted}; text-align: center; }
+        .pv2-cta-precio b { font-weight: 700; color: ${A.ink}; }
 
         /* ── Pases ────────────────────────────────────────────── */
         .pv2-pases { display: flex; align-items: center; gap: 28px; margin-top: 50px; }
@@ -365,6 +413,9 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         }
         .pv2-pases-claim { margin: 8px 0 0; font-size: clamp(15px, 1.45vw, 19px);font-style: italic;  line-height: 1.45; color: ${A.ink}; }
         .pv2-pases-claim b { font-style: italic; font-weight: 700; }
+        /* La letra chica de la regla: va siempre pegada al claim, no es un
+           disclaimer escondido. */
+        .pv2-pases-letra { margin: 6px 0 0; font-size: 12.5px; line-height: 1.45; color: ${A.muted}; max-width: 46ch; }
         /* "todo el catálogo": link de verdad (button), sin chrome de botón */
         .pv2-link {
           padding: 0; border: none; background: none; font: inherit; cursor: pointer;
@@ -483,6 +534,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
             justify-content: center;
           }
           .pv2-left { display: flex; flex-direction: column; align-items: center; max-width: 620px; }
+          /* Todo centrado: el corrimiento de 30px lo descentraría. */
+          .pv2-claim-pack { margin-left: 0; }
           /* El ticket pasa arriba del bloque y más chico */
           .pv2-pases { flex-direction: column; gap: 14px; }
           .pv2-ticket { width: 150px; }

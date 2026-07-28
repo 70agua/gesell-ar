@@ -16,7 +16,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { categoriaDeNegocio } from '../lib/datos';
 import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra } from '../lib/cobros';
-import { getWallet } from '../lib/gamificacion';
+import { getPuntos } from '../lib/gamificacion';
 import {
   getCuponerasRegalo, crearCuponeraRegalo, renombrarCuponera, cambiarEstadoCuponera, toggleModoInteligente,
   eliminarCuponeraRegalo, agregarCupon, quitarCupon, buscarPromosDisponibles, costoCreditosDePromo, sugerirCupones,
@@ -3817,7 +3817,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
     const [proRes, saldoRes, walletRes] = await Promise.all([
       supabase.from('promociones').select('*').eq('negocio_id', perfil.negocio_id).order('creado_en', { ascending: false }),
       getSaldo(perfil.negocio_id),
-      perfil?.id ? getWallet(perfil.id) : Promise.resolve({ balance: 0 }),
+      perfil?.id ? getPuntos(perfil.id) : Promise.resolve({ balance: 0 }),
     ]);
     if (proRes.data) setPromos(proRes.data);
     setSaldoTokens(typeof saldoRes === 'number' ? saldoRes : 0);

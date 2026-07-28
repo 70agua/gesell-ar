@@ -25,6 +25,8 @@ import BeneficiosPortalView  from './views/BeneficiosPortalView';
 import FavoritosView         from './views/FavoritosView';
 import CheckoutView          from './views/CheckoutView';
 import CheckoutPaseView      from './views/CheckoutPaseView';
+import CheckoutHoteleroView  from './views/CheckoutHoteleroView';
+import CanjearRegaloView     from './views/CanjearRegaloView';
 import PaseDebugView         from './views/PaseDebugView'; // ⚠️ TEMPORAL (Brief 1) — entra por ?pase-debug=1
 
 import { getAlojamientos, getGastronomia, getAventura, getNegocioById } from './lib/datos';
@@ -54,6 +56,12 @@ function AppContent() {
   const [marketplaceTipo,     setMarketplaceTipo]     = useState('todos');
   const [packFamilia,         setPackFamilia]         = useState(null);
   const [paseDias,            setPaseDias]            = useState(7);
+  // "Planes y suscripción" entra al checkout sin saber si es turista o hotelero:
+  // ahí el checkout arranca preguntándolo. Los CTA de "Pase x N días" no.
+  const [pasePreguntarPerfil, setPasePreguntarPerfil] = useState(false);
+  // Sube cada vez que se entra por el navbar: fuerza el remount del checkout
+  // para que vuelva a preguntar aunque ya estuvieras parado en esa vista.
+  const [paseNavKey,          setPaseNavKey]          = useState(0);
   const [ofertasCategoria, setOfertasCategoria] = useState(null);
   const [ofertasLocalidades, setOfertasLocalidades] = useState([]);
   const [ofertasTipoInicial, setOfertasTipoInicial] = useState(null);
@@ -254,7 +262,7 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout','checkout-pase'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout','checkout-pase','checkout-hotelero','canjear-regalo'];
 
   return (
     <SesionProvider perfil={perfil}>
@@ -326,6 +334,10 @@ function AppContent() {
               // "Packs todo incluido": cada familia del menú entra al listado
               // con ese filtro ya tildado; "Más packs" (null) entra sin filtro.
               if (targetView === 'packs') setPackFamilia(opts.packFamilia || null);
+              if (targetView === 'checkout-pase') {
+                setPasePreguntarPerfil(!!opts.preguntarPerfil);
+                setPaseNavKey(k => k + 1);
+              }
               setView(targetView);
               window.scrollTo(0, 0);
             }}
@@ -345,7 +357,8 @@ function AppContent() {
               onVerPacks={() => { setPackFamilia(null); setView('packs'); window.scrollTo(0, 0); }}
               onOpenOferta={handleOpenOferta}
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
-              onComprarPase={(dias) => { setPaseDias(dias || 7); setView('checkout-pase'); window.scrollTo(0, 0); }}
+              onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
+              onSuscribirHoteleria={() => { setView('checkout-hotelero'); window.scrollTo(0, 0); }}
               onNavMarketplaceTipo={(filtro) => { setMarketplaceTipo(filtro || 'todos'); setView('marketplace'); window.scrollTo(0, 0); }}
               onNavCuponear={(target) => {
                 // Entramos SIEMPRE al listado con los filtros vacíos (inclusive):
@@ -414,6 +427,7 @@ function AppContent() {
               onOpenPack={handleOpenPack}
               onOpenLocalidad={handleOpenLocalidad}
               onOpenSeccion={handleOpenSeccion}
+              onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
               onOpenClase={({ localidad, clase }) => {
                 setMarketplaceLocalidad(localidad || '');
                 setMarketplaceTipo(clase || 'todos');
@@ -431,6 +445,8 @@ function AppContent() {
               onOpenLocalidad={handleOpenLocalidad}
               onOpenNegocio={handleOpenNegocio}
               onOpenSeccion={handleOpenSeccion}
+              session={session}
+              onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
             />
           )}
           {view === 'pack-detail' && (
@@ -501,8 +517,10 @@ function AppContent() {
           )}
           {view === 'checkout-pase' && (
             <CheckoutPaseView
+              key={`pase-${paseNavKey}`}
               paseDias={paseDias}
-              onSoyHotelero={() => { setView('socios'); window.scrollTo(0, 0); }}
+              preguntarPerfil={pasePreguntarPerfil}
+              onSoyHotelero={() => { setView('checkout-hotelero'); window.scrollTo(0, 0); }}
               onListo={async () => {
                 // La cuenta ya se creó (o se validó) dentro del checkout: acá
                 // sólo se refresca la sesión en memoria y se vuelve a la home.
@@ -510,6 +528,35 @@ function AppContent() {
                 const p = await getPerfil();
                 setSession(s); setPerfil(p);
                 setView('home');
+                window.scrollTo(0, 0);
+              }}
+            />
+          )}
+          {view === 'canjear-regalo' && (
+            <CanjearRegaloView
+              onComprarPase={() => { setPasePreguntarPerfil(false); setPaseNavKey(k => k + 1); setView('checkout-pase'); window.scrollTo(0, 0); }}
+              onListo={async () => {
+                // El pase-regalo ya quedó activo bajo la cuenta recién creada:
+                // refrescamos sesión y lo mandamos a ver los descuentos.
+                const s = await getSession();
+                const p = await getPerfil();
+                setSession(s); setPerfil(p);
+                setOfertasCategoria(null); setOfertasTipoInicial(null); setOfertasLocalidades([]);
+                setView('ofertas');
+                window.scrollTo(0, 0);
+              }}
+            />
+          )}
+          {view === 'checkout-hotelero' && (
+            <CheckoutHoteleroView
+              onSoyTurista={() => { setPasePreguntarPerfil(false); setPaseNavKey(k => k + 1); setView('checkout-pase'); window.scrollTo(0, 0); }}
+              onListo={async () => {
+                // El alta ya creó cuenta + negocio: refrescamos sesión y perfil
+                // y lo dejamos en su panel, que es donde está su código.
+                const s = await getSession();
+                const p = await getPerfil();
+                setSession(s); setPerfil(p);
+                setView(p?.negocio_id ? 'admin' : 'home');
                 window.scrollTo(0, 0);
               }}
             />

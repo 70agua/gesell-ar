@@ -3,7 +3,7 @@
 //  Funciones de login, logout y sesión
 // ============================================================
 import { supabase } from './supabase';
-import { otorgarTokens } from './gamificacion';
+import { otorgarPuntos } from './gamificacion';
 
 // Iniciar sesión
 export async function login(email, password) {
@@ -96,7 +96,7 @@ async function crearPerfilTuristaSiFalta(session) {
     rol:    'turista',
     es_superadmin: false,
   });
-  if (!error) await otorgarTokens(session.user.id, 'registro');
+  if (!error) await otorgarPuntos(session.user.id, 'registro');
 }
 
 // Registrar turista (usuario público)
@@ -118,8 +118,8 @@ export async function registrarTurista({ nombre, apellido = '', email, password,
     es_superadmin: false,
   });
 
-  // Otorgar 2 créditos de bienvenida
-  await otorgarTokens(userId, 'registro');
+  // Puntos de bienvenida (cashback del turista, no créditos publicitarios)
+  await otorgarPuntos(userId, 'registro');
 
   return data;
 }

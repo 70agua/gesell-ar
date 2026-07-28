@@ -8,7 +8,6 @@ import 'leaflet/dist/leaflet.css';
 import { getGastronomia, getAventura, getPromos, CATS_RUBRO, CATS_MIMO, CATS_COMPRAS } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:220 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { LOCALIDADES } from '../lib/localidades';
-import { useCuponera } from '../lib/cuponera';
 import OfertaCard from '../components/OfertaCard';
 
 // Fix Leaflet icons
@@ -299,7 +298,6 @@ function GastroCard({ item, isHovered, onHover, session, onLoginClick, onOpenDet
 
 // ═══════════════════════════════════════════════════════════
 export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, onVerRanking, onOpenOferta, initialCategoria = '', initialAventura = '', foco = null, modoRanking = false, modoAventura = false }) {
-  const { addCupon } = useCuponera();
   const [salidas, setSalidas] = useState([]);
   const [promos, setPromos] = useState([]);          // ofertas generales de la categoría
   const [ofertasCount, setOfertasCount] = useState(9);
@@ -653,7 +651,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
                 return (
                   <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap:20, alignItems:'flex-start' }}>
                     {ofertas.map(p => (
-                      <OfertaCard key={p.id} promo={p} onOpen={onOpenOferta} onAddToCuponera={addCupon} />
+                      <OfertaCard key={p.id} promo={p} onOpen={onOpenOferta} />
                     ))}
                   </div>
                 );
@@ -691,7 +689,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 20, alignItems: 'flex-start' }}>
                     {ofertas.slice(0, ofertasCount).map(p => (
-                      <OfertaCard key={p.id} promo={p} onOpen={onOpenOferta} onAddToCuponera={addCupon} />
+                      <OfertaCard key={p.id} promo={p} onOpen={onOpenOferta} />
                     ))}
                   </div>
                   {ofertas.length > ofertasCount && (

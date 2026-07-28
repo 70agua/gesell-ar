@@ -4,7 +4,7 @@
 // ============================================================
 import React, { useState, useEffect } from 'react';
 import { useCuponera } from '../lib/cuponera';
-import { getWallet } from '../lib/gamificacion';
+import { getPuntos, pesosDePuntos, puntosDeCompra } from '../lib/gamificacion';
 import { consumirImpulso } from '../lib/impulso';
 
 const A = {
@@ -135,7 +135,7 @@ function SuccessState({ cupones, cashback, onDone }) {
         }}>
           <CoinsIcon width={20} height={20} style={{ color: A.green }} />
           <span style={{ fontSize: 14, fontWeight: 700, color: A.green }}>
-            +{cashback} créditos de regalo acreditados en tu billetera
+            +{cashback} puntos acreditados en tu cuenta
           </span>
         </div>
       )}
@@ -223,21 +223,24 @@ function PendingState({ onDone }) {
 export default function CheckoutView({ session, onBack, onSuccess }) {
   const { cupones, clearCuponera } = useCuponera();
 
-  const [creditosDisponibles, setCreditosDisponibles] = useState(0);
-  const [aplicarCreditos, setAplicarCreditos]         = useState(false);
+  const [puntosDisponibles, setPuntosDisponibles]     = useState(0);
+  const [aplicarPuntos, setAplicarPuntos]             = useState(false);
   const [metodoPago, setMetodoPago]                   = useState(null); // 'tarjeta' | 'transferencia'
   const [step, setStep]                               = useState('checkout'); // 'checkout' | 'success' | 'pending'
   const [procesando, setProcesando]                   = useState(false);
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    getWallet(session.user.id).then(w => setCreditosDisponibles(w.balance || 0));
+    getPuntos(session.user.id).then(w => setPuntosDisponibles(w.balance || 0));
   }, [session]);
 
   const subtotal      = cupones.reduce((s, c) => s + c.price, 0);
-  const descCreditos  = aplicarCreditos ? Math.min(creditosDisponibles * 2000, subtotal) : 0;
-  const totalFinal    = Math.max(0, subtotal - descCreditos);
-  const cashback      = Math.round(totalFinal * 0.05 / 2000); // créditos que gana (5% del total)
+  // Los puntos son parte de pago: 1 punto = $1 (ver PESOS_POR_PUNTO). Nunca
+  // cubren más que el total, así que el descuento se topea contra el subtotal.
+  const descPuntos    = aplicarPuntos ? Math.min(pesosDePuntos(puntosDisponibles), subtotal) : 0;
+  const puntosUsados  = aplicarPuntos ? Math.min(puntosDisponibles, subtotal) : 0;
+  const totalFinal    = Math.max(0, subtotal - descPuntos);
+  const cashback      = puntosDeCompra(totalFinal); // puntos que gana con esta compra
 
   const handlePagar = async () => {
     if (!metodoPago) return;
@@ -305,8 +308,8 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
           <h2 style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: A.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Resumen</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Row label="Precio de cupones" value={fmt(subtotal)} />
-            {aplicarCreditos && descCreditos > 0 && (
-              <Row label={`Créditos aplicados (${Math.min(creditosDisponibles, Math.ceil(subtotal / 2000))})`} value={`-${fmt(descCreditos)}`} valueColor={A.green} />
+            {aplicarPuntos && descPuntos > 0 && (
+              <Row label={`Puntos aplicados (${puntosUsados})`} value={`-${fmt(descPuntos)}`} valueColor={A.green} />
             )}
             <div style={{ borderTop: `1px solid ${A.line}`, margin: '4px 0' }} />
             <Row label="Total a pagar" value={fmt(totalFinal)} bold />
@@ -317,7 +320,7 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
               }}>
                 <CoinsIcon width={16} height={16} style={{ color: A.green, flexShrink: 0 }} />
                 <span style={{ fontSize: 13, color: A.green, fontWeight: 600 }}>
-                  Ganás +{cashback} créditos de regalo con esta compra
+                  Ganás +{cashback} puntos con esta compra
                 </span>
               </div>
             )}
@@ -325,31 +328,31 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
         </section>
 
         {/* ── Bloque 3: Créditos disponibles ── */}
-        {creditosDisponibles > 0 && (
+        {puntosDisponibles > 0 && (
           <section style={{ background: '#fff', borderRadius: 16, padding: '20px', marginBottom: 16, boxShadow: '0 1px 4px rgba(11,16,32,0.06)' }}>
-            <h2 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: A.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tus créditos</h2>
+            <h2 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: A.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tus puntos</h2>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>
-                  {creditosDisponibles} créditos disponibles
+                  {puntosDisponibles} puntos disponibles
                 </div>
                 <div style={{ fontSize: 12, color: A.muted, marginTop: 2 }}>
-                  Equivalen a {fmt(creditosDisponibles * 2000)}
+                  Equivalen a {fmt(pesosDePuntos(puntosDisponibles))} — los usás en cualquier destino
                 </div>
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <span style={{ fontSize: 13, color: A.ink2, fontWeight: 500 }}>Aplicar descuento</span>
                 <div
-                  onClick={() => setAplicarCreditos(v => !v)}
+                  onClick={() => setAplicarPuntos(v => !v)}
                   style={{
                     width: 44, height: 24, borderRadius: 12,
-                    background: aplicarCreditos ? A.primary : A.line,
+                    background: aplicarPuntos ? A.primary : A.line,
                     position: 'relative', cursor: 'pointer',
                     transition: 'background 0.2s',
                   }}
                 >
                   <div style={{
-                    position: 'absolute', top: 2, left: aplicarCreditos ? 22 : 2,
+                    position: 'absolute', top: 2, left: aplicarPuntos ? 22 : 2,
                     width: 20, height: 20, borderRadius: '50%', background: '#fff',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                     transition: 'left 0.2s',
@@ -408,7 +411,7 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
             letterSpacing: '-0.01em',
           }}
         >
-          {procesando ? 'Procesando…' : totalFinal === 0 ? 'Activar gratis con créditos' : `Pagar ${fmt(totalFinal)}`}
+          {procesando ? 'Procesando…' : totalFinal === 0 ? 'Activar con mis puntos' : `Pagar ${fmt(totalFinal)}`}
         </button>
 
         <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 12, color: A.muted }}>

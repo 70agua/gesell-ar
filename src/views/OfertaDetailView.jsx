@@ -9,6 +9,9 @@ import {
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { useCuponera } from '../lib/cuponera';
+import CtaPase from '../components/CtaPase';
+import useMiPase from '../hooks/useMiPase';
+import { elegirPremium } from '../lib/pases';
 import InfoTooltip from '../components/InfoTooltip';
 import HeartButton from '../components/HeartButton';
 import { useFavoritos } from '../lib/favoritos';
@@ -38,7 +41,7 @@ const C = {
 
 // ─── Pasos de "Cómo se usa" ──────────────────────────────────
 const PASOS = [
-  { num: 1, title: 'Agregás la oferta a tu cuponera',    desc: 'Seleccioná "Agregar a cuponera" desde el botón azul. Si no lo abonás en el momento quedará en tu lista pendientes hasta que termines de sumar otras ofertas en la zona. Cuantas más agregues, más beneficios recibirás.' },
+  { num: 1, title: 'Sumás el cupón a tu cuponera',    desc: 'Con el Gesell PaSS la mayoría ya vienen incluidos; los descuentos PLUS los elegís (uno por día de pase) y el resto los sumás a mitad de precio. Sin pase, lo comprás suelto.' },
   { num: 2, title: '¡Tu cupón ya está listo! Te lo enviamos por mail, pero también podés descargarlo.',  desc: ' ahora. Al momento de tu visita, solo tenés que mostrar el código QR desde el celular. Si surge algún inconveniente, el comercio puede validar tu reserva con un código de 6 dígitos. Por seguridad, no compartas este código con nadie.' },
   { num: 3, title: 'Disfrutás el beneficio',  desc: 'El socio escanea y confirma. ¡Listo! El descuento se aplica en el momento.' },
 ];
@@ -266,7 +269,12 @@ function StockDiscs({ stockRestante }) {
 // ═══════════════════════════════════════════════════════════
 //  MAIN — OfertaDetailView
 // ═══════════════════════════════════════════════════════════
-export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allPromos = [], onOpenNegocio, onOpenLocalidad, onOpenSeccion }) {
+export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allPromos = [], onOpenNegocio, onOpenLocalidad, onOpenSeccion, session, onComprarPase }) {
+  // Estos dos van ANTES del return temprano: los hooks no pueden quedar
+  // detrás de una condición.
+  const miPase = useMiPase(session);
+  const [avisoPase, setAvisoPase] = useState('');
+
   if (!oferta) return null;
 
   const { addCupon } = useCuponera();
@@ -300,6 +308,24 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
       addCupon(oferta);
     }
     setAdded(true);
+  };
+
+  // Gastar una de las elecciones premium del pase en esta oferta. El RPC es
+  // quien valida de verdad (tope, cupo del socio, que sea premium); acá sólo
+  // se traduce el error a algo legible.
+  const handleElegirPremium = async () => {
+    if (!miPase?.pase) return;
+    const r = await elegirPremium(miPase.pase.id, oferta.id);
+    if (r?.ok) { setAdded(true); setAvisoPase('Listo: lo elegiste con tu pase.'); return; }
+    const msg = {
+      max_elecciones:   'Ya usaste todas tus elecciones. Podés sumarlo a mitad de precio.',
+      cupo_agotado:     'El socio agotó su cupo del mes para esta oferta.',
+      sin_cupo:         'Esta oferta no tiene cupo disponible para el pase.',
+      ya_elegida:       'Esta oferta ya está entre tus elegidas.',
+      pase_no_activo:   'Activá tu pase para usar las elecciones.',
+      no_es_premium:    'Esta oferta ya viene incluida: no gastás elección.',
+    }[r?.error] || 'No se pudo elegir. Probá de nuevo.';
+    setAvisoPase(msg);
   };
 
   const isFlash  = oferta.offerType === 'Flash';
@@ -601,19 +627,21 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                 </div>
               )}
 
-              {/* CTA principal */}
-              <button
-                onClick={handleAgregar}
-                className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white cursor-pointer border-0 flex items-center justify-center gap-2 transition-colors"
-                style={{ background: added ? C.green : C.primary, boxShadow: `0 8px 24px ${added ? 'rgba(16,163,107,0.25)' : 'rgba(37,69,230,0.25)'}` }}
-                onMouseEnter={e => { if (!added) e.currentTarget.style.background = C.primaryDark; }}
-                onMouseLeave={e => { if (!added) e.currentTarget.style.background = C.primary; }}
-              >
-                {added
-                  ? <><Check size={17} strokeWidth={2.5} /> Agregado a tu cuponera</>
-                  : <><Ticket size={17} /> Agregar a cuponera</>
-                }
-              </button>
+              {/* CTA principal — según lo que el pase haga con esta oferta */}
+              <div>
+                <CtaPase
+                  promo={oferta}
+                  precioLista={precioCreditosARS}
+                  miPase={miPase}
+                  sumado={added}
+                  onSumar={handleAgregar}
+                  onElegir={handleElegirPremium}
+                  onComprarPase={() => onComprarPase?.(7)}
+                />
+                {avisoPase && (
+                  <div style={{ marginTop: 8, fontSize: 12.5, color: C.muted, textAlign: 'center' }}>{avisoPase}</div>
+                )}
+              </div>
 
               {/* Info del socio */}
               <div>

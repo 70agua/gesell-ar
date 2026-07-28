@@ -1,38 +1,59 @@
 // ============================================================
 //  src/lib/gamificacion.js
-//  Sistema de tokens ganados por acciones del usuario
+//  PUNTOS del turista — la única moneda que toca un usuario final.
+//
+//  No confundir con los CRÉDITOS PUBLICITARIOS del socio, que viven en
+//  `socio_tokens` y se manejan en lib/cobros.js: son cosas distintas, de
+//  actores distintos. Acá:
+//    · usuario_tokens     = saldo de puntos del turista (histórico del nombre)
+//    · token_movimientos  = su historial
+//
+//  Los puntos son cashback: se ganan al registrarse y con cada compra, y se
+//  usan como parte de pago en la compra siguiente — en este destino o en
+//  cualquier otro de la red Cuponear, porque viajan con la cuenta.
 // ============================================================
 
 import { supabase } from './supabase';
 
-// ─── Acciones disponibles y sus recompensas ───────────────────
-// Estas son fijas en el código por ahora (según decisión de diseño)
+// Cuánto vale un punto al momento de pagar. Es una definición de negocio, no
+// un detalle técnico: cambiala acá y cambia en toda la app.
+export const PESOS_POR_PUNTO = 1;
+export const pesosDePuntos = (puntos) => Math.round((Number(puntos) || 0) * PESOS_POR_PUNTO);
+
+// Porcentaje de la compra que vuelve como puntos.
+export const CASHBACK_PCT = 0.05;
+export const puntosDeCompra = (monto) => Math.round((Number(monto) || 0) * CASHBACK_PCT / PESOS_POR_PUNTO);
+
+// ─── Acciones que suman puntos ────────────────────────────────
+// Escala: 1 punto = $1. Antes esto daba "2" y "3" porque estaba en la escala
+// de los créditos del socio ($2.000 c/u), y convivía en el mismo saldo con los
+// puntos del pase (+500 por compra) — dos escalas en una misma cuenta.
 export const ACCIONES = {
   registro: {
     label:       'Registro en Cuponear',
     descripcion: 'Bonus por crear tu cuenta',
-    tokens:      2,
+    puntos:      500,
     unica_vez:   true,
     emoji:       '🎉',
   },
   compartir_pack: {
     label:       'Compartir pack en redes',
     descripcion: 'Compartís tu pack armado',
-    tokens:      1,
+    puntos:      200,
     unica_vez:   true,
     emoji:       '📲',
   },
   primera_compra: {
     label:       'Primera cuponera',
     descripcion: 'Comprás tu primera cuponera',
-    tokens:      3,
+    puntos:      300,
     unica_vez:   true,
     emoji:       '🛍️',
   },
 };
 
-// ─── Obtener wallet del usuario ───────────────────────────────
-export async function getWallet(userId) {
+// ─── Saldo de puntos del usuario ──────────────────────────────
+export async function getPuntos(userId) {
   const { data } = await supabase
     .from('usuario_tokens')
     .select('*')
@@ -62,8 +83,8 @@ export async function accionYaRealizada(userId, accion) {
   return !!data;
 }
 
-// ─── Otorgar tokens por una acción ───────────────────────────
-export async function otorgarTokens(userId, accionKey, referenciaId = null) {
+// ─── Otorgar puntos por una acción ───────────────────────────
+export async function otorgarPuntos(userId, accionKey, referenciaId = null) {
   const accion = ACCIONES[accionKey];
   if (!accion) return { ok: false, mensaje: 'Acción desconocida' };
 
@@ -83,33 +104,33 @@ export async function otorgarTokens(userId, accionKey, referenciaId = null) {
   await supabase.from('token_movimientos').insert({
     user_id:      userId,
     tipo:         `ganado_${accionKey}`,
-    cantidad:     accion.tokens,
+    cantidad:     accion.puntos,
     descripcion:  accion.label,
     referencia_id: referenciaId,
   });
 
   // Actualizar o crear el wallet
-  const wallet = await getWallet(userId);
+  const wallet = await getPuntos(userId);
 
   if (wallet.user_id) {
     await supabase
       .from('usuario_tokens')
-      .update({ balance: wallet.balance + accion.tokens })
+      .update({ balance: wallet.balance + accion.puntos })
       .eq('user_id', userId);
   } else {
     await supabase
       .from('usuario_tokens')
-      .insert({ user_id: userId, balance: accion.tokens });
+      .insert({ user_id: userId, balance: accion.puntos });
   }
 
-  return { ok: true, tokens: accion.tokens, mensaje: accion.label };
+  return { ok: true, puntos: accion.puntos, mensaje: accion.label };
 }
 
-// ─── Gastar tokens en el checkout ────────────────────────────
-export async function gastarTokens(userId, cantidad, cuponeraId) {
-  const wallet = await getWallet(userId);
+// ─── Usar puntos como parte de pago ──────────────────────────
+export async function gastarPuntos(userId, cantidad, cuponeraId) {
+  const wallet = await getPuntos(userId);
   if (wallet.balance < cantidad)
-    return { ok: false, mensaje: 'No tenés suficientes tokens' };
+    return { ok: false, mensaje: 'No tenés suficientes puntos' };
 
   await supabase
     .from('usuario_tokens')
@@ -120,7 +141,7 @@ export async function gastarTokens(userId, cantidad, cuponeraId) {
     user_id:       userId,
     tipo:          'gastado_cuponera',
     cantidad:      -cantidad,
-    descripcion:   'Tokens usados en cuponera',
+    descripcion:   'Puntos usados como parte de pago',
     referencia_id: cuponeraId,
   });
 
@@ -142,7 +163,7 @@ export async function acreditarPuntos(userId, cantidad, tipo, descripcion, refer
     referencia_id: referenciaId,
   });
 
-  const wallet = await getWallet(userId);
+  const wallet = await getPuntos(userId);
   if (wallet.user_id) {
     await supabase
       .from('usuario_tokens')
@@ -154,7 +175,7 @@ export async function acreditarPuntos(userId, cantidad, tipo, descripcion, refer
       .insert({ user_id: userId, balance: cantidad });
   }
 
-  return { ok: true, tokens: cantidad };
+  return { ok: true, puntos: cantidad };
 }
 
 // ─── Desbloqueos progresivos según items en carrito ──────────

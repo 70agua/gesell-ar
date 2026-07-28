@@ -6,6 +6,7 @@ import { locations } from '../data/mockData';
 import { FAMILIAS_PACK, MAS_PACKS } from '../lib/familiasPack';
 import { useCuponera } from '../lib/cuponera';
 import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
+import Icono from './Icono';
 
 const A = {
   ink:         '#0B1020',
@@ -572,30 +573,102 @@ function SitiosDrop() {
 }
 
 
+// ─── Dropdown "Planes y suscripción" ─────────────────────────
+// Tres intenciones que no se parecen, en el orden en que conviene ofrecerlas:
+// el turista que paga su pase, el huésped que ya lo tiene pagado y sólo viene
+// a canjearlo, y último el alojamiento que se suscribe — es el que menos
+// tráfico trae y el único que ya sabe lo que vino a buscar.
+const PLANES_OPCIONES = [
+  {
+    id: 'contratar',
+    titulo: 'Comprar un pase de turista',
+    bajada: 'Comprá tu pase y usá los descuentos de todo el pueblo.',
+    vista: 'checkout-pase',
+    opts: { preguntarPerfil: true },
+    Ico: ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4Z" />
+        <path d="M14 7v10" strokeDasharray="2 3" />
+      </svg>
+    ),
+  },
+  {
+    id: 'regalo',
+    titulo: 'Me regalaron una cuponera',
+    bajada: 'Cargá el código de 6 números que te dieron.',
+    vista: 'canjear-regalo',
+    opts: {},
+    Ico: ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="9" width="18" height="12" rx="1.5" />
+        <path d="M3 13h18M12 9v12" />
+        <path d="M12 9C10 9 7.5 8.6 7.5 6.5a2 2 0 0 1 4 0C11.5 8.6 12 9 12 9Z" />
+        <path d="M12 9c2 0 4.5-.4 4.5-2.5a2 2 0 0 0-4 0C12.5 8.6 12 9 12 9Z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'hoteleria',
+    titulo: 'Suscripción para hotelería',
+    bajada: 'Regalales la cuponera a tus huéspedes y sumá tu alojamiento.',
+    vista: 'checkout-hotelero',
+    opts: {},
+    // Una cama: es el ícono que lee "alojamiento" sin necesitar rótulo.
+    Ico: ({ size = 20 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 18v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7" />
+        <path d="M3 14h18" />
+        <path d="M7 10V8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2" />
+        <path d="M3 18v2M21 18v2" />
+      </svg>
+    ),
+  },
+];
+
+function PlanesDrop({ onNavigate }) {
+  return (
+    <div style={{ padding: 8, width: 340 }}>
+      {PLANES_OPCIONES.map(({ id, titulo, bajada, vista, opts, Ico }) => (
+        <button
+          key={id}
+          onClick={() => onNavigate(vista, opts)}
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%', textAlign: 'left',
+            padding: '13px 12px', border: 'none', background: 'transparent', borderRadius: 12,
+            cursor: 'pointer', fontFamily: A.font, transition: 'background .13s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = A.bg; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        >
+          <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 11, background: A.primarySoft, color: A.primary }}>
+            <Ico />
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{titulo}</span>
+            <span style={{ display: 'block', fontSize: 12.5, color: A.muted, lineHeight: 1.45, marginTop: 2 }}>{bajada}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Dropdown "Packs todo incluido" — cuponeras Cuponear ─────
 function PacksDrop({ onNavigate }) {
   return (
     <div style={{ padding: '30px 30px 28px', width: 740 }}>
-      <style>{`
-        @keyframes packIcoPop {
-          0%   { transform: scale(1)    rotate(0deg); }
-          35%  { transform: scale(1.18) rotate(-6deg); }
-          70%  { transform: scale(1.05) rotate(4deg); }
-          100% { transform: scale(1.12) rotate(0deg); }
-        }
-        .pack-fam .pack-fam-ico { transition: transform .25s ease; }
-        .pack-fam:hover .pack-fam-ico { animation: packIcoPop .55s cubic-bezier(.34,1.56,.64,1) forwards; }
-      `}</style>
+      {/* Sin pop de CSS sobre el ícono: la única animación del hover es la que
+          trae el propio Lottie (ver components/Icono.jsx). */}
       <div style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 18, fontFamily: A.font }}>Packs Cuponear: Alojamiento + Experiencias</div>
       {/* Íconos grandes, uno al lado del otro, con el título debajo */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
         {[...FAMILIAS_PACK, MAS_PACKS].map(f => (
-          <button key={f.label} className="pack-fam" onClick={() => onNavigate('packs', { packFamilia: f.id })}
+          <button key={f.label} onClick={() => onNavigate('packs', { packFamilia: f.id })}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, border: 'none', background: 'transparent', padding: '18px 6px 16px', borderRadius: 16, cursor: 'pointer', fontFamily: A.font, fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', color: A.ink2, transition: 'background .13s, color .13s' }}
             onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
           >
-            <img className="pack-fam-ico" src={f.icono} alt="" style={{ width: 64, height: 64, display: 'block' }} />
+            <Icono src={f.icono} hoverEn="padre" style={{ width: 64, height: 64, display: 'block' }} />
             {f.label}
           </button>
         ))}
@@ -619,6 +692,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const gastroRef = useRef(null);
   const aventRef  = useRef(null);
   const packsRef  = useRef(null);
+  const planesRef = useRef(null);
   const userRef   = useRef(null);
   const navRef    = useRef(null);
 
@@ -890,14 +964,26 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             </div>
 
             {/* Planes y suscripción — pricing/contratación, paso previo al
-                registro: al que ya tiene cuenta no le decimos nada nuevo. */}
+                registro: al que ya tiene cuenta no le decimos nada nuevo.
+                Abre en dos, porque son dos intenciones que no se parecen: el
+                que va a pagar algo y el que llega con un código en la mano. */}
             {!session && (
               <>
                 <div style={{ width: 1, height: 18, background: NAV_SEP, margin: '0 2px', flexShrink: 0 }} />
-                <div style={{ position: 'relative' }}>
-                  <button onClick={() => nav('planes')} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
-                    Planes y suscripción
-                  </button>
+                <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={planesRef}
+                  onMouseEnter={() => hoverOpen('planes')}
+                  onMouseLeave={hoverLeave}
+                >
+                  <div style={{ position: 'relative' }}>
+                    <button onClick={() => nav('checkout-pase', { preguntarPerfil: true })} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
+                      Planes y suscripción <ChevD />
+                    </button>
+                    {(openMenu === 'planes' || closingMenu === 'planes') && (
+                      <div ref={dropRef} style={{ ...DROP_BASE, right: 0, animation: closingMenu === 'planes' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
+                        <PlanesDrop onNavigate={(v, opts) => nav(v, opts)} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -997,7 +1083,12 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'Salidas',          action: () => nav('salidas') },
               { label: 'Aventura & Relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
               { label: 'Packs todo incluido', action: () => nav('packs') },
-              ...(session ? [] : [{ label: 'Planes y suscripción', action: () => nav('planes') }]),
+              // En mobile no hay hover: el desplegable se abre en entradas planas.
+              ...(session ? [] : [
+                { label: 'Contratar un pase',          action: () => nav('checkout-pase', { preguntarPerfil: true }) },
+                { label: 'Me regalaron una cuponera',  action: () => nav('canjear-regalo') },
+                { label: 'Suscripción para hotelería', action: () => nav('checkout-hotelero') },
+              ]),
             ].map(item => (
               <button key={item.label} onClick={item.action}
                 style={{ width: '100%', textAlign: 'left', padding: '14px 0', border: 'none', borderBottom: `1px solid ${A.line}`, background: 'none', fontSize: 16, fontWeight: 500, color: A.ink, cursor: 'pointer', fontFamily: A.font }}>

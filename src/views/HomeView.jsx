@@ -14,6 +14,8 @@ import HeartButton      from '../components/HeartButton';
 import { socialProof } from '../lib/socialProof';
 import HeroPase from '../components/landing/HeroPase';
 import PortadaCuponera from '../components/PortadaCuponera';
+import PaSSMark        from '../components/PaSSMark';
+import Icono           from '../components/Icono';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -203,7 +205,7 @@ function GuestsDropdown() {
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase }) {
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria }) {
   const [activeTypes,    setActiveTypes]    = useState(new Set());
   const [activeSecondary, setActiveSecondary] = useState([]);
   const [tabAloj,        setTabAloj]        = useState('Todos'); // eslint-disable-line
@@ -235,6 +237,7 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
       <HeroPase
         onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }}
         onComprarPase={onComprarPase}
+        onSuscribir={onSuscribirHoteleria}
       />
 
       {/* Marca el fin del hero: cuando este punto pasa bajo la navbar,
@@ -311,11 +314,16 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const { getPromos, ahorroMaxPorBucket } = await import('../lib/datos');
-      const promos = await getPromos(300);
+      const [{ getPromos, ahorroMaxPorBucket }, { contarDescuentosDelPase }] = await Promise.all([
+        import('../lib/datos'),
+        import('../lib/pases'),
+      ]);
+      // El total sale contado contra la base, no sobre la página que trajo
+      // getPromos: incluye las dos capas del pase, las incluidas y las PLUS.
+      const [promos, conteo] = await Promise.all([getPromos(300), contarDescuentosDelPase()]);
       if (!vivo) return;
       setAhorros(ahorroMaxPorBucket(promos));
-      setTotalOfertas(promos.filter(p => p.tokens_costo !== 0).length);
+      setTotalOfertas(conteo.total);
     })();
     return () => { vivo = false; };
   }, []);
@@ -335,6 +343,11 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
           <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0, lineHeight: 1.1 }}>
             <em style={{ fontStyle: 'italic', fontWeight: 400, color: A.primary }}>Cuponeá</em> antes de pagar
           </h2>
+
+          {/* Atribución al producto, pegada al título */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 30, fontSize: 19, color: A.muted, lineHeight: 1.6 }}>
+            Todo esto lo incluye tu <PaSSMark size={20} conGesell />
+          </span>
         </div>
 
         {/* 4 cards */}
@@ -357,7 +370,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
                 <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, lineHeight: 1.2 }}>{card.titulo}</div>
                 {ahorros[card.navTarget] != null && (
                   <div style={{ fontSize: 13, fontWeight: 500, color: A.muted, marginTop: 5 }}>
-                    hasta <strong style={{ color: A.primary, fontWeight: 700 }}>{ahorros[card.navTarget]}% menos</strong>
+                    hasta un <strong style={{ color: A.primary, fontWeight: 700 }}>{ahorros[card.navTarget]}% menos</strong>
                   </div>
                 )}
               </div>
@@ -365,26 +378,22 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
           ))}
         </div>
 
-        {/* Atribución al producto — una sola vez, debajo de toda la fila.
-            La segunda línea es la regla de los dos relojes: el descuento de
-            estadía se usa al reservar; los días del pase arrancan al llegar
-            (ver canjearEstadia en lib/pases.js). */}
+        {/* La regla de los dos relojes: el descuento de estadía se usa al
+            reservar; los días del pase arrancan al llegar (ver canjearEstadia
+            en lib/pases.js). */}
         <div style={{ marginTop: 56, textAlign: 'center', lineHeight: 1.6 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontSize: 19, color: A.muted }}>
-            Todo esto entra en tu
-            <span style={{ fontFamily: "'NauryzRedkeds', sans-serif", fontSize: 20, letterSpacing: 1, color: A.primary, lineHeight: 1 }}>GESELL</span>
-            {/* El fondito va corrido porque la NauryzRedkeds trae los glifos
-                descentrados en su caja. Se mueve la pastilla por su cuenta y el
-                texto por la suya, para que "PaSS" siga alineado con la frase. */}
-            <span style={{ position: 'relative', display: 'inline-block', fontSize: 20, lineHeight: 1, padding: '5px 13px 6px' }}>
-              <span aria-hidden="true" style={{ position: 'absolute', inset: 0, transform: 'translate(-7px, -2px)', background: A.primary, borderRadius: 999 }} />
-              {/* La fuente va acá y no sólo en el padre: index.css tiene una regla
-                  `* { font-family: Inter }` que le gana a la herencia. */}
-              <span style={{ position: 'relative', left: -5, fontFamily: "'NauryzRedkeds', sans-serif", fontSize: 20, letterSpacing: 1, color: '#fff', lineHeight: 1 }}>PaSS</span>
-            </span>
-          </span>
-          <div style={{ fontSize: 15, color: A.ink, marginTop: 8 }}>
-            Alojamientos y servicios que requieren reserva previa los usás cuando querés.<br></br>El resto de los cupones, en las fechas que elijas.
+          {/* Los dos rubros que sí piden reserva previa, como ilustración de
+              la frase que sigue. */}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 18, marginBottom: 14 }}>
+            <img src="/iconos/cabania.svg" alt="" style={{ height: 72, width: 'auto', display: 'block' }} />
+            {/* Un toque más chico y levantado: así la figura del spa queda
+                ópticamente alineada con la cabaña, que apoya en el piso.
+                Va en Lottie: el canvas es cuadrado, así que lleva ancho fijo. */}
+            <Icono src="/iconos/spa.json" style={{ height: 67, width: 67, display: 'block', position: 'relative', top: -3 }} />
+          </div>
+          <div style={{ fontSize: 15, color: A.ink }}>
+            <strong style={{ fontWeight: 700, color: A.primary }}>Los cupones que requieran reserva previa los usás anticipadamente.</strong>
+            <br></br>El resto de los cupones, en las fechas que elijas.
           </div>
 
           {totalOfertas > 0 && (
@@ -1111,7 +1120,7 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
                         const neg = accommodations.find(a => String(a.id) === String(p.negocioId));
                         if (neg) onOpenDetail(neg, 'alojamiento', 'promos');
                       }}
-                      onAddToCuponera={p => addCupon(p)}
+                     
                     />
                   </div>
                 ))}

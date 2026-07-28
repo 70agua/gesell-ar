@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sombrilla de playa — misma familia que cabania.svg / spa.svg:
+     trazo azul #2D44DD de ancho uniforme, puntas redondeadas, viewBox 110x135. -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px"
+	 viewBox="0 0 110 135" xml:space="preserve">
+<g fill="none" stroke="#2D44DD" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+	<!-- Paño: cúpula arriba, borde festoneado abajo -->
+	<path d="M16,72 C16,44 34,26 57,26 C80,26 98,44 98,72 Q84.5,83 71,72 Q57,83 43,72 Q29.5,83 16,72 Z"/>
+	<!-- Varillas -->
+	<path d="M57,26 L43,72"/>
+	<path d="M57,26 L71,72"/>
+	<!-- Mástil -->
+	<path d="M57,30 L57,112"/>
+	<!-- Piso -->
+	<path d="M22,112 L90,112"/>
+</g>
+</svg>

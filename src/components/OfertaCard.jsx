@@ -4,10 +4,11 @@
 //  Marketplace (grid y lista), y las minifichas de HomeView.
 //  Estructura: header (avatar+nombre+localidad) → imagen con badge
 //  + heart → franja "Ahorrás/Ganás" → precio → botón "Ver oferta"
-//  → link "Agregar a cuponera".
+//  → sello "Incluido en GESELL PaSS".
 // ============================================================
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import PaSSMark from './PaSSMark';
 import { secondsUntil } from '../lib/ofertas';
 import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 import HeartButton from './HeartButton';
@@ -15,6 +16,7 @@ import { CreditTooltip } from './InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
 import GroupBadge from './GroupBadge';
 import { descuentoMaximo } from '../lib/grupos';
+import { nivelEnPase } from '../lib/pases';
 
 const A = {
   primary: '#2545E6',
@@ -220,7 +222,7 @@ export function PrecioCupon({ tokens_costo, ahorro = 0, color = A.ink, mutedColo
   const pesos = fmtPesos(precioActivacionARS({ ahorro, tokensCosto: tc }));
   const creds = creditosActivacion({ ahorro, tokensCosto: tc });
   return (
-    <div style={{ textAlign: 'center', fontSize: 14.5, color, lineHeight: 1.4 }}>
+    <div style={{ textAlign: 'center', fontSize: 12, color, lineHeight: 1.4 }}>
       {mostrarCreditos ? (
         <>
           Activá este cupón por{' '}
@@ -230,7 +232,7 @@ export function PrecioCupon({ tokens_costo, ahorro = 0, color = A.ink, mutedColo
           <span style={{ display: 'block', fontSize: 11, color: mutedColor, marginTop: 2 }}>({pesos})</span>
         </>
       ) : (
-        <>Activá este cupón por <span style={{ fontWeight: 800 }}>{pesos}</span></>
+        <>Activá este cupón suelto por <span style={{ fontWeight: 800 }}>{pesos}</span></>
       )}
     </div>
   );
@@ -255,8 +257,33 @@ function StockStrip({ tieneStock, stockRestante }) {
   );
 }
 
+// ─── Sello del pase: las dos caras de la regla ─────────────────
+// La oferta no "se agrega a una cuponera": pertenece (o no) al PaSS. Las dos
+// situaciones salen de nivelEnPase() — única fuente de la regla:
+//   estadía/incluida → entra siempre
+//   premium          → gasta una de las elecciones PLUS del pase
+//
+// La ficha dice sólo eso y nada más. Antes agregaba "o sumalo al 50%: $X", que
+// es cierto pero contesta una pregunta que el turista todavía no se hizo: acá
+// está mirando si le sirve la oferta, no negociando cómo pagarla, y leer un
+// precio abajo de un sello de pertenencia lo deja sin saber si lo tiene o no.
+// El precio del PLUS extra corresponde donde hay contexto para entenderlo:
+// en el panel del que ya compró, contra sus elecciones disponibles.
+function SelloPase({ promo }) {
+  const nivel = nivelEnPase(promo);
+  const esPremium = nivel === 'premium';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, textAlign: 'center', fontFamily: A.font }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: A.muted, fontSize: 12, fontWeight: 500 }}>
+        {esPremium ? 'Elegilo con tu' : 'Incluido en'} <PaSSMark size={10} conGesell />
+      </span>
+    </div>
+  );
+}
+
 // ─── Precio + CTAs ─────────────────────────────────────────────
-function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false, hidePrecio = false, hideAgregar = false }) {
+function PrecioYAcciones({ promo, onOpen, hideActions = false, hidePrecio = false, hideAgregar = false }) {
   return (
     <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {!hidePrecio && <PrecioCupon tokens_costo={promo.tokens_costo} ahorro={promo.ahorroEstimado} />}
@@ -272,14 +299,7 @@ function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false, 
             Ver oferta
           </button>
 
-          {!hideAgregar && (
-            <button
-              onClick={e => { e.stopPropagation(); onAddToCuponera && onAddToCuponera(promo); }}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'none', border: 'none', color: A.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font, padding: 0 }}
-            >
-              <img src="/ico-disc.svg" alt="" width={15} height={15} style={{ display: 'block' }} /> Agregar a cuponera
-            </button>
-          )}
+          {!hideAgregar && <SelloPase promo={promo} />}
         </>
       )}
     </div>
@@ -287,7 +307,7 @@ function PrecioYAcciones({ promo, onOpen, onAddToCuponera, hideActions = false, 
 }
 
 // ═══════════════════════════════════════════════════════════
-export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, variant = 'grid', inMarketplace = false, reviewSlot = null, fixedHeight = null, hideActions = false, hidePrecio = false, hideAgregar = false, hideHeart = false }) {
+export default function OfertaCard({ promo, onOpen, onClick, variant = 'grid', inMarketplace = false, reviewSlot = null, fixedHeight = null, hideActions = false, hidePrecio = false, hideAgregar = false, hideHeart = false }) {
   const abrir = onOpen || onClick;
 
   if (variant === 'list') {
@@ -306,7 +326,7 @@ export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, va
           {reviewSlot}
           <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
           <StockStrip tieneStock={promo.tieneStock} stockRestante={promo.stockRestante} />
-          <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
+          <PrecioYAcciones promo={promo} onOpen={abrir} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
         </div>
       </div>
     );
@@ -327,7 +347,7 @@ export default function OfertaCard({ promo, onOpen, onClick, onAddToCuponera, va
         ? <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{reviewSlot}</div>
         : reviewSlot}
       <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
-      <PrecioYAcciones promo={promo} onOpen={abrir} onAddToCuponera={onAddToCuponera} hideActions={hideActions} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
+      <PrecioYAcciones promo={promo} onOpen={abrir} hideActions={hideActions} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
     </div>
   );
 

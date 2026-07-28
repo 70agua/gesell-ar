@@ -12,6 +12,7 @@ import { getBeneficioIcon } from '../lib/beneficioIconos';
 import CuponModalMock from '../components/CuponModalMock';
 import PortadaCuponera from '../components/PortadaCuponera';
 import { FAMILIAS_PACK, MAS_PACKS, familiaLabel } from '../lib/familiasPack';
+import Icono from '../components/Icono';
 
 const C = {
   primary:     '#2545E6',
@@ -214,23 +215,14 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange 
 
       {/* ── Familias, como filtro del listado ── */}
       <div style={{ maxWidth: 1328, margin: '0 auto', padding: '30px 40px 0' }}>
-        <style>{`
-          @keyframes packIcoPop {
-            0%   { transform: scale(1)    rotate(0deg); }
-            35%  { transform: scale(1.18) rotate(-6deg); }
-            70%  { transform: scale(1.05) rotate(4deg); }
-            100% { transform: scale(1.12) rotate(0deg); }
-          }
-          .fam-chip .fam-chip-ico { transition: transform .25s ease; }
-          .fam-chip:hover .fam-chip-ico { animation: packIcoPop .55s cubic-bezier(.34,1.56,.64,1) forwards; }
-        `}</style>
+        {/* Sin pop de CSS sobre el ícono: la única animación del hover es la que
+            trae el propio Lottie (ver components/Icono.jsx). */}
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${FAMILIAS_PACK.length + 1}, 1fr)`, gap: 12 }}>
           {[...FAMILIAS_PACK, MAS_PACKS].map(f => {
             const activa = familia === f.id;
             return (
               <button
                 key={f.label}
-                className="fam-chip"
                 onClick={() => onFamiliaChange?.(f.id)}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
@@ -244,7 +236,7 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange 
                 onMouseEnter={e => { if (!activa) { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = C.primary; } }}
                 onMouseLeave={e => { if (!activa) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = C.line; } }}
               >
-                <img className="fam-chip-ico" src={f.icono} alt="" style={{ width: 72, height: 72, display: 'block' }} />
+                <Icono src={f.icono} hoverEn="padre" style={{ width: 72, height: 72, display: 'block' }} />
                 {f.label}
               </button>
             );

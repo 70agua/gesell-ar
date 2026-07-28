@@ -18,6 +18,9 @@ import { supabase }                                    from '../lib/supabase';
 import { getPromosDeNegocio, getAlianzasPorNegocio, getPromosLocalidad } from '../lib/datos';
 import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
 import { useCuponera } from '../lib/cuponera';
+import CtaPase from '../components/CtaPase';
+import useMiPase from '../hooks/useMiPase';
+import { elegirPremium } from '../lib/pases';
 import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
 import { busqueda } from '../lib/busqueda';
@@ -1705,9 +1708,12 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
 // ═══════════════════════════════════════════════════════════
 //  OfertasPropiasCard — ofertas del alojamiento con paginador
 // ═══════════════════════════════════════════════════════════
-function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, sinSolicitud = false }) {
+function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, onComprarPase, sinSolicitud = false }) {
   const mostrarCreditos = useMostrarCreditos();
   const { addCupon } = useCuponera();
+  // El CTA lo decide el pase del que mira (ver CtaPase).
+  const miPase = useMiPase(session);
+  const [avisoPase, setAvisoPase] = useState('');
   const _b = busqueda.get();
   const [idx, setIdx]           = useState(0);
   const [added, setAdded]       = useState(false);
@@ -1846,16 +1852,26 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, 
         {!pedirReserva ? (
           /* Modo cuponera: sin solicitud de fechas, se agrega directo a la cuponera */
           <>
-            <button
-              onClick={() => { addCupon(p); setAdded(true); }}
-              style={{ width: '100%', padding: '11px 0', borderRadius: 10, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: added ? C.green : C.primary, transition: 'background 0.2s' }}
-              onMouseEnter={e => { if (!added) e.currentTarget.style.background = C.primaryDark; }}
-              onMouseLeave={e => { if (!added) e.currentTarget.style.background = C.primary; }}
-            >
-              {added
-                ? <><Check size={15} strokeWidth={2.5} /> Agregado a tu cuponera</>
-                : <><Ticket size={15} /> Agregar a cuponera</>}
-            </button>
+            <CtaPase
+              promo={p}
+              precioLista={cuponARS(p)}
+              miPase={miPase}
+              sumado={added}
+              compacto
+              onSumar={() => { addCupon(p); setAdded(true); }}
+              onElegir={async () => {
+                if (!miPase?.pase) return;
+                const r = await elegirPremium(miPase.pase.id, p.id);
+                if (r?.ok) { setAdded(true); setAvisoPase('Listo: lo elegiste con tu pase.'); }
+                else setAvisoPase(r?.error === 'max_elecciones'
+                  ? 'Ya usaste todas tus elecciones. Podés sumarlo a mitad de precio.'
+                  : 'No se pudo elegir. Probá de nuevo.');
+              }}
+              onComprarPase={() => onComprarPase?.(7)}
+            />
+            {avisoPase && (
+              <div style={{ marginTop: 8, fontSize: 12, color: C.muted, textAlign: 'center' }}>{avisoPase}</div>
+            )}
             {/* Activalo con — debajo del CTA, una sola fila centrada */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
@@ -2249,7 +2265,7 @@ function MasCuponesSection({ alianzasNorm = [], promosLocalidad = [], onAddCupon
 // ═══════════════════════════════════════════════════════════
 //  AlojamientoDetail (main two-col + sections below)
 // ═══════════════════════════════════════════════════════════
-function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad, session, onLoginRequired }) {
+function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase }) {
   const plan = item.plan || 'PLUS';
   const cfg  = PLAN_CFG[plan];
   const { addCupon } = useCuponera();
@@ -2353,6 +2369,7 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
               session={session}
               onOpenOferta={onOpenOferta}
               onSolicitar={p => setSolicitudPromo(p)}
+              onComprarPase={onComprarPase}
             />
             <MiCuponeraPanel />
           </div>
@@ -2471,7 +2488,7 @@ function GastroPromoItem({ promo: p, onOpenOferta, onAdd }) {
 // ═══════════════════════════════════════════════════════════
 //  GastroExperienciaDetail — ficha de socio (info + promos)
 // ═══════════════════════════════════════════════════════════
-function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promosLocalidad = [], loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired }) {
+function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promosLocalidad = [], loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired, onComprarPase }) {
   const { addCupon } = useCuponera();
   const plan = item.plan || 'PLUS';
   const alianzasNorm = alianzas.map(normAlianzaItem).filter(Boolean);
@@ -2622,6 +2639,7 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
                 item={item}
                 session={session}
                 onOpenOferta={onOpenOferta}
+                onComprarPase={onComprarPase}
                 sinSolicitud
               />
             ) : (
@@ -2686,7 +2704,7 @@ const CLASE_PLURAL = {
   'Camping': 'Campings', 'Glamping': 'Glamping',
 };
 
-export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired }) {
+export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired, onComprarPase }) {
   if (!item) return null;
 
   const { addCupon } = useCuponera();
@@ -2812,9 +2830,10 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
           onOpenLocalidad={onOpenLocalidad}
           session={session}
           onLoginRequired={onLoginRequired}
+          onComprarPase={onComprarPase}
         />
       ) : (
-        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} alianzas={alianzas} promosLocalidad={promosLocalidad} loading={loading} session={session} onOpenOferta={onOpenOferta} onOpenLocalidad={onOpenLocalidad} onLoginRequired={onLoginRequired} />
+        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} alianzas={alianzas} promosLocalidad={promosLocalidad} loading={loading} session={session} onOpenOferta={onOpenOferta} onOpenLocalidad={onOpenLocalidad} onLoginRequired={onLoginRequired} onComprarPase={onComprarPase} />
       )}
 
       {/* Drawer */}

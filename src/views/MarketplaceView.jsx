@@ -6,7 +6,6 @@ import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard from '../components/OfertaCard';
 import { getAlojamientos, getPromos } from '../lib/datos';
 import { LOCALIDADES, ZONAS, getVecinas } from '../lib/localidades';
-import { useCuponera } from '../lib/cuponera';
 
 const A = {
   primary:     '#2545E6',
@@ -243,7 +242,6 @@ function useWindowWidth() {
 }
 
 export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 'todos', initialLocalidad = 'todas', onVerOfertas, onOpenOferta }) {
-  const { addCupon } = useCuponera();
   const [alojamientos, setAlojamientos] = useState([]);
   const [promos,       setPromos]       = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -435,7 +433,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const renderGrid = (items) => (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 22 }}>
       {items.map(item => item._esOferta
-        ? <OfertaCard key={`o-${item.id}-${item.categoria}`} promo={item} onOpen={onOpenOferta} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
+        ? <OfertaCard key={`o-${item.id}-${item.categoria}`} promo={item} onOpen={onOpenOferta} inMarketplace={item._inMarketplace} />
         : <AccommodationCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} discountTags={discountTagsMap[item.id]} />
       )}
     </div>
@@ -444,7 +442,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   const renderList = (items) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {items.map(item => item._esOferta
-        ? <OfertaCard key={`o-${item.id}-${item.categoria}`} promo={item} variant="list" onOpen={onOpenOferta} onAddToCuponera={p => addCupon(p)} inMarketplace={item._inMarketplace} />
+        ? <OfertaCard key={`o-${item.id}-${item.categoria}`} promo={item} variant="list" onOpen={onOpenOferta} inMarketplace={item._inMarketplace} />
         : <AlojListCard key={`a-${item.id}`} item={item} onClick={onOpenDetail} discountTags={discountTagsMap[item.id]} />
       )}
     </div>

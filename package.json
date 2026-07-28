@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "fotos": "sh tools/optimizar-grilla.sh",
     "preview": "vite preview"
   },
   "dependencies": {

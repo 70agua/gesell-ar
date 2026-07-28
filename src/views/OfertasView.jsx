@@ -5,7 +5,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getPromos, getAlojamientos, categoriaDeNegocio, EXPERIENCIAS_SALIDAS } from '../lib/datos';
 import { ALL_PROMOS }   from '../data/mockData';
-import { useCuponera } from '../lib/cuponera';
 import OfertaCard from '../components/OfertaCard';
 import HeartButton from '../components/HeartButton';
 import { getPortadas, elegirPortada } from '../lib/portadas';
@@ -272,7 +271,6 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
   const [socios,      setSocios]      = useState([]);   // Alojamientos para el strip "Elegí un destino"
   const [buscarPaisOpen, setBuscarPaisOpen] = useState(false);
   const sentinelRef = useRef(null);
-  const { addCupon }                  = useCuponera();
   const winW    = useWindowWidth();
   const isMobile = winW < 768;
 
@@ -792,7 +790,7 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
               {portada && <PortadaCard key="portada" portada={portada} />}
               {visiblesPaged.map(promo => (
-                <OfertaCard key={promo.id} promo={promo} onAddToCuponera={addCupon} onOpen={onOpenOferta} />
+                <OfertaCard key={promo.id} promo={promo} onOpen={onOpenOferta} />
               ))}
             </div>
           )}
