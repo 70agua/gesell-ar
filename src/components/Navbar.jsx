@@ -578,57 +578,45 @@ function SitiosDrop() {
 // el turista que paga su pase, el huésped que ya lo tiene pagado y sólo viene
 // a canjearlo, y último el alojamiento que se suscribe — es el que menos
 // tráfico trae y el único que ya sabe lo que vino a buscar.
+// Los íconos ya no se dibujan acá: son los mismos archivos que usa el resto del
+// sitio (/iconos y el sello del pase), servidos por <Icono>. Los .json son
+// Lottie y se animan con el hover de la fila entera (hoverEn="padre").
 const PLANES_OPCIONES = [
   {
     id: 'contratar',
-    titulo: 'Comprar un pase de turista',
-    bajada: 'Comprá tu pase y usá los descuentos de todo el pueblo.',
+    titulo: 'Pase turista',
+    bajada: 'Comprá tu pase y usá los descuentos que se ofrecen en la zona.',
     vista: 'checkout-pase',
     opts: { preguntarPerfil: true },
-    Ico: ({ size = 20 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4Z" />
-        <path d="M14 7v10" strokeDasharray="2 3" />
-      </svg>
-    ),
+    // El mismo sello del hero, con la misma inclinación.
+    icono: '/gesell-pass-03.svg',
+    girado: true,
   },
   {
     id: 'regalo',
     titulo: 'Me regalaron una cuponera',
-    bajada: 'Cargá el código de 6 números que te dieron.',
+    bajada: 'Activala con el código de 6 números.',
     vista: 'canjear-regalo',
     opts: {},
-    Ico: ({ size = 20 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="9" width="18" height="12" rx="1.5" />
-        <path d="M3 13h18M12 9v12" />
-        <path d="M12 9C10 9 7.5 8.6 7.5 6.5a2 2 0 0 1 4 0C11.5 8.6 12 9 12 9Z" />
-        <path d="M12 9c2 0 4.5-.4 4.5-2.5a2 2 0 0 0-4 0C12.5 8.6 12 9 12 9Z" />
-      </svg>
-    ),
+    icono: '/iconos/regalo.json',
+    lado: 41,
   },
   {
     id: 'hoteleria',
     titulo: 'Suscripción para hotelería',
-    bajada: 'Regalales la cuponera a tus huéspedes y sumá tu alojamiento.',
+    bajada: 'Regalá cuponeras a todos tus huéspedes.',
     vista: 'checkout-hotelero',
     opts: {},
-    // Una cama: es el ícono que lee "alojamiento" sin necesitar rótulo.
-    Ico: ({ size = 20 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 18v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7" />
-        <path d="M3 14h18" />
-        <path d="M7 10V8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2" />
-        <path d="M3 18v2M21 18v2" />
-      </svg>
-    ),
+    // La misma casita que el bloque de alojamiento de la home.
+    icono: '/iconos/cabania.json',
+    lado: 37,
   },
 ];
 
 function PlanesDrop({ onNavigate }) {
   return (
     <div style={{ padding: 8, width: 340 }}>
-      {PLANES_OPCIONES.map(({ id, titulo, bajada, vista, opts, Ico }) => (
+      {PLANES_OPCIONES.map(({ id, titulo, bajada, vista, opts, icono, girado, lado = 46 }) => (
         <button
           key={id}
           onClick={() => onNavigate(vista, opts)}
@@ -640,8 +628,17 @@ function PlanesDrop({ onNavigate }) {
           onMouseEnter={e => { e.currentTarget.style.background = A.bg; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         >
-          <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 11, background: A.primarySoft, color: A.primary }}>
-            <Ico />
+          {/* Sin pastilla de fondo: los dibujos traen color propio y sobre el
+              azul claro se ensuciaban. El sello del pase va girado como en el
+              hero; los Lottie corren solos (`animar`), sin esperar el hover.
+              `lado` afina cada dibujo por separado: vienen con distinto aire
+              interno y al mismo tamaño no pesan lo mismo. La casilla queda fija
+              en 46 para que los tres textos arranquen alineados. */}
+          <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 46, height: 46 }}>
+            <Icono src={icono} animar={!girado}
+              style={girado
+                ? { width: 55, height: 'auto', display: 'block', transform: 'rotate(-25deg)' }
+                : { width: lado, height: lado, display: 'block' }} />
           </span>
           <span style={{ minWidth: 0 }}>
             <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{titulo}</span>
@@ -654,21 +651,23 @@ function PlanesDrop({ onNavigate }) {
 }
 
 // ─── Dropdown "Packs todo incluido" — cuponeras Cuponear ─────
+// Todo el desplegable va al 75%: ancho, paddings, gaps e íconos. El cuerpo de
+// letra NO escala — a 12,5px ya estaba en el piso legible.
 function PacksDrop({ onNavigate }) {
   return (
-    <div style={{ padding: '30px 30px 28px', width: 740 }}>
+    <div style={{ padding: '23px 23px 21px', width: 555 }}>
       {/* Sin pop de CSS sobre el ícono: la única animación del hover es la que
           trae el propio Lottie (ver components/Icono.jsx). */}
-      <div style={{ fontSize: 10, fontWeight: 700, color: A.primary, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 18, fontFamily: A.font }}>Packs Cuponear: Alojamiento + Experiencias</div>
+      <div style={{ fontSize: 14, fontWeight: 500, color: A.primary, marginBottom: 13, fontFamily: A.font }}>Experiencias con alojamiento incluído:</div>
       {/* Íconos grandes, uno al lado del otro, con el título debajo */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
         {[...FAMILIAS_PACK, MAS_PACKS].map(f => (
           <button key={f.label} onClick={() => onNavigate('packs', { packFamilia: f.id })}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, border: 'none', background: 'transparent', padding: '18px 6px 16px', borderRadius: 16, cursor: 'pointer', fontFamily: A.font, fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', color: A.ink2, transition: 'background .13s, color .13s' }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, border: 'none', background: 'transparent', padding: '14px 5px 12px', borderRadius: 12, cursor: 'pointer', fontFamily: A.font, fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', color: A.ink2, transition: 'background .13s, color .13s' }}
             onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
           >
-            <Icono src={f.icono} hoverEn="padre" style={{ width: 64, height: 64, display: 'block' }} />
+            <Icono src={f.icono} hoverEn="padre" style={{ width: 48, height: 48, display: 'block' }} />
             {f.label}
           </button>
         ))}
@@ -945,14 +944,15 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <NavUnderline activo={seccionActiva === 'aventura'} />
             </div>
 
-            {/* Packs todo incluido */}
+            {/* Cuponeras (ex "Packs todo incluido") — en negrita: es el
+                producto propio de Cuponear, no una categoría más. */}
             <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={packsRef}
               onMouseEnter={() => hoverOpen('packs')}
               onMouseLeave={hoverLeave}
             >
               <div style={{ position: 'relative' }}>
-                <button onClick={() => nav('packs')} style={{ ...navBtnSt, color: colorNav('packs') }}>
-                  Packs todo incluido <ChevD />
+                <button onClick={() => nav('packs')} style={{ ...navBtnSt, fontWeight: 700, color: colorNav('packs') }}>
+                  Cuponeras <ChevD />
                 </button>
                 {(openMenu === 'packs' || closingMenu === 'packs') && (
                   <div ref={dropRef} style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
@@ -1082,10 +1082,10 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'Alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
               { label: 'Salidas',          action: () => nav('salidas') },
               { label: 'Aventura & Relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
-              { label: 'Packs todo incluido', action: () => nav('packs') },
+              { label: 'Cuponeras',        action: () => nav('packs') },
               // En mobile no hay hover: el desplegable se abre en entradas planas.
               ...(session ? [] : [
-                { label: 'Contratar un pase',          action: () => nav('checkout-pase', { preguntarPerfil: true }) },
+                { label: 'Pase turista',               action: () => nav('checkout-pase', { preguntarPerfil: true }) },
                 { label: 'Me regalaron una cuponera',  action: () => nav('canjear-regalo') },
                 { label: 'Suscripción para hotelería', action: () => nav('checkout-hotelero') },
               ]),

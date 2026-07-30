@@ -20,8 +20,11 @@ export async function listarCuponerasLocales() {
   return { data: filas, error: null };
 }
 
-export async function crearCuponeraLocal({ nombre, descripcion = null, badge = null, imagen_url = null, beneficio_adicional = null, beneficio_icono = null, beneficio_tipo = null, beneficio_valor = null, localidad = null, estado = 'activa' }) {
-  return supabase.from('cuponeras_locales').insert({ nombre, descripcion, badge, imagen_url, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, localidad, estado }).select().single();
+// `familia` es la categoría con la que se filtra en "Packs todo incluido"
+// (ids en lib/familiasPack.js). Se puede fijar desde el alta: antes sólo se
+// podía después, entrando a editar, y por eso quedaban todas sin categoría.
+export async function crearCuponeraLocal({ nombre, descripcion = null, badge = null, imagen_url = null, beneficio_adicional = null, beneficio_icono = null, beneficio_tipo = null, beneficio_valor = null, localidad = null, familia = null, estado = 'activa' }) {
+  return supabase.from('cuponeras_locales').insert({ nombre, descripcion, badge, imagen_url, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, localidad, familia, estado }).select().single();
 }
 
 export async function actualizarCuponeraLocal(id, campos) {

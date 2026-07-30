@@ -161,7 +161,7 @@ const PERFILES = [
     titulo: 'Soy hotelero',
     bajada: 'Quiero regalarles el pase a mis huéspedes y sumar mi alojamiento.',
     cta: 'Ver los planes',
-    icono: '/iconos/cabania.svg',
+    icono: '/iconos/cabania.json',
   },
 ];
 
@@ -202,7 +202,11 @@ function PasoPerfil({ onElegir }) {
                 e.currentTarget.style.transform = 'none';
               }}
             >
-              <Icono src={p.icono} style={{ height: 58, width: 'auto', display: 'block' }} />
+              {/* El SVG es vertical y se dibuja con width:'auto'; el Lottie
+                  corre sobre un canvas cuadrado y necesita ancho explícito.
+                  hoverEn="padre": el mouse entra por la tarjeta, no por el ícono. */}
+              <Icono src={p.icono} hoverEn="padre"
+                style={{ height: 58, width: p.icono.endsWith('.json') ? 58 : 'auto', display: 'block' }} />
               <span style={{ fontSize: 18, fontWeight: 800, color: C.ink, letterSpacing: '-0.01em' }}>{p.titulo}</span>
               <span style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>{p.bajada}</span>
               <span style={{ marginTop: 6, fontSize: 13.5, fontWeight: 800, color: C.primary }}>{p.cta} →</span>

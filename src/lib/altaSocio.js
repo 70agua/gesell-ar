@@ -29,8 +29,9 @@ export const ERRORES_ALTA = {
 };
 
 export async function altaSocio({
-  negocio,                    // { nombre, descripcion, tipo, localidad }
+  negocio,                    // { nombre, tipo, localidad, descripcion? }
   cuenta,                     // { email, password } — se ignora si ya hay sesión
+  persona = null,             // { nombre, apellido, telefono } — sólo en alta nueva
   codigoPlan,                 // 'pro_1' | 'pro_6' | 'pro_12'
   unidadesDeclaradas = 0,
 }) {
@@ -53,11 +54,14 @@ export async function altaSocio({
   if (!userId) return { ok: false, error: 'sin_sesion' };
 
   // 2) Negocio. Nace apagado: lo prende la moderación.
+  // La descripción es opcional en el alta: el checkout sólo pide lo mínimo para
+  // identificar el alojamiento, y el resto de la ficha se completa después
+  // desde el panel.
   const { data: neg, error: errNeg } = await supabase
     .from('negocios')
     .insert({
       nombre:      negocio.nombre.trim(),
-      descripcion: negocio.descripcion.trim(),
+      descripcion: negocio.descripcion?.trim() || null,
       tipo:        negocio.tipo,
       localidad:   negocio.localidad,
       plan:        'free',        // lo sube crearSuscripcionPro, no el insert
@@ -69,9 +73,21 @@ export async function altaSocio({
   if (errNeg) return { ok: false, error: 'negocio' };
 
   // 3) Perfil. Upsert y no insert: el turista que se convierte ya tiene fila.
+  // Los datos de la PERSONA sólo se escriben en el alta nueva: al que ya tenía
+  // cuenta no se le pisa el perfil con lo que puso en este formulario.
+  const filaPerfil = { id: userId, negocio_id: neg.id, es_superadmin: false };
+  if (persona) {
+    Object.assign(filaPerfil, {
+      nombre:   persona.nombre?.trim() || null,
+      apellido: persona.apellido?.trim() || null,
+      telefono: persona.telefono?.trim() || null,
+      email:    cuenta?.email?.trim().toLowerCase() || null,
+      rol:      'socio',
+    });
+  }
   const { error: errPerfil } = await supabase
     .from('perfiles')
-    .upsert({ id: userId, negocio_id: neg.id, es_superadmin: false }, { onConflict: 'id' });
+    .upsert(filaPerfil, { onConflict: 'id' });
   if (errPerfil) return { ok: false, error: 'perfil', negocioId: neg.id };
 
   // 4) Plan. Dispara alias + créditos del primer mes y el bono del tramo.

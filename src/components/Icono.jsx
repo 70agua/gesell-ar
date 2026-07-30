@@ -5,6 +5,8 @@
 //
 //  Los Lottie NO se animan solos: quedan quietos en el primer cuadro y sólo
 //  corren mientras el mouse está encima. Al salir vuelven al reposo.
+//  La excepción es `animar`: para una ilustración grande (no un ícono de menú)
+//  la animación es el contenido, y esperar al hover la desperdicia.
 //
 //  Ojo con el tamaño: los SVG son verticales y se dibujan con width:'auto',
 //  pero el Lottie corre sobre un canvas cuadrado (430×430) que necesita ancho
@@ -13,21 +15,23 @@
 import { useEffect, useState } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
-export default function Icono({ src, label, className, style, hoverEn = 'self' }) {
+export default function Icono({ src, label, className, style, hoverEn = 'self', animar = false }) {
   const [caja, setCaja]     = useState(null); // el <span> que envuelve al canvas
   const [lottie, setLottie] = useState(null); // instancia de DotLottie
 
   // Sin autoplay el canvas arranca en blanco: apenas carga, pintamos el primer
   // cuadro a mano para que el ícono se vea quieto igual que un SVG.
+  // setFrame() ya repinta y devuelve una promesa — el player NO expone render()
+  // (llamarlo tiraba "lottie.render is not a function" en cada carga).
   useEffect(() => {
-    if (!lottie) return;
-    const reposo = () => { lottie.setFrame(0); lottie.render(); };
+    if (!lottie || animar) return;
+    const reposo = () => { lottie.setFrame(0)?.catch(() => {}); };
     lottie.addEventListener('load', reposo);
     return () => lottie.removeEventListener('load', reposo);
-  }, [lottie]);
+  }, [lottie, animar]);
 
   useEffect(() => {
-    if (!caja || !lottie) return;
+    if (!caja || !lottie || animar) return;
     // En las tarjetas el mouse entra por el botón, no por el ícono: con
     // hoverEn="padre" escuchamos al contenedor para que la animación arranque
     // con el hover de la tarjeta entera, el mismo que dispara el pop de CSS.
@@ -43,7 +47,7 @@ export default function Icono({ src, label, className, style, hoverEn = 'self' }
       zona.removeEventListener('mouseenter', entra);
       zona.removeEventListener('mouseleave', sale);
     };
-  }, [caja, lottie, hoverEn]);
+  }, [caja, lottie, hoverEn, animar]);
 
   if (!src.endsWith('.json')) {
     return <img className={className} src={src} alt="" title={label} style={style} />;
@@ -54,7 +58,7 @@ export default function Icono({ src, label, className, style, hoverEn = 'self' }
       <DotLottieReact
         src={src}
         loop
-        autoplay={false}
+        autoplay={animar}
         dotLottieRefCallback={setLottie}
         style={{ width: '100%', height: '100%', display: 'block' }}
       />

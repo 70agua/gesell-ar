@@ -194,6 +194,11 @@ export default function CanjearRegaloView({ onListo, onComprarPase }) {
               // así que abrir tanto las letras sólo desarmaba el número.
               fontSize: 44, fontWeight: 500, letterSpacing: '0.34em', textIndent: '0.14em',
               fontFamily: C.font, color: C.ink, background: codigoOk ? C.primarySoft : '#fff',
+              // Sin cursor: el campo entra enfocado, y a 44px el caret titilando
+              // en el medio del cuadro es lo primero que se ve al llegar. Dónde
+              // estás parado ya lo dice el número, que se llena de izquierda a
+              // derecha y no se puede editar por el medio.
+              caretColor: 'transparent',
               border: `1.5px solid ${errorCodigo ? '#B42318' : codigoOk ? C.primary : C.line}`,
               outline: 'none', transition: 'border-color .15s, background .15s',
             }}

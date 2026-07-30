@@ -13,9 +13,19 @@ import { useCuponera }  from '../lib/cuponera';
 import HeartButton      from '../components/HeartButton';
 import { socialProof } from '../lib/socialProof';
 import HeroPase from '../components/landing/HeroPase';
+import HeroPaseB from '../components/landing/HeroPaseB';
 import PortadaCuponera from '../components/PortadaCuponera';
 import PaSSMark        from '../components/PaSSMark';
 import Icono           from '../components/Icono';
+
+// Hero vigente: HeroPaseB (una sola jerarquía, el turista primero y hotelería
+// en su propio carril). El anterior queda a mano con `?hero=a` en la URL, para
+// comparar; cuando ya no haga falta, se borra HeroPase.jsx y esto queda en una
+// sola línea. Se lee al cargar: no cambia sin recargar la página.
+const HERO_VARIANTE = typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('hero')
+  : null;
+const Hero = HERO_VARIANTE === 'a' ? HeroPase : HeroPaseB;
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -233,8 +243,9 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
   return (
     <div style={{ color: A.ink, fontFamily: A.font }}>
 
-      {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador) ── */}
-      <HeroPase
+      {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador).
+             Con ?hero=a se pinta el hero anterior, para comparar. ── */}
+      <Hero
         onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }}
         onComprarPase={onComprarPase}
         onSuscribir={onSuscribirHoteleria}
@@ -384,12 +395,15 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
         <div style={{ marginTop: 56, textAlign: 'center', lineHeight: 1.6 }}>
           {/* Los dos rubros que sí piden reserva previa, como ilustración de
               la frase que sigue. */}
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 18, marginBottom: 14 }}>
-            <img src="/iconos/cabania.svg" alt="" style={{ height: 72, width: 'auto', display: 'block' }} />
-            {/* Un toque más chico y levantado: así la figura del spa queda
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 8, marginBottom: 14 }}>
+            {/* La casita al 85% (72 → 61). Sin corrimiento vertical: la fila
+                alinea por abajo (alignItems: flex-end) y cualquier `top` la
+                descuelga del piso que comparte con el spa. */}
+            <Icono src="/iconos/cabania.json" style={{ height: 61, width: 61, display: 'block' }} />
+            {/* Un toque más chico y bajado: así la flor de loto queda
                 ópticamente alineada con la cabaña, que apoya en el piso.
                 Va en Lottie: el canvas es cuadrado, así que lleva ancho fijo. */}
-            <Icono src="/iconos/spa.json" style={{ height: 67, width: 67, display: 'block', position: 'relative', top: -3 }} />
+            <Icono src="/iconos/spa.json" style={{ height: 67, width: 67, display: 'block', position: 'relative', top: 2 }} />
           </div>
           <div style={{ fontSize: 15, color: A.ink }}>
             <strong style={{ fontWeight: 700, color: A.primary }}>Los cupones que requieran reserva previa los usás anticipadamente.</strong>

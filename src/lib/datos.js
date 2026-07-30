@@ -376,7 +376,7 @@ export async function getCuponeras() {
   const { data, error } = await supabase
     .from('cuponeras_locales')
     .select(`
-      id, nombre, descripcion, badge, imagen_url, portada_modo, familia, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado,
+      id, nombre, descripcion, badge, imagen_url, portada_modo, familia, beneficio_adicional, beneficio_icono, beneficio_tipo, beneficio_valor, estado, menu_icono,
       cuponeras_locales_cupones (
         promociones (
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,

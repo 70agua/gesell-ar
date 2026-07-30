@@ -3,7 +3,7 @@
 //  Hero de la home a DOS columnas:
 //   · Izquierda: título (Viví cuponeando / en Villa Gesell), el claim de
 //     hotelería con su CTA negro y, abajo, el bloque de pases (ticket
-//     inclinado + localidades + los dos pases y el "+").
+//     inclinado + claim y, a ras del CTA negro, los dos pases y el "+").
 //   · Derecha: galería masonry (tipo Pinterest) inclinada 10°, con parallax al
 //     scrollear; fotos random del pool src/assets/grilla por carga.
 //  Estilos responsive inyectados inline (<style> local, clases .pv2-*).
@@ -31,18 +31,13 @@ const NAURYZ = "'NauryzRedkeds', 'Inter', sans-serif";
 // entra por su propio CTA negro.
 // `dias` es la clave real: es lo que se busca en la tabla `pases` al entrar al
 // checkout, que además es de donde sale el precio que se cobra.
+// El rótulo del producto ("Pase turista") va DENTRO del botón, en negrita, y la
+// duración al lado en peso normal: el nombre pesa, el plazo acompaña. Así no
+// hace falta la pastilla azul que antes lo anunciaba arriba del claim.
 const PASES = [
-  { id: 'x3', dias: 3, cta: 'Pase x 3 días', precio: '$20.000', nota: 'por única vez' },
-  { id: 'x7', dias: 7, cta: 'Pase x 7 días', precio: '$35.000', nota: 'por única vez' },
+  { id: 'x3', dias: 3, rotulo: 'Pase turista', cola: 'x 3 días', precio: '$20.000', nota: 'por única vez' },
+  { id: 'x7', dias: 7, rotulo: 'Pase turista', cola: 'x 7 días', precio: '$35.000', nota: 'por única vez' },
 ];
-
-// Precio de entrada del plan de hotelería. El valor real sale de la tabla
-// `planes` (editable en Superadmin → Ajustes → Planes) vía getPlanesConfig();
-// esto es sólo el fallback para el primer pintado, antes de que conteste.
-const PRECIO_HOTELERIA_FALLBACK = 30000;
-
-// Localidades que cubre el pase — línea de credibilidad arriba del bloque.
-const LOCALIDADES_PASE = '¡También en Mar de las Pampas, Mar Azul y Las Gaviotas!';
 
 // ─── Galería derecha: masonry tipo Pinterest ─────────────────
 // Pool = TODO lo que haya en src/assets/grilla-web, que son las versiones
@@ -159,7 +154,9 @@ const MOBILE_DECO = [
 function PaseBoton({ pase, onClick }) {
   return (
     <div className="pv2-pase">
-      <button className="pv2-btn-pase" onClick={onClick}>{pase.cta}</button>
+      <button className="pv2-btn-pase" onClick={onClick}>
+        <b>{pase.rotulo}</b> {pase.cola}
+      </button>
       {/* Precio: chico y SIEMPRE en una línea, para no desalinear los botones. */}
       <div className="pv2-pase-precio">
         <b>{pase.precio}</b> <i>{pase.nota}</i>
@@ -170,7 +167,6 @@ function PaseBoton({ pase, onClick }) {
 
 export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }) {
   const [cols] = useState(buildColumns); // random por carga, estable en la sesión
-  const [precioPlus, setPrecioPlus] = useState(PRECIO_HOTELERIA_FALLBACK);
   const rafRef  = useRef(0);
   const heroRef = useRef(null);
   const colRefs = useRef([]);
@@ -212,19 +208,6 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (obs) obs.disconnect();
     };
-  }, []);
-
-  // Precio del plan Plus desde su fuente de verdad, para que el hero no quede
-  // desfasado cuando lo editan en Superadmin.
-  useEffect(() => {
-    let vivo = true;
-    (async () => {
-      const { getPlanesConfig } = await import('../../lib/planes');
-      const planes = await getPlanesConfig();
-      const plus = planes.find(p => p.id === 'plus');
-      if (vivo && plus?.precioMes != null) setPrecioPlus(plus.precioMes);
-    })();
-    return () => { vivo = false; };
   }, []);
 
   const suscribir = (plan) => (onSuscribir || onVerDescuentos)?.(plan);
@@ -269,10 +252,10 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
 
         {/* ─── Columna izquierda: texto ─── */}
         <div className="pv2-left">
-          {/* Título + claim + CTA de hotelería viajan juntos: van corridos 30px
-              a la derecha respecto del bloque de pases, que queda a ras del
-              contenedor. En pantallas chicas el bloque se centra y ese corrimiento
-              se anula. */}
+          {/* Título + claim + CTA de hotelería viajan juntos, corridos 30px a la
+              derecha. El bloque de pases lleva el mismo corrimiento, así el CTA
+              negro y los botones de pase arrancan sobre la misma línea. En
+              pantallas chicas todo se centra y el corrimiento se anula. */}
           <div className="pv2-claim-pack">
             {/* Título — 3 líneas: dos itálicas finas (con las palabras de marca en
                 NauryzRedkeds azul) + el remate en negrita, casi del mismo cuerpo. */}
@@ -288,48 +271,43 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
             {/* Hotelería: claim + CTA negro (el único botón oscuro del hero, para
                 que no compita con el azul de los pases). */}
             <p className="pv2-hotel-claim">¡Regalá cuponeras con descuentos locales a tus huéspedes!</p>
-            {/* Botón + precio en una columna propia: así la leyenda queda
-                centrada respecto del botón y no del ancho de la sección. */}
-            <div className="pv2-hotel-cta">
-              <button className="pv2-cta-negro" onClick={() => suscribir('premium')}>
-                Suscripción <b>para hotelería</b>
-              </button>
-              <div className="pv2-cta-precio">
-                Desde <b>${Math.round(precioPlus).toLocaleString('es-AR')}</b> por mes
-              </div>
-            </div>
+            {/* Sólo el botón: el precio se cuenta en la vista de planes. En el
+                hero, una cifra al lado del pase de turista se leía como si
+                fueran dos productos comparables, y no lo son. */}
+            <button className="pv2-cta-negro" onClick={() => suscribir('premium')}>
+              Suscripción <b>para hotelería</b>
+            </button>
           </div>
 
-          {/* Pases: ticket inclinado + localidades + los dos pases y el "+" */}
+          {/* Pases: arriba el ticket inclinado con el claim al lado; abajo, la
+              botonera. La botonera NO cuelga del ticket: es hermana del
+              encabezado, así arranca a ras del bloque y queda alineada con el
+              CTA negro de hotelería. */}
           <div className="pv2-pases">
-            <img className="pv2-ticket" src="/gesell-pass-03.svg" alt="Gesell Pass" />
-            <div className="pv2-pases-body">
-              <div className="pv2-pases-loc">{LOCALIDADES_PASE}</div>
-              {/* La promesa tiene que ser la de la regla real (ver nivelEnPase
-                  en lib/pases.js): la mayoría entra incluida, los descuentos
-                  grandes son 3 a elección y el resto va a mitad de precio.
-                  "Activar todo el catálogo" prometía de más. */}
+            <div className="pv2-pases-head">
+              <img className="pv2-ticket" src="/gesell-pass-03.svg" alt="Gesell Pass" />
+              {/* Dos renglones cortos, uno debajo del otro: la pregunta y la
+                  respuesta. Van en líneas propias (no envueltos por el ancho de
+                  la caja) para que el remate empiece siempre alineado con la
+                  pregunta, sea cual sea el ancho de pantalla. */}
               <p className="pv2-pases-claim">
-                <b>¿Viajás por unos días?</b> Llevate los descuentos de{' '}
-                <button className="pv2-link" onClick={() => onVerDescuentos?.()}>toda la zona</button>
+                <b>¿Viajás por unos días?</b><br />
+                <button className="pv2-link" onClick={() => onVerDescuentos?.()}>¡Conseguí descuento en todo!</button>
               </p>
-              <p className="pv2-pases-letra">
-                La mayoría vienen incluidos y el resto, a mitad de precio.
-              </p>
-              <div className="pv2-pases-row">
-                {PASES.map(pase => (
-                  <PaseBoton key={pase.id} pase={pase} onClick={() => onComprarPase?.(pase.dias)} />
-                ))}
-                {/* Al apoyar el mouse la pastilla se estira a la derecha y
-                    completa la palabra: "+ días". Lleva al mismo checkout que
-                    los otros dos pases, pero con el pase a medida ya elegido
-                    (arranca en 8 días, que es donde termina el de 7). */}
-                <button className="pv2-mas" onClick={() => onComprarPase?.('custom')}
-                  aria-label="Más días" title="Más días">
-                  <span className="pv2-mas-ico">+</span>
-                  <span className="pv2-mas-txt">días</span>
-                </button>
-              </div>
+            </div>
+            <div className="pv2-pases-row">
+              {PASES.map(pase => (
+                <PaseBoton key={pase.id} pase={pase} onClick={() => onComprarPase?.(pase.dias)} />
+              ))}
+              {/* Al apoyar el mouse la pastilla se estira a la derecha y
+                  completa la palabra: "+ días". Lleva al mismo checkout que
+                  los otros dos pases, pero con el pase a medida ya elegido
+                  (arranca en 8 días, que es donde termina el de 7). */}
+              <button className="pv2-mas" onClick={() => onComprarPase?.('custom')}
+                aria-label="Más días" title="Más días">
+                <span className="pv2-mas-ico">+</span>
+                <span className="pv2-mas-txt">días</span>
+              </button>
             </div>
           </div>
         </div>
@@ -376,79 +354,81 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
 
         /* ── Hotelería ────────────────────────────────────────── */
         .pv2-hotel-claim {
-          margin: 46px 0 0;
+          margin: 52px 0 0;
           font-style: italic;
-          font-size: clamp(16px, 1.6vw, 21px);
+          font-size: clamp(16px, 1.6vw, 22px);
           line-height: 1.5;
           color: ${A.ink};
         }
-        .pv2-hotel-cta { display: inline-flex; flex-direction: column; align-items: center; margin-top: 24px; }
         .pv2-cta-negro {
-          padding: 17px 50px;
+          margin-top: 26px;
+          padding: 18px 52px;
           border: none;
           border-radius: 999px;
           background: ${A.ink};
           color: #fff;
           font-family: inherit;
-          font-size: 18px;
+          font-size: 19px;
           font-weight: 400;
           cursor: pointer;
           transition: background .15s;
         }
         .pv2-cta-negro b { font-weight: 700; }
         .pv2-cta-negro:hover { background: #1B2340; }
-        /* Precio de referencia, centrado bajo el botón */
-        .pv2-cta-precio { margin-top: 10px; font-size: 13px; line-height: 1.3; color: ${A.muted}; text-align: center; }
-        .pv2-cta-precio b { font-weight: 700; color: ${A.ink}; }
 
         /* ── Pases ────────────────────────────────────────────── */
-        .pv2-pases { display: flex; align-items: center; gap: 28px; margin-top: 50px; }
+        /* Mismo corrimiento que .pv2-claim-pack: es lo que pone los botones de
+           pase a ras del CTA negro. */
+        .pv2-pases { margin: 44px 0 0 30px; }
+        .pv2-pases-head { display: flex; align-items: center; gap: 38px; }
         /* El ticket va inclinado al revés que la galería: cruza la diagonal
-           general y evita que el bloque se lea como un bloque más. */
-        .pv2-ticket { flex: 0 0 auto; width: 190px; height: auto; display: block; transform: rotate(-25deg); }
-        .pv2-pases-body { min-width: 0; }
-        .pv2-pases-loc {
-          font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
-          color: ${A.ink}; text-transform: uppercase; white-space: nowrap;
-        }
-        .pv2-pases-claim { margin: 8px 0 0; font-size: clamp(15px, 1.45vw, 19px);font-style: italic;  line-height: 1.45; color: ${A.ink}; }
+           general y evita que el bloque se lea como un bloque más.
+           El margin-top negativo lo levanta respecto del claim: al rotar, la
+           esquina inferior derecha baja ~26px de más y sin esto quedaría
+           lamiendo la botonera, que ahora corre justo abajo. */
+        .pv2-ticket { flex: 0 0 auto; margin-top: -18px; width: 140px; height: auto; display: block; transform: rotate(-25deg); }
+        /* Dos renglones propios: no hace falta recortar la caja por derecha para
+           forzar el corte, así que el claim ya puede ocupar su ancho natural. */
+        .pv2-pases-claim { margin: 0; font-size: clamp(15px, 1.5vw, 21px); font-style: italic; line-height: 1.35; color: ${A.primary}; }
         .pv2-pases-claim b { font-style: italic; font-weight: 700; }
-        /* La letra chica de la regla: va siempre pegada al claim, no es un
-           disclaimer escondido. */
-        .pv2-pases-letra { margin: 6px 0 0; font-size: 12.5px; line-height: 1.45; color: ${A.muted}; max-width: 46ch; }
         /* "todo el catálogo": link de verdad (button), sin chrome de botón */
+        /* Sin subrayado: dentro de una frase en itálica el subrayado la ensuciaba.
+           Sigue siendo un botón y se distingue por el color y el hover. */
         .pv2-link {
           padding: 0; border: none; background: none; font: inherit; cursor: pointer;
-          color: ${A.primary}; text-decoration: underline; text-underline-offset: 4px;
+          color: ${A.primary}; text-decoration: none;
         }
         .pv2-link:hover { color: ${A.primaryDark}; }
         /* Alineados arriba: el "+" queda a la altura de los botones, no de los precios */
-        .pv2-pases-row { display: flex; align-items: flex-start; gap: 30px; margin-top: 22px; }
+        .pv2-pases-row { display: flex; align-items: flex-start; gap: 22px; margin-top: 44px; }
         .pv2-pase { display: flex; flex-direction: column; align-items: center; }
+        /* El botón lleva dos pesos: "Pase turista" en negrita (el producto) y la
+           duración en normal. De ahí el peso base 400 y el <b> adentro. */
         .pv2-btn-pase {
-          width: 190px; padding: 14px 16px; border: none; border-radius: 999px;
-          background: ${A.primary}; color: #fff;
-          font-family: inherit; font-size: 15.5px; font-weight: 700; cursor: pointer;
+          width: 252px; padding: 15px 16px; border: none; border-radius: 999px;
+          background: ${A.primary}; color: #fff; white-space: nowrap;
+          font-family: inherit; font-size: 16.5px; font-weight: 400; cursor: pointer;
           transition: background .15s;
         }
+        .pv2-btn-pase b { font-weight: 700; }
         .pv2-btn-pase:hover { background: ${A.primaryDark}; }
-        .pv2-pase-precio { margin-top: 11px; font-size: 13px; line-height: 1.3; white-space: nowrap; color: ${A.primary}; }
+        .pv2-pase-precio { margin-top: 12px; font-size: 13.5px; line-height: 1.3; white-space: nowrap; color: ${A.primary}; }
         .pv2-pase-precio i { font-style: italic; }
         /* Pastilla que arranca como círculo de 50px y, al hover, se estira
            hacia la derecha para que el "+" termine de decir "+ días". El ancho
            lo da el contenido: el texto pasa de max-width 0 a su medida. */
         .pv2-mas {
-          flex: 0 0 auto; height: 50px; min-width: 50px; padding: 0 12px;
+          flex: 0 0 auto; height: 52px; min-width: 52px; padding: 0 13px;
           display: inline-flex; align-items: center; justify-content: center; gap: 0;
           border: none; border-radius: 999px;
           background: ${A.primarySoft}; color: #fff;
           font-family: inherit; font-weight: 400; line-height: 1; cursor: pointer;
           transition: background .15s, gap .28s ease;
         }
-        .pv2-mas-ico { font-size: 26px; line-height: 1; }
+        .pv2-mas-ico { font-size: 27px; line-height: 1; }
         .pv2-mas-txt {
           max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap;
-          font-size: 15.5px; font-weight: 700;
+          font-size: 16.5px; font-weight: 700;
           transition: max-width .28s ease, opacity .2s ease;
         }
         .pv2-mas:hover, .pv2-mas:focus-visible { background: ${A.primary}; gap: 7px; }
@@ -536,10 +516,11 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           .pv2-left { display: flex; flex-direction: column; align-items: center; max-width: 620px; }
           /* Todo centrado: el corrimiento de 30px lo descentraría. */
           .pv2-claim-pack { margin-left: 0; }
-          /* El ticket pasa arriba del bloque y más chico */
-          .pv2-pases { flex-direction: column; gap: 14px; }
-          .pv2-ticket { width: 150px; }
-          .pv2-pases-loc { white-space: normal; }
+          /* Todo centrado: acá tampoco va el corrimiento de 30px. */
+          .pv2-pases { margin-left: 0; }
+          /* El ticket pasa arriba del claim, centrado y más chico */
+          .pv2-pases-head { flex-direction: column; align-items: center; gap: 14px; }
+          .pv2-ticket { width: 150px; margin-top: 0; }
           .pv2-pases-row { flex-wrap: wrap; justify-content: center; }
           /* Tablet: la galería NO se va, se queda de fondo. Al estar en z-index
              0 con el texto en 2, el contenido simplemente la pisa; con menos
@@ -554,8 +535,10 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           .pv2-mobile-deco { display: block; position: absolute; inset: 0; pointer-events: none; z-index: 0; }
         }
         @media (max-width: 560px) {
-          .pv2-pases-row { gap: 18px; }
-          .pv2-btn-pase { width: 160px; }
+          .pv2-pases-row { gap: 16px; }
+          /* Un botón por renglón: "Pase turista x 3 días" ya no entra de dos en
+             dos sin partirse. */
+          .pv2-btn-pase { width: 236px; }
         }
       `}</style>
     </section>

@@ -14,7 +14,7 @@ import { getDemandaDestinos } from '../lib/demanda';
 import { categoriaDeNegocio, normalizePromo } from '../lib/datos';
 import OfertaCard from '../components/OfertaCard';
 import PortadaCuponera from '../components/PortadaCuponera';
-import { FAMILIAS_PACK } from '../lib/familiasPack';
+import { FAMILIAS_PACK, familiaLabel } from '../lib/familiasPack';
 import { listarCuponerasLocales, crearCuponeraLocal, actualizarCuponeraLocal, eliminarCuponeraLocal, agregarCuponASet, quitarCuponDeSet } from '../lib/cuponerasLocales';
 import { BENEFICIO_ICONOS, getBeneficioIcon } from '../lib/beneficioIconos';
 import { BENEFICIO_TIPOS, tipoBeneficio } from '../lib/beneficiosCuponera';
@@ -1201,8 +1201,8 @@ function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNe
   useEffect(() => { cargar(); }, []);
 
   // Crea la cuponera y la devuelve (o null si falló). El toast lo maneja quien llama.
-  async function crear({ nombre, descripcion = null, localidad = null }) {
-    const { data, error } = await crearCuponeraLocal({ nombre, descripcion, localidad });
+  async function crear(campos) {
+    const { data, error } = await crearCuponeraLocal(campos);
     if (error) { showToast('Error al crear la cuponera', 'error'); return null; }
     const nuevo = { ...data, promocionIds: [] };
     setSets(prev => [nuevo, ...prev]);
@@ -1389,6 +1389,11 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                   <span style={{ fontFamily:A.font, fontSize:12, color:A.green, fontWeight:600 }}>Ahorro declarado ${ahorroTotal.toLocaleString('es-AR')}</span>
                   <span style={{ fontFamily:A.font, fontSize:12, color:A.ink2, fontWeight:600 }}>Valor de activación ${precioTotal.toLocaleString('es-AR')}</span>
                   {set.localidad && <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>· {set.localidad}</span>}
+                  {/* La categoría, a la vista sin entrar a editar: sin ella la
+                      cuponera no aparece en ningún filtro de packs. */}
+                  <span style={{ fontFamily:A.font, fontSize:12, fontWeight:600, color: set.familia ? A.primary : '#C03030' }}>
+                    {set.familia ? `· ${familiaLabel(set.familia)}` : '· Sin categoría'}
+                  </span>
                 </div>
                 </div>
               </div>
@@ -1407,12 +1412,14 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                     <option value="">Sin localidad</option>
                     {localidades.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
-                  {/* Familia: define bajo qué ícono aparece en el menú y en el
-                      filtro del listado de "Packs todo incluido". */}
+                  {/* Categoría: define bajo qué ícono aparece en el menú y con
+                      qué filtra el listado de "Packs todo incluido". El rótulo
+                      va en cada opción porque al lado hay otros dos selects
+                      iguales y suelto no se entendía qué elegía. */}
                   <select value={set.familia || ''} onChange={e => cambiar(set.id, { familia: e.target.value || null })}
-                    title="Familia con la que se filtra en el listado de packs" style={selStyle}>
-                    <option value="">Sin familia</option>
-                    {FAMILIAS_PACK.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                    title="Categoría con la que se filtra en el listado de packs" style={selStyle}>
+                    <option value="">Sin categoría</option>
+                    {FAMILIAS_PACK.map(f => <option key={f.id} value={f.id}>Categoría: {f.label}</option>)}
                   </select>
                   <button onClick={() => borrar(set.id)} title="Eliminar cuponera" style={{ background:'none', border:`1px solid ${A.line}`, borderRadius:8, padding:'7px 9px', cursor:'pointer', color:'#C03030', display:'flex', alignItems:'center' }}>
                     <Trash2 size={14} />
@@ -1661,6 +1668,7 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
   const [benTipo, setBenTipo]         = useState('');
   const [benValor, setBenValor]       = useState('');
   const [localidadSet, setLocalidadSet] = useState('');
+  const [familia, setFamilia]         = useState('');
   const [setActivoId, setSetActivoId] = useState(null);
   const [guardando, setGuardando]     = useState(false);
 
@@ -1676,13 +1684,14 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
       beneficio_tipo: benTexto.trim() ? (benTipo || null) : null,
       beneficio_valor: benTexto.trim() && benTipo && benValor !== '' ? Number(benValor) : null,
       localidad: localidadSet || null,
+      familia: familia || null,
     });
     setGuardando(false);
     if (nuevo) { setSetActivoId(nuevo.id); showToast('Cuponera creada — ahora agregá cupones'); }
   }
 
   function nuevaOtra() {
-    setSetActivoId(null); setNombre(''); setDescripcion(''); setBadge(''); setImagenUrl(''); setBenTexto(''); setBenIcono('star'); setBenTipo(''); setBenValor(''); setLocalidadSet('');
+    setSetActivoId(null); setNombre(''); setDescripcion(''); setBadge(''); setImagenUrl(''); setBenTexto(''); setBenIcono('star'); setBenTipo(''); setBenValor(''); setLocalidadSet(''); setFamilia('');
   }
 
   const selStyle = { padding:'9px 12px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', cursor:'pointer' };
@@ -1716,6 +1725,14 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
             <select value={localidadSet} onChange={e => setLocalidadSet(e.target.value)} style={selStyle}>
               <option value="">Sin localidad</option>
               {localidades.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            {/* Categoría: es con lo que filtra el listado de "Packs todo
+                incluido" y bajo qué ícono aparece en el menú. Se elige acá
+                para no tener que entrar a editar después de crearla. */}
+            <select value={familia} onChange={e => setFamilia(e.target.value)}
+              title="Categoría con la que se filtra en el listado de packs" style={selStyle}>
+              <option value="">Sin categoría</option>
+              {FAMILIAS_PACK.map(f => <option key={f.id} value={f.id}>Categoría: {f.label}</option>)}
             </select>
           </div>
           {/* Beneficio adicional */}

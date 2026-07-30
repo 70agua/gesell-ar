@@ -8,14 +8,14 @@
 // ============================================================
 
 export const FAMILIAS_PACK = [
-  { id: 'romanticos', label: 'Románticos',        icono: '/iconos/amor.json' },
-  { id: 'aventura',   label: 'Aventura',          icono: '/iconos/aventura.json' },
-  { id: 'familias',   label: 'Familias',          icono: '/iconos/familia.json' },
-  { id: 'relax',      label: 'Relax & Bienestar', icono: '/iconos/spa.json' },
+  { id: 'romanticos', label: 'Love Pack',        icono: '/iconos/amor.json' },
+  { id: 'aventura',   label: 'Aventurate',          icono: '/iconos/aventura.json' },
+  { id: 'familias',   label: 'Familiar',          icono: '/iconos/familia.json' },
+  { id: 'relax',      label: 'Bienestar', icono: '/iconos/spa.json' },
   { id: 'foodie',     label: 'Foodie',            icono: '/iconos/restaurant.json' },
 ];
 
 // Va siempre último: no filtra nada, lleva al listado completo.
-export const MAS_PACKS = { id: null, label: 'Más packs', icono: '/iconos/mas.json' };
+export const MAS_PACKS = { id: null, label: 'Más', icono: '/iconos/mas.json' };
 
 export const familiaLabel = id => FAMILIAS_PACK.find(f => f.id === id)?.label || '';
