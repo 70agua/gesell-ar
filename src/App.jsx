@@ -34,8 +34,8 @@ import { ALL_PROMOS }                      from './data/mockData';
 import { getSession, getPerfil }           from './lib/auth';
 import { supabase }                        from './lib/supabase';
 import { LoadingProvider, useLoading }     from './lib/loading';
-import { CuponeraProvider }               from './lib/cuponera';
-import CuponeraDrawer                     from './components/CuponeraDrawer';
+import { CarritoProvider }               from './lib/carrito';
+import CarritoDrawer                     from './components/CarritoDrawer';
 import { FavoritosProvider }             from './lib/favoritos';
 import { SesionProvider }                from './lib/sesion';
 import ChatBot                           from './components/ChatBot';
@@ -85,8 +85,8 @@ function AppContent() {
   const [loginInitialTab, setLoginInitialTab] = useState('ingresar');
   // 'comercial' entra directo al alta de negocio; null muestra el selector.
   const [loginModoRegistro, setLoginModoRegistro] = useState(null);
-  // El login se disparó porque un visitante quiso agregar un cupón a su cuponera.
-  // Al volver logueado lo mandamos a home (no al panel) y dejamos que la cuponera
+  // El login se disparó porque un visitante quiso agregar un cupón a su carrito.
+  // Al volver logueado lo mandamos a home (no al panel) y dejamos que el carrito
   // reinyecte el cupón + muestre el aviso, sin interrumpir con el wizard.
   const [cuponLoginPending, setCuponLoginPending] = useState(false);
 
@@ -222,7 +222,7 @@ function AppContent() {
     }
     setView('home');
     window.scrollTo(0, 0);
-    // Si venía de agregar un cupón, la cuponera abre su drawer + aviso: no
+    // Si venía de agregar un cupón, el carrito abre su drawer + aviso: no
     // encimamos el wizard de bienvenida.
     if (cuponLoginPending) { setCuponLoginPending(false); return; }
     setTuristaWizardOpen(true);
@@ -267,7 +267,7 @@ function AppContent() {
   return (
     <SesionProvider perfil={perfil}>
     <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
-    <CuponeraProvider session={session} onLoginRequired={() => { setCuponLoginPending(true); setLoginInitialTab('registrarse'); setView('login'); window.scrollTo(0, 0); }} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
+    <CarritoProvider session={session} onLoginRequired={() => { setCuponLoginPending(true); setLoginInitialTab('registrarse'); setView('login'); window.scrollTo(0, 0); }} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
       {/* Loading global — se activa con showLoading() desde cualquier vista */}
       {isLoading && <LoadingScreen />}
 
@@ -626,7 +626,7 @@ function AppContent() {
 
         {PUBLIC_VIEWS.includes(view) && <Footer onNavigate={(v) => { setView(v); window.scrollTo(0,0); }} />}
 
-        <CuponeraDrawer />
+        <CarritoDrawer />
         <ChatBot view={view} />
 
         {/* ── Wizard de bienvenida post-registro de turista ── */}
@@ -723,7 +723,7 @@ function AppContent() {
           @keyframes wizard-in { from { opacity: 0; transform: translateY(-12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         `}} />
       </div>
-    </CuponeraProvider>
+    </CarritoProvider>
     </FavoritosProvider>
     </SesionProvider>
   );

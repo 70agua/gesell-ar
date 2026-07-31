@@ -93,7 +93,7 @@ function AlojListCard({ item, onClick }) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
               <span style={{ fontSize: 12, color: A.muted }}>Desde</span>
               <span style={{ fontSize: 20, fontWeight: 700, color: hov ? A.primary : A.ink, letterSpacing: '-0.02em', transition: 'color 0.15s' }}>${item.precioMin.toLocaleString('es-AR')}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: hov ? A.primary : A.ink2, transition: 'color 0.15s' }}>{item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: hov ? A.primary : A.ink2, transition: 'color 0.15s' }}>{item.unidadPrecio === 'huesped' ? 'por persona' : 'por noche'}</span>
             </div>
           ) : (
             <p style={{ fontSize: 13, color: A.muted, fontStyle: 'italic', margin: 0 }}>Consultá disponibilidad</p>

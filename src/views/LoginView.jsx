@@ -2,15 +2,11 @@
 //  src/views/LoginView.jsx
 // ============================================================
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Coins, Trash2, Ticket, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Ticket, ChevronRight, ArrowLeft } from 'lucide-react';
 import { login, registrarTurista, loginConGoogle } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { registrarIntentoPagoTarjeta, FOTOS_GALERIA_MAX } from '../lib/planes';
 import { getSaldo } from '../lib/cobros';
-import {
-  getCuponerasRegalo, crearCuponeraRegalo, cambiarEstadoCuponera,
-  agregarCupon, quitarCupon, buscarPromosDisponibles, costoCreditosDePromo, sugerirCupones,
-} from '../lib/cuponerasRegalo';
 import PlanPicker from '../components/PlanPicker';
 import GaleriaFotos from '../components/GaleriaFotos';
 import PerfilNegocioForm from '../components/PerfilNegocioForm';
@@ -25,7 +21,7 @@ function getSiteName() {
   return h === 'localhost' ? 'gesell.ar' : h;
 }
 
-// Cupo semanal por defecto de activaciones de cuponera regalo
+// Cupo semanal por defecto de activaciones de pase-regalo
 // (socio_alias.unidades_declaradas) — ya no se le pregunta al socio en el alta.
 const UNIDADES_DEFAULT = 20;
 
@@ -144,7 +140,6 @@ function BtnSubmit({ loading, label, loadingLabel }) {
 //  ONBOARDING COMERCIAL — wizard de 3 pasos estilo panel admin
 // ═══════════════════════════════════════════════════════════════
 const OBP    = '#475be1';
-const OBPS   = '#eef0fd';
 const OBINK  = '#0f172a';
 const OBINK2 = '#475569';
 const OBMUTED= '#94a3b8';
@@ -161,9 +156,6 @@ const OBGRN  = '#10b981';
 // (si se recrean en cada render, React remonta los inputs y se pierde el foco al tipear)
 const OBCard = ({ children, style }) => (
   <div style={{ background:OBCARD, borderRadius:16, border:`1px solid ${OBLINE}`, padding:20, ...style }}>{children}</div>
-);
-const OBCardTitle = ({ label }) => (
-  <div style={{ fontSize:13, fontWeight:700, color:OBINK, marginBottom:14, paddingBottom:10, borderBottom:`1px solid ${OBLINE}` }}>{label}</div>
 );
 const BtnNext = ({ onClick, disabled, label, saving }) => (
   <button onClick={onClick} disabled={disabled || saving}
@@ -199,27 +191,22 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
     setToast({ msg, tipo });
     setTimeout(() => setToast(null), 2600);
   };
-  // Cuponera regalo (paso 4, solo Plus)
-  const [cuponeraId, setCuponeraId]   = useState(null);
-  const [saldoCreditos, setSaldoCreditos] = useState(0);
-  const [aliasSocio, setAliasSocio]   = useState(null);
-  const [cuponesCup, setCuponesCup]   = useState([]);
-  const [busTexto, setBusTexto]       = useState('');
-  const [busResultados, setBusResultados] = useState([]);
-  const [busLoading, setBusLoading]   = useState(false);
-  const [showCrearOtra, setShowCrearOtra] = useState(false);
-  const [nuevaCupNombre, setNuevaCupNombre] = useState('');
-  const [cup4Loading, setCup4Loading] = useState(true);
-  const [cup4Error, setCup4Error]     = useState('');
-  const [puedeCompartir, setPuedeCompartir] = useState(true);
   // Misc
   const [negocioId, setNegocioId] = useState(null);
   const [stubError, setStubError] = useState(null);
   const [saving,    setSaving]    = useState(false);
   const [errors,    setErrors]    = useState({});
 
-  // Estilos compartidos por los pasos 3 y 4 (el paso 2 los trae PerfilNegocioForm)
-  const inp = { width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:10, border:`1px solid ${OBLINE}`, fontFamily:OBFONT, fontSize:13, color:OBINK, outline:'none', background:'#fff', transition:'border-color .15s' };
+  // Saldo de créditos publicitarios: lo consume el paso 3 (crear cupón), que
+  // puede necesitarlos para publicar. Antes lo cargaba el paso 4 (pase-regalo
+  // regalo), que ya no existe.
+  const [saldoCreditos, setSaldoCreditos] = useState(0);
+  useEffect(() => {
+    if (!negocioId) return;
+    let vivo = true;
+    getSaldo(negocioId).then(s => { if (vivo) setSaldoCreditos(s); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [negocioId]);
 
   // Se crea un negocio "borrador" apenas arranca el wizard (con datos provisorios)
   // para que el paso 1 (Cuenta) ya tenga un negocioId real donde atar el plan,
@@ -229,10 +216,15 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Entrada directa "Publicá GRATIS" (dropdown de usuario): salta el paso 1
-  // (elegir plan) y va directo al formulario de la empresa en plan Free.
+  // Entrada directa "Publicá GRATIS": deja el negocio en plan free y sigue el
+  // wizard normal. Ya no hace falta saltear ningún paso — el primero es "Mi
+  // Empresa" y el del plan sólo aparece si el rubro es alojamiento.
   useEffect(() => {
-    if (negocioId && planDirecto === 'free' && !doneSteps.has(1)) confirmarFree();
+    if (negocioId && planDirecto === 'free' && !plan) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPlan('free');
+      supabase.from('negocios').update({ plan: 'free' }).eq('id', negocioId);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [negocioId]);
 
@@ -244,7 +236,10 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
       // vs. un perfil personal), aunque queden vinculadas por negocio_id.
       const { data: neg, error: negErr } = await supabase.from('negocios').insert({
         nombre: 'Mi negocio (completar datos)',
-        tipo: 'alojamiento', plan: 'free', aprobado: false, activo: false,
+        // `aprobado: true` — la moderación previa del negocio ya no existe.
+        // Nace `activo: false` sólo porque es un cascarón sin nombre real ni
+        // ficha: lo prende el propio socio desde su panel cuando lo completa.
+        tipo: 'alojamiento', plan: 'free', aprobado: true, activo: false,
       }).select().single();
       if (negErr) throw negErr;
       // upsert (no insert): si el usuario ya tenía perfil (p. ej. un turista que se
@@ -291,8 +286,10 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
       const payload = { ...perfilAPayload(perfil), imagen_url: imagenUrl, galeria: urlsGaleria };
       const { error: negErr } = await supabase.from('negocios').update(payload).eq('id', negocioId);
       if (negErr) throw negErr;
-      setDoneSteps(s => new Set([...s, 2]));
-      setObStep(3);
+      setDoneSteps(s => new Set([...s, 1]));
+      // Sólo el alojamiento/agencia pasa por el plan; el comercio va derecho
+      // a crear su primer cupón, que es su única puerta de entrada.
+      setObStep(perfil.tipo === 'alojamiento' ? 2 : 3);
       window.scrollTo(0, 0);
     } catch (err) { setErrors({ _: err?.message || 'Error al guardar, intentá de nuevo.' }); }
     finally { setSaving(false); }
@@ -305,8 +302,8 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
     setSaving(true);
     try {
       if (negocioId) await supabase.from('negocios').update({ plan: 'free' }).eq('id', negocioId);
-      setDoneSteps(s => new Set([...s, 1]));
-      setObStep(2);
+      setDoneSteps(s => new Set([...s, 2]));
+      setObStep(3);
       window.scrollTo(0, 0);
     } catch { /* alta se completa igual, el socio queda en free por default */ }
     finally { setSaving(false); }
@@ -331,15 +328,15 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
 
       // registrarIntentoPagoTarjeta devuelve { error } — hay que chequearlo, no ignorarlo.
       const { error } = await registrarIntentoPagoTarjeta(negocioId, { ...datos, comprobanteUrl });
-      if (error) throw new Error(typeof error === 'string' ? error : (error.message || 'No pudimos activar el plan Plus.'));
+      if (error) throw new Error(typeof error === 'string' ? error : (error.message || 'No pudimos activar el plan.'));
 
       // Sólo marcamos el paso como completado si el alta realmente se guardó.
       setPlan('plus');
-      setDoneSteps(s => new Set([...s, 1]));
-      setObStep(2);
+      setDoneSteps(s => new Set([...s, 2]));
+      setObStep(3);
       window.scrollTo(0, 0);
     } catch (err) {
-      setErrors({ _: err?.message || 'No pudimos activar el plan Plus. Reintentá.' });
+      setErrors({ _: err?.message || 'No pudimos activar el plan. Reintentá.' });
       window.scrollTo(0, 0);
     } finally { setSaving(false); }
   };
@@ -373,85 +370,17 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
   // Paso 3: se omite/continúa. Las ofertas ya las persiste TabOfertas contra `promociones`.
   const step3Continuar = () => {
     setDoneSteps(s => new Set([...s, 3]));
-    if (plan === 'plus') { setObStep(4); window.scrollTo(0, 0); }
-    else onComplete();
+    onComplete();
   };
 
-  // ── Paso 4 (solo Plus): armar la primera cuponera regalo ──
-  async function cargarPaso4() {
-    setCup4Loading(true);
-    const [cups, saldo, aliasRes, negRes] = await Promise.all([
-      getCuponerasRegalo(negocioId),
-      getSaldo(negocioId),
-      supabase.from('socio_alias').select('codigo, unidades_declaradas').eq('negocio_id', negocioId).maybeSingle(),
-      supabase.from('negocios').select('puede_compartir_cuponeras').eq('id', negocioId).single(),
-    ]);
-    let cup = cups[0];
-    if (!cup) {
-      const { data } = await crearCuponeraRegalo(negocioId, 'Mi primera cuponera');
-      cup = { ...data, cuponeras_regalo_cupones: [] };
-    }
-    setCuponeraId(cup.id);
-    setCuponesCup(cup.cuponeras_regalo_cupones || []);
-    setSaldoCreditos(saldo);
-    setAliasSocio(aliasRes.data || null);
-    setPuedeCompartir(negRes.data?.puede_compartir_cuponeras !== false);
-    setBusResultados(await buscarPromosDisponibles({ localidad: perfil.localidad }));
-    setCup4Loading(false);
-  }
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (obStep === 4 && negocioId) cargarPaso4();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [obStep, negocioId]);
-
-  async function refrescarPaso4() {
-    const [cups, saldo] = await Promise.all([getCuponerasRegalo(negocioId), getSaldo(negocioId)]);
-    const cup = cups.find(c => c.id === cuponeraId) || cups[0];
-    setCuponesCup(cup?.cuponeras_regalo_cupones || []);
-    setSaldoCreditos(saldo);
-  }
-
-  async function handleAgregarCupon4(promo) {
-    if (cuponesCup.some(c => c.promocion_id === promo.id)) return;
-    const { error } = await agregarCupon(negocioId, cuponeraId, promo, cuponesCup.length);
-    if (error) { setCup4Error(error); return; }
-    setCup4Error('');
-    await refrescarPaso4();
-  }
-
-  async function handleSugerir4() {
-    setBusLoading(true);
-    const excluirIds = cuponesCup.map(c => c.promocion_id);
-    setBusResultados(await sugerirCupones(perfil.localidad, { excluirIds }));
-    setBusLoading(false);
-  }
-
-  async function handleQuitarCupon4(cuponeraCuponId) {
-    await quitarCupon(negocioId, cuponeraCuponId);
-    await refrescarPaso4();
-  }
-
-  async function handleCrearOtraCuponera() {
-    if (!nuevaCupNombre.trim()) return;
-    const { data } = await crearCuponeraRegalo(negocioId, nuevaCupNombre.trim());
-    setCuponeraId(data.id);
-    setCuponesCup([]);
-    setNuevaCupNombre('');
-    setShowCrearOtra(false);
-  }
-
-  async function finalizarPaso4() {
-    if (cuponesCup.length > 0 && puedeCompartir) await cambiarEstadoCuponera(cuponeraId, 'activa');
-    onComplete();
-  }
-
+  // El rubro se elige en "Mi Empresa", así que ese paso va PRIMERO: recién
+  // cuando sabemos que es un alojamiento o una agencia tiene sentido mostrarle
+  // un plan. Al comercio no se le ofrece nunca — entra gratis publicando.
+  const esHotelero = perfil.tipo === 'alojamiento';
   const NAV_STEPS = [
-    { n:1, label:'Cuenta',       sub:'Planes para socios' },
-    { n:2, label:'Mi Empresa',   sub:'Perfil del negocio' },
+    { n:1, label:'Mi Empresa',  sub:'Perfil del negocio' },
+    ...(esHotelero ? [{ n:2, label:'Plan', sub:'Regalá el Pase a tus turistas' }] : []),
     { n:3, label:'Crear cupón', sub:'Captá clientes desde el día 1' },
-    ...(plan === 'plus' ? [{ n:4, label:'Cuponera regalo', sub:'Regalale a tus huéspedes' }] : []),
   ];
 
   return (
@@ -462,7 +391,7 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
         <div style={{ padding:'20px 0 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
           <button type="button" onClick={() => onSalir?.()} title="Ir al inicio y descartar el alta comercial"
             style={{ background:'none', border:'none', padding:0, cursor:'pointer', display:'block' }}>
-            <img src="/logo-cuponera-wh.svg" alt="Cuponera" style={{ width:180, height:'auto', display:'block' }} />
+            <img src="/logo-cuponear-wh.svg" alt="Cuponear" style={{ width:180, height:'auto', display:'block' }} />
           </button>
           <div style={{ fontSize:10.5, color:OBMUTED, fontWeight:600, letterSpacing:'0.04em' }}>Registro de socio</div>
         </div>
@@ -515,7 +444,7 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
           <div style={{ fontSize:11, fontWeight:700, color:OBMUTED, letterSpacing:'0.08em', marginBottom:8 }}>PASO {obStep} DE {NAV_STEPS.length}</div>
 
           {/* ── Paso 2: Mi Empresa ── */}
-          {obStep === 2 && (
+          {obStep === 1 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div>
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
@@ -539,12 +468,12 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
             </div>
           )}
 
-          {/* ── Paso 1: Cuenta ── */}
-          {obStep === 1 && (
+          {/* ── Paso 2: Plan (sólo alojamientos y agencias) ── */}
+          {obStep === 2 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <VolverBtn onClick={irAtras} />
-                <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Elegí tu plan</h1>
+                <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Regalá el Pase a tus turistas</h1>
               </div>
 
               {errors._ && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{errors._}</div>}
@@ -562,137 +491,12 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
                 </div>
               ) : (
                 <PlanPicker
-                  value={plan}
                   primaryColor={OBP}
                   saving={saving}
                   unidadesDeclaradas={UNIDADES_DEFAULT}
                   onConfirmFree={confirmarFree}
                   onConfirmPlus={confirmarPlus}
                 />
-              )}
-            </div>
-          )}
-
-          {/* ── Paso 4: Cuponera regalo (solo Plus) ── */}
-          {obStep === 4 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
-                  <VolverBtn onClick={irAtras} />
-                  <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Armá tu primera cuponera regalo</h1>
-                </div>
-                <p style={{ margin:0, fontSize:13, color:OBINK2 }}>Sumale cupones de otros socios y regalásela a tus huéspedes con tu alias. La pagás una sola vez al armarla — hoy tenés créditos de bienvenida para empezar.</p>
-              </div>
-
-              {cup4Loading ? (
-                <div style={{ padding:'30px 0', textAlign:'center', fontFamily:OBFONT, fontSize:13, color:OBMUTED }}>Cargando…</div>
-              ) : (
-                <>
-                  <div style={{ display:'flex', gap:14, alignItems:'center' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:6, fontFamily:OBFONT, fontSize:13, color:OBINK2 }}>
-                      <Coins size={16} color="#f59e0b" /> <b style={{ color:OBINK }}>{saldoCreditos}</b> créditos disponibles
-                    </div>
-                    {aliasSocio && (
-                      <div style={{ fontFamily:OBFONT, fontSize:13, color:OBINK2 }}>
-                        Alias: <b style={{ color:OBINK }}>{aliasSocio.codigo}</b> · {aliasSocio.unidades_declaradas} activaciones/semana
-                      </div>
-                    )}
-                  </div>
-
-                  {cup4Error && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{cup4Error}</div>}
-
-                  <OBCard>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                      <OBCardTitle label="Cupones incluidos" />
-                      {!showCrearOtra && (
-                        <button type="button" onClick={() => setShowCrearOtra(true)} style={{ fontSize:12, fontWeight:700, color:OBP, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT }}>
-                          Crear otra cuponera
-                        </button>
-                      )}
-                    </div>
-
-                    {showCrearOtra && (
-                      <div style={{ display:'flex', gap:8, marginBottom:14 }}>
-                        <input value={nuevaCupNombre} onChange={e => setNuevaCupNombre(e.target.value)} placeholder="Nombre de la nueva cuponera" style={inp} onKeyDown={e => e.key === 'Enter' && handleCrearOtraCuponera()} />
-                        <button type="button" onClick={handleCrearOtraCuponera} style={{ background:OBP, color:'#fff', border:'none', borderRadius:10, padding:'0 16px', fontFamily:OBFONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>Crear</button>
-                        <button type="button" onClick={() => setShowCrearOtra(false)} style={{ background:'transparent', color:OBMUTED, border:`1px solid ${OBLINE}`, borderRadius:10, padding:'0 14px', fontFamily:OBFONT, fontSize:13, fontWeight:600, cursor:'pointer' }}>Cancelar</button>
-                      </div>
-                    )}
-
-                    {cuponesCup.length === 0 ? (
-                      <div style={{ textAlign:'center', padding:'24px 0', color:OBMUTED, fontFamily:OBFONT, fontSize:13 }}>
-                        Todavía no agregaste cupones — elegí alguno de la lista de abajo.
-                      </div>
-                    ) : (
-                      <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:4 }}>
-                        {cuponesCup.map(cup => (
-                          <div key={cup.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:10, border:`1px solid ${OBLINE}` }}>
-                            <img src={cup.promociones?.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width:38, height:38, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontFamily:OBFONT, fontSize:13, fontWeight:700, color:OBINK, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cup.promociones?.titulo}</div>
-                              <div style={{ fontFamily:OBFONT, fontSize:11, color:OBMUTED }}>{cup.promociones?.negocios?.nombre}</div>
-                            </div>
-                            <span style={{ fontSize:11, fontWeight:700, color:OBINK2, display:'flex', alignItems:'center', gap:4, fontFamily:OBFONT, flexShrink:0 }}>
-                              <Coins size={12} color="#f59e0b" /> {cup.costo_creditos}
-                            </span>
-                            <button type="button" onClick={() => handleQuitarCupon4(cup.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#ef4444', padding:4, flexShrink:0 }}><Trash2 size={14} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </OBCard>
-
-                  <OBCard>
-                    <OBCardTitle label={`Catálogo en ${perfil.localidad || 'tu localidad'}`} />
-                    <button type="button" onClick={handleSugerir4} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:OBPS, color:OBP, border:`1.5px dashed ${OBP}55`, borderRadius:10, padding:'10px 0', fontFamily:OBFONT, fontSize:12.5, fontWeight:700, cursor:'pointer', marginBottom:12 }}>
-                      <Coins size={14} color="#f59e0b" /> Sugerir cupones de mi zona automáticamente
-                    </button>
-                    <div style={{ display:'flex', gap:8, marginBottom:14 }}>
-                      <input value={busTexto} onChange={e => setBusTexto(e.target.value)}
-                        onKeyDown={async e => { if (e.key === 'Enter') { setBusLoading(true); setBusResultados(await buscarPromosDisponibles({ localidad: perfil.localidad, texto: busTexto })); setBusLoading(false); } }}
-                        placeholder="Buscar por título..." style={inp} />
-                    </div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:280, overflowY:'auto' }}>
-                      {busLoading ? (
-                        <div style={{ textAlign:'center', padding:20, color:OBMUTED, fontFamily:OBFONT, fontSize:13 }}>Buscando…</div>
-                      ) : busResultados.length === 0 ? (
-                        <div style={{ textAlign:'center', padding:20, color:OBMUTED, fontFamily:OBFONT, fontSize:13 }}>Sin resultados</div>
-                      ) : busResultados.map(p => {
-                        const costo = costoCreditosDePromo(p);
-                        const yaIncluido = cuponesCup.some(c => c.promocion_id === p.id);
-                        return (
-                          <div key={p.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderRadius:10, border:`1px solid ${OBLINE}` }}>
-                            <img src={p.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width:38, height:38, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontFamily:OBFONT, fontSize:13, fontWeight:700, color:OBINK, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
-                              <div style={{ fontFamily:OBFONT, fontSize:11, color:OBMUTED }}>{p.negocios?.nombre}</div>
-                            </div>
-                            <span style={{ fontSize:11, fontWeight:700, color:OBINK2, display:'flex', alignItems:'center', gap:4, fontFamily:OBFONT, flexShrink:0 }}>
-                              <Coins size={12} color="#f59e0b" /> {costo}
-                            </span>
-                            <button type="button" disabled={yaIncluido} onClick={() => handleAgregarCupon4(p)}
-                              style={{ background:yaIncluido?OBLINE:OBPS, color:yaIncluido?OBMUTED:OBP, border:'none', borderRadius:8, padding:'6px 12px', fontFamily:OBFONT, fontSize:12, fontWeight:700, cursor:yaIncluido?'default':'pointer', flexShrink:0 }}>
-                              {yaIncluido ? 'Agregado' : 'Agregar'}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </OBCard>
-
-                  {!puedeCompartir && cuponesCup.length > 0 && (
-                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', fontFamily:OBFONT, fontSize: 12, color: '#b45309' }}>
-                      Tu comprobante de transferencia está pendiente de aprobación — tu cuponera queda en borrador y la vas a poder publicar desde el panel apenas se apruebe.
-                    </div>
-                  )}
-
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, paddingBottom:40 }}>
-                    <BtnNext onClick={finalizarPaso4} saving={saving} label={cuponesCup.length > 0 && puedeCompartir ? 'Publicar y terminar' : 'Terminar'} />
-                    <button onClick={onComplete} style={{ fontSize:13, color:OBMUTED, background:'none', border:'none', cursor:'pointer', fontFamily:OBFONT, fontWeight:600 }}>
-                      Lo haré más tarde →
-                    </button>
-                  </div>
-                </>
               )}
             </div>
           )}
@@ -859,7 +663,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
         {/* Logo */}
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', marginBottom: 22 }}>
-          <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 42, width: 'auto' }} />
+          <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 42, width: 'auto' }} />
           <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: A.primary, fontFamily: A.font }}>{getSiteName()}</span>
         </button>
 
@@ -929,7 +733,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
                     <div style={{ fontSize: 13, color: A.muted, marginTop: 4, fontFamily: A.font }}>Elegí una opción para empezar tu registro.</div>
                   </div>
                   {[
-                    { id: 'turista',   Icon: User, titulo: 'Soy turista', desc: 'Explorá descuentos de la zona, agregá a cuponeras y disfrutá todos los beneficios.' },
+                    { id: 'turista',   Icon: User, titulo: 'Soy turista', desc: 'Explorá descuentos de la zona, armá tu carrito y disfrutá todos los beneficios.' },
                     { id: 'comercial', Icon: Store,  titulo: 'Tengo un negocio',          desc: 'Armá tu ficha de negocio, publicá ofertas y sumá clientes. ¡Empezá GRATIS!' },
                   ].map(o => (
                     <button key={o.id} type="button" onClick={() => { setModoRegistro(o.id); setError(''); }}

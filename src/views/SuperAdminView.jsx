@@ -6,18 +6,18 @@ import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Cal
 import { TabOfertas as SocioOfertasEditor } from './AdminNegocioView';
 import { CoinSVG } from '../components/Token';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
-import { descontarToken, debeUsarTokens, CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
-import { getPlanesConfig, actualizarPlanCopy } from '../lib/planes';
+import { CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
+import { getPlanesPro, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
 import { PORTADA_CATEGORIAS, listarPortadasAdmin, crearPortada, actualizarPortada, eliminarPortada } from '../lib/portadas';
 import { getDemandaDestinos } from '../lib/demanda';
 import { categoriaDeNegocio, normalizePromo } from '../lib/datos';
 import OfertaCard from '../components/OfertaCard';
-import PortadaCuponera from '../components/PortadaCuponera';
+import PortadaCupopack from '../components/PortadaCupopack';
 import { FAMILIAS_PACK, familiaLabel } from '../lib/familiasPack';
-import { listarCuponerasLocales, crearCuponeraLocal, actualizarCuponeraLocal, eliminarCuponeraLocal, agregarCuponASet, quitarCuponDeSet } from '../lib/cuponerasLocales';
+import { listarCupopacks, crearCupopack, actualizarCupopack, eliminarCupopack, agregarCuponASet, quitarCuponDeSet } from '../lib/cupopacks';
 import { BENEFICIO_ICONOS, getBeneficioIcon } from '../lib/beneficioIconos';
-import { BENEFICIO_TIPOS, tipoBeneficio } from '../lib/beneficiosCuponera';
+import { BENEFICIO_TIPOS, tipoBeneficio } from '../lib/beneficiosCupopack';
 import { CAPACIDADES, listarRoles, crearRol, actualizarRol, eliminarRol, listarUsuariosAdmin, crearUsuario, actualizarUsuario, eliminarUsuario } from '../lib/adminUsuarios';
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -55,6 +55,7 @@ const A = {
 const TABS = [
   { id: 'resumen',   label: 'Resumen'   },
   { id: 'socios',    label: 'Socios comerciales' },
+  { id: 'creditos',  label: 'Créditos publicitarios' },
   { id: 'turistas',  label: 'Turistas'  },
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'estadisticas', label: 'Estadísticas y ventas' },
@@ -66,9 +67,10 @@ const TABS = [
 ];
 
 // ─── Reusable UI atoms ───────────────────────────────────────
-function StatusBadge({ aprobado, activo }) {
-  if (!aprobado) return <span style={{ background:'#FFF4E0', color:'#C28A1B', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:600, fontFamily:A.font }}>Pendiente</span>;
-  if (aprobado && activo) return <span style={{ background:'#E8F5EC', color:A.green, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:600, fontFamily:A.font }}>Activo</span>;
+// El negocio ya no se aprueba: el socio se da de alta y queda publicado. Lo
+// único que decide la visibilidad es `activo`, que maneja el propio socio.
+function StatusBadge({ activo }) {
+  if (activo) return <span style={{ background:'#E8F5EC', color:A.green, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:600, fontFamily:A.font }}>Activo</span>;
   return <span style={{ background:A.bg, color:A.muted, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:600, fontFamily:A.font }}>Inactivo</span>;
 }
 
@@ -108,7 +110,7 @@ function Sidebar({ tab, setTab, subTab, setSubTab, stats, perfil, onLogout, onGo
       {/* Logo */}
       <div style={{ padding:'0 0 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
         <button onClick={onGoHome} title="Ir a la home" style={{ background:'none', border:'none', padding:0, cursor:'pointer', display:'block' }}>
-          <img src="/logo-cuponera-wh.svg" alt="Cuponear" style={{ width:180, height:'auto', display:'block' }} />
+          <img src="/logo-cuponear-wh.svg" alt="Cuponear" style={{ width:180, height:'auto', display:'block' }} />
         </button>
         <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.5)', fontWeight:600, letterSpacing:'0.04em' }}>Panel de control</div>
       </div>
@@ -117,7 +119,7 @@ function Sidebar({ tab, setTab, subTab, setSubTab, stats, perfil, onLogout, onGo
       <nav style={{ display:'flex', flexDirection:'column', gap:2, marginTop:10 }}>
         {TABS.map(t => {
           const active = tab === t.id;
-          const badge = t.id === 'socios' ? stats.pendientes : t.id === 'marketplace' ? stats.ofertas : t.id === 'consultas' ? stats.consultas : 0;
+          const badge = t.id === 'marketplace' ? stats.ofertas : t.id === 'consultas' ? stats.consultas : 0;
           // El badge de consultas es un círculo de notificación rojo (mensajes sin leer de Cuponix).
           const esNotif = t.id === 'consultas';
           return (
@@ -187,6 +189,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
   const [consultas, setConsultas] = useState([]);
   const [ofertas, setOfertas]     = useState([]);
   const [ventas, setVentas]       = useState([]);
+  const [compras, setCompras]     = useState([]);   // token_compras — créditos publicitarios
   const [loading, setLoading]     = useState(true);
   const [toast, setToast]         = useState(null);
   const [negocioEditando, setNegocioEditando] = useState(null);
@@ -197,12 +200,13 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
 
   async function cargarTodo() {
     setLoading(true);
-    const [negRes, usrRes, conRes, ofRes, ventRes] = await Promise.all([
+    const [negRes, usrRes, conRes, ofRes, ventRes, comRes] = await Promise.all([
       supabase.from('negocios').select('*').order('creado_en', { ascending: false }),
       supabase.from('perfiles').select('*, negocios(nombre)').order('creado_en', { ascending: false }),
       supabase.from('consultas').select('*, negocios(nombre)').order('creado_en', { ascending: false }),
       supabase.from('promociones').select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url)').order('creado_en', { ascending: false }),
       supabase.from('ventas').select('*, venta_items(*, negocios(nombre), promociones(titulo))').order('creado_en', { ascending: false }),
+      supabase.from('token_compras').select('*, negocios(nombre, tipo, localidad)').order('creado_en', { ascending: false }),
     ]);
     if (negRes.data) setNegocios(negRes.data);
     if (usrRes.data) {
@@ -224,19 +228,14 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
       }
     }
     if (ventRes.data) setVentas(ventRes.data);
+    if (comRes.data) setCompras(comRes.data);
     setLoading(false);
   }
+
 
   function showToast(msg, type = 'ok') {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
-  }
-
-  async function aprobar(id) {
-    const { error } = await supabase.from('negocios').update({ aprobado: true, activo: true }).eq('id', id);
-    if (error) return showToast('Error al aprobar', 'error');
-    setNegocios(prev => prev.map(n => n.id === id ? { ...n, aprobado: true, activo: true } : n));
-    showToast('Negocio aprobado y publicado');
   }
 
   async function toggleActivo(id, activo) {
@@ -253,13 +252,6 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     showToast(estado ? 'Turista desbloqueado' : 'Turista bloqueado');
   }
 
-  async function aprobarComprobante(id) {
-    const { error } = await supabase.from('negocios').update({ puede_compartir_cuponeras: true }).eq('id', id);
-    if (error) return showToast('Error al aprobar comprobante', 'error');
-    setNegocios(prev => prev.map(n => n.id === id ? { ...n, puede_compartir_cuponeras: true } : n));
-    showToast('Comprobante aprobado — ya puede compartir cuponeras');
-  }
-
   async function marcarLeida(id) {
     await supabase.from('consultas').update({ leida: true }).eq('id', id);
     setConsultas(prev => prev.map(c => c.id === id ? { ...c, leida: true } : c));
@@ -269,8 +261,9 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
 
   const ofertasPendientes = ofertas.filter(o => !o.aprobada).length;
   const stats = {
-    activos:    negocios.filter(n => n.activo && n.aprobado).length,
-    pendientes: negocios.filter(n => !n.aprobado).length,
+    activos:    negocios.filter(n => n.activo).length,
+    inactivos:  negocios.filter(n => !n.activo).length,
+    creditosVendidos: compras.reduce((acc, c) => acc + (Number(c.cantidad) || 0), 0),
     consultas:  consultas.filter(c => !c.leida).length,
     ofertas:    ofertasPendientes,
     ventas:     ventas.length,
@@ -328,7 +321,8 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
         ) : (
           <>
             {tab === 'resumen'   && <TabResumen stats={stats} negocios={negocios} consultas={consultas} ofertas={ofertas} ventas={ventas} onEditarSocio={onEditarSocio} setTab={setTab} setOfertas={setOfertas} showToast={showToast} onActualizar={cargarTodo} />}
-            {tab === 'socios'    && <TabNegocios negocios={negocios} onAprobar={aprobar} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} onAprobarComprobante={aprobarComprobante} onActualizar={cargarTodo} />}
+            {tab === 'socios'    && <TabNegocios negocios={negocios} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} onActualizar={cargarTodo} />}
+            {tab === 'creditos'  && <TabCreditos compras={compras} />}
             {tab === 'turistas'  && <TabTuristas usuarios={turistas} onToggle={toggleActivoUsuario} onActualizar={cargarTodo} />}
             {tab === 'marketplace' && <TabMarketplace ofertas={ofertas} setOfertas={setOfertas} showToast={showToast} negocioEditando={negocioEditando} setNegocioEditando={setNegocioEditando} filtroNegocioId={filtroNegocioId} setFiltroNegocioId={setFiltroNegocioId} negocios={negocios} onActualizar={cargarTodo} />}
             {tab === 'consultas' && <TabConsultas consultas={consultas} onLeer={marcarLeida} />}
@@ -336,7 +330,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
               <div style={{ display:'flex', flexDirection:'column', gap:32 }}>
                 <div>
                   <h2 style={{ fontFamily:A.font, fontSize:18, fontWeight:800, color:A.ink, margin:'0 0 4px' }}>Ventas</h2>
-                  <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:'0 0 16px' }}>Cuponeras vendidas y su detalle.</p>
+                  <p style={{ fontFamily:A.font, fontSize:13, color:A.muted, margin:'0 0 16px' }}>Cupopacks vendidos y su detalle.</p>
                   <TabVentas ventas={ventas} />
                 </div>
                 <TabEstadisticas />
@@ -359,7 +353,7 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
 
   const kpis = [
     { t:'Socios activos',  v: stats.activos,    d:'+4 este mes',        bg:'#E8F5EC', col:A.green  },
-    { t:'Pendientes',      v: stats.pendientes, d:'por aprobar',         bg:'#FFF7E5', col:'#C28A1B' },
+    { t:'Créditos vendidos', v: stats.creditosVendidos, d:'a socios',       bg:'#FFF7E5', col:'#C28A1B' },
     { t:'Ofertas pend.',   v: stats.ofertas,    d:'revisión requerida',  bg:A.primarySoft, col:A.primary },
     { t:'Ventas totales',  v: stats.ventas,     d:`$${stats.ingresos.toLocaleString('es-AR')} acumulados`, bg:'#F3E8FF', col:'#7A3FD8' },
   ];
@@ -409,7 +403,7 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
                 <div style={{ fontFamily:A.font, fontSize:13, fontWeight:600, color:A.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.nombre}</div>
                 <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginTop:1 }}>{n.tipo} · {n.localidad || '—'}</div>
               </div>
-              <StatusBadge aprobado={n.aprobado} activo={n.activo} />
+              <StatusBadge activo={n.activo} />
             </button>
           ))}
           {negocios.length === 0 && <div style={{ padding:'32px 18px', textAlign:'center', color:A.muted, fontSize:13 }}>Sin socios aún</div>}
@@ -455,7 +449,7 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
               <div style={{ width:36, height:36, borderRadius:10, background:'#F3E8FF', display:'grid', placeItems:'center', flexShrink:0, fontSize:16 }}>💰</div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:A.ink }}>${Number(v.monto_total).toLocaleString('es-AR')}</div>
-                <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, display:'flex', alignItems:'center', gap:4 }}><img src="/cuponera-coin.svg" alt="crédito" style={{width:12,height:12}}/> {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas</div>
+                <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, display:'flex', alignItems:'center', gap:4 }}><img src="/credito-coin.svg" alt="crédito" style={{width:12,height:12}}/> {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas</div>
               </div>
               <span style={{ background: v.estado === 'completada' ? '#E8F5EC' : '#FFF7E5', color: v.estado === 'completada' ? A.green : '#C28A1B', padding:'3px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>{v.estado}</span>
             </div>
@@ -468,17 +462,123 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
 }
 
 // ═══════════════════════════════════════════════════════════
+//  TAB: CRÉDITOS PUBLICITARIOS
+//  Historial de compras. Los créditos se acreditan solos al comprar, sin
+//  aprobación de nadie: acá no se habilita nada, se mira.
+//  Lo único que aporta es separar las compras por transferencia y efectivo,
+//  que son las que hay que ir a chequear contra el banco o la caja.
+// ═══════════════════════════════════════════════════════════
+const FORMA_PAGO_LABEL = {
+  transferencia: 'Transferencia',
+  efectivo:      'Efectivo',
+  mercadopago:   'MercadoPago',
+  tarjeta:       'Tarjeta',
+};
+
+const fmtFechaCompra = iso => iso
+  ? new Date(iso).toLocaleDateString('es-AR', { day:'numeric', month:'short' })
+  : null;
+
+// Las que hay que ir a chequear a mano contra el banco o la caja.
+const PAGO_A_CONCILIAR = new Set(['transferencia', 'efectivo']);
+
+function TabCreditos({ compras }) {
+  const [filtro, setFiltro] = useState('conciliar');   // conciliar | online | todas
+
+  const aConciliar = compras.filter(c => PAGO_A_CONCILIAR.has(c.forma_pago));
+  const listadas =
+    filtro === 'conciliar' ? aConciliar :
+    filtro === 'online'    ? compras.filter(c => !PAGO_A_CONCILIAR.has(c.forma_pago)) :
+    compras;
+
+  const totalListado = listadas.reduce((acc, c) => acc + (Number(c.total_con_iva) || 0), 0);
+  const credsListados = listadas.reduce((acc, c) => acc + (Number(c.cantidad) || 0), 0);
+
+  const FILTROS = [
+    { id: 'conciliar', label: `Transferencia y efectivo (${aConciliar.length})` },
+    { id: 'online',    label: 'Tarjeta y MercadoPago' },
+    { id: 'todas',     label: 'Todas' },
+  ];
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ background:A.primarySoft, border:`1px solid ${A.line}`, borderRadius:14, padding:'14px 16px' }}>
+        <div style={{ fontFamily:A.font, fontSize:13, color:A.ink2 }}>
+          Los créditos se acreditan solos al comprar — acá no se habilita nada.
+          Esta lista es para conciliar: las compras por <strong>transferencia y efectivo</strong> son
+          las que hay que verificar contra el banco o la caja.
+        </div>
+      </div>
+
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+        {FILTROS.map(f => (
+          <button key={f.id} onClick={() => setFiltro(f.id)} style={{
+            border: `1px solid ${filtro === f.id ? A.primary : A.line}`,
+            background: filtro === f.id ? A.primarySoft : '#fff',
+            color: filtro === f.id ? A.primary : A.ink2,
+            borderRadius:999, padding:'7px 14px', fontFamily:A.font, fontSize:12.5, fontWeight:600, cursor:'pointer',
+          }}>{f.label}</button>
+        ))}
+      </div>
+
+      <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:16, overflow:'hidden' }}>
+        {listadas.length === 0 && (
+          <div style={{ padding:'40px 18px', textAlign:'center', fontFamily:A.font, fontSize:13, color:A.muted }}>
+            Sin compras acá todavía.
+          </div>
+        )}
+        {listadas.map((c, i) => (
+          <div key={c.id} style={{
+            display:'flex', alignItems:'center', gap:14, padding:'14px 16px', flexWrap:'wrap',
+            borderBottom: i === listadas.length - 1 ? 'none' : `1px solid ${A.line}`,
+          }}>
+            <div style={{ width:38, height:38, borderRadius:11, background:A.primarySoft, display:'grid', placeItems:'center', flexShrink:0 }}>
+              <CoinSVG size={20} />
+            </div>
+
+            <div style={{ flex:1, minWidth:180 }}>
+              <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink }}>
+                {c.negocios?.nombre || 'Socio sin nombre'}
+              </div>
+              <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginTop:2 }}>
+                {c.cantidad} crédito{c.cantidad !== 1 ? 's' : ''} · {FORMA_PAGO_LABEL[c.forma_pago] || c.forma_pago}
+                {c.descuento_pct > 0 ? ` · ${c.descuento_pct}% off` : ''}
+                {c.creado_en ? ` · ${fmtFechaCompra(c.creado_en)}` : ''}
+              </div>
+            </div>
+
+            <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink, minWidth:100, textAlign:'right' }}>
+              ${Number(c.total_con_iva || 0).toLocaleString('es-AR')}
+            </div>
+
+            {PAGO_A_CONCILIAR.has(c.forma_pago) && (
+              <span style={{ background:'#FFF7E5', color:'#8A6412', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:600, fontFamily:A.font, flexShrink:0 }}>
+                Verificar cobro
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {listadas.length > 0 && (
+        <div style={{ fontFamily:A.font, fontSize:12.5, color:A.muted, textAlign:'right' }}>
+          {listadas.length} compra{listadas.length !== 1 ? 's' : ''} · {credsListados} créditos · ${totalListado.toLocaleString('es-AR')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 //  TAB: SOCIOS
 // ═══════════════════════════════════════════════════════════
-function TabNegocios({ negocios, onToggle, onEditarComoSocio, onAprobarComprobante, onActualizar }) {
+function TabNegocios({ negocios, onToggle, onEditarComoSocio, onActualizar }) {
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
   const [filtroLocalidad, setFiltroLocalidad] = useState('todas');
   const [ordenamiento, setOrdenamiento]       = useState('creado');
   const [busqueda, setBusqueda]               = useState('');
   const [seleccionados, setSeleccionados]     = useState([]);
   const [accion, setAccion]                   = useState('');
-
-  const comprobantesPendientes = negocios.filter(n => n.plan === 'plus' && n.puede_compartir_cuponeras === false);
 
   const tiposAloj   = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
   const tiposGastro = ['Restaurante','Bar','Café','Balneario','Pastelería','Gourmet'];
@@ -532,24 +632,6 @@ function TabNegocios({ negocios, onToggle, onEditarComoSocio, onAprobarComproban
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-      {/* Comprobantes de transferencia pendientes de aprobación */}
-      {comprobantesPendientes.length > 0 && (
-        <div style={{ background:'#FFF9E8', border:'1px solid #FDE68A', borderRadius:14, padding:16 }}>
-          <div style={{ fontFamily:A.font, fontSize:13, fontWeight:700, color:'#92400E', marginBottom:10 }}>
-            Comprobantes de transferencia pendientes ({comprobantesPendientes.length})
-          </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {comprobantesPendientes.map(n => (
-              <div key={n.id} style={{ display:'flex', alignItems:'center', gap:12, background:'#fff', borderRadius:10, padding:'10px 14px' }}>
-                <span style={{ flex:1, fontFamily:A.font, fontSize:13, fontWeight:600, color:A.ink }}>{n.nombre}</span>
-                <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{n.tipo}{n.localidad ? ` · ${n.localidad}` : ''}</span>
-                <ABtn onClick={() => onAprobarComprobante(n.id)} variant="success" style={{ fontSize:12, padding:'6px 10px' }}>Aprobar comprobante</ABtn>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Barra filtros */}
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
         <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
@@ -613,7 +695,7 @@ function TabNegocios({ negocios, onToggle, onEditarComoSocio, onAprobarComproban
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
                     <span style={{ fontFamily:A.font, fontSize:14, fontWeight:600, color:A.ink }}>{n.nombre}</span>
-                    <StatusBadge aprobado={n.aprobado} activo={n.activo} />
+                    <StatusBadge activo={n.activo} />
                   </div>
                   <div style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>{formatearCategoria(n.tipo)}{n.localidad ? ` · ${n.localidad}` : ''}{n.zona ? ` · ${n.zona}` : ''}</div>
                 </div>
@@ -838,7 +920,7 @@ function OfertaStatsPanel({ ofertaId }) {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10 }}>
           {[
             { label:'Vistas', value:stats.vistas, bg:A.primarySoft, col:A.primary },
-            { label:'Añadir a cuponera', value:stats.cuponera, bg:'#E8F5EC', col:A.green },
+            { label:'Añadir al carrito', value:stats.cuponera, bg:'#E8F5EC', col:A.green },
             { label:'Clicks Ampliar', value:stats.ampliar, bg:'#F3E8FF', col:'#7A3FD8' },
           ].map(s => (
             <div key={s.label} style={{ background:s.bg, borderRadius:10, padding:'14px 16px' }}>
@@ -880,7 +962,7 @@ function CuponEditDrawer({ oferta, negocios, ofertas, showToast, onClose, onOfer
 }
 
 // ─── Contenido visual de una fila de cupón (foto + socio + título + métricas) ─
-// Compartido entre el listado de Cupones y el armador de "Nueva cuponera".
+// Compartido entre el listado de Cupones y el armador de "Nuevo Cupopack".
 function CuponRowBody({ o, precioDe, onSocio }) {
   const vencida = o.fecha_vencimiento && new Date(o.fecha_vencimiento) < new Date();
   const fmtFecha = iso => iso ? new Date(iso).toLocaleDateString('es-AR', { day:'numeric', month:'short' }) : null;
@@ -1179,7 +1261,7 @@ function TabOfertas({ ofertas, setOfertas, showToast, negocioEditando, setNegoci
 }
 
 // ═══════════════════════════════════════════════════════════
-//  TAB: CUPONERAS LOCALES (Sets = grupos de cupones)
+//  TAB: CUPOPACKS (selecciones curadas de cupones)
 // ═══════════════════════════════════════════════════════════
 function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNegocioEditando, filtroNegocioId, setFiltroNegocioId, negocios, onActualizar }) {
   const [mkTab, setMkTab]       = useState('cupones');  // 'cupones' | 'cuponeras' | 'nueva'
@@ -1194,16 +1276,16 @@ function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNe
 
   async function cargar() {
     setLoading(true);
-    const { data } = await listarCuponerasLocales();
+    const { data } = await listarCupopacks();
     setSets(data || []);
     setLoading(false);
   }
   useEffect(() => { cargar(); }, []);
 
-  // Crea la cuponera y la devuelve (o null si falló). El toast lo maneja quien llama.
+  // Crea el Cupopack y lo devuelve (o null si falló). El toast lo maneja quien llama.
   async function crear(campos) {
-    const { data, error } = await crearCuponeraLocal(campos);
-    if (error) { showToast('Error al crear la cuponera', 'error'); return null; }
+    const { data, error } = await crearCupopack(campos);
+    if (error) { showToast('Error al crear el Cupopack', 'error'); return null; }
     const nuevo = { ...data, promocionIds: [] };
     setSets(prev => [nuevo, ...prev]);
     return nuevo;
@@ -1211,16 +1293,16 @@ function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNe
 
   async function cambiar(id, campos) {
     setSets(prev => prev.map(s => s.id === id ? { ...s, ...campos } : s));
-    const { error } = await actualizarCuponeraLocal(id, campos);
+    const { error } = await actualizarCupopack(id, campos);
     if (error) { showToast('Error al guardar', 'error'); cargar(); }
   }
 
   async function borrar(id) {
-    if (!window.confirm('¿Eliminar esta cuponera local? Los cupones no se borran, sólo el set.')) return;
+    if (!window.confirm('¿Eliminar este Cupopack? Los cupones no se borran, sólo la selección.')) return;
     setSets(prev => prev.filter(s => s.id !== id));
-    const { error } = await eliminarCuponeraLocal(id);
+    const { error } = await eliminarCupopack(id);
     if (error) { showToast('Error al eliminar', 'error'); cargar(); }
-    else showToast('Cuponera eliminada');
+    else showToast('Cupopack eliminado');
   }
 
   async function toggleCupon(set, promoId) {
@@ -1249,7 +1331,7 @@ function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNe
       <div style={{ display:'flex', borderBottom:`1px solid ${A.line}` }}>
         {tabBtn('cupones', 'Cupones')}
         {tabBtn('cuponeras', `Cuponeras${sets.length ? ` (${sets.length})` : ''}`)}
-        {tabBtn('nueva', 'Nueva cuponera')}
+        {tabBtn('nueva', 'Nuevo Cupopack')}
       </div>
 
       {mkTab === 'cupones' && (
@@ -1260,13 +1342,13 @@ function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNe
       )}
 
       {mkTab === 'cuponeras' && (loading ? <MiniLoader /> : (
-        <CuponerasLista sets={sets} ofertas={ofertas} promoById={promoById} precioDe={precioDe}
+        <CupopacksLista sets={sets} ofertas={ofertas} promoById={promoById} precioDe={precioDe}
           localidades={localidades} pickerAbierto={pickerAbierto} setPickerAbierto={setPickerAbierto}
           cambiar={cambiar} borrar={borrar} toggleCupon={toggleCupon} onNueva={() => setMkTab('nueva')} />
       ))}
 
       {mkTab === 'nueva' && (loading ? <MiniLoader /> : (
-        <CuponeraNueva ofertas={ofertas} sets={sets} localidades={localidades} promoById={promoById}
+        <CupopackNuevo ofertas={ofertas} sets={sets} localidades={localidades} promoById={promoById}
           precioDe={precioDe} onCrear={crear} onToggleCupon={toggleCupon} showToast={showToast}
           onFinalizar={() => setMkTab('cuponeras')} />
       ))}
@@ -1306,15 +1388,15 @@ function BeneficioChip({ texto, icono }) {
   );
 }
 
-// ─── Tab "Cuponeras": listado de cuponeras existentes ────────
-function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, pickerAbierto, setPickerAbierto, cambiar, borrar, toggleCupon, onNueva }) {
+// ─── Tab "Cupopacks": listado de los que ya existen ──────────
+function CupopacksLista({ sets, ofertas, promoById, precioDe, localidades, pickerAbierto, setPickerAbierto, cambiar, borrar, toggleCupon, onNueva }) {
   const selStyle = { padding:'8px 11px', borderRadius:10, border:`1px solid ${A.line}`, fontSize:13, fontFamily:A.font, background:'#fff', color:A.ink, outline:'none', cursor:'pointer' };
   const inputStyle = { ...selStyle, cursor:'text' };
 
   if (sets.length === 0) {
     return (
       <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'48px 24px', textAlign:'center', fontFamily:A.font }}>
-        <p style={{ color:A.muted, margin:'0 0 16px' }}>Todavía no hay cuponeras.</p>
+        <p style={{ color:A.muted, margin:'0 0 16px' }}>Todavía no hay Cupopacks.</p>
         <ABtn variant="primary" onClick={onNueva}><Plus size={15} style={{ marginRight:6, verticalAlign:'-2px' }} />Crear la primera</ABtn>
       </div>
     );
@@ -1344,7 +1426,7 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                 {/* Foto principal — ocupa todo el alto, a la izquierda */}
                 <div style={{ position:'relative', width:180, flexShrink:0, alignSelf:'stretch', minHeight:150, background:A.bg, borderRight:`1px solid ${A.line}` }}>
                   {esMosaico && cuponesConFoto.length > 0
-                    ? <PortadaCuponera cuponera={previewPortada} alt={set.nombre} />
+                    ? <PortadaCupopack cupopack={previewPortada} alt={set.nombre} />
                     : set.imagen_url
                     ? <img src={set.imagen_url} alt={set.nombre} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
                     : <div style={{ width:'100%', height:'100%', display:'grid', placeItems:'center', fontSize:30, color:A.muted }}>🖼️</div>
@@ -1390,7 +1472,7 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                   <span style={{ fontFamily:A.font, fontSize:12, color:A.ink2, fontWeight:600 }}>Valor de activación ${precioTotal.toLocaleString('es-AR')}</span>
                   {set.localidad && <span style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>· {set.localidad}</span>}
                   {/* La categoría, a la vista sin entrar a editar: sin ella la
-                      cuponera no aparece en ningún filtro de packs. */}
+                      Cupopack no aparece en ningún filtro. */}
                   <span style={{ fontFamily:A.font, fontSize:12, fontWeight:600, color: set.familia ? A.primary : '#C03030' }}>
                     {set.familia ? `· ${familiaLabel(set.familia)}` : '· Sin categoría'}
                   </span>
@@ -1421,7 +1503,7 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                     <option value="">Sin categoría</option>
                     {FAMILIAS_PACK.map(f => <option key={f.id} value={f.id}>Categoría: {f.label}</option>)}
                   </select>
-                  <button onClick={() => borrar(set.id)} title="Eliminar cuponera" style={{ background:'none', border:`1px solid ${A.line}`, borderRadius:8, padding:'7px 9px', cursor:'pointer', color:'#C03030', display:'flex', alignItems:'center' }}>
+                  <button onClick={() => borrar(set.id)} title="Eliminar Cupopack" style={{ background:'none', border:`1px solid ${A.line}`, borderRadius:8, padding:'7px 9px', cursor:'pointer', color:'#C03030', display:'flex', alignItems:'center' }}>
                     <Trash2 size={14} />
                   </button>
                   <ABtn variant="primary" onClick={() => setPickerAbierto(null)} style={{ fontSize:12, padding:'8px 14px' }}>Listo</ABtn>
@@ -1431,7 +1513,7 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                 <div style={{ padding:'0 16px 10px', display:'flex', gap:10, flexWrap:'wrap' }}>
                   <input value={set.descripcion || ''} onChange={e => cambiar(set.id, { descripcion: e.target.value })}
                     onBlur={e => cambiar(set.id, { descripcion: e.target.value.trim() || null })}
-                    placeholder="Descripción de la cuponera (opcional)"
+                    placeholder="Descripción del Cupopack (opcional)"
                     style={{ ...inputStyle, flex:1, minWidth:200, boxSizing:'border-box', fontSize:13, color:A.ink2 }} />
                   <input value={set.badge || ''} onChange={e => cambiar(set.id, { badge: e.target.value })}
                     onBlur={e => cambiar(set.id, { badge: e.target.value.trim() || null })}
@@ -1444,13 +1526,13 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                 <div style={{ padding:'0 16px 12px', display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
                   <div style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', background:A.bg, border:`1px solid ${A.line}`, flexShrink:0, display:'grid', placeItems:'center' }}>
                     {esMosaico
-                      ? <PortadaCuponera cuponera={previewPortada} alt="portada" />
+                      ? <PortadaCupopack cupopack={previewPortada} alt="portada" />
                       : set.imagen_url
                       ? <img src={set.imagen_url} alt="portada" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                       : <span style={{ fontSize:18 }}>🖼️</span>}
                   </div>
                   <select value={set.portada_modo || 'imagen'} onChange={e => cambiar(set.id, { portada_modo: e.target.value })}
-                    title="Con qué imagen se muestra la cuponera en la home"
+                    title="Con qué imagen se muestra el Cupopack en la home"
                     style={{ ...selStyle, width:230 }}>
                     <option value="imagen">Portada: foto cargada</option>
                     <option value="mosaico">Portada: grilla de las ofertas</option>
@@ -1463,7 +1545,7 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
                 </div>
                 {esMosaico && cuponesConFoto.length === 0 && (
                   <div style={{ padding:'0 16px 12px', fontFamily:A.font, fontSize:12, color:'#C03030' }}>
-                    Ninguna oferta del set tiene foto: hasta que carguen una, la cuponera muestra la portada de arriba.
+                    Ninguna oferta del Cupopack tiene foto: hasta que carguen una, se muestra la portada de arriba.
                   </div>
                 )}
 
@@ -1525,14 +1607,14 @@ function CuponerasLista({ sets, ofertas, promoById, precioDe, localidades, picke
 }
 
 // ─── Armador de cupones (filtros + resultados + barra de totales) ──
-// Compartido por "Nueva cuponera" y el modo edición de una cuponera.
+// Compartido por "Nuevo Cupopack" y el modo edición de uno existente.
 function ArmadorCupones({ set, ofertas, localidades, promoById, precioDe, onToggleCupon }) {
   const [busqueda, setBusqueda]             = useState('');
   const [filtroLocalidad, setFiltroLocalidad] = useState('todas');
   const [filtroTipo, setFiltroTipo]         = useState('todos');
   const [soloFlash, setSoloFlash]           = useState(false);
   const [orden, setOrden]                   = useState('creado');
-  // Si la cuponera ya tiene cupones, arranca mostrando los agregados.
+  // Si el Cupopack ya tiene cupones, arranca mostrando los agregados.
   const [verAgregados, setVerAgregados]     = useState((set?.promocionIds?.length || 0) > 0);
   const [mostrar, setMostrar]               = useState(10);
 
@@ -1560,7 +1642,7 @@ function ArmadorCupones({ set, ofertas, localidades, promoById, precioDe, onTogg
     }
   });
 
-  // ── Totales acumulados de ESTA cuponera ──
+  // ── Totales acumulados de ESTE Cupopack ──
   const cuponesAgregados = agregadosIds.map(id => promoById[id]).filter(Boolean);
   const totalAhorro      = cuponesAgregados.reduce((a, o) => a + (Number(o.ahorro_estimado) || 0), 0);
   const totalActivacion  = cuponesAgregados.reduce((a, o) => a + precioDe(o), 0);
@@ -1609,7 +1691,7 @@ function ArmadorCupones({ set, ofertas, localidades, promoById, precioDe, onTogg
       <div style={{ display:'flex', flexDirection:'column', gap:8, paddingBottom:8 }}>
         {resultados.length === 0 ? (
           <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'40px 24px', textAlign:'center', color:A.muted, fontFamily:A.font }}>
-            {verAgregados ? 'Todavía no agregaste cupones a esta cuponera.' : 'No hay cupones con estos filtros.'}
+            {verAgregados ? 'Todavía no agregaste cupones a esta cupopack.' : 'No hay cupones con estos filtros.'}
           </div>
         ) : resultados.slice(0, mostrar).map(o => {
           const incluido = agregadosIds.includes(o.id);
@@ -1658,7 +1740,7 @@ function ArmadorCupones({ set, ofertas, localidades, promoById, precioDe, onTogg
   );
 }
 
-function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrear, onToggleCupon, showToast, onFinalizar }) {
+function CupopackNuevo({ ofertas, sets, localidades, promoById, precioDe, onCrear, onToggleCupon, showToast, onFinalizar }) {
   const [nombre, setNombre]           = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [badge, setBadge]             = useState('');
@@ -1675,7 +1757,7 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
   const setActivo = sets.find(s => s.id === setActivoId) || null;
 
   async function guardar() {
-    if (!nombre.trim()) return showToast('Poné un nombre para la cuponera', 'error');
+    if (!nombre.trim()) return showToast('Poné un nombre para el Cupopack', 'error');
     setGuardando(true);
     const nuevo = await onCrear({
       nombre: nombre.trim(), descripcion: descripcion.trim() || null, badge: badge.trim() || null,
@@ -1687,7 +1769,7 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
       familia: familia || null,
     });
     setGuardando(false);
-    if (nuevo) { setSetActivoId(nuevo.id); showToast('Cuponera creada — ahora agregá cupones'); }
+    if (nuevo) { setSetActivoId(nuevo.id); showToast('Cupopack creado — ahora agregá cupones'); }
   }
 
   function nuevaOtra() {
@@ -1699,10 +1781,10 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-      {/* ── Alta / cabecera de la cuponera en armado ── */}
+      {/* ── Alta / cabecera del Cupopack en armado ── */}
       {!setActivo ? (
         <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12 }}>
-          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre de la cuponera"
+          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre del Cupopack"
             style={{ ...inputStyle, width:'100%', boxSizing:'border-box', fontWeight:700, fontSize:15 }} />
           <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Descripción (opcional)"
             rows={2} style={{ ...inputStyle, width:'100%', boxSizing:'border-box', resize:'vertical', lineHeight:1.5 }} />
@@ -1716,7 +1798,7 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
             <div style={{ flex:1, minWidth:0 }}>
               <input value={imagenUrl} onChange={e => setImagenUrl(e.target.value)} placeholder="URL de la foto principal (https://...)"
                 style={{ ...inputStyle, width:'100%', boxSizing:'border-box' }} />
-              <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginTop:6 }}>Es la portada que se ve a la izquierda de la cuponera.</div>
+              <div style={{ fontFamily:A.font, fontSize:11, color:A.muted, marginTop:6 }}>Es la portada que se ve a la izquierda de la cupopack.</div>
             </div>
           </div>
           <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
@@ -1781,7 +1863,7 @@ function CuponeraNueva({ ofertas, sets, localidades, promoById, precioDe, onCrea
         <ArmadorCupones set={setActivo} ofertas={ofertas} localidades={localidades} promoById={promoById} precioDe={precioDe} onToggleCupon={onToggleCupon} />
       ) : (
         <div style={{ background:A.bg, border:`1px dashed ${A.line}`, borderRadius:14, padding:'28px 24px', textAlign:'center', color:A.muted, fontFamily:A.font, fontSize:13 }}>
-          Guardá la cuponera para empezar a agregar cupones.
+          Guardá el Cupopack para empezar a agregar cupones.
         </div>
       )}
     </div>
@@ -2126,7 +2208,7 @@ function TabVentas({ ventas }) {
         <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:'64px 24px', textAlign:'center' }}>
           <div style={{ fontSize:40, marginBottom:12 }}>🛍️</div>
           <div style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink, marginBottom:6 }}>Sin ventas aún</div>
-          <div style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>Las ventas aparecerán cuando los usuarios completen cuponeras</div>
+          <div style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>Las ventas aparecerán cuando los usuarios completen compras</div>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -2147,7 +2229,7 @@ function TabVentas({ ventas }) {
                     }}>{v.estado}</span>
                   </div>
                   <div style={{ fontFamily:A.font, fontSize:12, color:A.muted }}>
-                    <span style={{display:'flex',alignItems:'center',gap:4}}><img src="/cuponera-coin.svg" alt="crédito" style={{width:12,height:12}}/> {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas · {v.forma_pago || '—'}</span>
+                    <span style={{display:'flex',alignItems:'center',gap:4}}><img src="/credito-coin.svg" alt="crédito" style={{width:12,height:12}}/> {v.tokens_total} créditos · {v.venta_items?.length || 0} ofertas · {v.forma_pago || '—'}</span>
                   </div>
                 </div>
                 {seleccionada === v.id ? <ChevronUp size={18} color={A.muted} /> : <ChevronDown size={18} color={A.muted} />}
@@ -2163,7 +2245,7 @@ function TabVentas({ ventas }) {
                           <div style={{ fontFamily:A.font, fontSize:11, color:A.muted }}>{item.negocios?.nombre || '—'}</div>
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-                          <span style={{ fontFamily:A.font, fontSize:12, fontWeight:700, color:A.ink, display:'flex', alignItems:'center', gap:4 }}><img src="/cuponera-coin.svg" alt="crédito" style={{width:14,height:14}}/> {item.tokens}</span>
+                          <span style={{ fontFamily:A.font, fontSize:12, fontWeight:700, color:A.ink, display:'flex', alignItems:'center', gap:4 }}><img src="/credito-coin.svg" alt="crédito" style={{width:14,height:14}}/> {item.tokens}</span>
                           {item.canjeado
                             ? <span style={{ background:'#E8F5EC', color:A.green, padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Canjeado</span>
                             : <span style={{ background:A.bg, color:A.muted, padding:'2px 8px', borderRadius:999, fontSize:10, fontWeight:600, fontFamily:A.font }}>Pendiente</span>
@@ -2324,7 +2406,7 @@ function PlanForm({ plan, onChange, showToast }) {
 
   return (
     <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, padding:22, display:'flex', flexDirection:'column', gap:14 }}>
-      <div style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink }}>Plan {nombreLimpio} <span style={{ fontSize:12, fontWeight:400, color:A.muted }}>({plan.codigo})</span></div>
+      <div style={{ fontFamily:A.font, fontSize:16, fontWeight:700, color:A.ink }}>{nombreLimpio} <span style={{ fontSize:12, fontWeight:400, color:A.muted }}>({plan.id})</span></div>
 
       <div>
         <label style={labelStyle}>Nombre (sin editar)</label>
@@ -2342,23 +2424,34 @@ function PlanForm({ plan, onChange, showToast }) {
         <div style={{ marginTop:6, padding:8, background:A.bg, borderRadius:6, fontSize:13, fontFamily:A.font, color:A.ink2 }} dangerouslySetInnerHTML={{ __html: plan.descripcion }} />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:12 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12 }}>
         <div>
-          <label style={labelStyle}>Precio mensual ($)</label>
+          <label style={labelStyle}>Precio mensual ($ sin IVA)</label>
           <input type="number" value={plan.precioMes ?? ''} onChange={e => onChange({ precioMes: e.target.value ? Number(e.target.value) : '' })}
-            style={inputStyle} placeholder="Sin costo" />
-        </div>
-        <div>
-          <label style={labelStyle}>Meses de contrato</label>
-          <input type="number" value={plan.mesesContrato ?? ''} onChange={e => onChange({ mesesContrato: e.target.value ? Number(e.target.value) : '' })}
             style={inputStyle} placeholder="—" />
         </div>
         <div>
-          <label style={labelStyle}>Meses de bono gratis</label>
-          <input type="number" value={plan.mesesGratisBono ?? ''} onChange={e => onChange({ mesesGratisBono: e.target.value ? Number(e.target.value) : '' })}
+          <label style={labelStyle}>Meses de compromiso</label>
+          <input type="number" value={plan.meses ?? ''} onChange={e => onChange({ meses: e.target.value ? Number(e.target.value) : '' })}
+            style={inputStyle} placeholder="—" />
+        </div>
+        <div>
+          <label style={labelStyle}>Créditos publicitarios / mes</label>
+          <input type="number" value={plan.creditosMes ?? ''} onChange={e => onChange({ creditosMes: e.target.value ? Number(e.target.value) : '' })}
+            style={inputStyle} placeholder="—" />
+        </div>
+        <div>
+          <label style={labelStyle}>Créditos de bienvenida</label>
+          <input type="number" value={plan.creditosBono ?? ''} onChange={e => onChange({ creditosBono: e.target.value ? Number(e.target.value) : '' })}
             style={inputStyle} placeholder="—" />
         </div>
       </div>
+
+      {/* Un solo tramo puede ser el destacado: marcar uno desmarca los demás. */}
+      <label style={{ display:'flex', alignItems:'center', gap:8, fontFamily:A.font, fontSize:13, color:A.ink2, cursor:'pointer' }}>
+        <input type="checkbox" checked={!!plan.destacado} onChange={e => onChange({ destacado: e.target.checked })} />
+        Mostrar como “El más elegido”
+      </label>
 
       <div>
         <label style={labelStyle}>Beneficios (drag para reordenar, click para editar)</label>
@@ -2730,7 +2823,7 @@ function ContenidosPlanes({ showToast }) {
 
   async function cargar() {
     setLoading(true);
-    const p = await getPlanesConfig();
+    const p = await getPlanesPro();
     setPlanesOrig(p);
     setPlanes(JSON.parse(JSON.stringify(p))); // Deep clone para edición local
     setLoading(false);
@@ -2748,11 +2841,20 @@ function ContenidosPlanes({ showToast }) {
           nombre: plan.nombre,
           descripcion: plan.descripcion,
           precio_mes: plan.precioMes === '' ? null : Number(plan.precioMes),
-          meses_contrato: plan.mesesContrato === '' ? null : Number(plan.mesesContrato),
-          meses_gratis_bono: plan.mesesGratisBono === '' ? null : Number(plan.mesesGratisBono),
+          meses_contrato: plan.meses === '' ? null : Number(plan.meses),
+          creditos_incluidos: plan.creditosMes === '' ? null : Number(plan.creditosMes),
+          creditos_bono: plan.creditosBono === '' ? null : Number(plan.creditosBono),
+          destacado: !!plan.destacado,
           beneficios: plan.beneficios,
         });
         if (error) throw error;
+      }
+      // "El más elegido" es uno solo: si se marcó uno, se desmarcan los otros.
+      const nuevoDestacado = planes.find(p => p.destacado);
+      if (nuevoDestacado) {
+        await Promise.all(planes
+          .filter(p => p.planId !== nuevoDestacado.planId && p.destacado)
+          .map(p => actualizarPlanCopy(p.planId, { destacado: false })));
       }
       showToast?.('Planes actualizados', 'success');
       cargar();
@@ -2771,7 +2873,7 @@ function ContenidosPlanes({ showToast }) {
         <div style={{ fontFamily:A.font, fontSize:18, fontWeight:700, color:A.ink }}>Planes</div>
         <ABtn onClick={guardarTodos} variant="primary" style={{ opacity: saving ? 0.6 : 1 }}>{saving ? 'Guardando…' : 'Guardar todos'}</ABtn>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16 }}>
         {planes.map(p => (
           <PlanForm
             key={p.planId}

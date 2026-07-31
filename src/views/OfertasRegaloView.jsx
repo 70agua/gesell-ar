@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { getOfertasDestacadas } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'60px 0' }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
-import { useCuponera } from '../lib/cuponera';
+import { useCarrito } from '../lib/carrito';
 import { ALL_PROMOS } from '../data/mockData';
 
 const C = {
@@ -23,7 +23,7 @@ const C = {
 };
 
 // ─── OfertaCard compacta (reutiliza la de OfertaDetailView / Home) ────
-function OfertaCard({ promo, onClick, onAddToCuponera }) {
+function OfertaCard({ promo, onClick, onAddToCarrito }) {
   const esFlash = promo.offerType === 'Flash';
   const [hover, setHover] = useState(false);
 
@@ -95,11 +95,11 @@ function OfertaCard({ promo, onClick, onAddToCuponera }) {
 
         {/* Botón */}
         <button
-          onClick={e => { e.stopPropagation(); onAddToCuponera?.(promo); }}
+          onClick={e => { e.stopPropagation(); onAddToCarrito?.(promo); }}
           style={{ width: '100%', padding: '10px 0', borderRadius: 11, background: C.primary, color: '#fff', border: 'none', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: C.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>
-          Agregar a cuponera
+          Agregar al carrito
         </button>
       </div>
     </div>
@@ -109,7 +109,7 @@ function OfertaCard({ promo, onClick, onAddToCuponera }) {
 export default function OfertasRegaloView({ onBack, onOpenOferta }) {
   const [ofertas, setOfertas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { addCupon } = useCuponera();
+  const { addCupon } = useCarrito();
 
   useEffect(() => {
     (async () => {
@@ -157,7 +157,7 @@ export default function OfertasRegaloView({ onBack, onOpenOferta }) {
             Elegí dos cupones, no te cobramos comisión!
           </h1>
           <p style={{ fontSize: 16, color: C.muted, margin: 0, maxWidth: 560 }}>
-            Seleccionamos estas ofertas especialmente para vos. Agregá las que más te gusten a tu cuponera.
+            Seleccionamos estas ofertas especialmente para vos. Agregá las que más te gusten a tu carrito.
           </p>
         </div>
 
@@ -180,7 +180,7 @@ export default function OfertasRegaloView({ onBack, onOpenOferta }) {
                 key={oferta.id}
                 promo={oferta}
                 onClick={p => onOpenOferta?.(p)}
-                onAddToCuponera={p => addCupon(p)}
+                onAddToCarrito={p => addCupon(p)}
               />
             ))}
           </div>

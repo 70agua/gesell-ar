@@ -1,16 +1,16 @@
 // ============================================================
-//  src/views/PacksListView.jsx — Listado de cuponeras "todo incluido"
-//  Sin filtros: una fila por cuponera (título + tira de cupones en scroll
+//  src/views/PacksListView.jsx — Listado de Cupopacks
+//  Sin filtros: una fila por Cupopack (título + tira de cupones en scroll
 //  horizontal) y el CTA que compra el pack entero, sin pasar por el drawer.
 // ============================================================
 import React, { useEffect, useState } from 'react';
 import { ChevronRight, ArrowRight, Check } from 'lucide-react';
-import { getCuponeras } from '../lib/datos';
-import { useCuponera } from '../lib/cuponera';
-import { aplicarBeneficioCuponera } from '../lib/beneficiosCuponera';
+import { getCupopacks } from '../lib/datos';
+import { useCarrito } from '../lib/carrito';
+import { aplicarBeneficioCupopack } from '../lib/beneficiosCupopack';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
-import CuponModalMock from '../components/CuponModalMock';
-import PortadaCuponera from '../components/PortadaCuponera';
+import CupopackModal from '../components/CupopackModal';
+import PortadaCupopack from '../components/PortadaCupopack';
 import { FAMILIAS_PACK, MAS_PACKS, familiaLabel } from '../lib/familiasPack';
 import Icono from '../components/Icono';
 
@@ -31,12 +31,12 @@ const C = {
 const CUPON_W = 76;
 const fmt = n => `$${Math.round(n || 0).toLocaleString('es-AR')}`;
 
-// El precio de la cuponera es la suma de las activaciones, con el beneficio
+// El precio del Cupopack es la suma de las activaciones, con el beneficio
 // adicional aplicado si es de los que tocan el precio (mismo cálculo que la home).
-function precioDeCuponera(cuponera) {
-  const precioBase = (cuponera.cupones || []).reduce((s, c) => s + (Number(c.precio_activacion) || 0), 0);
-  const { precio } = aplicarBeneficioCuponera({
-    tipo: cuponera.beneficioTipo, valor: cuponera.beneficioValor, puntosBase: 0, precioBase,
+function precioDeCupopack(cupopack) {
+  const precioBase = (cupopack.cupones || []).reduce((s, c) => s + (Number(c.precio_activacion) || 0), 0);
+  const { precio } = aplicarBeneficioCupopack({
+    tipo: cupopack.beneficioTipo, valor: cupopack.beneficioValor, puntosBase: 0, precioBase,
   });
   return { precioBase, precio };
 }
@@ -60,10 +60,10 @@ function CuponMini({ cupon, onClick }) {
   );
 }
 
-// ─── Una cuponera: portada a la izquierda, contenido a la derecha ───
-function CuponeraFila({ cuponera, onVerDetalle, onComprar }) {
-  const cupones = cuponera.cupones || [];
-  const { precio } = precioDeCuponera(cuponera);
+// ─── Un Cupopack: portada a la izquierda, contenido a la derecha ───
+function CupopackFila({ cupopack, onVerDetalle, onComprar }) {
+  const cupones = cupopack.cupones || [];
+  const { precio } = precioDeCupopack(cupopack);
   const ahorro = cupones.reduce((s, c) => s + (Number(c.ahorro_estimado) || 0), 0);
   const localidades = [...new Set(cupones.map(c => c.localidad).filter(Boolean))];
 
@@ -72,36 +72,36 @@ function CuponeraFila({ cuponera, onVerDetalle, onComprar }) {
 
       {/* Portada — ocupa todo el alto de la fila */}
       <div style={{ position: 'relative', width: 300, flexShrink: 0, alignSelf: 'stretch', minHeight: 260, background: C.bg }}>
-        <PortadaCuponera cuponera={cuponera} alt={cuponera.title} />
+        <PortadaCupopack cupopack={cupopack} alt={cupopack.title} />
       </div>
 
       <div style={{ flex: 1, minWidth: 0, padding: '22px 26px 20px', display: 'flex', flexDirection: 'column' }}>
 
         {/* Familia + beneficio adicional, en una sola línea */}
-        {(cuponera.badge || cuponera.beneficioAdicional) && (
+        {(cupopack.badge || cupopack.beneficioAdicional) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 12, flexWrap: 'wrap' }}>
-            {cuponera.badge && (
+            {cupopack.badge && (
               <span style={{ background: C.yellow, color: C.ink, fontSize: 12, fontWeight: 800, padding: '4px 12px', borderRadius: 999, flexShrink: 0 }}>
-                {cuponera.badge}
+                {cupopack.badge}
               </span>
             )}
-            {cuponera.beneficioAdicional && (
+            {cupopack.beneficioAdicional && (
               <>
                 <span style={{ display: 'grid', placeItems: 'center', width: 34, height: 34, borderRadius: '50%', background: C.yellow, flexShrink: 0 }}>
-                  {React.createElement(getBeneficioIcon(cuponera.beneficioIcono), { size: 18, color: C.navy, strokeWidth: 2.4 })}
+                  {React.createElement(getBeneficioIcon(cupopack.beneficioIcono), { size: 18, color: C.navy, strokeWidth: 2.4 })}
                 </span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: '#B98900', lineHeight: 1.25 }}>{cuponera.beneficioAdicional}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#B98900', lineHeight: 1.25 }}>{cupopack.beneficioAdicional}</span>
               </>
             )}
           </div>
         )}
 
         <h2 style={{ fontSize: 27, fontWeight: 800, letterSpacing: '-0.025em', color: C.ink, margin: 0, lineHeight: 1.15 }}>
-          {cuponera.title}
+          {cupopack.title}
         </h2>
-        {cuponera.subtitle && (
+        {cupopack.subtitle && (
           <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.5, margin: '7px 0 0', maxWidth: 720 }}>
-            {cuponera.subtitle}
+            {cupopack.subtitle}
           </p>
         )}
 
@@ -169,20 +169,20 @@ function CuponeraFila({ cuponera, onVerDetalle, onComprar }) {
 
 // ═══════════════════════════════════════════════════════════
 export default function PacksListView({ onBack, familia = null, onFamiliaChange }) {
-  const [cuponeras, setCuponeras] = useState(null); // null = cargando
+  const [cupopacks, setCupopacks] = useState(null); // null = cargando
   const [modal, setModal] = useState(null);
-  const { comprarAhora } = useCuponera();
-  const visibles = familia ? (cuponeras || []).filter(c => c.familia === familia) : cuponeras;
+  const { comprarAhora } = useCarrito();
+  const visibles = familia ? (cupopacks || []).filter(c => c.familia === familia) : cupopacks;
 
   useEffect(() => {
     let vivo = true;
-    getCuponeras().then(data => { if (vivo) setCuponeras(data); });
+    getCupopacks().then(data => { if (vivo) setCupopacks(data); });
     return () => { vivo = false; };
   }, []);
 
   // El checkout trabaja con la forma de "oferta" de la app, no con la del
-  // cupón de cuponera: acá se traduce antes de mandarlo al pago.
-  const comprarCuponera = (cuponera) => comprarAhora((cuponera.cupones || []).map(c => ({
+  // cupón de Cupopack: acá se traduce antes de mandarlo al pago.
+  const comprarCupopack = (cupopack) => comprarAhora((cupopack.cupones || []).map(c => ({
     id:              c.id,
     titulo:          c.titulo,
     badge:           c.badge,
@@ -207,7 +207,7 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange 
             Packs <span style={{ color: C.yellow }}>todo incluido</span>
           </h1>
           <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.62)', lineHeight: 1.6, margin: 0, maxWidth: 720 }}>
-            Cuponeras armadas por la plataforma: alojamiento, gastronomía y experiencias combinadas.
+            Selecciones armadas por la plataforma: descuentos en gastronomía, salidas y experiencias.
             Comprás el pack completo de una y activás todos los cupones juntos.
           </p>
         </div>
@@ -261,18 +261,18 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange 
           </div>
         ) : (
           visibles.map(c => (
-            <CuponeraFila
+            <CupopackFila
               key={c.id}
-              cuponera={c}
+              cupopack={c}
               onVerDetalle={() => setModal(c)}
-              onComprar={() => comprarCuponera(c)}
+              onComprar={() => comprarCupopack(c)}
             />
           ))
         )}
       </div>
 
       {modal && (
-        <CuponModalMock cuponera={modal} startIndex={0} onClose={() => setModal(null)} />
+        <CupopackModal cupopack={modal} startIndex={0} onClose={() => setModal(null)} />
       )}
     </div>
   );

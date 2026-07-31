@@ -1,6 +1,6 @@
 // ============================================================
 //  src/lib/familiasPack.js
-//  Las familias de cuponeras "todo incluido". Fuente única: la comparten el
+//  Las familias de Cupopacks. Fuente única: la comparten el
 //  menú del navbar, el filtro del listado de packs y el editor del superadmin.
 //  `id` es lo que se guarda en cuponeras_locales.familia.
 //  `icono` sale de /public/iconos y va servido por <Icono>: los .json son

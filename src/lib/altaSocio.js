@@ -9,8 +9,9 @@
 //    · con sesión  → sólo crea el negocio y lo cuelga del perfil que ya existe
 //                    (es el turista que se convierte en socio).
 //
-//  El negocio nace `aprobado: false, activo: false`: el alta no publica nada
-//  todavía, la moderación es un paso aparte del superadmin.
+//  El negocio nace PUBLICADO (`activo: true`). El socio paga y funciona: no hay
+//  moderación previa del negocio. El único control que queda es la aprobación
+//  de cada OFERTA (`promociones.aprobada`), que sigue igual.
 // ============================================================
 import { supabase } from './supabase';
 import { existeNegocioConNombre } from './validacionRegistro';
@@ -53,7 +54,7 @@ export async function altaSocio({
   const userId = sesion?.user?.id;
   if (!userId) return { ok: false, error: 'sin_sesion' };
 
-  // 2) Negocio. Nace apagado: lo prende la moderación.
+  // 2) Negocio. Nace publicado: el alta lo deja operativo en el acto.
   // La descripción es opcional en el alta: el checkout sólo pide lo mínimo para
   // identificar el alojamiento, y el resto de la ficha se completa después
   // desde el panel.
@@ -65,8 +66,8 @@ export async function altaSocio({
       tipo:        negocio.tipo,
       localidad:   negocio.localidad,
       plan:        'free',        // lo sube crearSuscripcionPro, no el insert
-      aprobado:    false,
-      activo:      false,
+      aprobado:    true,
+      activo:      true,
     })
     .select()
     .single();

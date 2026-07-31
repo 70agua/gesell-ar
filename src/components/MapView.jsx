@@ -157,7 +157,7 @@ function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
 }
 
 function CoinSVGSmall() {
-  return <img src="/cuponera-coin.svg" alt="crédito" width="11" height="11" style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
+  return <img src="/credito-coin.svg" alt="crédito" width="11" height="11" style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
 }
 
 // ─── Componente principal MapView ────────────────────────────

@@ -1,6 +1,6 @@
 // ============================================================
-//  src/lib/beneficiosCuponera.js
-//  Beneficio adicional ESTRUCTURADO de una cuponera: define qué
+//  src/lib/beneficiosCupopack.js
+//  Beneficio adicional ESTRUCTURADO de un Cupopack: define qué
 //  valor se ve afectado y cuánto, para que el checkout sepa qué
 //  recalcular y qué tachar.
 // ============================================================
@@ -21,7 +21,7 @@ export function tipoBeneficio(id) {
 
 // Aplica el beneficio sobre los totales base. Devuelve el valor final
 // y —si corresponde— el valor original a tachar (`*Tachado`).
-export function aplicarBeneficioCuponera({ tipo, valor, puntosBase, precioBase }) {
+export function aplicarBeneficioCupopack({ tipo, valor, puntosBase, precioBase }) {
   const v = Number(valor) || 0;
   let puntos = puntosBase, precio = precioBase;
   let puntosTachado = null, precioTachado = null;

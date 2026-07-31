@@ -235,67 +235,6 @@ function CheckRow({ label, checked, onChange }) {
     </label>
   );
 }
-
-// ─── Ficha gastronómica (formato original) ───────────────────
-function GastroCard({ item, isHovered, onHover, session, onLoginClick, onOpenDetail }) {
-  const color = TIPO_COLORS[item.category] || A.primary;
-  return (
-    <div
-      onMouseEnter={() => onHover(item.id)}
-      onMouseLeave={() => onHover(null)}
-      onClick={() => onOpenDetail && onOpenDetail(item, 'salidas')}
-      style={{
-        background:'#fff', border:`1px solid ${isHovered ? color+'60' : A.line}`,
-        borderRadius:18, overflow:'hidden', display:'flex', flexDirection:'column',
-        cursor:'pointer', transition:'box-shadow .2s, border-color .2s, transform .2s',
-        boxShadow: isHovered ? '0 12px 40px -12px rgba(11,16,32,0.16)' : 'none',
-        transform: isHovered ? 'translateY(-2px)' : 'none',
-      }}
-    >
-      {/* Foto */}
-      <div style={{ position:'relative', height:190, overflow:'hidden', flexShrink:0 }}>
-        <img src={item.image} alt={item.name}
-          style={{ width:'100%', height:'100%', objectFit:'cover', transition:'transform .4s', transform: isHovered ? 'scale(1.05)' : 'scale(1)' }}
-        />
-        <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(11,16,32,0.5) 0%, transparent 50%)' }} />
-        <div style={{ position:'absolute', bottom:10, left:10, background:color, color:'#fff', padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:700, letterSpacing:'0.03em' }}>
-          {item.subcategoria || item.category}
-        </div>
-        {item.priceRange && (
-          <div style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.95)', color:A.ink, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700 }}>
-            {item.priceRange}
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div style={{ padding:'14px 16px', flex:1, display:'flex', flexDirection:'column' }}>
-        <div style={{ fontSize:16, fontWeight:700, color:isHovered ? A.primary : A.ink, marginBottom:4, lineHeight:1.2, transition:'color .15s' }}>
-          {item.name}
-        </div>
-        <div style={{ fontSize:12, color:A.muted, marginBottom:8, display:'flex', alignItems:'center', gap:4 }}>
-          <IcoPin />
-          <span style={{ color:A.ink2, fontWeight:500 }}>{[item.zona, item.localidad].filter(Boolean).join(' · ')}</span>
-        </div>
-        <p style={{ fontSize:13, color:A.ink2, lineHeight:1.5, margin:'0 0 auto', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
-          {item.description}
-        </p>
-        <div style={{ borderTop:`1px solid ${A.line}`, paddingTop:10, marginTop:12 }}>
-          {session ? (
-            <div style={{ fontSize:12, color:A.ink2, display:'flex', alignItems:'center', gap:4 }}><IcoPin /> {item.address || item.zona}</div>
-          ) : (
-            <button onClick={e => { e.stopPropagation(); onLoginClick && onLoginClick(); }}
-              style={{ background:'none', border:'none', padding:0, cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
-              <span style={{ color:A.muted }}><IcoLock /></span>
-              <span style={{ fontSize:12, color:A.primary, fontWeight:600 }}>Ver dirección exacta</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 export default function GastronomyView({ onBack, session, onLoginClick, onOpenDetail, onVerOfertas, onVerRanking, onOpenOferta, initialCategoria = '', initialAventura = '', foco = null, modoRanking = false, modoAventura = false }) {
   const [salidas, setSalidas] = useState([]);

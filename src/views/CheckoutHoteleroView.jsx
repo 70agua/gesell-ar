@@ -1,7 +1,7 @@
 // ============================================================
 //  src/views/CheckoutHoteleroView.jsx
 //  El otro lado del mostrador: el alojamiento que quiere regalarles el pase
-//  a sus huéspedes. Misma gramática que CheckoutPaseView — mismas tarjetas,
+//  a sus turistas. Misma gramática que CheckoutPaseView — mismas tarjetas,
 //  mismo tilde de selección, mismo captcha, mismo paso 2 — para que las dos
 //  puertas del paso 0 se sientan el mismo producto.
 //
@@ -65,14 +65,14 @@ function TildePlan({ activo }) {
 
 // ─── Ilustración: lo que el hotelero regala ──────────────────
 // La mano con el celular y el cupón (/iconos/manopla.json): es exactamente la
-// escena del check-in, el huésped recibiendo la cuponera en su teléfono.
+// escena del check-in, el turista recibiendo el Pase en su teléfono.
 // Va animada sola (`animar`) porque acá la ilustración ES el argumento, no un
 // ícono de menú que espera el hover. Sin fondo propio: apoya directo sobre el
 // degradé, en la esquina clara.
 function IlustracionRegalo() {
   return (
     <Icono src="/iconos/manopla.json" animar
-      label="Tu huésped recibe la cuponera en su celular"
+      label="Tu turista recibe el Pase en su celular"
       style={{ flex: '0 0 auto', width: 230, height: 230, maxWidth: '100%', display: 'block' }} />
   );
 }
@@ -164,8 +164,8 @@ function TramoPago({ p, mensual, activo, onSelect }) {
 // ─── Cómo funciona, contado desde el mostrador del hotel ─────
 const PASOS = [
   { t: 'Sumás tu alojamiento',      d: 'Cargás los datos, lo revisamos y queda publicado en Cuponear.' },
-  { t: 'Le regalás el pase a tu huésped', d: 'Le pasás tu código de 6 dígitos al hacer el check-in y el pase se le activa solo.' },
-  { t: 'Tu huésped ahorra en todos lados', d: 'Usa los descuentos de los comercios adheridos durante su estadía. El pase de regalo no incluirá otros alojamientos, sólo ofertas en el tuyo, por si desea alojarse en el futuro.' },
+  { t: 'Le regalás el pase a tu turista', d: 'Le pasás tu código de 6 dígitos al hacer el check-in y el pase se le activa solo.' },
+  { t: 'Tu turista ahorra en todos lados', d: 'Usa los descuentos de los comercios adheridos durante su estadía. El pase de regalo no incluirá otros alojamientos, sólo ofertas en el tuyo, por si desea alojarse en el futuro.' },
 ];
 
 // Vive DENTRO del contenedor del plan, así que no trae marco propio: el borde
@@ -347,7 +347,7 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
           }}>
             <div style={{ flex: '1 1 260px', minWidth: 0 }}>
               {/* Versión del logo para fondos oscuros */}
-              <img src="/logo-cuponera-wh.svg" alt="Cuponear"
+              <img src="/logo-cuponear-wh.svg" alt="Cuponear"
                 style={{ width: 172, maxWidth: '70%', height: 'auto', display: 'block', marginBottom: 16 }} />
               <span style={{
                 display: 'inline-block', background: 'rgba(255,255,255,0.16)',
@@ -357,12 +357,12 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
                 Suscripción para hotelería
               </span>
               <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.15 }}>
-                Regalá a tus huéspedes descuentos en toda la zona
+                Regalá a tus turistas descuentos en toda la zona
               </div>
               {/* El margen negativo le presta 20px del gap: el párrafo cortaba
                   antes de tiempo y la línea quedaba corta al lado del titular. */}
               <p style={{ fontSize: 14, lineHeight: 1.55, margin: '10px -20px 0 0', color: 'rgba(255,255,255,0.88)' }}>
-                No hay que instalar nada: el pase los activa el huésped con un código desde el celular
+                No hay que instalar nada: el pase lo activa el turista con un código desde el celular
                 al realizar su check-in, y lo puede usar en todos los comercios adheridos.
               </p>
             </div>
@@ -437,7 +437,7 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
           <div style={{ borderTop: `1px solid ${C.line}`, margin: '22px 0 0', paddingTop: 20 }}>
             <div style={{ ...labelSt, display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
               INGRESÁ A
-              <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 17, width: 'auto', display: 'block' }} />
+              <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 17, width: 'auto', display: 'block' }} />
             </div>
 
             <div role="tablist" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, background: C.bg, borderRadius: 12, marginBottom: 16 }}>

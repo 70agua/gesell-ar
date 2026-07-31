@@ -31,7 +31,7 @@ const MOCK_NEGOCIO = {
   localidad: 'Las Gaviotas',
   logo:      null,
   portada:   'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&h=400&fit=crop',
-  descripcion: 'Beneficios exclusivos para huéspedes y visitantes del Apart Hotel Las Gaviotas. Disfrutá descuentos en gastronomía, actividades y servicios de la zona.',
+  descripcion: 'Beneficios exclusivos para turistas y visitantes del Apart Hotel Las Gaviotas. Disfrutá descuentos en gastronomía, actividades y servicios de la zona.',
 };
 
 const MOCK_OFERTAS = [
@@ -150,7 +150,7 @@ function OfertaCard({ o, onActivar }) {
           style={{ width: '100%', padding: '10px 0', borderRadius: 11, border: 'none', background: P, color: '#fff', fontFamily: FONT, fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>
-          Agregar a mi cuponera
+          Agregar a mi carrito
         </button>
 
         {/* Info rows */}
@@ -213,7 +213,7 @@ export default function BeneficiosPortalView({ negocio: negocioProp, ofertas: of
           {/* Pill "beneficios exclusivos" */}
           <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(71,91,225,0.85)', backdropFilter:'blur(6px)', borderRadius:999, padding:'5px 14px', marginBottom:12 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span style={{ fontSize:11, fontWeight:800, color:'#fff', letterSpacing:'0.06em', textTransform:'uppercase' }}>Beneficios exclusivos para huéspedes</span>
+            <span style={{ fontSize:11, fontWeight:800, color:'#fff', letterSpacing:'0.06em', textTransform:'uppercase' }}>Beneficios exclusivos para turistas</span>
           </div>
 
           <div style={{ display:'flex', alignItems:'flex-end', gap:16 }}>
@@ -298,8 +298,8 @@ export default function BeneficiosPortalView({ negocio: negocioProp, ofertas: of
 
         {/* Footer del portal */}
         <div style={{ marginTop:48, padding:'20px 0', borderTop:`1px solid ${LINE}`, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-          <img src="/logo-cuponera.svg" alt="Cuponera" style={{ height:20, opacity:0.5 }}/>
-          <span style={{ fontSize:12, color:MUTED }}>Portal de beneficios exclusivos impulsado por <strong style={{ color:INK2 }}>Cuponera</strong></span>
+          <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height:20, opacity:0.5 }}/>
+          <span style={{ fontSize:12, color:MUTED }}>Portal de beneficios exclusivos impulsado por <strong style={{ color:INK2 }}>Cuponear</strong></span>
         </div>
       </div>
     </div>

@@ -413,8 +413,10 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
         categoria,
         localidad,
         plan:      'free',
-        aprobado:  false,
-        activo:    false,
+        // Sin moderación previa: el alta trae los datos completos, así que el
+        // negocio queda publicado. Lo apaga el socio si quiere, no el superadmin.
+        aprobado:  true,
+        activo:    true,
       };
       if ((tipo !== 'aventura_relax') || sedeFija === 'fija') {
         negocioPayload.direccion = direccion;
@@ -801,7 +803,7 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                 {tipo === 'alojamiento' && (
                   <div style={{ background: A.primarySoft, borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: A.ink }}>
                     <strong style={{ display: 'block', marginBottom: 6 }}>Empezás con el plan FREE — sin costo</strong>
-                    Podés publicar 1 oferta cada 30 días. Cada canje de oferta te devuelve créditos que podés usar para bajar el costo del plan o regalar a tus huéspedes.
+                    Podés publicar 1 oferta cada 30 días. Cada canje de oferta te devuelve créditos que podés usar para bajar el costo del plan o regalar a tus turistas.
                     {onGoSocios && (
                       <button onClick={onGoSocios} style={{ background: 'none', border: 'none', color: A.primary, fontWeight: 600, fontSize: 12, marginTop: 6, cursor: 'pointer', padding: 0, display: 'block', fontFamily: A.font }}>
                         Ver todos los planes →
@@ -812,7 +814,7 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                 {(tipo === 'salidas' || tipo === 'aventura_relax') && (
                   <div style={{ background: A.greenBg, borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: A.ink }}>
                     <strong style={{ display: 'block', marginBottom: 6 }}>Publicar es gratis para vos</strong>
-                    Los restaurantes y experiencias no pagan plan. Podés pagar un extra para tener más visibilidad o ser parte de ofertas exclusivas para huéspedes de hoteles adheridos.
+                    Los restaurantes y experiencias no pagan plan. Podés pagar un extra para tener más visibilidad o ser parte de ofertas exclusivas para turistas de alojamientos adheridos.
                   </div>
                 )}
 

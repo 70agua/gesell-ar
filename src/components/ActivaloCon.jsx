@@ -47,7 +47,7 @@ export default function ActivaloCon({
       {label}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <img src="/cuponera-coin.svg" alt="" width={coin} height={coin} />
+          <img src="/credito-coin.svg" alt="" width={coin} height={coin} />
           <span style={{ fontSize: credSize, fontWeight: 800, color: ink }}>{n} crédito{n !== 1 ? 's' : ''}</span>
           <CreditTooltip />
         </div>

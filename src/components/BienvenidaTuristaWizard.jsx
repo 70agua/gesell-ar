@@ -2,7 +2,7 @@
 //  src/components/BienvenidaTuristaWizard.jsx
 //  Wizard de bienvenida (3 slides) para turistas recién registrados.
 //  Ilustraciones abstractas por bloques — no usa minifichas ni
-//  cuponera reales, sólo representa los conceptos.
+//  carrito reales, sólo representa los conceptos.
 // ============================================================
 import { useState } from 'react';
 import { X, Store, ArrowRight, Wallet, Sparkles } from 'lucide-react';
@@ -58,8 +58,8 @@ const SLIDES = [
     ),
   },
   {
-    titulo: 'Armá tu cuponera',
-    texto: 'Cada cupón que comprás queda guardado en tu cuponera personal, siempre a mano para usarlo cuando quieras.',
+    titulo: 'Armá tu carrito',
+    texto: 'Cada cupón que comprás queda guardado en Mis cupones, siempre a mano para usarlo cuando quieras.',
     Ilustracion: () => (
       <div style={{ width: '100%', height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{

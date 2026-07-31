@@ -1,6 +1,6 @@
 // ============================================================
-//  src/components/CuponModalMock.jsx
-//  MOCKUP de rediseño del modal de cuponera (no reemplaza a CuponModal).
+//  src/components/CupopackModal.jsx
+//  Modal de un Cupopack: coverflow de sus cupones + riel de checkout.
 //  - Vista de entrada a PANTALLA COMPLETA, sin bordes redondeados.
 //  - Dos columnas:
 //      · Izquierda  → cabecera con identidad Cuponear + título grande
@@ -11,10 +11,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
-import { aplicarBeneficioCuponera, tipoBeneficio } from '../lib/beneficiosCuponera';
+import { aplicarBeneficioCupopack, tipoBeneficio } from '../lib/beneficiosCupopack';
 import OfertaCard from './OfertaCard';
 
-// Mapea un cupón de cuponera a la forma `promo` que espera <OfertaCard/>.
+// Mapea un cupón del Cupopack a la forma `promo` que espera <OfertaCard/>.
 const cuponAPromo = c => ({
   id: c.id,
   proveedorNombre: c.socio,
@@ -125,7 +125,7 @@ function PuntoMapa({ lat, lng, label }) {
 }
 
 // ─── Ficha central (se remonta por key={idx} → resetea tab/scroll) ─
-function CuponCard({ cupon, cuponera, cupones, idx, dir, onClose, onBack }) {
+function CuponCard({ cupon, cupopack, cupones, idx, dir, onClose, onBack }) {
   const [tab, setTab]           = useState('detalles');
   const [mapReady, setMapReady] = useState(false);
   const scrollRef = useRef(null);
@@ -291,7 +291,7 @@ function BeneficioBox({ texto, icono, tipo, valor, compact = false, dark = false
   const Icon = getBeneficioIcon(icono);
   const detalle = {
     puntos_mult:  valor > 1 ? `Multiplicás tus puntos ×${valor}` : null,
-    precio_pct:   valor > 0 ? `${valor}% de descuento en la activación de la cuponera` : null,
+    precio_pct:   valor > 0 ? `${valor}% de descuento en la activación del Cupopack` : null,
     precio_fijo:  valor > 0 ? `$${Number(valor).toLocaleString('es-AR')} de descuento en la activación` : null,
     cupon_regalo: 'Sumás un cupón extra de regalo',
   }[tipo] || null;
@@ -316,13 +316,13 @@ function BeneficioBox({ texto, icono, tipo, valor, compact = false, dark = false
   );
 }
 
-// ─── Cómo funciona la cuponera (franja horizontal con miniaturas) ──
+// ─── Cómo funciona el Cupopack (franja horizontal con miniaturas) ──
 const TicketIco = () => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4Z"/><path d="M13 6v1M13 11.5v1M13 17v1"/></svg>;
 const QrIco = () => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3M17 14v3M20 14v.01M14 20v.01M20 20v.01M17 17.5v.01"/></svg>;
 const SmileIco = () => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>;
 
 const PASOS = [
-  { n: 1, t: 'Comprás la cuponera', d: 'Pagás una vez y ya es tuya.',            bg: '#FBE7D4', accent: '#C9741F', icon: <TicketIco /> },
+  { n: 1, t: 'Comprás el Cupopack', d: 'Pagás una vez y ya es tuya.',            bg: '#FBE7D4', accent: '#C9741F', icon: <TicketIco /> },
   { n: 2, t: 'Escaneás un QR en el lugar',      d: 'El descuento se aplica solo.', bg: '#E2E8FB', accent: '#3B5BE8', icon: <QrIco /> },
   { n: 3, t: '¡A disfrutar!',       d: 'Aprovechás todos los beneficios.',       bg: '#DFF1E8', accent: '#1B9A63', icon: <SmileIco /> },
 ];
@@ -380,18 +380,18 @@ function RailRow({ label, children, tach }) {
 }
 
 // ─── Panel checkout (columna derecha) ────────────────────────
-function CheckoutRail({ cuponera, cupones, totalAhorro, totalPuntos, puntosTachado, precioFinal, precioTachado }) {
+function CheckoutRail({ cupopack, cupones, totalAhorro, totalPuntos, puntosTachado, precioFinal, precioTachado }) {
   const fmt = n => `$${Math.round(n).toLocaleString('es-AR')}`;
   const tachSt = { fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textDecoration: 'line-through' };
 
   // Dónde impacta el beneficio adicional: 'puntos' | 'precio' | null.
-  const afecta = cuponera?.beneficioAdicional ? tipoBeneficio(cuponera.beneficioTipo).afecta : null;
+  const afecta = cupopack?.beneficioAdicional ? tipoBeneficio(cupopack.beneficioTipo).afecta : null;
   const beneficioBox = (
     <BeneficioBox
-      texto={cuponera?.beneficioAdicional}
-      icono={cuponera?.beneficioIcono}
-      tipo={cuponera?.beneficioTipo}
-      valor={cuponera?.beneficioValor}
+      texto={cupopack?.beneficioAdicional}
+      icono={cupopack?.beneficioIcono}
+      tipo={cupopack?.beneficioTipo}
+      valor={cupopack?.beneficioValor}
       compact
       dark
     />
@@ -413,7 +413,7 @@ function CheckoutRail({ cuponera, cupones, totalAhorro, totalPuntos, puntosTacha
           <img src="/ico-disc.svg" alt="" style={{ width: 44, position: 'absolute', top: 0, left: 26, zIndex: 1, opacity: 0.55 }} />
         </div>
         <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em' }}>
-          Resumen de la cuponera
+          Resumen del Cupopack
         </div>
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
           {cupones.length} cupones para canjear
@@ -431,7 +431,7 @@ function CheckoutRail({ cuponera, cupones, totalAhorro, totalPuntos, puntosTacha
           tach={puntosTachado != null && <div><span style={tachSt}>{puntosTachado.toLocaleString('es-AR')} pts.</span></div>}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, justifyContent: 'flex-end' }}>
             {afecta === 'puntos' && puntosTachado != null && (
-              <span style={{ fontSize: 16, fontWeight: 800, color: C.yellow, fontStyle: 'italic' }}>×{cuponera.beneficioValor}</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: C.yellow, fontStyle: 'italic' }}>×{cupopack.beneficioValor}</span>
             )}
             <span style={{ fontSize: 21, fontWeight: 400, fontStyle: 'italic', lineHeight: 1 }}>{totalPuntos.toLocaleString('es-AR')}</span>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>pts.</span>
@@ -470,15 +470,15 @@ function CheckoutRail({ cuponera, cupones, totalAhorro, totalPuntos, puntosTacha
           Ir al pago
         </button>
         <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)', textAlign: 'center', margin: '12px 0 0', lineHeight: 1.4 }}>
-          Estás comprando una cuponera de descuentos, no los servicios ni productos en sí.
+          Estás comprando un Cupopack de descuentos, no los servicios ni productos en sí.
         </p>
       </div>
     </aside>
   );
 }
 
-export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
-  const cupones = cuponera?.cupones || [];
+export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
+  const cupones = cupopack?.cupones || [];
   const [view, setView] = useState('grid');  // 'grid' o 'detail'
   const [idx, setIdx] = useState(startIndex);
   const [dir, setDir] = useState(0);
@@ -499,9 +499,9 @@ export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
   const puntosBase = calcPts(totalAhorro);
 
   const { puntos: totalPuntos, precio: precioFinal, puntosTachado, precioTachado } =
-    aplicarBeneficioCuponera({
-      tipo: cuponera?.beneficioTipo,
-      valor: cuponera?.beneficioValor,
+    aplicarBeneficioCupopack({
+      tipo: cupopack?.beneficioTipo,
+      valor: cupopack?.beneficioValor,
       puntosBase,
       precioBase: totalPrecio,
     });
@@ -521,9 +521,9 @@ export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
   }, [go, onClose, view]);
 
   const cupon = cupones[idx];
-  const portada = cuponera?.images?.[0];
+  const portada = cupopack?.images?.[0];
   // Si el beneficio regala un cupón, marcamos el último como "de regalo".
-  const regaloIdx = cuponera?.beneficioTipo === 'cupon_regalo' ? cupones.length - 1 : -1;
+  const regaloIdx = cupopack?.beneficioTipo === 'cupon_regalo' ? cupones.length - 1 : -1;
 
   const overlay = (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9500, background: '#fff', fontFamily: C.font }}>
@@ -551,13 +551,13 @@ export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
 
               <div style={{ position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 22 }}>
-                  {/* Logo + chip de la cuponera, juntos a la izquierda */}
+                  {/* Logo + chip del Cupopack, juntos a la izquierda */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minWidth: 0 }}>
                     <button onClick={onClose} aria-label="Cerrar" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <img src="/logo-cuponera-wh.svg" alt="Cuponear" style={{ height: 41, width: 'auto', transition: 'opacity .15s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }} />
+                      <img src="/logo-cuponear-wh.svg" alt="Cuponear" style={{ height: 41, width: 'auto', transition: 'opacity .15s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }} />
                     </button>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(255,201,60,0.18)', border: '1px solid rgba(255,201,60,0.4)', color: C.yellow, padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
-                      Cuponera curada · {cupones.length} cupones
+                      Cupopack · {cupones.length} cupones
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -567,10 +567,10 @@ export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
                 </div>
 
                 <h1 className="cupon-title" style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, margin: '0 0 12px', maxWidth: '16ch' }}>
-                  {cuponera?.title}
+                  {cupopack?.title}
                 </h1>
                 <p style={{ fontSize: 15.5, color: 'rgba(255,255,255,0.82)', lineHeight: 1.55, margin: 0, maxWidth: '52ch' }}>
-                  {cuponera?.subtitle}
+                  {cupopack?.subtitle}
                 </p>
               </div>
             </header>
@@ -594,7 +594,7 @@ export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
                     />
                   );
                   return i === regaloIdx
-                    ? <CuponRegaloWrap key={c.id} icono={cuponera?.beneficioIcono}>{card}</CuponRegaloWrap>
+                    ? <CuponRegaloWrap key={c.id} icono={cupopack?.beneficioIcono}>{card}</CuponRegaloWrap>
                     : <React.Fragment key={c.id}>{card}</React.Fragment>;
                 })}
               </div>
@@ -603,7 +603,7 @@ export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
 
           {/* Columna derecha: checkout */}
           <CheckoutRail
-            cuponera={cuponera} cupones={cupones}
+            cupopack={cupopack} cupones={cupones}
             totalAhorro={totalAhorro} totalPuntos={totalPuntos}
             puntosTachado={puntosTachado} precioFinal={precioFinal} precioTachado={precioTachado}
           />
@@ -646,7 +646,7 @@ export default function CuponModalMock({ cuponera, startIndex = 0, onClose }) {
                 <CuponCard
                   key={idx}
                   cupon={cupon}
-                  cuponera={cuponera}
+                  cupopack={cupopack}
                   cupones={cupones}
                   idx={idx}
                   dir={dir}

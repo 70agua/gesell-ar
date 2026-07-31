@@ -5,27 +5,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard, { PrecioCupon } from '../components/OfertaCard';
 import { ALL_PROMOS } from '../data/mockData';
-import CuponModal from '../components/CuponModal';
-import CuponModalMock from '../components/CuponModalMock';
+import CupopackModal from '../components/CupopackModal';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
-import { aplicarBeneficioCuponera } from '../lib/beneficiosCuponera';
-import { useCuponera }  from '../lib/cuponera';
+import { aplicarBeneficioCupopack } from '../lib/beneficiosCupopack';
+import { useCarrito }  from '../lib/carrito';
 import HeartButton      from '../components/HeartButton';
 import { socialProof } from '../lib/socialProof';
 import HeroPase from '../components/landing/HeroPase';
-import HeroPaseB from '../components/landing/HeroPaseB';
-import PortadaCuponera from '../components/PortadaCuponera';
+import PortadaCupopack from '../components/PortadaCupopack';
 import PaSSMark        from '../components/PaSSMark';
 import Icono           from '../components/Icono';
-
-// Hero vigente: HeroPaseB (una sola jerarquía, el turista primero y hotelería
-// en su propio carril). El anterior queda a mano con `?hero=a` en la URL, para
-// comparar; cuando ya no haga falta, se borra HeroPase.jsx y esto queda en una
-// sola línea. Se lee al cargar: no cambia sin recargar la página.
-const HERO_VARIANTE = typeof window !== 'undefined'
-  ? new URLSearchParams(window.location.search).get('hero')
-  : null;
-const Hero = HERO_VARIANTE === 'a' ? HeroPase : HeroPaseB;
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -59,12 +48,6 @@ const IcoArrowR  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="n
 const IcoCheck   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>;
 const IcoInfo    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>;
 const IcoUsers    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-
-// ─── Golden coin SVG ─────────────────────────────────────────
-function CoinSVG({ size = 14 }) {
-  return <img src="/cuponera-coin.svg" alt="crédito" style={{ width: size, height: size, display:'inline-block', verticalAlign:'middle' }}/>;
-}
-
 // ─── Type filter pills with SVG icons ────────────────────────
 const TYPE_FILTERS = [
   {
@@ -107,111 +90,6 @@ const SECONDARY_FILTERS = [
   { id: 'mascotas', label: 'Acepta mascotas' },
 ];
 
-// ─── Guests dropdown (Adultos / Niños / Bebés) ───────────────
-function GuestsDropdown() {
-  const [open, setOpen]           = useState(false);
-  const [adultos, setAdultos]     = useState(2);
-  const [ninos, setNinos]         = useState(0);
-  const [bebes, setBebes]         = useState(0);
-  const [mascotas, setMascotas]   = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  const summary = () => {
-    const parts = [`${adultos} adulto${adultos !== 1 ? 's' : ''}`];
-    if (ninos > 0) parts.push(`${ninos} niño${ninos !== 1 ? 's' : ''}`);
-    if (mascotas) parts.push('+ mascota');
-    return parts.join(', ');
-  };
-
-  const Counter = ({ value, onDec, onInc, min = 0 }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <button
-        onClick={onDec}
-        disabled={value <= min}
-        style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${value <= min ? A.line : A.ink2}`, background: '#fff', cursor: value <= min ? 'default' : 'pointer', fontWeight: 700, fontSize: 18, display: 'grid', placeItems: 'center', lineHeight: 1, color: value <= min ? A.muted : A.ink, transition: 'all 0.1s' }}
-      >
-        −
-      </button>
-      <span style={{ minWidth: 20, textAlign: 'center', fontSize: 15, fontWeight: 600, color: A.ink }}>{value}</span>
-      <button
-        onClick={onInc}
-        style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${A.ink2}`, background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 18, display: 'grid', placeItems: 'center', lineHeight: 1, color: A.ink }}
-      >
-        +
-      </button>
-    </div>
-  );
-
-  return (
-    <div className="hero-search-guests" style={{ position: 'relative', borderRight: `1px solid ${A.line}`, flexShrink: 0 }} ref={ref}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ padding: '14px 20px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 5, width: 168 }}
-      >
-        <div style={{ fontSize: 10, color: A.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Huéspedes</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: A.ink, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-          <span style={{ color: A.primary, flexShrink: 0 }}><IcoUsers /></span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary()}</span>
-        </div>
-      </button>
-
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, background: '#fff', border: `1px solid ${A.line}`, borderRadius: 16, boxShadow: '0 16px 48px -16px rgba(11,16,32,0.2)', zIndex: 999, minWidth: 300, padding: '8px 0 0' }}>
-          {/* Adultos */}
-          <div style={{ padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${A.line}` }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: A.ink }}>Adultos</span>
-            <Counter value={adultos} onDec={() => setAdultos(v => Math.max(1, v - 1))} onInc={() => setAdultos(v => Math.min(16, v + 1))} min={1} />
-          </div>
-          {/* Niños */}
-          <div style={{ padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${A.line}` }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: A.ink, flexShrink: 0 }}>Niños</span>
-              <span style={{ fontSize: 11, color: A.muted, whiteSpace: 'nowrap' }}>2 – 12 años</span>
-            </div>
-            <Counter value={ninos} onDec={() => setNinos(v => Math.max(0, v - 1))} onInc={() => setNinos(v => Math.min(8, v + 1))} />
-          </div>
-          {/* Bebés */}
-          <div style={{ padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${A.line}` }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: A.ink, flexShrink: 0 }}>Bebés</span>
-              <span style={{ fontSize: 11, color: A.muted, whiteSpace: 'nowrap' }}>Menores de 2 años</span>
-            </div>
-            <Counter value={bebes} onDec={() => setBebes(v => Math.max(0, v - 1))} onInc={() => setBebes(v => Math.min(4, v + 1))} />
-          </div>
-          {/* Mascotas */}
-          <div
-            onClick={() => setMascotas(v => !v)}
-            style={{ padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 18, lineHeight: 1 }}>🐾</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: A.ink }}>Con mascotas</span>
-            </div>
-            <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${mascotas ? A.primary : A.line}`, background: mascotas ? A.primary : '#fff', display: 'grid', placeItems: 'center', transition: 'all 0.15s', flexShrink: 0 }}>
-              {mascotas && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-            </div>
-          </div>
-          {/* Confirmar */}
-          <div style={{ padding: '12px 20px', borderTop: `1px solid ${A.line}`, display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              onClick={() => setOpen(false)}
-              style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 22px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-            >
-              Confirmar
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
@@ -243,9 +121,8 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
   return (
     <div style={{ color: A.ink, fontFamily: A.font }}>
 
-      {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador).
-             Con ?hero=a se pinta el hero anterior, para comparar. ── */}
-      <Hero
+      {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador) ── */}
+      <HeroPase
         onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }}
         onComprarPase={onComprarPase}
         onSuscribir={onSuscribirHoteleria}
@@ -274,8 +151,8 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
         />
       ))}
 
-      {/* ── Packs / Cuponeras prediseñadas ─────────────────────── */}
-      <CuponerasSection onOpenPack={onOpenPack} onVerPacks={onVerPacks} />
+      {/* ── Cupopacks ─────────────────────────────────────────── */}
+      <CupopacksSection onOpenPack={onOpenPack} onVerPacks={onVerPacks} />
     </div>
   );
 }
@@ -486,289 +363,6 @@ const CATEGORIA_ICON_MAP = {
   // Fallbacks por tipo
   'alojamiento': IcoCatBed, 'salidas': IcoCatFork, 'aventura_relax': IcoCatBeach,
 };
-
-// ═══════════════════════════════════════════════════════════
-//  "Tipos de cupón" — 9 mecánicas en grilla 3 col
-// ═══════════════════════════════════════════════════════════
-function TiposCuponSection() {
-  const [flash, setFlash] = React.useState(2 * 3600 + 45 * 60 + 11);
-  const [hh,    setHh]    = React.useState(4 * 3600 + 12 * 60 + 38);
-  React.useEffect(() => {
-    const t = setInterval(() => {
-      setFlash(s => s > 0 ? s - 1 : 2 * 3600 + 45 * 60 + 11);
-      setHh(s    => s > 0 ? s - 1 : 4 * 3600 + 12 * 60 + 38);
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
-  const fmt = s => {
-    s = Math.max(0, s);
-    return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
-      .map(n => String(n).padStart(2, '0')).join(':');
-  };
-
-  const CARD_BASE = { background: '#fff', border: `1px solid ${A.line}`, borderRadius: 24, padding: '30px 30px 28px', minHeight: 288, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', transition: 'transform .22s ease, box-shadow .22s ease', cursor: 'default' };
-  const CARD_BLUE = { ...CARD_BASE, background: A.primary, border: `1px solid ${A.primary}`, color: '#fff' };
-  const CARD_INK  = { ...CARD_BASE, background: A.navy,    border: `1px solid ${A.navy}`,    color: '#fff' };
-  const CARD_GRAY = { ...CARD_BASE, background: '#ECEEF3', border: '1px solid transparent' };
-  const ICO = (svg, color = A.primary) => <div style={{ color }}>{svg}</div>;
-  const Chip = ({ color = A.primary, bg = A.primarySoft, children }) => (
-    <div style={{ position: 'absolute', top: 26, right: 26, display: 'inline-flex', alignItems: 'center', gap: 6, background: bg, color, fontSize: 11.5, fontWeight: 600, padding: '6px 11px', borderRadius: 999, letterSpacing: '0.01em', fontFamily: A.font }}>
-      {children}
-    </div>
-  );
-  const PulseDot = ({ color = A.primary }) => (
-    <span style={{ position: 'relative', width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
-  );
-
-  return (
-    <section style={{ background: '#fff', borderTop: `1px solid ${A.line}` }}>
-      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '88px 48px 104px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 32, marginBottom: 40, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 14 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
-              Tipos de cupón
-            </div>
-            <h2 style={{ fontSize: 46, lineHeight: 1.04, letterSpacing: '-0.03em', fontWeight: 700, margin: 0, maxWidth: '18ch', fontFamily: A.font }}>Cada cupón es único en su especie</h2>
-            <p style={{ fontSize: 17, lineHeight: 1.5, color: A.muted, margin: '14px 0 0', maxWidth: '54ch' }}>
-              Nueve mecánicas distintas, del descuento de siempre a la ruleta de la suerte. Cada socio elige cómo quiere sorprenderte.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', fontSize: 12.5, color: A.muted, fontWeight: 500 }}>
-            {[['#2545E6','En vivo'],['#10A36B','Por activarse'],['#FFC93C','Premio']].map(([color, label]) => (
-              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block' }} />
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Grid 3 col */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-
-          {/* 1 · Normal */}
-          <article style={CARD_BASE}>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M13 6v12" strokeDasharray="2 3"/></svg>)}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Normal</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>El cupón de siempre. Descuento fijo, sin reloj corriendo.</p>
-            <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: A.green }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-              Sin fecha límite
-            </div>
-          </article>
-
-          {/* 2 · Flash (BLUE) */}
-          <article style={CARD_BLUE}>
-            <Chip color="#fff" bg="rgba(255,255,255,0.16)">
-              <PulseDot color="#fff" />
-              <span style={{ fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.02em' }}>{fmt(flash)}</span>
-            </Chip>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>, '#fff')}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Flash</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.72)', margin: '9px 0 0', maxWidth: '30ch' }}>Cuenta regresiva a la vista. Cuando llega a cero, se apaga.</p>
-            <div style={{ marginTop: 16, fontSize: 12, fontWeight: 600, opacity: 0.85 }}>Termina hoy · {fmt(flash)}</div>
-          </article>
-
-          {/* 3 · Grupal */}
-          <article style={CARD_BASE}>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 3.5-5.5 7-5.5s6 2 7 5.5"/><circle cx="17" cy="9" r="3"/><path d="M16 14.5c2.6.2 4.7 1.8 6 4.5"/></svg>)}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Grupal</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Se activa al juntar N compradores. La variante <em>trampa</em> arranca con la mitad.</p>
-            <div style={{ marginTop: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11.5, fontWeight: 600, color: A.ink2, marginBottom: 7 }}>
-                <span>12 / 20 personas</span><span style={{ color: A.green }}>⚡ Trampa: 50%</span>
-              </div>
-              <div style={{ height: 7, borderRadius: 999, background: A.line, overflow: 'hidden', position: 'relative' }}>
-                <div style={{ position: 'absolute', inset: 0, width: '60%', borderRadius: 999, background: A.primary }} />
-              </div>
-            </div>
-          </article>
-
-          {/* 4 · Geo Oferta */}
-          <article style={CARD_BASE}>
-            <Chip color={A.primary} bg={A.primarySoft}>
-              <PulseDot color={A.primary} /> En vivo
-            </Chip>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>)}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Geo Oferta</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Se enciende en tiempo real y manda un push a turistas a la redonda.</p>
-            <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: A.ink2 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 1 1 12 0v5l1.5 3h-15L6 13V8Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
-              Push en radio de 0,2 km
-            </div>
-          </article>
-
-          {/* 5 · Oferta Tormenta */}
-          <article style={CARD_BASE}>
-            <Chip color="#475569" bg="#F0F1F4">
-              <PulseDot color="#475569" /> Lloviendo
-            </Chip>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15a4 4 0 0 1 .5-7.97 5.5 5.5 0 0 1 10.6 1.02A3.5 3.5 0 0 1 17 15"/><path d="M9 18l-1.5 3M14 18l-1.5 3M16 17l-1 2"/></svg>, '#475569')}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Oferta Tormenta</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>La API del clima la dispara cuando llueve en la localidad del socio.</p>
-            <div style={{ marginTop: 16, fontSize: 12, fontWeight: 600, color: A.ink2 }}>Activa hoy en Villa Gesell</div>
-          </article>
-
-          {/* 6 · Combos (GRAY) */}
-          <article style={CARD_GRAY}>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16.5 9 5 9-5"/></svg>, A.primaryDark)}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Combos</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Premio automático al acumular tipos que se complementan en tu cuponera.</p>
-            <div style={{ marginTop: 16, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              {['Café', 'Playa'].map(t => <span key={t} style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: A.primarySoft, color: A.primaryDark }}>{t}</span>)}
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 8, background: A.yellow, color: A.ink }}>+ Premio</span>
-            </div>
-          </article>
-
-          {/* 7 · Happy Hour */}
-          <article style={CARD_BASE}>
-            <Chip color={A.muted} bg="#F0F1F4">
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: A.muted, display: 'inline-block' }} /> Inactivo
-            </Chip>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>)}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Happy Hour</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Solo se canjea en su franja. Fuera de hora queda en pausa, con cuenta atrás.</p>
-            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, fontWeight: 600, color: A.ink2 }}>
-              <span style={{ background: A.primarySoft, color: A.primary, padding: '4px 9px', borderRadius: 7 }}>18:00 – 20:00</span>
-              <span style={{ color: A.muted }}>Abre en <span style={{ fontFamily: 'monospace', color: A.ink }}>{fmt(hh)}</span></span>
-            </div>
-          </article>
-
-          {/* 8 · Circuitos Cuponear */}
-          <article style={CARD_BASE}>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M5 8.5v3a3.5 3.5 0 0 0 3.5 3.5h6a3.5 3.5 0 0 1 0 0"/><path d="M7.5 6H14a3.5 3.5 0 0 1 3.5 3.5V15"/></svg>)}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Circuitos Cuponear</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: A.muted, margin: '9px 0 0', maxWidth: '30ch' }}>Escaneás el QR de varios socios agrupados. Al completar el circuito, cupón especial.</p>
-            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 7 }}>
-              {[true,true,true,false,false].map((on, i) => (
-                <React.Fragment key={i}>
-                  <div style={{ width: 24, height: 24, borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'monospace', background: on ? A.primary : A.line, color: on ? '#fff' : A.muted }}>{i+1}</div>
-                  {i < 4 && <div style={{ flex: '0 0 14px', height: 2, borderRadius: 2, background: on ? A.primary : A.line }} />}
-                </React.Fragment>
-              ))}
-            </div>
-          </article>
-
-          {/* 9 · Ruleta (INK) */}
-          <article style={CARD_INK}>
-            <Chip color="#fff" bg="rgba(255,255,255,0.16)">
-              <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'conic-gradient(#FFC93C 0 25%, #fff 0 50%, #FFC93C 0 75%, #fff 0 100%)', border: '2px solid #fff', display: 'inline-block', animation: 'spin 6s linear infinite', flexShrink: 0 }} />
-              ¡Girá!
-            </Chip>
-            {ICO(<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 5V3M12 13l5-3M12 13l-4 2.5"/><path d="M12 13v8M4.5 13h15"/></svg>, '#fff')}
-            <div style={{ flex: 1, minHeight: 24 }} />
-            <h3 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.12, margin: 0, fontFamily: A.font }}>Ruleta</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'rgba(255,255,255,0.72)', margin: '9px 0 0', maxWidth: '30ch' }}>Mini ruleta en la ficha del cupón. El giro define tu descuento y tu precio final.</p>
-            <div style={{ marginTop: 16, fontSize: 12, fontWeight: 600, color: A.yellow }}>Suerte: del 10% al 70% OFF</div>
-          </article>
-
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </section>
-  );
-}
-
-function SociosTendenciaSection({ accommodations = [], dining = [], aventura = [], onOpenDetail }) {
-  // Intercalado round-robin de las tres categorías para garantizar diversidad visual
-  const planRank = { PLUS: 2, BASE: 1 };
-  const rank = s => (planRank[s.plan] || 0) * 10 + (s.rating || 0);
-  const sortedA = accommodations.map(a => ({ ...a, _tipo: 'alojamiento' })).filter(s => s.name).sort((a,b) => rank(b) - rank(a));
-  const sortedD = dining.map(d => ({ ...d, _tipo: 'salidas' })).filter(s => s.name).sort((a,b) => rank(b) - rank(a));
-  const sortedX = aventura.map(x => ({ ...x, _tipo: 'aventura_relax' })).filter(s => s.name).sort((a,b) => rank(b) - rank(a));
-  const socios = [];
-  const maxLen = Math.max(sortedA.length, sortedD.length, sortedX.length);
-  for (let i = 0; i < maxLen && socios.length < 12; i++) {
-    if (sortedA[i]) socios.push(sortedA[i]);
-    if (socios.length < 12 && sortedD[i]) socios.push(sortedD[i]);
-    if (socios.length < 12 && sortedX[i]) socios.push(sortedX[i]);
-  }
-
-  if (!socios.length) return null;
-
-  // Deduplicar fotos: si dos socios comparten la misma URL de imagen, asignar fallback único por categoría
-  const DEFAULT_IMG = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e';
-  const seenImgs = new Set();
-  const fallbackIdx = { alojamiento: 0, salidas: 0, aventura_relax: 0 };
-  const sociosDeduped = socios.map(s => {
-    const isDefault = !s.image || s.image.startsWith(DEFAULT_IMG);
-    const isDup = seenImgs.has(s.image);
-    if (isDefault || isDup) {
-      const pool = FALLBACK_PHOTOS[s._tipo] || FALLBACK_PHOTOS.alojamiento;
-      const idx = fallbackIdx[s._tipo] || 0;
-      const img = pool[idx % pool.length];
-      fallbackIdx[s._tipo] = idx + 1;
-      seenImgs.add(img);
-      return { ...s, image: img };
-    }
-    seenImgs.add(s.image);
-    return s;
-  });
-
-  return (
-    <section style={{ background: 'linear-gradient(30deg, #fff1f6 0%, #d2e9f3 55%, #fff1f6 100%)', padding: '72px 0', borderTop: `1px solid ${A.line}`, borderBottom: `1px solid ${A.line}` }}>
-      {/* Header */}
-      <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 32 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-          <span style={{ color: '#FF5A8A', display: 'flex' }}><IcoFlame /></span> Tendencia en la costa
-        </div>
-        <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>Socios locales que son tendencia</h2>
-        <p style={{ fontSize: 16, color: A.ink2, margin: '10px 0 0', maxWidth: 560, lineHeight: 1.5 }}>
-          Los lugares más elegidos de la temporada. Tocá uno y descubrí sus promociones.
-        </p>
-      </div>
-
-      {/* Scroll horizontal de avatares redondos */}
-      <div style={{ position: 'relative' }}>
-        <div style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingTop: 6, paddingBottom: 12 }} className="no-scrollbar">
-          <div style={{ display: 'flex', gap: 26, width: 'max-content', paddingRight: 56 }}>
-            {sociosDeduped.map(s => {
-              const IconCat = CATEGORIA_ICON_MAP[s.category] || CATEGORIA_ICON_MAP[s._tipo] || IcoCatBed;
-              return (
-              <button
-                key={`${s._tipo}-${s.id}`}
-                onClick={() => onOpenDetail?.(s, s._tipo)}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: 154, flexShrink: 0, fontFamily: A.font }}
-                onMouseEnter={e => { const img = e.currentTarget.querySelector('.socio-ring'); if (img) { img.style.transform = 'scale(1.05)'; img.style.boxShadow = '0 16px 36px -12px rgba(37,69,230,0.45)'; } }}
-                onMouseLeave={e => { const img = e.currentTarget.querySelector('.socio-ring'); if (img) { img.style.transform = 'scale(1)'; img.style.boxShadow = '0 10px 28px -14px rgba(11,16,32,0.35)'; } }}
-              >
-                {/* Foto redonda */}
-                <div className="socio-ring" style={{ position: 'relative', width: 154, height: 154, borderRadius: '50%', padding: 4, background: '#fff', boxShadow: '0 10px 28px -14px rgba(11,16,32,0.35)', transition: 'transform 0.2s, box-shadow 0.2s' }}>
-                  <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: A.line }}>
-                    <img src={s.image} alt={s.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', width: 38, height: 38, borderRadius: '50%', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.primary }}>
-                    <IconCat />
-                  </div>
-                </div>
-                {/* Nombre + localidad */}
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.25, marginBottom: 3 }}>{s.name}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, color: A.muted }}>
-                    <span style={{ display: 'flex' }}><IcoPin /></span>{s.localidad}
-                  </div>
-                </div>
-              </button>
-              );
-            })}
-          </div>
-        </div>
-        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 12, width: 120, background: 'linear-gradient(to right, transparent, #fff1f6)', pointerEvents: 'none', zIndex: 2 }} />
-      </div>
-    </section>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 //  Feed "Descubrí salidas y aventura"
 // ═══════════════════════════════════════════════════════════
@@ -803,23 +397,6 @@ const MOCK_TESTIMONIALS = [
   { texto: '"Una experiencia que no me esperaba tan buena. Nos fuimos felices y con ganas de volver."', nombre: 'Camila', fecha: 'ayer', rating: 5.0 },
   { texto: '"Atención espectacular. Te hacen sentir como en casa desde el primer momento."', nombre: 'Diego', fecha: 'hace 4 días', rating: 4.6 },
 ];
-
-function SocioHeaderOverlay({ avatar, negocio, sub }) {
-  return (
-    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.62) 0%, transparent 100%)', padding: '12px 14px 22px', display: 'flex', alignItems: 'center', gap: 9, zIndex: 2 }}>
-      <div style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.18)', border: '1.5px solid rgba(255,255,255,0.38)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>
-        {avatar
-          ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : (negocio || '?')[0]}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{negocio}</div>
-        {sub && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)', marginTop: 1 }}>{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
 function VideoCard({ item }) {
   const videoRef = useRef(null);
   const cardRef  = useRef(null);
@@ -918,24 +495,6 @@ function StarRating({ rating }) {
     </div>
   );
 }
-
-// ─── Reseña — insertada en la card unificada de "Descubrí experiencias reales" ──
-function TestimonioSlot({ promo }) {
-  const tIdx = (promo.proveedorNombre || '').charCodeAt(0) % MOCK_TESTIMONIALS.length;
-  const testim = MOCK_TESTIMONIALS[isNaN(tIdx) ? 0 : tIdx];
-  return (
-    <div style={{ padding: '13px 16px 2px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <StarRating rating={testim.rating} />
-      <p style={{ fontSize: 12.5, fontStyle: 'italic', fontWeight: 400, color: A.ink2, margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-        {testim.texto}
-      </p>
-      <p style={{ fontSize: 11, color: A.muted, margin: 0, fontWeight: 500 }}>
-        — {testim.nombre}, {testim.fecha}
-      </p>
-    </div>
-  );
-}
-
 function SocialPostCard({ item }) {
   return (
     <div style={{ width: FEED_W, height: FEED_H, borderRadius: 20, overflow: 'hidden', flexShrink: 0, background: '#fff', border: `1px solid ${A.line}`, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 14px -4px rgba(11,16,32,0.09)' }}>
@@ -965,43 +524,6 @@ function SocialPostCard({ item }) {
         <PrecioCupon tokens_costo={item.creditos} />
       </div>
     </div>
-  );
-}
-
-function FeedSection() {
-  // Sólo dos formatos: video y "post" (estilo red social). Se quitó el híbrido oferta+reseña.
-  const feed = [];
-  const vids  = [...MOCK_VIDEOS];
-  const posts = [...MOCK_POSTS];
-  let slot = 0;
-  while (vids.length || posts.length) {
-    if (slot % 2 === 0) feed.push(vids.length ? vids.shift() : posts.shift());
-    else                feed.push(posts.length ? posts.shift() : vids.shift());
-    slot++;
-  }
-
-  return (
-    <section id="feed-ofertas" style={{ background: A.navy, padding: '72px 0' }}>
-      <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 36 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#A9B6FF', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-          <IcoBolt /> RESEÑAS DE SOCIOS Y VIAJEROS
-        </div>
-        <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: '#fff', margin: '0 0 8px' }}>Descubrí experiencias reales</h2>
-        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', margin: 0 }}>Ofertas y momentos inolvidables, contado por quienes te van a acompañar en este viaje.</p>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <div style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 44 }} className="no-scrollbar">
-          <div style={{ display: 'flex', gap: 24, width: 'max-content', paddingRight: 56 }}>
-            {feed.map((item) => {
-              if (item.type === 'video') return <VideoCard key={item.id} item={item} />;
-              if (item.type === 'post')  return <SocialPostCard key={item.id} item={item} />;
-              return null;
-            })}
-          </div>
-        </div>
-        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 10, width: 120, background: `linear-gradient(to right, transparent, ${A.navy})`, pointerEvents: 'none', zIndex: 2 }} />
-      </div>
-    </section>
   );
 }
 
@@ -1035,7 +557,7 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
   const [visibleCount, setVisibleCount] = useState(10);
   const [loadingMore, setLoadingMore]   = useState(false);
   const scrollRef = useRef(null);
-  const { addCupon } = useCuponera();
+  const { addCupon } = useCarrito();
 
   useEffect(() => { setVisibleCount(10); scrollRef.current?.scrollTo({ left: 0 }); }, [filtroTipo]);
 
@@ -1175,21 +697,21 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
 }
 
 // ═══════════════════════════════════════════════════════════
-//  CUPONERAS PREDISEÑADAS
-// ─── Card de una cuponera (portada + beneficio + CTA) ───────
-function CuponeraCard({ cuponera, onVerCuponera }) {
-  const portada  = cuponera.images?.[0] || PHOTOS.cabin;
-  const nCupones = cuponera.cupones?.length || 0;
-  const BenIcon  = getBeneficioIcon(cuponera.beneficioIcono);
-  // Precio total de la cuponera (con el descuento del beneficio, si aplica).
-  const precioBase = (cuponera.cupones || []).reduce((s, c) => s + (Number(c.precio_activacion) || 0), 0);
-  const { precio: precioCuponera } = aplicarBeneficioCuponera({
-    tipo: cuponera.beneficioTipo, valor: cuponera.beneficioValor, puntosBase: 0, precioBase,
+//  CUPOPACKS
+// ─── Card de un Cupopack (portada + beneficio + CTA) ───────
+function CupopackCard({ cupopack, onVerCupopack }) {
+  const portada  = cupopack.images?.[0] || PHOTOS.cabin;
+  const nCupones = cupopack.cupones?.length || 0;
+  const BenIcon  = getBeneficioIcon(cupopack.beneficioIcono);
+  // Precio total del Cupopack (con el descuento del beneficio, si aplica).
+  const precioBase = (cupopack.cupones || []).reduce((s, c) => s + (Number(c.precio_activacion) || 0), 0);
+  const { precio: precioCupopack } = aplicarBeneficioCupopack({
+    tipo: cupopack.beneficioTipo, valor: cupopack.beneficioValor, puntosBase: 0, precioBase,
   });
 
   return (
     <button
-      onClick={onVerCuponera}
+      onClick={onVerCupopack}
       style={{
         position: 'relative', borderRadius: 24, overflow: 'hidden', minHeight: 520,
         display: 'flex', flexDirection: 'column',
@@ -1199,58 +721,58 @@ function CuponeraCard({ cuponera, onVerCuponera }) {
       onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
       onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
     >
-      <PortadaCuponera cuponera={{ ...cuponera, images: [portada] }} alt={cuponera.title} />
+      <PortadaCupopack cupopack={{ ...cupopack, images: [portada] }} alt={cupopack.title} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(5,10,25,0.95) 0%, rgba(5,10,25,0.35) 52%, rgba(5,10,25,0.5) 100%)' }} />
 
       {/* Beneficio adicional (círculo amarillo + texto amarillo) */}
-      {cuponera.beneficioAdicional && (
+      {cupopack.beneficioAdicional && (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 11, padding: '20px 22px 0' }}>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: A.yellow, display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.25)' }}>
             <BenIcon size={21} color={A.navy} strokeWidth={2.4} />
           </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: A.yellow, lineHeight: 1.25 }}>{cuponera.beneficioAdicional}</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: A.yellow, lineHeight: 1.25 }}>{cupopack.beneficioAdicional}</span>
         </div>
       )}
 
       {/* Contenido inferior */}
       <div style={{ position: 'relative', marginTop: 'auto', padding: '0 26px 26px', textAlign: 'left' }}>
-        <h3 style={{ fontSize: 30, fontWeight: 800, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1.1, margin: '0 0 12px' }}>{cuponera.title}</h3>
-        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', lineHeight: 1.5, margin: '0 0 22px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cuponera.subtitle}</p>
+        <h3 style={{ fontSize: 30, fontWeight: 800, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1.1, margin: '0 0 12px' }}>{cupopack.title}</h3>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', lineHeight: 1.5, margin: '0 0 22px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cupopack.subtitle}</p>
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 15, color: '#fff', fontSize: 15, fontWeight: 600 }}>
           <div style={{ position: 'relative', width: 40, height: 33 }}>
             <img src="/ico-disc.svg" alt="" style={{ width: 33, height: 33, position: 'absolute', top: 0, left: 0, zIndex: 2 }} />
             <img src="/ico-disc.svg" alt="" style={{ width: 33, height: 33, position: 'absolute', top: 0, left: 18, zIndex: 1, opacity: 0.55 }} />
           </div>
-          {nCupones} cupones{precioCuponera > 0 ? `. Valor total: $${Math.round(precioCuponera).toLocaleString('es-AR')}` : ''}
+          {nCupones} cupones{precioCupopack > 0 ? `. Valor total: $${Math.round(precioCupopack).toLocaleString('es-AR')}` : ''}
         </div>
       </div>
     </button>
   );
 }
 
-function CuponerasSection({ onOpenPack, onVerPacks }) {
-  const [modal, setModal] = useState(null); // { cuponera, startIndex }
-  const [cuponeras, setCuponeras] = useState(null); // null = cargando
+function CupopacksSection({ onOpenPack, onVerPacks }) {
+  const [modal, setModal] = useState(null); // { cupopack, startIndex }
+  const [cupopacks, setCupopacks] = useState(null); // null = cargando
 
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const { getCuponeras } = await import('../lib/datos');
-      const data = await getCuponeras();
-      if (vivo) setCuponeras(data.slice(0, 6));
+      const { getCupopacks } = await import('../lib/datos');
+      const data = await getCupopacks();
+      if (vivo) setCupopacks(data.slice(0, 6));
     })();
     return () => { vivo = false; };
   }, []);
 
-  // No renderizar la sección si no hay cuponeras cargadas en la DB.
-  if (cuponeras !== null && cuponeras.length === 0) return null;
+  // No renderizar la sección si no hay Cupopacks cargados en la DB.
+  if (cupopacks !== null && cupopacks.length === 0) return null;
 
   return (
     <section data-nav-section="packs" style={{ background: '#fff', position: 'relative' }}>
       <style>{`
-        @media (max-width: 980px) { .cuponeras-grid { grid-template-columns: repeat(2, 1fr) !important; } }
-        @media (max-width: 640px) { .cuponeras-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 980px) { .cupopacks-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 640px) { .cupopacks-grid { grid-template-columns: 1fr !important; } }
         @keyframes cupSkel { 0%,100% { opacity: .35; } 50% { opacity: .12; } }
       `}</style>
 
@@ -1275,7 +797,7 @@ function CuponerasSection({ onOpenPack, onVerPacks }) {
             </button>
           </h2>
           <p style={{ fontSize: 21, fontStyle: 'italic', fontWeight: 400, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45, letterSpacing: '-0.01em', margin: '18px 0 16px', maxWidth: 1120 }}>
-            Ahorrá tiempo y dinero con cuponeras curadas por la plataforma. Llevate un pack cerrado de experiencias que ya incluyen el alojamiento.
+            Selecciones de beneficios armadas por nosotros, para que no tengas que elegir entre decenas de cupones.
           </p>
         </div>{/* /header */}
         </div>{/* /inner padding banda azul */}
@@ -1283,16 +805,16 @@ function CuponerasSection({ onOpenPack, onVerPacks }) {
 
       {/* Grid — subido para que el tercio superior de las cards quede sobre el azul */}
       <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', marginTop: -170, paddingBottom: 96, position: 'relative', zIndex: 1 }}>
-        <div className="cuponeras-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
-          {cuponeras === null
+        <div className="cupopacks-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+          {cupopacks === null
             ? Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} style={{ borderRadius: 24, aspectRatio: '1/1', background: 'rgba(255,255,255,0.08)', animation: 'cupSkel 1.4s ease-in-out infinite' }} />
               ))
-            : cuponeras.map(c => (
-                <CuponeraCard
+            : cupopacks.map(c => (
+                <CupopackCard
                   key={c.id}
-                  cuponera={c}
-                  onVerCuponera={() => setModal({ cuponera: c, startIndex: 0 })}
+                  cupopack={c}
+                  onVerCupopack={() => setModal({ cupopack: c, startIndex: 0 })}
                 />
               ))
           }
@@ -1312,10 +834,8 @@ function CuponerasSection({ onOpenPack, onVerPacks }) {
       </div>
 
       {modal && (
-        // MOCKUP: probando el rediseño a pantalla completa (CuponModalMock).
-        // Para volver al original, cambiar CuponModalMock por CuponModal.
-        <CuponModalMock
-          cuponera={modal.cuponera}
+        <CupopackModal
+          cupopack={modal.cupopack}
           startIndex={modal.startIndex}
           onClose={() => setModal(null)}
         />
@@ -1333,112 +853,3 @@ const GASTRO_FALLBACKS = [
   'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=400&q=60',
   'https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?auto=format&fit=crop&w=400&q=60',
 ];
-
-function GastronomySection({ dining, onOpenDetail, onVerTodas }) {
-  // #2 a #6 en la grilla de la derecha; el resto vive detrás de "Ver todo el ranking".
-  const negociosGrid = dining.slice(0, 5);
-
-  return (
-    <section id="salidas" style={{ background: '#fff', padding: '56px 0', borderTop: `1px solid ${A.line}` }}>
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px' }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: A.primary, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
-            <IcoBolt /> GASTRONOMÍA LOCAL
-          </div>
-          <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.025em', color: A.ink, margin: 0 }}>
-            Top <em style={{ fontStyle: 'normal', color: A.primary }}>#10</em> donde comer y beber
-          </h2>
-        </div>
-
-        {/* Layout: #1 grande a la izquierda + grilla 3×2 (5 negocios + "ver todo") a la derecha —
-            7 miniaturas en total, mucho menos alto que la columna apilada de antes. */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 14, alignItems: 'stretch' }}>
-
-          {/* ── #1 El Nido Bistró ── */}
-          <div
-            onClick={() => onOpenDetail && onOpenDetail({ id: 'nido', name: 'El Nido Bistró', localidad: 'Mar de las Pampas', image: '/nido.jpg', category: 'Restaurante' }, 'salidas')}
-            style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', cursor: 'pointer', minHeight: 320 }}
-            onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.04)'; }}
-            onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
-          >
-            {/* Foto de fondo full */}
-            <img
-              src="/nido.jpg"
-              alt="El Nido Bistró — Mar de las Pampas"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }}
-            />
-            {/* Gradiente inferior */}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.88) 0%, rgba(8,12,24,0.3) 55%, transparent 80%)' }} />
-
-            {/* Info abajo */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '22px 24px' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>
-                Mar de las Pampas
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-                <div style={{ background: A.yellow, color: A.navy, width: 42, height: 42, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1, flexShrink: 0, boxShadow: '0 3px 12px rgba(255,201,60,0.45)' }}>
-                  #1
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                  El Nido Bistró
-                </div>
-              </div>
-              <div style={{ fontSize: 13.5, fontStyle: 'italic', color: 'rgba(255,255,255,0.82)', lineHeight: 1.4, marginBottom: 14 }}>
-                Cocina inspirada en el bosque y el mar. El restaurante de la chef Laura Casentini.
-              </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: A.primary, color: '#fff', borderRadius: 999, padding: '9px 20px', fontSize: 13, fontWeight: 700 }}>
-                Ver restaurante <IcoArrowR />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Grilla derecha: #2 a #6 + "Ver todo el ranking" (3 columnas × 2 filas) ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)', gap: 10 }}>
-
-            {negociosGrid.map((n, i) => (
-              <div key={n.id}
-                onClick={() => onOpenDetail(n, 'salidas')}
-                style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}
-                onMouseEnter={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1.06)'; }}
-                onMouseLeave={e => { e.currentTarget.querySelector('img').style.transform = 'scale(1)'; }}
-              >
-                <img src={n.image} alt={n.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', display: 'block' }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,12,24,0.75) 0%, transparent 65%)' }} />
-                <div style={{ position: 'absolute', bottom: 8, left: 9, right: 9 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <div style={{ background: A.yellow, color: A.navy, width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0, letterSpacing: '-0.02em' }}>#{i + 2}</div>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.name}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {/* Última celda: "Ver todo el ranking" — no es un negocio */}
-            <div
-              onClick={onVerTodas}
-              style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}
-              onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-            >
-              {/* Grid de miniaturas desenfocadas */}
-              <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 2 }}>
-                {GASTRO_FALLBACKS.map((src, i) => (
-                  <img key={i} src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(3px) brightness(0.5)', display: 'block' }} />
-                ))}
-              </div>
-              {/* Overlay claro */}
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.88)' }} />
-              {/* Texto centrado */}
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px', textAlign: 'center' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgb(41, 41, 41)', letterSpacing: '-0.01em', lineHeight: 1.25 }}>Ver todo<br/>el ranking</div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}

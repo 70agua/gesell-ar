@@ -52,9 +52,9 @@ export default function Footer({ onNavigate }) {
 
         {/* Columna marca */}
         <div>
-          <img src="/logo-cuponera-wh.svg" alt="Cuponear" style={{ height: 36, width: 'auto', marginBottom: 18 }} />
+          <img src="/logo-cuponear-wh.svg" alt="Cuponear" style={{ height: 36, width: 'auto', marginBottom: 18 }} />
           <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.7, maxWidth: 280, margin: '0 0 24px' }}>
-            Descubrí alojamientos, salidas y las mejores salidas y aventura & relax. Armá tu cuponera y ahorrá en cada salida.
+            Descubrí alojamientos, salidas y las mejores salidas y aventura & relax. Armá tu carrito y ahorrá en cada salida.
           </p>
           {/* Redes sociales */}
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
@@ -84,16 +84,16 @@ export default function Footer({ onNavigate }) {
           <NavLink label="Alojamientos"     onClick={() => nav('marketplace')} />
           <NavLink label="Salidas"      onClick={() => nav('salidas')} />
           <NavLink label="Ofertas y descuentos" onClick={() => nav('ofertas')} />
-          <NavLink label="Cuponeras" onClick={() => nav('packs')} />
+          <NavLink label="Cupopacks" onClick={() => nav('packs')} />
           <NavLink label="Ofertas de regalo" onClick={() => nav('ofertas-regalo')} />
         </div>
 
-        {/* Columna: Tu cuponera */}
+        {/* Columna: Tu carrito */}
         <div>
-          <div style={COL.title}>Tu cuponera</div>
+          <div style={COL.title}>Tu carrito</div>
           <NavLink label="¿Cómo funciona?"  onClick={() => nav('home')} />
           <NavLink label="Activar descuentos" onClick={() => nav('ofertas')} />
-          <NavLink label="Armá tu cuponera" onClick={() => nav('marketplace')} />
+          <NavLink label="Armá tu carrito" onClick={() => nav('marketplace')} />
           <NavLink label="Ingresar"         onClick={() => nav('login')} />
         </div>
 
@@ -113,7 +113,7 @@ export default function Footer({ onNavigate }) {
 
       {/* ── Barra inferior ── */}
       <div style={{ borderTop: `1px solid ${LINE}`, padding: '18px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, maxWidth: 1200, margin: '0 auto' }}>
-        <span style={{ fontSize: 12, color: MUTED }}>© {new Date().getFullYear()} Cuponera — Todos los derechos reservados</span>
+        <span style={{ fontSize: 12, color: MUTED }}>© {new Date().getFullYear()} Cuponear — Todos los derechos reservados</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
           {/* Puerta de entrada a la cuenta: es el único acceso al login desde
               que salió de la navbar, así que va acá, siempre visible. */}

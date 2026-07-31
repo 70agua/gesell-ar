@@ -1,6 +1,6 @@
 // ============================================================
 //  src/lib/pases.js
-//  Cuponera Gesell — lógica de negocio del Pase (Brief 1).
+//  Pase — logica de negocio (Brief 1). Antes se lo llamaba 'Cuponera Gesell'.
 //
 //  Naming genérico: el producto es un `pase` multi-destino. El
 //  destino ('gesell') es SIEMPRE un parámetro de dato, nunca se
@@ -426,7 +426,7 @@ export async function upgradePaseB2C({ usuarioPaseId, userId, pagoRef = null }) 
 //  Activación de pase-regalo (turista abre link/QR del hotel).
 //  Vía RPC: valida cupo mensual Free (10) atómicamente. Sin puntos.
 // ═══════════════════════════════════════════════════════════
-// El huésped valida el código ANTES de registrarse: si no sirve, no tiene
+// El turista valida el código ANTES de registrarse: si no sirve, no tiene
 // sentido pedirle una cuenta. Va por RPC porque socio_alias está cerrada por
 // RLS — ver db/20260728_validar_alias_regalo.sql.
 // Devuelve { ok, negocio_id, negocio_nombre } | { ok:false, error }

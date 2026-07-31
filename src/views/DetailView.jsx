@@ -5,19 +5,19 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapView from '../components/MapView';
 import {
   X, Send, Gift, Check, Eye, EyeOff, Loader2, Lock,
-  Heart, Share2, Zap, MessageCircle, Flag, ChevronRight, ChevronLeft, Home,
+  Heart, Share2, Zap, Flag, ChevronRight, ChevronLeft, Home,
   Wifi, Car, Waves, Coffee, ShieldCheck, KeyRound,
-  Utensils, Phone, Clock, Globe, MapPin, Ticket,
+  Utensils, Clock, Globe, MapPin, Ticket,
   Star, Minus, Plus, Sunrise, Users, Bell,
   Dumbbell, Wind, Flame, PawPrint, Baby, Bike, Tv, ChefHat,
   TreePine, Droplets, Sparkles, BedDouble, AirVent,
-  Mail, BookOpen,
+  BookOpen,
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { supabase }                                    from '../lib/supabase';
 import { getPromosDeNegocio, getAlianzasPorNegocio, getPromosLocalidad } from '../lib/datos';
 import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
-import { useCuponera } from '../lib/cuponera';
+import { useCarrito } from '../lib/carrito';
 import CtaPase from '../components/CtaPase';
 import useMiPase from '../hooks/useMiPase';
 import { elegirPremium } from '../lib/pases';
@@ -115,9 +115,20 @@ function formatAhorro(estimado, max) {
 }
 
 // ─── Plan config ────────────────────────────────────────────
+// Lo que ve el turista según si el socio contrató o no. Las claves quedaron
+// con los nombres viejos porque son los valores que llegan en `item.plan`;
+// BASE = sin plan, PLUS = cualquier tramo PRO.
+//
+// Fase 2b: el PRECIO se muestra SIEMPRE. Ocultárselo al turista para castigar
+// al socio rompe el producto del lado del que compra y le baja el valor al
+// Pase. El plan compra visibilidad, no funcionalidad básica.
+//
+// `showContact` desapareció: no hay botón de contacto ni teléfono/mail del
+// socio en ningún caso, tenga plan o no. El contacto no es un dato, es un
+// flujo — las solicitudes de fecha de la Fase 5b.
 const PLAN_CFG = {
-  BASE:  { maxFotos: 3,  showPrice: false, showContact: false, mapDetail: 'approx',  label: 'Gratis' },
-  PLUS:  { maxFotos: 8,  showPrice: true,  showContact: true,  mapDetail: 'barrio',  label: 'Plus'   },
+  BASE:  { maxFotos: 3,  showPrice: true, mapDetail: 'approx',  label: 'Sin plan' },
+  PLUS:  { maxFotos: 8,  showPrice: true, mapDetail: 'barrio',  label: 'PRO'      },
 };
 
 // ─── Tipos ──────────────────────────────────────────────────
@@ -153,155 +164,6 @@ function DError({ children }) {
   return <div className="rounded-[10px] px-3.5 py-2.5 text-[13px] font-medium" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626' }}>{children}</div>;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  ConsultaDrawer
-// ═══════════════════════════════════════════════════════════
-function ConsultaDrawer({ item, onClose }) {
-  const [step, setStep]     = useState('form');
-  const [nombre, setNombre] = useState('');
-  const [email, setEmail]   = useState('');
-  const [tel, setTel]       = useState('');
-  const [msg, setMsg]       = useState('');
-  const [pass, setPass]     = useState('');
-  const [showP, setShowP]   = useState(false);
-  const [loading, setLoad]  = useState(false);
-  const [error, setError]   = useState('');
-
-  async function handleConsulta(e) {
-    e.preventDefault(); setError('');
-    if (!nombre.trim() || !email.trim() || !msg.trim()) { setError('Completá nombre, email y mensaje.'); return; }
-    setLoad(true);
-    try {
-      await guardarConsulta({ negocioId: item.id, nombre, email, telefono: tel, mensaje: msg });
-      setStep('success');
-    } catch { setError('No se pudo enviar. Intentá de nuevo.'); }
-    finally { setLoad(false); }
-  }
-
-  async function handleRegistro(e) {
-    e.preventDefault(); setError('');
-    if (!pass || pass.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
-    setLoad(true);
-    try {
-      await registrarTurista({ nombre, email, password: pass });
-      setStep('done');
-    } catch (err) {
-      if (err.message?.includes('already registered')) {
-        try { await loginTurista(email, pass); setStep('done'); }
-        catch { setError('Email ya registrado. Revisá tu contraseña.'); }
-      } else { setError(err.message || 'Error al registrarse.'); }
-    } finally { setLoad(false); }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[1000] flex" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="absolute inset-0 bg-[rgba(11,16,32,0.45)] backdrop-blur-sm" />
-      <div className="absolute right-0 top-[70px] bottom-0 w-full max-w-[460px] bg-white flex flex-col shadow-2xl rounded-tl-2xl">
-        {/* Header */}
-        <div className="px-6 py-5 flex items-center justify-between" style={{ borderBottom: `1px solid ${C.line}` }}>
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-widest mb-0.5" style={{ color: C.muted }}>{item.type}</div>
-            <div className="text-[17px] font-bold" style={{ color: C.ink }}>{item.name}</div>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style={{ border: `1px solid ${C.line}`, background: C.bg }}>
-            <X size={15} color={C.ink2} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {step === 'form' && (
-            <form onSubmit={handleConsulta} className="flex flex-col gap-3.5">
-              <div>
-                <p className="text-xl font-bold tracking-tight mb-1" style={{ color: C.ink }}>Consultar disponibilidad</p>
-                <p className="text-[13px]" style={{ color: C.muted }}>Te responden directamente. Sin intermediarios.</p>
-              </div>
-              <DField label="Nombre *"><DInput value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre completo" /></DField>
-              <DField label="Email *"><DInput type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" /></DField>
-              <DField label="Teléfono / WhatsApp"><DInput type="tel" value={tel} onChange={e => setTel(e.target.value)} placeholder="+54 9 11 ..." /></DField>
-              <DField label="Mensaje *">
-                <textarea value={msg} onChange={e => setMsg(e.target.value)} placeholder="¿Qué fechas te interesan? ¿Cuántas personas?" rows={4}
-                  className="w-full px-3.5 py-3 rounded-[10px] text-sm outline-none resize-y"
-                  style={{ border: `1px solid ${C.line}`, background: C.bg, color: C.ink }} />
-              </DField>
-              {error && <DError>{error}</DError>}
-              <button type="submit" disabled={loading} className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white cursor-pointer" style={{ background: C.primary, opacity: loading ? 0.7 : 1 }}>
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />}
-                {loading ? 'Enviando...' : 'Enviar consulta'}
-              </button>
-            </form>
-          )}
-
-          {step === 'success' && (
-            <div className="flex flex-col gap-5">
-              <div className="text-center py-3">
-                <div className="w-[60px] h-[60px] rounded-full flex items-center justify-center mx-auto mb-3.5" style={{ background: '#E8FFF4' }}>
-                  <Check size={28} color={C.green} strokeWidth={2.5} />
-                </div>
-                <p className="text-xl font-bold mb-1.5" style={{ color: C.ink }}>¡Consulta enviada!</p>
-                <p className="text-[13px] leading-relaxed" style={{ color: C.muted }}>
-                  <strong>{item.name}</strong> recibió tu mensaje y te contactará pronto a <strong>{email}</strong>.
-                </p>
-              </div>
-              <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(135deg,#EEF1FF 0%,#E8FFF4 100%)', border: `1px solid ${C.line}` }}>
-                <div className="flex items-center gap-2.5 mb-2.5">
-                  <div className="w-10 h-10 rounded-[10px] grid place-items-center" style={{ background: C.primary }}>
-                    <Gift size={18} color="#fff" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold" style={{ color: C.ink }}>¡Ganás 2 créditos Cuponear!</div>
-                    <div className="text-[11px]" style={{ color: C.muted }}>Valor: $4.840 en descuentos</div>
-                  </div>
-                </div>
-                <p className="text-[13px] leading-relaxed mb-3.5" style={{ color: C.ink2 }}>Registrate en 30 segundos y usá tus créditos en ofertas, salidas y aventura & relax.</p>
-                <button onClick={() => setStep('register')} className="w-full py-3 rounded-[10px] font-bold text-[13px] text-white cursor-pointer" style={{ background: C.primary }}>
-                  Crear mi cuenta y recibir créditos
-                </button>
-                <button onClick={onClose} className="w-full bg-transparent border-0 text-xs font-medium mt-2 py-1.5 cursor-pointer" style={{ color: C.muted }}>Ahora no</button>
-              </div>
-            </div>
-          )}
-
-          {step === 'register' && (
-            <form onSubmit={handleRegistro} className="flex flex-col gap-3.5">
-              <div>
-                <p className="text-xl font-bold tracking-tight mb-1" style={{ color: C.ink }}>Crear cuenta</p>
-                <p className="text-[13px]" style={{ color: C.muted }}>Con el email <strong>{email}</strong>. Solo falta tu contraseña.</p>
-              </div>
-              <DField label="Contraseña *">
-                <div className="relative">
-                  <DInput type={showP ? 'text' : 'password'} value={pass} onChange={e => setPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
-                  <button type="button" onClick={() => setShowP(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer" style={{ color: C.muted }}>
-                    {showP ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </DField>
-              {error && <DError>{error}</DError>}
-              <button type="submit" disabled={loading} className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white cursor-pointer" style={{ background: C.primary, opacity: loading ? 0.7 : 1 }}>
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <Gift size={14} />}
-                {loading ? 'Creando cuenta...' : 'Crear cuenta y recibir 2 créditos'}
-              </button>
-            </form>
-          )}
-
-          {step === 'done' && (
-            <div className="text-center py-5 flex flex-col items-center gap-3.5">
-              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center" style={{ background: C.primarySoft }}>
-                <span className="text-4xl">🎉</span>
-              </div>
-              <div>
-                <p className="text-2xl font-extrabold tracking-tight mb-1.5" style={{ color: C.ink }}>¡Bienvenido/a, {nombre.split(' ')[0]}!</p>
-                <p className="text-sm leading-relaxed" style={{ color: C.muted }}>Tus <strong style={{ color: C.primary }}>2 créditos Cuponear</strong> ya están en tu cuenta.</p>
-              </div>
-              <button onClick={onClose} className="px-7 py-3 rounded-[10px] font-bold text-[13px] text-white cursor-pointer" style={{ background: C.primary }}>
-                Ver ofertas y usar créditos
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Coordenadas aproximadas por localidad ───────────────────
 const LOCALIDAD_COORDS = {
@@ -315,15 +177,6 @@ const LOCALIDAD_COORDS = {
 };
 const DEFAULT_COORDS = [-37.2636, -56.9769];
 
-// Fix Leaflet default marker icon
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
-
-// ZonaMap ahora usa el componente MapView reutilizable
 function ZonaMap({ item, promos, onAddCupon, onOpenOferta }) {
   const center = LOCALIDAD_COORDS[item.localidad] || DEFAULT_COORDS;
 
@@ -349,160 +202,10 @@ function ZonaMap({ item, promos, onAddCupon, onOpenOferta }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-//  BarrioMap
-// ═══════════════════════════════════════════════════════════
 function hashPos(id) {
   const n = typeof id === 'string' ? id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : Number(id) || 7;
   return { x: ((n * 37 + 11) % 60) + 18, y: ((n * 53 + 17) % 55) + 18 };
-}
-
-function BarrioMap({ item, plan }) {
-  const pos    = hashPos(item.id);
-  const detail = PLAN_CFG[plan]?.mapDetail || 'barrio';
-  const hLines = [22, 38, 54, 70];
-  const vLines = [20, 40, 60, 80];
-
-  return (
-    <div className="relative w-full rounded-2xl overflow-hidden" style={{ height: 280, border: `1px solid ${C.line}`, background: '#F0EDE4' }}>
-      <div className="absolute right-0 top-0 w-[14%] h-full" style={{ background: 'linear-gradient(90deg,#D4E8F5 0%,#B8D9EE 100%)' }} />
-      <div className="absolute" style={{ bottom: '-6%', left: '8%', width: '32%', height: '38%', borderRadius: '50%', background: 'rgba(110,160,80,0.22)' }} />
-      <svg className="absolute inset-0 w-full h-full">
-        {hLines.map(y => <line key={`h${y}`} x1="0" y1={`${y}%`} x2="86%" y2={`${y}%`} stroke="#D9D4C7" strokeWidth="1" />)}
-        {vLines.map(x => <line key={`v${x}`} x1={`${x}%`} y1="0" x2={`${x}%`} y2="100%" stroke="#D9D4C7" strokeWidth="1" />)}
-        <line x1="0" y1="50%" x2="86%" y2="50%" stroke="#C8C2B4" strokeWidth="2.5" />
-        <line x1="40%" y1="0" x2="40%" y2="100%" stroke="#C8C2B4" strokeWidth="2.5" />
-      </svg>
-
-      {detail !== 'approx' && (
-        <div className="absolute inset-0 pointer-events-none">
-          <span className="absolute text-[9px] font-semibold uppercase tracking-wider" style={{ top: '47%', left: '2%', color: '#888070' }}>Av. Principal</span>
-          <span className="absolute text-[9px] font-semibold uppercase tracking-wider" style={{ top: '2%', left: '37%', color: '#888070', writingMode: 'vertical-rl' }}>Av. del Mar</span>
-        </div>
-      )}
-
-      {detail === 'approx' && (
-        <div className="absolute pointer-events-none" style={{ left: `${pos.x - 14}%`, top: `${pos.y - 14}%`, width: '28%', height: '28%', borderRadius: '50%', background: `radial-gradient(circle,${C.primary}33 0%,transparent 70%)` }} />
-      )}
-
-      {/* Pin */}
-      <div className="absolute z-[2]" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%,-100%)' }}>
-        <div className="relative flex flex-col items-center">
-          <div className="w-8 h-8 rounded-[50%_50%_50%_0] -rotate-45" style={{ background: C.primary, border: '2px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }} />
-          <div className="absolute text-white rotate-45" style={{ top: 6, left: 6 }}>
-            <MapPin size={13} strokeWidth={2.5} />
-          </div>
-          <div className="w-2 h-1 rounded-full mt-0.5" style={{ background: 'rgba(0,0,0,0.2)' }} />
-        </div>
-      </div>
-
-      {/* Tooltip */}
-      <div className="absolute z-[3] pointer-events-none" style={{ left: `${pos.x}%`, top: `${pos.y - 8}%`, transform: 'translate(-50%,-100%)' }}>
-        <div className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white whitespace-nowrap shadow-lg" style={{ background: C.ink }}>
-          {item.name}
-        </div>
-      </div>
-
-      {/* Badges */}
-      <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold backdrop-blur-sm" style={{ background: 'rgba(255,255,255,0.92)', color: C.ink2 }}>
-        {detail === 'approx' ? 'Zona aproximada' : detail === 'barrio' ? 'Barrio indicativo' : 'Ubicación cercana'}
-      </div>
-      <div className="absolute bottom-2.5 right-4 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold" style={{ background: 'rgba(255,255,255,0.85)', color: C.primary }}>
-        <MapPin size={11} /> {item.localidad || 'Villa Gesell'}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  Gallery — layout fijo: 1 grande izq + 2×2 der (siempre)
-// ═══════════════════════════════════════════════════════════
-function Gallery({ item, plan }) {
-  const cfg      = PLAN_CFG[plan] || PLAN_CFG.PLUS;
-  const rawFotos = (item.fotos?.length ? item.fotos : [item.image]).filter(Boolean).slice(0, cfg.maxFotos);
-  const [light, setLight] = useState(null);
-
-  // Garantizar exactamente 5 slots: rellena con la principal si faltan
-  const main = rawFotos[0] || item.image;
-  const slots = [1, 2, 3, 4].map(i => rawFotos[i] || main);
-  const extra = rawFotos.length > 5 ? rawFotos.length - 5 : 0;
-  // Array completo para el lightbox
-  const fotos = rawFotos.length ? rawFotos : [main];
-
-  return (
-    <>
-      {/* Mosaico fijo: col izq (2fr) span 2 rows + 2 cols der (1fr cada una) */}
-      <div
-        className="mt-5 relative grid gap-2"
-        style={{
-          height: 440,
-          gridTemplateColumns: '2fr 1fr 1fr',
-          gridTemplateRows: '1fr 1fr',
-        }}
-      >
-        {/* Foto principal — ocupa las 2 filas a la izquierda */}
-        <div
-          className="rounded-2xl overflow-hidden cursor-pointer"
-          style={{ gridRow: '1 / span 2' }}
-          onClick={() => setLight(0)}
-        >
-          <img src={main} alt={item.name} className="w-full h-full object-cover" />
-        </div>
-
-        {/* 4 thumbs en 2×2 a la derecha */}
-        {slots.map((src, i) => {
-          const isLast = i === 3 && extra > 0;
-          return (
-            <div
-              key={i}
-              className="rounded-xl overflow-hidden relative cursor-pointer"
-              onClick={() => setLight(Math.min(i + 1, fotos.length - 1))}
-            >
-              <img
-                src={src}
-                alt=""
-                className="w-full h-full object-cover"
-                style={{ filter: isLast ? 'brightness(0.42)' : 'none' }}
-              />
-              {isLast && (
-                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-sm pointer-events-none">
-                  +{extra} fotos
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {plan === 'BASE' && (
-          <div className="absolute top-3.5 left-3.5 z-[2] flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white backdrop-blur-sm" style={{ background: 'rgba(11,16,32,0.75)' }}>
-            <Lock size={10} /> Más fotos disponibles en plan Plus
-          </div>
-        )}
-      </div>
-
-      {/* Lightbox */}
-      {light !== null && (
-        <div className="fixed inset-0 z-[2000] bg-black/90 flex items-center justify-center" onClick={() => setLight(null)}>
-          <img src={fotos[light]} alt="" className="max-w-[90vw] max-h-[88vh] object-contain rounded-xl" />
-          <button onClick={() => setLight(null)} className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer border-0" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
-            <X size={18} />
-          </button>
-          {fotos.length > 1 && (
-            <>
-              <button onClick={e => { e.stopPropagation(); setLight((light - 1 + fotos.length) % fotos.length); }}
-                className="absolute left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer border-0 text-white text-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>‹</button>
-              <button onClick={e => { e.stopPropagation(); setLight((light + 1) % fotos.length); }}
-                className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer border-0 text-white text-2xl" style={{ background: 'rgba(255,255,255,0.15)' }}>›</button>
-            </>
-          )}
-          <div className="absolute bottom-5 text-[13px]" style={{ color: 'rgba(255,255,255,0.6)' }}>{light + 1} / {fotos.length}</div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ─── Amenity chip ─────────────────────────────────────────
+}// ─── Amenity chip ─────────────────────────────────────────
 const TAG_ICONS = {
   // Conectividad
   'WiFi gratuito':             <Wifi size={15} />,
@@ -572,83 +275,6 @@ function AmenityChip({ tag }) {
     </div>
   );
 }
-
-// ─── Offer card (promos propias en left column) — horizontal ─
-function OfferCard({ promo, onAdd, onOpenOferta }) {
-  const mostrarCreditos = useMostrarCreditos();
-  return (
-    <div
-      className="rounded-2xl overflow-hidden flex flex-row cursor-pointer"
-      style={{ border: `1px solid ${C.line}`, minHeight: 110 }}
-      onClick={() => onOpenOferta && onOpenOferta(promo)}
-    >
-      {/* Image — left side fixed width */}
-      <div className="relative shrink-0" style={{ width: 160 }}>
-        <img src={promo.image || promo.imagen_url} alt={promo.title || promo.titulo}
-          className="w-full h-full object-cover" />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right,rgba(11,16,32,0.12) 0%,rgba(11,16,32,0.55) 100%)' }} />
-        {/* Badge centrado */}
-        {promo.badge && (
-          <div className="absolute inset-0 flex items-center justify-center text-white font-extrabold leading-none tracking-tight drop-shadow" style={{ fontSize: (promo.badge?.length || 0) > 5 ? 22 : 32 }}>
-            {promo.badge}
-          </div>
-        )}
-        {/* Flash label */}
-        {promo.offerType === 'Flash' && (
-          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: '#EF4444', color: '#fff' }}>
-            <Zap size={9} /> Flash
-          </div>
-        )}
-      </div>
-
-      {/* Body — right side */}
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '12px 14px', gap: 8 }}>
-        <div>
-          {/* Localidad + proveedor */}
-          {promo.negocioLocalidad ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginBottom: 3 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgb(107,114,128)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-              <span style={{ color: 'rgb(107,114,128)', fontWeight: 600 }}>{promo.negocioLocalidad}</span>
-              {promo.proveedorNombre && <span style={{ color: C.muted }}> · {promo.proveedorNombre}</span>}
-            </div>
-          ) : promo.proveedorNombre ? (
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 3 }}>{promo.proveedorNombre}</div>
-          ) : null}
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.green, lineHeight: 1.3 }}>{promo.title || promo.titulo}</div>
-        </div>
-        <button
-          onClick={e => { e.stopPropagation(); onAdd && onAdd(promo); }}
-          style={{ background: C.primary, color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start' }}
-          onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = C.primary}
-        >
-          <Send size={11} /> Solicitar este cupón
-        </button>
-        {/* Activalo con — debajo del CTA */}
-        {(() => { const tc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }); return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.muted, lineHeight: '18px' }}>Activalo con</span>
-            {mostrarCreditos ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <CoinSVG size={11} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 10, color: C.muted }}>(${(cuponARS(promo)).toLocaleString('es-AR')})</span>
-                  <CreditTooltip />
-                </div>
-              </div>
-            ) : (
-              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(cuponARS(promo)).toLocaleString('es-AR')}</span>
-            )}
-          </div>
-        ); })()}
-      </div>
-    </div>
-  );
-}
-
 // ─── Timer regresivo para ofertas Flash ──────────────────────
 function FlashTimer({ fechaFin }) {
   const getRemaining = () => {
@@ -743,265 +369,16 @@ const BLOB_PALETTES = [
   { bg: '#6B1A3A', c: ['#C0392B','#E91E8C','#8E44AD'] },
   { bg: '#3A2A6B', c: ['#7B68EE','#9B59B6','#4A90D9'] },
   { bg: '#2A4A1A', c: ['#C0392B','#27AE60','#D4AC0D'] },
-];
-
-// ─── Propia offer card (ofertas del propio alojamiento) ──────
-// Click solo en área de color y título. Ancho área = 240px.
-function PropiaOfferCard({ promo, fotos = [], seed = 0, onAdd, onOpenOferta }) {
-  const mostrarCreditos = useMostrarCreditos();
-  const [titleHov, setTitleHov] = useState(false);
-  const isFlash = promo.offerType === 'Flash';
-  const palette = BLOB_PALETTES[seed % BLOB_PALETTES.length];
-  const bgFoto = null; // reemplazado por blobs animados
-  const goDetail = () => onOpenOferta && onOpenOferta(promo);
-
-  const desc = promo.description || promo.desc ||
-    (promo.subtitle ? promo.subtitle.split('·').slice(1).join('·').trim() || promo.subtitle : '') ||
-    'Guardalo en tu cuponera y canjealo durante tu estadía.';
-
-  const tc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
-  const precioCreditos = `$${(cuponARS(promo)).toLocaleString('es-AR')}`;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'row', borderRadius: 16, overflow: 'hidden', border: `1px solid ${C.line}`, minHeight: 190 }}>
-
-      {/* ── Foto de fondo — clickeable ────────────── */}
-      <div
-        onClick={goDetail}
-        style={{
-          width: 220, flexShrink: 0, position: 'relative', overflow: 'hidden',
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '14px 18px 16px',
-          cursor: 'pointer', textAlign: 'center',
-          background: '#0B1020',
-        }}
-      >
-        {/* Foto real de la promo o del alojamiento */}
-        {(promo.image || fotos[0]) && (
-          <img
-            src={promo.image || fotos[seed % fotos.length] || fotos[0]}
-            alt=""
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.82 }}
-          />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(11,16,32,0.25) 0%, rgba(11,16,32,0.72) 100%)' }} />
-        {isFlash && (
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(180,20,20,0.28)' }} />
-        )}
-        {/* Contenido — z elevado */}
-        {isFlash ? (
-          /* Layout Flash: pill → badge → desc → timer, centrado verticalmente */
-          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '75%', height: '100%', paddingTop: 14, paddingBottom: 14 }}>
-            {/* Pill OFERTA FLASH — top, fondo blanco */}
-            {/* Pill OFERTA FLASH — top */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fff', borderRadius: 999, padding: '5px 13px 5px 11px' }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink, letterSpacing: '0.03em' }}>OFERTA</span>
-              <span style={{ fontSize: 13, fontWeight: 900, color: '#cc2e30', fontStyle: 'italic', letterSpacing: '0.04em' }}>FLASH</span>
-              <Zap size={12} color={C.yellow} fill={C.yellow} />
-            </div>
-            {/* Badge + desc + timer — centrado */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
-              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
-                {promo.badge}
-              </span>
-              {promo.badgeDesc && (
-                <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, textAlign: 'center' }}>
-                  {promo.badgeDesc}
-                </span>
-              )}
-              {promo.fechaFinFlash && <FlashTimer fechaFin={promo.fechaFinFlash} />}
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Layout normal: label arriba, spacers, badge, spacers */}
-            <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', justifyContent: 'center' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase' }}>
-                CUPÓN DE DESCUENTO
-              </div>
-            </div>
-            <div style={{ flex: 1 }} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
-              <span style={{ fontSize: (promo.badge?.length || 0) > 5 ? 31 : 44, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
-                {promo.badge}
-              </span>
-              {promo.badgeDesc && (
-                <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35 }}>
-                  {promo.badgeDesc}
-                </span>
-              )}
-            </div>
-            <div style={{ flex: 1 }} />
-          </>
-        )}
-      </div>
-
-      {/* ── Cuerpo — NO clickeable salvo título ─────────────── */}
-      <div style={{ flex: 1, padding: '18px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
-        <div>
-          {/* Título — clickeable con hover notorio */}
-          <div
-            onClick={goDetail}
-            onMouseEnter={() => setTitleHov(true)}
-            onMouseLeave={() => setTitleHov(false)}
-            style={{ fontSize: 16, fontWeight: 700, color: C.ink, lineHeight: 1.3, marginBottom: 6, cursor: 'pointer', transition: 'color 0.15s' }}
-          >
-            {promo.title || promo.titulo}
-          </div>
-          {/* Descripción */}
-          <div style={{ fontSize: 13, color: C.ink2, lineHeight: 1.6 }}>
-            {desc}
-          </div>
-          {/* Validez — justo después de la descripción, mismo tamaño */}
-          {promo.tarifaValidez && (
-            promo.tarifaValidez === 'todas' ? (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 13, fontWeight: 700, color: C.green }}>
-                <Check size={13} strokeWidth={2.5} color={C.green} /> Válido p/todas las tarifas
-              </div>
-            ) : (
-              <div style={{ marginTop: 6, fontSize: 13, fontWeight: 400, color: C.ink2 }}>
-                {promo.tarifaValidez === 'comun' ? 'Válido en tarifa común' : 'Válido en tarifa especial'}
-              </div>
-            )
-          )}
-        </div>
-
-        {/* Fila inferior: botón grande + compartir */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            onClick={e => { e.stopPropagation(); onAdd && onAdd(promo); }}
-            style={{ flex: '0 0 80%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 20px', borderRadius: 12, fontSize: 15, fontWeight: 700, color: '#fff', background: C.primary, border: 'none', cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
-            onMouseLeave={e => e.currentTarget.style.background = C.primary}
-          >
-            <Send size={14} /> Solicitar este cupón
-          </button>
-          <button
-            onClick={e => e.stopPropagation()}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 13, padding: 0, marginLeft: 'auto' }}
-            onMouseEnter={e => e.currentTarget.style.color = C.ink}
-            onMouseLeave={e => e.currentTarget.style.color = C.muted}
-          >
-            <Share2 size={15} /> Compartir
-          </button>
-        </div>
-
-        {/* Activalo con — debajo del CTA */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 4 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: C.muted, lineHeight: '18px' }}>Activalo con</span>
-          {mostrarCreditos ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <CoinSVG size={12} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{tc} crédito{tc !== 1 ? 's' : ''}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span style={{ fontSize: 11, color: C.muted }}>({precioCreditos})</span>
-                <CreditTooltip />
-              </div>
-            </div>
-          ) : (
-            <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{precioCreditos}</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Big offer card (ofertas exclusivas section) ─────────
-function BigOfferCard({ promo, onAdd, onOpenOferta }) {
-  const mostrarCreditos = useMostrarCreditos();
-  const provNombre = promo.proveedorNombre || promo.negocios?.nombre || promo.subtitle?.split('·')[0]?.trim() || '';
-  return (
-    <div
-      className="rounded-2xl overflow-hidden flex flex-col bg-white cursor-pointer"
-      style={{ border: `1px solid ${C.line}` }}
-      onClick={() => onOpenOferta && onOpenOferta(promo)}
-    >
-      {/* Foto 4:3 con badge + título en bottom-left */}
-      <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden', flexShrink: 0 }}>
-        <img src={promo.image || promo.imagen_url} alt={promo.title || promo.titulo}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.78) 0%, rgba(11,16,32,0.12) 55%, transparent 100%)' }} />
-        {/* Badge + título — abajo izquierda */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 13px 12px' }}>
-          {promo.badge && (
-            <div style={{ fontSize: (promo.badge?.length || 0) > 5 ? 27 : 36, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{promo.badge}</div>
-          )}
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.35, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{promo.title || promo.titulo}</div>
-        </div>
-      </div>
-
-      <div style={{ padding: '11px 13px 13px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Proveedor: logo + nombre + localidad */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: '#F7F7F8', border: `1px solid ${C.line}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {promo.proveedorImage
-              ? <img src={promo.proveedorImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{(provNombre || '?')[0]}</span>
-            }
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{provNombre}</div>
-            {promo.negocioLocalidad && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: C.primary, marginTop: 1 }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                {promo.negocioLocalidad}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Cupón gratis */}
-        {(() => { const btc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }); return btc === 0 ? (
-            <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4.5 4.5L20 6"/></svg>
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>Cupón DE REGALO para vos</span>
-            </div>
-          ) : null;
-        })()}
-
-        <button
-          onClick={e => { e.stopPropagation(); onAdd && onAdd(promo); }}
-          style={{ background: C.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = C.primary}
-        >
-          <Send size={13} /> Solicitar este cupón
-        </button>
-
-        {/* Activalo con — debajo del CTA */}
-        {(() => { const btc = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }); return btc > 0 ? (
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 2 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: '18px' }}>Activalo con</span>
-            {mostrarCreditos ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <CoinSVG size={11} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{btc} crédito{btc !== 1 ? 's' : ''}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 10, color: C.muted }}>(${(cuponARS(promo)).toLocaleString('es-AR')})</span>
-                  <CreditTooltip />
-                </div>
-              </div>
-            ) : (
-              <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(cuponARS(promo)).toLocaleString('es-AR')}</span>
-            )}
-          </div>
-        ) : null; })()}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
+];// ═══════════════════════════════════════════════════════════
 //  DatePickerField — calendario inline tipo popover
 // ═══════════════════════════════════════════════════════════
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAY_NAMES   = ['Lu','Ma','Mi','Ju','Vi','Sá','Do'];
 
+// Sin uso desde la Fase 2b (se fue con el CTA de presupuesto). Se conserva
+// a propósito: la Fase 5b lo necesita para que el turista elija la fecha de
+// su solicitud.
+// eslint-disable-next-line no-unused-vars
 function DatePickerField({ label, value, onChange, minDate }) {
   const today   = new Date(); today.setHours(0,0,0,0);
   const minD    = minDate ? new Date(minDate) : today; minD.setHours(0,0,0,0);
@@ -1197,9 +574,6 @@ function GuestsSelectorField({ adultos, setAdultos, ninos, setNinos, bebes, setB
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-//  BookingCard (sticky right panel)
-// ═══════════════════════════════════════════════════════════
 const RULES = [
   { icon: '🕑', text: 'Check-in: de 14:00 a 22:00 hs' },
   { icon: '🕙', text: 'Check-out: hasta las 10:00 hs' },
@@ -1208,209 +582,6 @@ const RULES = [
   { icon: '🎉', text: 'No se permiten fiestas ni eventos' },
   { icon: '🔇', text: 'Silencio a partir de las 22:00 hs' },
 ];
-
-function BookingCard({ item, plan, cfg, promos, alianzas, onOpenDrawer }) {
-  const totalCupones = promos.length + alianzas.length;
-
-  // Tariff tabs — labels configurables por el socio
-  const hasTarifaComun     = item.precioMin > 0;
-  const hasTarifaEspecial  = item.precioMinEspecial > 0;
-  const hasTarifaPack      = item.packPrecio > 0 && item.packNoches;
-  const tarifaTabs = [
-    hasTarifaComun    && { id: 'comun',    label: item.tarifaComunLabel    || 'Tarifa común' },
-    hasTarifaEspecial && { id: 'especial', label: item.tarifaEspecialLabel || 'Tarifa especial' },
-    hasTarifaPack     && { id: 'pack',     label: item.tarifaPackLabel     || (item.packAclaracion ? item.packAclaracion : `Pack ${item.packNoches} noches`) },
-  ].filter(Boolean);
-  const [tarifaTab, setTarifaTab] = useState('comun');
-
-  // Dates
-  const [checkin,  setCheckin]  = useState(null);
-  const [checkout, setCheckout] = useState(null);
-  const checkoutMin = checkin ? new Date(checkin.getTime() + 86_400_000) : new Date();
-
-  // Guests
-  const [adultos,  setAdultos]  = useState(2);
-  const [ninos,    setNinos]    = useState(0);
-  const [bebes,    setBebes]    = useState(0);
-  const [mascotas, setMascotas] = useState(false);
-
-
-  return (
-    <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ background: '#fff', border: `1px solid ${C.line}`, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.18)' }}>
-
-
-      {/* ── 1. TARIFAS — siempre primero ─────────────────────── */}
-      {cfg.showPrice && hasTarifaComun && (
-        <div style={{ margin: '-20px -20px 0' }}>
-          {/* Tabs con wrap — se acomodan en múltiples filas si son muchas */}
-          <div style={{ borderBottom: `1px solid ${C.line}`, borderRadius: '14px 14px 0 0', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-              {tarifaTabs.map((t, i) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTarifaTab(t.id)}
-                  style={{
-                    flex: tarifaTabs.length <= 3 ? 1 : '0 0 auto',
-                    padding: '12px 16px',
-                    fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center',
-                    fontWeight: tarifaTab === t.id ? 700 : 400,
-                    cursor: 'pointer', background: 'transparent',
-                    color: tarifaTab === t.id ? C.ink : C.muted,
-                    border: 'none',
-                    borderRight: `1px solid ${C.line}`,
-                    borderBottom: tarifaTab === t.id ? `2.5px solid ${C.ink}` : '2.5px solid transparent',
-                    marginBottom: '-1px',
-                  }}
-                >{t.label}</button>
-              ))}
-            </div>
-          </div>
-          {/* Precio del tab activo */}
-          <div style={{ padding: '14px 20px' }}>
-            {tarifaTab === 'comun' && (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
-                <span style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.precioMin.toLocaleString('es-AR')}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: C.ink2 }}>{item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}</span>
-              </div>
-            )}
-            {tarifaTab === 'especial' && hasTarifaEspecial && (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
-                <span style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.precioMinEspecial.toLocaleString('es-AR')}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: C.ink2 }}>{item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}</span>
-              </div>
-            )}
-            {tarifaTab === 'pack' && hasTarifaPack && (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 12, color: C.muted }}>Desde</span>
-                <span style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' }}>${item.packPrecio.toLocaleString('es-AR')}</span>
-                <span style={{ fontSize: 13, color: C.muted }}>el pack</span>
-              </div>
-            )}
-            <p style={{ fontSize: 11, color: C.muted, margin: '10px 0 0', lineHeight: 1.45 }}>
-              <b>Importante:</b> Esta plataforma no alquila alojamientos. Los precios son referenciales y orientativos.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {cfg.showPrice && !cfg.showContact && (
-        <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl" style={{ background: C.bg, border: `1px dashed ${C.line}` }}>
-          <Lock size={14} color={C.muted} />
-          <span className="text-sm font-medium" style={{ color: C.muted }}>Precio visible en plan Plus</span>
-        </div>
-      )}
-
-      {/* ── 2. CONSULTA — debajo de tarifas ──────────────────── */}
-      {cfg.showContact ? (
-        <div className="flex flex-col gap-2">
-
-          {/* Separador + encabezado */}
-          <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 16, marginTop: hasTarifaComun ? 4 : 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.2 }}>Consultá por fechas específicas:</div>
-          </div>
-
-          {/* Dates */}
-          {cfg.showPrice && (
-            <div className="grid grid-cols-2 gap-2">
-              <DatePickerField
-                label="INGRESO"
-                value={checkin}
-                onChange={d => { setCheckin(d); if (checkout && checkout <= d) setCheckout(null); }}
-                minDate={new Date()}
-              />
-              <DatePickerField
-                label="SALIDA"
-                value={checkout}
-                onChange={setCheckout}
-                minDate={checkoutMin}
-              />
-            </div>
-          )}
-
-          {/* Guests */}
-          {cfg.showPrice && (
-            <div style={{ marginBottom: 10 }}>
-              <GuestsSelectorField
-                adultos={adultos}   setAdultos={setAdultos}
-                ninos={ninos}       setNinos={setNinos}
-                bebes={bebes}       setBebes={setBebes}
-                mascotas={mascotas} setMascotas={setMascotas}
-              />
-            </div>
-          )}
-
-          {/* Botón principal */}
-          <button
-            onClick={onOpenDrawer}
-            className="w-full py-3.5 rounded-2xl font-bold text-[15px] text-white cursor-pointer border-0 transition-colors"
-            style={{ background: C.ink, boxShadow: '0 8px 24px rgba(11,16,32,0.28)' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#1a2035'}
-            onMouseLeave={e => e.currentTarget.style.background = C.ink}
-          >
-            Pedir un presupuesto
-          </button>
-
-          {/* Reglas del alojamiento */}
-          <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.line}`, marginTop: 30 }}>
-            <div className="px-4 py-3" style={{ background: C.bg, borderBottom: `1px solid ${C.line}` }}>
-              <span className="text-[13px] font-semibold" style={{ color: C.ink }}>Reglas del alojamiento</span>
-            </div>
-            <div className="px-4 py-3 flex flex-col gap-2.5">
-              {RULES.map((r, i) => (
-                <div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: C.ink2 }}>
-                  <span className="text-[14px] leading-none mt-0.5">{r.icon}</span>
-                  {r.text}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button
-            className="w-full py-3 rounded-2xl font-semibold text-[14px] cursor-pointer flex items-center justify-center gap-2 transition-colors"
-            style={{ border: `1px solid ${C.line}`, background: '#fff', color: C.ink2 }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = C.primary}
-            onMouseLeave={e => e.currentTarget.style.borderColor = C.line}
-          >
-            <MessageCircle size={15} /> Hacer otras consultas
-          </button>
-        </div>
-      ) : (
-        <div className="rounded-2xl p-4 text-center" style={{ background: C.bg, border: `1px solid ${C.line}` }}>
-          <Lock size={18} color={C.muted} className="mx-auto mb-2" />
-          <div className="text-[13px] font-bold mb-1" style={{ color: C.ink }}>Solo socios Plus</div>
-          <div className="text-[12px] leading-relaxed mb-3" style={{ color: C.muted }}>
-            Los usuarios solo pueden contactar alojamientos con plan Plus.
-          </div>
-          <button className="w-full py-2.5 rounded-[10px] text-[13px] font-bold text-white cursor-pointer border-0" style={{ background: C.primary }}>
-            Conocé los planes
-          </button>
-        </div>
-      )}
-
-      {/* Cupones */}
-      {totalCupones > 0 && (
-        <div className="px-3.5 py-3 rounded-xl" style={{ background: C.primarySoft }}>
-          <div className="flex items-center gap-1.5 text-[12px] font-bold mb-1" style={{ color: C.primary }}>
-            <Zap size={12} /> {totalCupones} cupón{totalCupones !== 1 ? 'es' : ''} disponible{totalCupones !== 1 ? 's' : ''}
-          </div>
-          <div className="text-[12px] leading-snug" style={{ color: C.ink2 }}>
-            Reservando en este alojamiento accedés a cupones exclusivos para canjear en salidas y aventura & relax locales.
-          </div>
-        </div>
-      )}
-
-      {/* Denunciar */}
-      <div className="text-center pt-1">
-        <button className="bg-transparent border-0 cursor-pointer text-[12px] flex items-center gap-1 mx-auto" style={{ color: C.muted }}>
-          <Flag size={11} /> Denunciar un problema
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 //  AlojamientoGallery — foto grande + columna 3 thumbs
 // ═══════════════════════════════════════════════════════════
@@ -1493,9 +664,9 @@ function AlojamientoGallery({ item, plan }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  CuponeraItem — mini-ficha para columna derecha
+//  CarritoItem — mini-ficha para columna derecha
 // ═══════════════════════════════════════════════════════════
-function CuponeraItem({ promo, onOpenOferta }) {
+function CarritoItem({ promo, onOpenOferta }) {
   const mostrarCreditos = useMostrarCreditos();
   const tokens = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
   const tokensMitad = Math.max(1, Math.floor(tokens / 2));
@@ -1580,6 +751,8 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
     if (new Date(checkout) <= new Date(checkin)) { setError('La salida debe ser posterior a la entrada.'); return; }
     setError(''); setEnviando(true);
     try {
+      // `cuponeras` / `cuponera_items` son nombres de tabla legacy: la Fase 2
+      // renombra vocabulario, no el esquema.
       let { data: cuponera } = await supabase
         .from('cuponeras')
         .select('id')
@@ -1638,7 +811,7 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
             </div>
             <p style={{ fontSize: 18, fontWeight: 800, color: C.ink, margin: '0 0 8px' }}>¡Solicitud enviada!</p>
             <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, margin: '0 0 24px' }}>
-              Te avisamos en cuanto el alojamiento confirme (máx. 48hs). Podés ver el estado en tu cuponera.
+              Te avisamos en cuanto el alojamiento confirme (máx. 48hs). Podés ver el estado en Mis cupones.
             </p>
             <button onClick={onClose} style={{ padding: '10px 28px', borderRadius: 12, background: C.primary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
               Cerrar
@@ -1669,9 +842,9 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
               <DateRangePicker value={fechas} onChange={setFechas} variant="field" />
             </div>
 
-            {/* Huéspedes */}
+            {/* Cantidad de personas */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: C.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Huéspedes</label>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Personas</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1px solid ${C.line}`, borderRadius: 10, padding: '8px 14px', width: 'fit-content' }}>
                 <button onClick={() => setHuespedes(h => Math.max(1, h - 1))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink, display: 'flex', alignItems: 'center', padding: 0 }}><Minus size={16} /></button>
                 <span style={{ fontSize: 15, fontWeight: 700, color: C.ink, minWidth: 20, textAlign: 'center' }}>{huespedes}</span>
@@ -1710,7 +883,7 @@ function SolicitudModal({ promo, negocio, session, onClose, onConfirmado }) {
 // ═══════════════════════════════════════════════════════════
 function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, onComprarPase, sinSolicitud = false }) {
   const mostrarCreditos = useMostrarCreditos();
-  const { addCupon } = useCuponera();
+  const { addCupon } = useCarrito();
   // El CTA lo decide el pase del que mira (ver CtaPase).
   const miPase = useMiPase(session);
   const [avisoPase, setAvisoPase] = useState('');
@@ -1726,7 +899,7 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, 
   const [exito, setExito]       = useState(false);
   const [formError, setFormError] = useState('');
   const touchStartX = useRef(null);
-  // Al cambiar de promo en el carrusel, volver a estado "Agregar" (modo cuponera).
+  // Al cambiar de promo en el carrusel, volver a estado "Agregar" (modo carrito).
   // Debe ir ANTES de cualquier return temprano para no romper el orden de hooks.
   useEffect(() => { setAdded(false); }, [idx]);
   if (!promos.length) return null;
@@ -1850,7 +1023,7 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, 
       {/* Contenido */}
       <div style={{ padding: '14px 16px' }}>
         {!pedirReserva ? (
-          /* Modo cuponera: sin solicitud de fechas, se agrega directo a la cuponera */
+          /* Modo carrito: sin solicitud de fechas, se agrega directo al carrito */
           <>
             <CtaPase
               promo={p}
@@ -1960,16 +1133,16 @@ function OfertasPropiasCard({ promos, item, session, onOpenOferta, onSolicitar, 
 }
 
 // ═══════════════════════════════════════════════════════════
-//  MiCuponeraPanel — columna derecha: ítems ya en la cuponera
+//  MiCarritoPanel — columna derecha: ítems ya en el carrito
 // ═══════════════════════════════════════════════════════════
-function MiCuponeraPanel() {
-  const { cupones, removeCupon } = useCuponera();
+function MiCarritoPanel() {
+  const { cupones, removeCupon } = useCarrito();
   if (cupones.length === 0) return null;
   return (
     <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '16px 20px', boxShadow: '0 4px 24px -8px rgba(11,16,32,0.08)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <img src="/ico-disc.svg" style={{ width: 22, height: 22 }} alt="" />
-        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink, flex: 1 }}>Tu cuponera</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink, flex: 1 }}>Tu carrito</span>
         <span style={{ background: C.primary, color: '#fff', borderRadius: 999, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>{cupones.length}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1991,128 +1164,11 @@ function MiCuponeraPanel() {
     </div>
   );
 }
-
-// ═══════════════════════════════════════════════════════════
-//  CuponeraCard — columna derecha sticky (alianzas)
-// ═══════════════════════════════════════════════════════════
-function CuponeraCard({ alianzas, onOpenOferta, cuponeraSectionRef }) {
-  const mostrarCreditos = useMostrarCreditos();
-  const items = alianzas.map(al => {
-
-    if (al.promociones) {
-      const p = al.promociones;
-      return { ...p, title: p.titulo, image: p.imagen_url, badge: p.badge, proveedorNombre: p.negocios?.nombre };
-    }
-    if (al.promo) return { ...al.promo };
-    return null;
-  }).filter(Boolean).slice(0, 3);
-
-  const total = alianzas.length;
-  // Total de créditos a mitad de precio para todos los items visibles
-  const totalTokensMitad = items.reduce((acc, p) => {
-    const t = creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
-    return acc + Math.max(1, Math.floor(t / 2));
-  }, 0);
-  const totalTokensNormal = items.reduce((acc, p) => {
-    return acc + creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
-  }, 0);
-
-  return (
-    <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <img src="/ico-disc.svg" style={{ width: 22, height: 22 }} alt="" />
-        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>¡Sumá estos beneficios!</span>
-      </div>
-      <p style={{ fontSize: 12, color: C.muted, margin: '0 0 14px', lineHeight: 1.4 }}>
-        Alojándote acá accedés a estos beneficios:
-      </p>
-
-      {total === 0 ? (
-        <div style={{ textAlign: 'center', padding: '20px 0', color: C.muted, fontSize: 13 }}>
-          Próximamente...
-        </div>
-      ) : (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {items.map((p, i) => (
-              <CuponeraItem key={p.id || i} promo={p} onOpenOferta={onOpenOferta} />
-            ))}
-          </div>
-
-          {/* AHORRÁS + ACTIVALO CON con tachado diagonal */}
-          {items.length > 0 && (() => {
-            const totalMin = items.reduce((acc, p) => acc + (p.ahorro_estimado || p.ahorroEstimado || 0), 0);
-            const totalMax = items.reduce((acc, p) => acc + (p.ahorro_max || p.ahorroMax || p.ahorro_estimado || p.ahorroEstimado || 0), 0);
-            const ahorroLabel = totalMin > 0 ? formatAhorro(totalMin, totalMax > totalMin ? totalMax : null) : null;
-            return (
-              <div style={{ marginTop: 14, marginBottom: 8, padding: '8px 12px', background: C.bg, borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {ahorroLabel && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>AHORRÁS</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.green }}>{ahorroLabel}<InfoTooltip /></span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ACTIVALO CON</span>
-                  {mostrarCreditos ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                        {/* Número tachado diagonal: número negro, línea roja */}
-                        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                          <CoinSVG size={12} />
-                          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensNormal}</span>
-                          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                            <line x1="5" y1="95" x2="95" y2="5" stroke="#cc2020" strokeWidth="9" strokeLinecap="round" />
-                          </svg>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <CoinSVG size={12} />
-                          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{totalTokensMitad} crédito{totalTokensMitad !== 1 ? 's' : ''}</span>
-                          <CreditTooltip />
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 10, color: C.muted }}>(${(totalTokensMitad * PRECIO_CREDITO_IVA).toLocaleString('es-AR')})</span>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      {/* Precio normal tachado en pesos */}
-                      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>${(totalTokensNormal * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
-                        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                          <line x1="5" y1="95" x2="95" y2="5" stroke="#cc2020" strokeWidth="9" strokeLinecap="round" />
-                        </svg>
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>${(totalTokensMitad * PRECIO_CREDITO_IVA).toLocaleString('es-AR')}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-          <button
-            onClick={() => cuponeraSectionRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              width: '100%', padding: '10px',
-              background: C.primary, border: 'none',
-              borderRadius: 10, cursor: 'pointer', color: '#fff',
-              fontSize: 13, fontWeight: 700,
-            }}
-          >
-            <Ticket size={14} />
-            Agregar {total} cupón{total !== 1 ? 'es' : ''} al 50%
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 //  MiniPromoCard — minificha para fila horizontal
 // ═══════════════════════════════════════════════════════════
 function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
-  const { addCupon } = useCuponera();
+  const { addCupon } = useCarrito();
   const mostrarCreditos = useMostrarCreditos();
   return (
     <div
@@ -2265,11 +1321,11 @@ function MasCuponesSection({ alianzasNorm = [], promosLocalidad = [], onAddCupon
 // ═══════════════════════════════════════════════════════════
 //  AlojamientoDetail (main two-col + sections below)
 // ═══════════════════════════════════════════════════════════
-function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenDrawer, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase }) {
+function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase }) {
   const plan = item.plan || 'PLUS';
   const cfg  = PLAN_CFG[plan];
-  const { addCupon } = useCuponera();
-  const cuponeraSectionRef = useRef(null);
+  const { addCupon } = useCarrito();
+  const alianzasSectionRef = useRef(null);
   const [solicitudPromo, setSolicitudPromo] = useState(null);
 
   const tags = item.tags?.length
@@ -2347,15 +1403,12 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
               </p>
 
               <h2 className="text-lg font-bold mt-8 mb-3" style={{ color: C.ink }}>¿Qué destaca este alojamiento?</h2>
+              {/* Los amenities los ve todo el mundo: son lo que le sirve al
+                  turista para elegir. El plan compra visibilidad, no esto. */}
               <div className="grid grid-cols-2 gap-2.5">
-                {tags.slice(0, plan === 'BASE' ? 2 : 6).map(tag => (
+                {tags.slice(0, 6).map(tag => (
                   <AmenityChip key={tag} tag={tag} />
                 ))}
-                {plan === 'BASE' && (
-                  <div className="col-span-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium" style={{ background: '#FFFBEB', border: '1px dashed #FDE68A', color: '#92400E' }}>
-                    <Lock size={13} /> Más amenities visibles en plan Plus
-                  </div>
-                )}
               </div>
 
             </div>
@@ -2371,7 +1424,7 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
               onSolicitar={p => setSolicitudPromo(p)}
               onComprarPase={onComprarPase}
             />
-            <MiCuponeraPanel />
+            <MiCarritoPanel />
           </div>
         </div>
       </div>
@@ -2392,7 +1445,7 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
           promosLocalidad={promosLocalidad}
           onAddCupon={addCupon}
           onOpenOferta={onOpenOferta}
-          sectionRef={cuponeraSectionRef}
+          sectionRef={alianzasSectionRef}
         />
       )}
 
@@ -2417,79 +1470,16 @@ const igUrl = h => {
   const clean = h.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/\/$/, '');
   return clean ? `https://instagram.com/${clean}` : '';
 };
-const waUrl = t => { const d = (t || '').replace(/\D/g, ''); return d ? `https://wa.me/${d}` : ''; };
 const IgIcon = ({ size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
   </svg>
 );
-
-// ─── Card de una promo del socio en la columna derecha (gastro) ──
-function GastroPromoItem({ promo: p, onOpenOferta, onAdd }) {
-  const mostrarCreditos = useMostrarCreditos();
-  const isFlash = p.offerType === 'Flash';
-  const creditos = creditosActivacion({ ahorro: p.ahorroEstimado, tokensCosto: p.tokens_costo });
-  return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
-      {/* Imagen con badge + título */}
-      <div onClick={() => onOpenOferta?.(p)} style={{ position: 'relative', height: 130, cursor: 'pointer', overflow: 'hidden', background: '#1a2a35' }}>
-        {(p.image || p.imagen_url) && (
-          <img src={p.image || p.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.2) 55%, transparent 100%)' }} />
-        <div style={{ position: 'absolute', top: 10, right: 12 }} onClick={e => e.stopPropagation()}>
-          <HeartButton id={p.id} size={28} />
-        </div>
-        {isFlash && (
-          <div style={{ position: 'absolute', top: 10, left: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', borderRadius: 999, padding: '3px 8px 3px 6px' }}>
-            <Zap size={10} color="#f5c842" fill="#f5c842" />
-            <span style={{ fontSize: 10, fontWeight: 700, color: C.ink }}>OFERTA</span>
-            <span style={{ fontSize: 10, fontWeight: 900, color: '#e02020', fontStyle: 'italic' }}>FLASH</span>
-          </div>
-        )}
-        <div style={{ position: 'absolute', bottom: 10, left: 14, right: 44 }}>
-          {p.badge && <div style={{ fontSize: 30, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 2, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>}
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.95)', lineHeight: 1.3, textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>{p.title || p.titulo}</div>
-        </div>
-        {isFlash && p.fechaFinFlash && (
-          <div style={{ position: 'absolute', bottom: 10, right: 12 }}><MiniFlashTimer fechaFin={p.fechaFinFlash} /></div>
-        )}
-      </div>
-      {/* Cuerpo */}
-      <div style={{ padding: '12px 14px' }}>
-        <button
-          onClick={() => onAdd?.(p)}
-          style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: C.primary }}
-          onMouseEnter={e => e.currentTarget.style.background = C.primaryDark}
-          onMouseLeave={e => e.currentTarget.style.background = C.primary}
-        >
-          <Send size={13} /> Solicitar este cupón
-        </button>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', flexWrap: 'wrap', gap: 5, marginTop: 9 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
-          {mostrarCreditos ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <CoinSVG size={12} />
-                <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{creditos} crédito{creditos !== 1 ? 's' : ''}</span>
-              </div>
-              <span style={{ fontSize: 11, color: C.muted }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
-              <CreditTooltip />
-            </>
-          ) : (
-            <span style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>${(cuponARS(p)).toLocaleString('es-AR')}</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 //  GastroExperienciaDetail — ficha de socio (info + promos)
 // ═══════════════════════════════════════════════════════════
 function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promosLocalidad = [], loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired, onComprarPase }) {
-  const { addCupon } = useCuponera();
+  const { addCupon } = useCarrito();
   const plan = item.plan || 'PLUS';
   const alianzasNorm = alianzas.map(normAlianzaItem).filter(Boolean);
   const category  = item.category || item.type || '';
@@ -2505,13 +1495,15 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
   // Características del lugar cargadas por el socio (checklist del editor de perfil).
   const servicios = item.servicios || [];
 
-  // Contacto — sólo lo que el socio cargó
+  // Enlaces públicos del socio — NO datos de contacto.
+  // Fase 2b: no se muestra el teléfono ni el mail del socio en ningún caso,
+  // tenga plan o no. WhatsApp y Email salieron de acá; el contacto pasa a ser
+  // el flujo de solicitudes de fecha (Fase 5b). Menú, sitio web e Instagram
+  // se conservan: son canales públicos que el socio ya publica por su cuenta.
   const contactos = [
     item.menuUrl   && { icon: <BookOpen size={14} />,   label: 'Ver menú / carta', href: withProto(item.menuUrl) },
     item.sitioWeb  && { icon: <Globe size={14} />,      label: 'Sitio web',        href: withProto(item.sitioWeb) },
-    item.whatsapp  && { icon: <Phone size={14} />,      label: 'WhatsApp',         href: waUrl(item.whatsapp) },
     item.instagram && { icon: <IgIcon size={14} />,     label: 'Instagram',        href: igUrl(item.instagram) },
-    item.email     && { icon: <Mail size={14} />,       label: 'Email',            href: `mailto:${item.email}` },
   ].filter(Boolean).filter(c => c.href);
 
   // Ficha de datos — sólo lo que existe
@@ -2633,7 +1625,7 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
           {/* RIGHT — sidebar sticky: promociones (siempre) + horario (si está cargado) */}
           <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {promosVisibles.length > 0 ? (
-              /* Misma tarjeta que alojamiento, pero sin la solicitud de fechas: se agrega directo a la cuponera */
+              /* Misma tarjeta que alojamiento, pero sin la solicitud de fechas: se agrega directo al carrito */
               <OfertasPropiasCard
                 promos={promosVisibles}
                 item={item}
@@ -2668,7 +1660,7 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
               </div>
             )}
 
-            <MiCuponeraPanel />
+            <MiCarritoPanel />
           </div>
         </div>
       </div>
@@ -2707,7 +1699,7 @@ const CLASE_PLURAL = {
 export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired, onComprarPase }) {
   if (!item) return null;
 
-  const { addCupon } = useCuponera();
+  const { addCupon } = useCarrito();
   const tipo  = detectarTipo(item);
   const plan  = item.plan || 'PLUS';
   const pinColor = TIPO_COLORS[item.type || item.category] || C.primary;
@@ -2716,7 +1708,6 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
   const [alianzas,        setAlianzas]        = useState([]);
   const [promosLocalidad, setPromosLocalidad] = useState([]);
   const [loading,         setLoading]         = useState(true);
-  const [drawerOpen,      setDrawerOpen]      = useState(false);
 
   const backLabel = { alojamiento: 'Alojamientos', salidas: 'Salidas', aventura_relax: 'Aventura & Relax' }[tipo] || 'Inicio';
 
@@ -2825,7 +1816,6 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
           alianzas={alianzas}
           promosLocalidad={promosLocalidad}
           loading={loading}
-          onOpenDrawer={() => setDrawerOpen(true)}
           onOpenOferta={onOpenOferta}
           onOpenLocalidad={onOpenLocalidad}
           session={session}
@@ -2837,7 +1827,6 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onO
       )}
 
       {/* Drawer */}
-      {drawerOpen && <ConsultaDrawer item={item} onClose={() => setDrawerOpen(false)} />}
     </div>
   );
 }

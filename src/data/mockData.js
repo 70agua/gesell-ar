@@ -368,8 +368,8 @@ export const mockPacks = [
 ];
 
 // ============================================================
-//  CUPONES INCLUIDOS EN CADA CUPONERA PREDISEÑADA
-//  Cada cuponera (antes "pack") reúne varios cupones de socios.
+//  CUPONES INCLUIDOS EN CADA CUPOPACK
+//  Cada Cupopack reúne varios cupones de socios.
 //  Cada cupón tiene su ficha (detalles, socio, galería y ubicación).
 // ============================================================
 const CUP_IMG = {
@@ -423,7 +423,7 @@ function mkCupon(o) {
   };
 }
 
-const CUPONES_POR_CUPONERA = {
+const CUPONES_POR_CUPOPACK = {
   // 1 · Escapada Romántica — Mar de las Pampas
   1: [
     mkCupon({ id: 'c1-1', badge: 'Cortesía', titulo: 'Espumante y welcome en la habitación', socio: 'Hotel del Bosque', tipo: 'Hotel', imagen: CUP_IMG.hotel, lat: -37.3225, lng: -56.9852, localidad: 'Mar de las Pampas',
@@ -492,10 +492,10 @@ const CUPONES_POR_CUPONERA = {
   ],
 };
 
-mockPacks.forEach(p => { p.cupones = CUPONES_POR_CUPONERA[p.id] || []; });
+mockPacks.forEach(p => { p.cupones = CUPONES_POR_CUPOPACK[p.id] || []; });
 
-// ─── Beneficio adicional por cuponera (texto amarillo + ícono) ─
-const BENEFICIO_POR_CUPONERA = {
+// ─── Beneficio adicional por Cupopack (texto amarillo + ícono) ─
+const BENEFICIO_POR_CUPOPACK = {
   1: { texto: 'Triplica los puntos que obtenés', icono: 'trending' },
   2: { texto: 'Sumás puntos por cada aventura',   icono: 'zap' },
   3: { texto: 'Doble de puntos en gastronomía',   icono: 'sparkles' },
@@ -504,12 +504,12 @@ const BENEFICIO_POR_CUPONERA = {
   6: { texto: 'Triplica los puntos que obtenés',  icono: 'party' },
 };
 mockPacks.forEach(p => {
-  const b = BENEFICIO_POR_CUPONERA[p.id];
+  const b = BENEFICIO_POR_CUPOPACK[p.id];
   if (b) { p.beneficioAdicional = b.texto; p.beneficioIcono = b.icono; }
 });
 
-// Alias semántico: las "cuponeras prediseñadas" son los mockPacks enriquecidos.
-export const mockCuponeras = mockPacks;
+// Alias semántico: los Cupopacks son los mockPacks enriquecidos.
+export const mockCupopacks = mockPacks;
 
 export const mockDining = [
   {
@@ -1152,7 +1152,7 @@ export const PROMO_META = {
 };
 
 // ── Beneficios exclusivos: socios externos por hotel ─────────
-// negocioId = hotel que ofrece el beneficio a sus huéspedes
+// negocioId = alojamiento que ofrece el beneficio a sus turistas
 // promoId   = promo (gastro/experiencia) de otro socio
 export const mockAlianzas = [
   // Hotel Spa Las Olas (id:1) — Villa Gesell

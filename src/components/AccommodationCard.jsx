@@ -77,7 +77,7 @@ export default function AccommodationCard({ item, onClick, discountTags = {} }) 
                   ${item.precioMin.toLocaleString('es-AR')}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: hovered ? A.primary : A.ink2, transition: 'color 0.15s' }}>
-                  {item.unidadPrecio === 'huesped' ? 'por huésped' : 'por noche'}
+                  {item.unidadPrecio === 'huesped' ? 'por persona' : 'por noche'}
                 </span>
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={A.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6"/></svg>

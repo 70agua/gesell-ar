@@ -109,8 +109,8 @@ function Incluye({ incluidas, dias }) {
 // ─── Cómo funciona: los tres pasos, antes de elegir nada ─────
 const PASOS = [
   { t: 'Pagás',              d: 'Dejás tu mail, pagás online y el pase queda a tu nombre.' },
-  { t: 'Activás la cuponera', d: 'Cuando llegás a destino, ó elegís una fecha y se activa sola.' },
-  { t: 'Explorás las ofertas y armás tu cuponera', d: 'La mayoría de los descuentos vienen incluidos. De los PLUS elegís uno por día de pase, y si querés más los sumás a mitad de precio.' },
+  { t: 'Activás el Pase', d: 'Cuando llegás a destino, ó elegís una fecha y se activa sola.' },
+  { t: 'Explorás las ofertas y armás tu selección', d: 'La mayoría de los descuentos vienen incluidos. De los PLUS elegís uno por día de pase, y si querés más los sumás a mitad de precio.' },
 ];
 
 function ComoFunciona() {
@@ -159,7 +159,7 @@ const PERFILES = [
   {
     id: 'hotelero',
     titulo: 'Soy hotelero',
-    bajada: 'Quiero regalarles el pase a mis huéspedes y sumar mi alojamiento.',
+    bajada: 'Quiero regalarles el pase a mis turistas y sumar mi alojamiento.',
     cta: 'Ver los planes',
     icono: '/iconos/cabania.json',
   },
@@ -510,7 +510,7 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
           )}
 
           {/* Salida para el otro lado del mostrador: el hotelero no compra un
-              pase, se suscribe para regalárselos a sus huéspedes. */}
+              pase, se suscribe para regalárselos a sus turistas. */}
           <div style={{ textAlign: 'center', marginTop: 16 }}>
             <button
               type="button" onClick={onSoyHotelero}
@@ -527,7 +527,7 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
               único lugar del checkout donde aparece el nombre de la empresa. */}
           <div style={{ ...labelSt, display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
             INGRESÁ A
-            <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 32, width: 'auto', display: 'block' }} />
+            <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 32, width: 'auto', display: 'block' }} />
           </div>
 
           {/* Nuevo vs. ya registrado: al que ya tiene cuenta no le pedimos

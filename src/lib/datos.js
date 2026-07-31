@@ -205,44 +205,65 @@ export function normalizePromo(p) {
   };
 }
 
+// ─── Quién entra al catálogo público ──────────────────────────
+// La puerta de entrada del socio es PUBLICAR: un negocio sin ninguna oferta
+// publicada es una ficha vacía y no aporta nada al turista, así que no se
+// lista. La excepción es el socio con plan pago (alojamiento/agencia), que
+// compró estar y puede estar cargando sus ofertas todavía.
+//
+// Se resuelve con una consulta aparte en vez de un join: el join de Postgrest
+// duplicaría la fila del negocio por cada oferta.
+async function idsConOfertaPublicada() {
+  const { data } = await supabase
+    .from('promociones')
+    .select('negocio_id')
+    .eq('activa', true)
+    .eq('aprobada', true);
+  return new Set((data || []).map(p => p.negocio_id).filter(Boolean));
+}
+
+function publicable(n, conOferta) {
+  return conOferta.has(n.id) || n.plan === 'plus';
+}
+
 // ─── Alojamientos ─────────────────────────────────────────────
 export async function getAlojamientos() {
+  const conOferta = await idsConOfertaPublicada();
   const { data } = await supabase
     .from('negocios')
     .select('*')
-    .eq('aprobado', true)
     .eq('activo', true)
     .in('tipo', ['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Casa', 'Hostel', 'Dormi', 'Domo', 'Carpa', 'Glamping'])
     .order('creado_en', { ascending: false });
 
-  return (data || []).map(normalizeNegocio);
+  return (data || []).filter(n => publicable(n, conOferta)).map(normalizeNegocio);
 }
 
 // ─── Salidas ──────────────────────────────────────────────
 export async function getGastronomia() {
+  const conOferta = await idsConOfertaPublicada();
   const { data } = await supabase
     .from('negocios')
     .select('*')
-    .eq('aprobado', true)
     .eq('activo', true)
     .in('tipo', ['salidas', 'Restaurante', 'Bar', 'Café', 'Balneario', 'Pastelería', 'Gourmet', 'Parrilla', 'Heladería', 'Bodegón'])
     .order('creado_en', { ascending: false });
 
-  return (data || []).map(normalizeNegocio);
+  return (data || []).filter(n => publicable(n, conOferta)).map(normalizeNegocio);
 }
 
 // ─── Aventura & Relax ──────────────────────────────────────────
 export async function getAventura() {
+  const conOferta = await idsConOfertaPublicada();
   const tiposExp = [...TIPOS_EXP];
   const { data } = await supabase
     .from('negocios')
     .select('*')
-    .eq('aprobado', true)
     .eq('activo', true)
     .in('tipo', tiposExp)
     .order('creado_en', { ascending: false });
 
-  return (data || []).map(normalizeNegocio);
+  return (data || []).filter(n => publicable(n, conOferta)).map(normalizeNegocio);
 }
 
 // ─── Promociones ──────────────────────────────────────────────
@@ -337,8 +358,8 @@ export async function getNegocioById(id) {
 
 // ─── Cuponeras prediseñadas (cuponeras_locales) ───────────────
 // Normaliza una promoción de la DB a la forma de "cupón" que consumen
-// CuponModal y las minifichas de la Home.
-function normalizeCuponDeCuponera(p) {
+// CupopackModal y las minifichas de la Home.
+function normalizeCuponDeCupopack(p) {
   const n = p.negocios || {};
   const precio = p.precio_manual != null
     ? Number(p.precio_manual)
@@ -370,9 +391,9 @@ function normalizeCuponDeCuponera(p) {
   };
 }
 
-// Devuelve las cuponeras activas con sus cupones ya normalizados,
-// listas para <CuponeraCard>/<CuponModal>. Descarta las vacías.
-export async function getCuponeras() {
+// Devuelve los Cupopacks activos con sus cupones ya normalizados,
+// listos para <CupopackCard>/<CupopackModal>. Descarta los vacíos.
+export async function getCupopacks() {
   const { data, error } = await supabase
     .from('cuponeras_locales')
     .select(`
@@ -389,13 +410,13 @@ export async function getCuponeras() {
     .eq('estado', 'activa')
     .order('creado_en', { ascending: false });
 
-  if (error) { console.error('getCuponeras', error); return []; }
+  if (error) { console.error('getCupopacks', error); return []; }
 
   return (data || []).map(cl => {
     const cupones = (cl.cuponeras_locales_cupones || [])
       .map(x => x.promociones)
       .filter(p => p && p.activa !== false && p.aprobada !== false)
-      .map(normalizeCuponDeCuponera);
+      .map(normalizeCuponDeCupopack);
     return {
       id:               cl.id,
       title:            cl.nombre,
@@ -415,8 +436,8 @@ export async function getCuponeras() {
   }).filter(c => c.cupones.length > 0);
 }
 
-// Cuponeras marcadas como destacadas en el menú de la navbar
-export async function getCuponerasDestacadas() {
+// Cupopacks marcados como destacados en el menú de la navbar
+export async function getCupopacksDestacadas() {
   const { data, error } = await supabase
     .from('cuponeras_locales')
     .select(`
@@ -434,13 +455,13 @@ export async function getCuponerasDestacadas() {
     .eq('destacada_en_menu', true)
     .order('creado_en', { ascending: false });
 
-  if (error) { console.error('getCuponerasDestacadas', error); return []; }
+  if (error) { console.error('getCupopacksDestacadas', error); return []; }
 
   return (data || []).map(cl => {
     const cupones = (cl.cuponeras_locales_cupones || [])
       .map(x => x.promociones)
       .filter(p => p && p.activa !== false && p.aprobada !== false)
-      .map(normalizeCuponDeCuponera);
+      .map(normalizeCuponDeCupopack);
     return {
       id:               cl.id,
       title:            cl.nombre,

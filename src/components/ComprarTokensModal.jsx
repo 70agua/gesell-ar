@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { X, Zap, CreditCard, Smartphone, Building2, Banknote } from 'lucide-react';
-import { TOKEN_PACKS, calcularPrecio, registrarCompra } from '../lib/cobros';
+import { TOKEN_PACKS, calcularPrecio, registrarCompra, CREDITO_PRECIO } from '../lib/cobros';
 
 const FORMAS_PAGO = [
   { id: 'mercadopago',  label: 'MercadoPago',       icon: <Smartphone size={18} />,  desc: 'Pagá con tu cuenta MP',           descuento: 0 },
@@ -37,9 +37,7 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
     setLoading(false);
     if (error) return;
     setExito(true);
-    setTimeout(() => {
-      onCompraExitosa(pack.cantidad);
-    }, 2000);
+    setTimeout(() => onCompraExitosa?.(pack.cantidad), 2000);
   }
 
   if (exito) return (
@@ -49,18 +47,12 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
           <Zap size={32} className="text-green-600" />
         </div>
         <h2 className="font-black text-slate-900 text-2xl mb-2">
-          {formaPago === 'mercadopago' || formaPago === 'tarjeta'
-            ? `¡${pack.cantidad} token${pack.cantidad > 1 ? 's' : ''} acreditado${pack.cantidad > 1 ? 's' : ''}!`
-            : '¡Compra registrada!'
-          }
+          ¡{pack.cantidad} crédito{pack.cantidad > 1 ? 's' : ''} acreditado{pack.cantidad > 1 ? 's' : ''}!
         </h2>
         <p className="text-slate-500 font-medium text-sm">
-          {formaPago === 'transferencia'
-            ? 'Realizá la transferencia y te acreditamos los tokens en menos de 24 horas.'
-            : formaPago === 'efectivo'
-            ? 'Pasá por Mercedes Sosa 259, Mar de las Pampas para completar el pago.'
-            : `Tu saldo ahora es de ${saldoActual + pack.cantidad} tokens.`
-          }
+          Tu saldo ahora es de {(saldoActual || 0) + pack.cantidad} créditos.
+          {formaPago === 'transferencia' && ' Ya podés usarlos — hacenos la transferencia cuando puedas.'}
+          {formaPago === 'efectivo' && ' Ya podés usarlos — pasá por Mercedes Sosa 259, Mar de las Pampas a completar el pago.'}
         </p>
       </div>
     </div>
@@ -73,8 +65,8 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
         {/* Header */}
         <div className="bg-slate-900 px-8 py-6 flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Comprar tokens</p>
-            <h2 className="text-white font-black text-xl">Saldo actual: {saldoActual} tokens</h2>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Comprar créditos</p>
+            <h2 className="text-white font-black text-xl">Saldo actual: {saldoActual || 0} créditos</h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={22} /></button>
         </div>
@@ -100,7 +92,7 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
                         -{p.descuento}%
                       </span>
                     )}
-                    <p className="font-black text-slate-900 text-lg flex items-center gap-1"><img src="/cuponera-coin.svg" alt="crédito" style={{width:20,height:20}}/> {p.cantidad}</p>
+                    <p className="font-black text-slate-900 text-lg flex items-center gap-1"><img src="/credito-coin.svg" alt="crédito" style={{width:20,height:20}}/> {p.cantidad}</p>
                     <p className="text-slate-500 text-xs font-medium mt-0.5">{p.desc}</p>
                     <p className="font-black text-blue-600 text-sm mt-2">
                       ${pr.sinIva.toLocaleString('es-AR')}
@@ -139,7 +131,7 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
           {/* Resumen */}
           <div className="bg-slate-50 rounded-2xl p-4 space-y-2">
             <div className="flex justify-between text-sm font-medium text-slate-600">
-              <span>{pack.cantidad} token{pack.cantidad > 1 ? 's' : ''} × ${CREDITO_PRECIO.toLocaleString('es-AR')}</span>
+              <span>{pack.cantidad} crédito{pack.cantidad > 1 ? 's' : ''} × ${CREDITO_PRECIO.toLocaleString('es-AR')}</span>
               <span>${(pack.cantidad * CREDITO_PRECIO).toLocaleString('es-AR')}</span>
             </div>
             {descuentoTotal > 0 && (
@@ -164,12 +156,12 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-4 rounded-2xl font-black text-base transition-all cursor-pointer active:scale-[0.98]"
           >
-            {loading ? 'Procesando...' : `Comprar ${pack.cantidad} token${pack.cantidad > 1 ? 's' : ''} — $${precios.total.toLocaleString('es-AR')}`}
+            {loading ? 'Procesando...' : `Comprar ${pack.cantidad} crédito${pack.cantidad > 1 ? 's' : ''} — $${precios.total.toLocaleString('es-AR')}`}
           </button>
 
           {formaPago === 'efectivo' && (
             <p className="text-center text-slate-400 text-xs font-medium">
-              Los tokens se acreditan una vez confirmado el pago presencial en nuestra oficina.
+              Los créditos se acreditan en el acto. Pasá por la oficina a completar el pago.
             </p>
           )}
           {formaPago === 'transferencia' && (

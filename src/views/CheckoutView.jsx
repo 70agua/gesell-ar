@@ -3,7 +3,7 @@
 //  v1: sin reserva, sin códigos de descuento
 // ============================================================
 import React, { useState, useEffect } from 'react';
-import { useCuponera } from '../lib/cuponera';
+import { useCarrito } from '../lib/carrito';
 import { getPuntos, pesosDePuntos, puntosDeCompra } from '../lib/gamificacion';
 import { consumirImpulso } from '../lib/impulso';
 
@@ -221,7 +221,7 @@ function PendingState({ onDone }) {
 
 // ── Checkout principal ────────────────────────────────────────
 export default function CheckoutView({ session, onBack, onSuccess }) {
-  const { cupones, clearCuponera } = useCuponera();
+  const { cupones, clearCarrito } = useCarrito();
 
   const [puntosDisponibles, setPuntosDisponibles]     = useState(0);
   const [aplicarPuntos, setAplicarPuntos]             = useState(false);
@@ -256,10 +256,10 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
     });
 
     if (metodoPago === 'tarjeta') {
-      clearCuponera();
+      clearCarrito();
       setStep('success');
     } else {
-      clearCuponera();
+      clearCarrito();
       setStep('pending');
     }
     setProcesando(false);
@@ -268,7 +268,7 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
   if (!cupones.length && step === 'checkout') {
     return (
       <div style={{ textAlign: 'center', padding: '80px 24px', fontFamily: A.font }}>
-        <p style={{ color: A.muted, fontSize: 15 }}>No tenés cupones en tu cuponera.</p>
+        <p style={{ color: A.muted, fontSize: 15 }}>No tenés cupones en tu carrito.</p>
         <button onClick={onBack} style={{ marginTop: 16, background: 'none', border: 'none', color: A.primary, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
           ← Explorar ofertas
         </button>

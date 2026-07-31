@@ -4,7 +4,7 @@
 import React from 'react';
 
 export function CoinSVG({ size = 20 }) {
-  return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
+  return <img src="/credito-coin.svg" alt="crédito" width={size} height={size} style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
 }
 
 export default function Token({ amount, size = 'md', className = '' }) {

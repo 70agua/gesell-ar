@@ -48,7 +48,7 @@ function ahorroLegend(promo) {
 }
 
 function CoinSVG({ size = 13 }) {
-  return <img src="/cuponera-coin.svg" alt="crédito" width={size} height={size} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }} />;
+  return <img src="/credito-coin.svg" alt="crédito" width={size} height={size} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }} />;
 }
 
 const IcoBolt = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
@@ -132,7 +132,7 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, gr
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
             </svg>
-            <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>Exclusivo huéspedes {promo.exclusivoHuespedes}</span>
+            <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>Exclusivo turistas de {promo.exclusivoHuespedes}</span>
           </div>
         </>
       )}
@@ -258,7 +258,7 @@ function StockStrip({ tieneStock, stockRestante }) {
 }
 
 // ─── Sello del pase: las dos caras de la regla ─────────────────
-// La oferta no "se agrega a una cuponera": pertenece (o no) al PaSS. Las dos
+// La oferta no "se agrega a un Cupopack": pertenece (o no) al PaSS. Las dos
 // situaciones salen de nivelEnPase() — única fuente de la regla:
 //   estadía/incluida → entra siempre
 //   premium          → gasta una de las elecciones PLUS del pase

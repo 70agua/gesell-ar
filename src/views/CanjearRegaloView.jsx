@@ -1,6 +1,6 @@
 // ============================================================
 //  src/views/CanjearRegaloView.jsx
-//  El huésped llega con un código de 6 dígitos que le dictó el hotel al hacer
+//  El turista llega con un código de 6 dígitos que le dictó el alojamiento al hacer
 //  el check-in. Dos pasos y nada más:
 //
 //    1) Escribe el código. Al sexto dígito se valida solo — no hay botón,
@@ -142,7 +142,7 @@ export default function CanjearRegaloView({ onListo, onComprarPase }) {
               <Check size={26} strokeWidth={3} />
             </span>
             <div style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-0.01em' }}>
-              Tu cuponera está activa
+              Tu Pase está activo
             </div>
             <p style={{ fontSize: 14.5, color: C.muted, lineHeight: 1.6, margin: '10px auto 0', maxWidth: 440 }}>
               Te la regaló {regalo?.negocio_nombre}. Ya podés usar los descuentos de
@@ -169,10 +169,10 @@ export default function CanjearRegaloView({ onListo, onComprarPase }) {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px 100px' }}>
 
         <div style={{ textAlign: 'center', margin: '18px 0 14px' }}>
-          <img src="/logo-cuponera.svg" alt="Cuponear" style={{ width: 230, maxWidth: '72%', height: 'auto', display: 'inline-block' }} />
+          <img src="/logo-cuponear.svg" alt="Cuponear" style={{ width: 230, maxWidth: '72%', height: 'auto', display: 'inline-block' }} />
         </div>
         <h1 style={{ textAlign: 'center', fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', color: C.ink, margin: '0 0 8px', lineHeight: 1.15 }}>
-          Te regalaron una cuponera
+          Te regalaron un Pase
         </h1>
         <p style={{ textAlign: 'center', fontSize: 15.5, color: C.ink2, lineHeight: 1.55, margin: '0 auto 30px', maxWidth: 460 }}>
           Poné el código de 6 números que te dio tu alojamiento.
@@ -239,7 +239,7 @@ export default function CanjearRegaloView({ onListo, onComprarPase }) {
             <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
               <div style={{ ...labelSt, display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
                 INGRESÁ A
-                <img src="/logo-cuponera.svg" alt="Cuponear" style={{ height: 17, width: 'auto', display: 'block' }} />
+                <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 17, width: 'auto', display: 'block' }} />
               </div>
 
               <div role="tablist" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, background: C.bg, borderRadius: 12, marginBottom: 16 }}>
@@ -317,10 +317,10 @@ export default function CanjearRegaloView({ onListo, onComprarPase }) {
               >
                 {activando
                   ? <><Loader2 size={18} className="animate-spin" /> Activando…</>
-                  : <><Gift size={18} /> Activar mi cuponera</>}
+                  : <><Gift size={18} /> Activar mi Pase</>}
               </button>
               <p style={{ fontSize: 12, color: C.muted, textAlign: 'center', lineHeight: 1.5, margin: '12px 0 0' }}>
-                La cuponera es gratis: te la paga tu alojamiento.
+                El Pase es gratis: te lo paga tu alojamiento.
               </p>
             </div>
           </>

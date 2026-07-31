@@ -1,8 +1,8 @@
 // ============================================================
-//  src/components/CuponeraDrawer.jsx — Variante Ticket / Wallet
+//  src/components/CarritoDrawer.jsx — Variante Ticket / Wallet
 // ============================================================
 import React, { useEffect, useCallback } from 'react';
-import { useCuponera } from '../lib/cuponera';
+import { useCarrito } from '../lib/carrito';
 
 // ── Tokens ──
 const A = {
@@ -154,8 +154,8 @@ function TicketCard({ c, onRemove }) {
 }
 
 // ── Drawer principal ──
-export default function CuponeraDrawer() {
-  const { cupones, drawerOpen, removeCupon, closeDrawer, handleCheckout } = useCuponera();
+export default function CarritoDrawer() {
+  const { cupones, drawerOpen, removeCupon, closeDrawer, handleCheckout } = useCarrito();
 
   const total = cupones.reduce((s, c) => s + c.price, 0);
   const saved = cupones.reduce((s, c) => s + (c.was - c.price), 0);
@@ -191,7 +191,7 @@ export default function CuponeraDrawer() {
           background: 'rgba(11,16,32,0.45)',
           backdropFilter: 'blur(2px)',
           WebkitBackdropFilter: 'blur(2px)',
-          animation: 'cuponeraScrimIn 320ms ease forwards',
+          animation: 'carritoScrimIn 320ms ease forwards',
         }}
       />
 
@@ -204,7 +204,7 @@ export default function CuponeraDrawer() {
           boxShadow: '-30px 0 80px -40px rgba(11,16,32,0.5)',
           display: 'flex', flexDirection: 'column',
           fontFamily: A.font, color: A.ink,
-          animation: 'cuponeraSlideIn 420ms cubic-bezier(.22,1,.36,1) forwards',
+          animation: 'carritoSlideIn 420ms cubic-bezier(.22,1,.36,1) forwards',
         }}
       >
         {/* ── ZONA 1: Header oscuro tipo wallet ── */}
@@ -220,11 +220,11 @@ export default function CuponeraDrawer() {
           {/* Fila top: overline + close */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>
-              MI CUPONERA
+              MI CARRITO
             </div>
             <button
               onClick={closeDrawer}
-              aria-label="Cerrar cuponera"
+              aria-label="Cerrar carrito"
               style={{
                 width: 38, height: 38, borderRadius: 10, flexShrink: 0,
                 background: 'rgba(255,255,255,0.12)',
@@ -280,7 +280,7 @@ export default function CuponeraDrawer() {
                 <TicketIcon width={26} height={26} />
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, letterSpacing: '-0.02em' }}>
-                Tu cuponera está vacía
+                Tu carrito está vacío
               </div>
               <p style={{ margin: '6px 0 0', fontSize: 13, color: A.muted, lineHeight: 1.5 }}>
                 Sumá ofertas y aparecerán acá como cupones listos para canjear.
@@ -354,11 +354,11 @@ export default function CuponeraDrawer() {
 
       {/* Keyframes de animación */}
       <style>{`
-        @keyframes cuponeraSlideIn {
+        @keyframes carritoSlideIn {
           from { transform: translateX(105%); }
           to   { transform: translateX(0); }
         }
-        @keyframes cuponeraScrimIn {
+        @keyframes carritoScrimIn {
           from { opacity: 0; }
           to   { opacity: 1; }
         }

@@ -371,11 +371,11 @@ export default function PerfilNegocioForm({ value: v, onChange, errors = {} }) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <div>
-                    <label style={lbl}>Mín. huéspedes por unidad</label>
+                    <label style={lbl}>Mín. personas por unidad</label>
                     <input type="number" value={v.minHues} onChange={e => set('minHues', e.target.value)} style={inp} placeholder="Ej: 2" />
                   </div>
                   <div>
-                    <label style={lbl}>Máx. huéspedes (unidad amplia)</label>
+                    <label style={lbl}>Máx. personas (unidad amplia)</label>
                     <input type="number" value={v.maxHues} onChange={e => set('maxHues', e.target.value)} style={inp} placeholder="Ej: 6" />
                   </div>
                 </div>

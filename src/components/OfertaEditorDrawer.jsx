@@ -72,7 +72,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
         .from('negocios')
         .select('id, nombre, tipo, localidad')
         .in('tipo', TIPOS_ALOJ)
-        .eq('aprobado', true)
+        .eq('activo', true)
         .order('nombre');
       setAlojamientos(data || []);
 
@@ -441,7 +441,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-500 mb-1.5">Beneficio mejorado para sus huéspedes</label>
+                  <label className="block text-xs font-black text-slate-500 mb-1.5">Beneficio mejorado para sus turistas</label>
                   <input
                     value={al.beneficio_mejorado}
                     onChange={e => actualizarAlianza(i, 'beneficio_mejorado', e.target.value)}

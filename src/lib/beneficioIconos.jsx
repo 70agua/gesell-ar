@@ -1,6 +1,6 @@
 // ============================================================
 //  src/lib/beneficioIconos.jsx
-//  Íconos elegibles para el "beneficio adicional" de una cuponera
+//  Íconos elegibles para el "beneficio adicional" de un Cupopack
 //  (el que va dentro del círculo amarillo en la home).
 //  Curados de Lucide (lucide-react) — set de íconos MIT / gratis.
 // ============================================================

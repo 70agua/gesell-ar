@@ -1,6 +1,6 @@
 // ============================================================
-//  src/components/PortadaCuponera.jsx
-//  Portada de una cuponera: o la foto cargada a mano (`imagen_url`), o un
+//  src/components/PortadaCupopack.jsx
+//  Portada de un Cupopack: o la foto cargada a mano (`imagen_url`), o un
 //  mosaico armado con las portadas de las ofertas que incluye.
 // ============================================================
 import React from 'react';
@@ -12,7 +12,7 @@ const SEPARACION = 3;
 
 // Reparte las ofertas entre la celda grande y el resto.
 // Cantidad impar → una va grande arriba de todo, y es la de alojamiento si la
-// cuponera incluye una (si no, la primera). Cantidad par → todas del mismo tamaño.
+// Cupopack incluye una (si no, la primera). Cantidad par → todas del mismo tamaño.
 function repartirMosaico(cupones = []) {
   const conFoto = (cupones || []).filter(c => c && c.imagen);
   const usados = conFoto.slice(0, MAX_CELDAS);
@@ -38,16 +38,16 @@ function Celda({ cupon, style }) {
   );
 }
 
-export default function PortadaCuponera({ cuponera, alt = '', style }) {
+export default function PortadaCupopack({ cupopack, alt = '', style }) {
   const base = { position: 'absolute', inset: 0, width: '100%', height: '100%' };
-  const { grande, resto } = repartirMosaico(cuponera?.cupones);
+  const { grande, resto } = repartirMosaico(cupopack?.cupones);
   const hayMosaico = !!grande || resto.length > 0;
 
   // Sin ofertas con foto no hay mosaico posible: cae a la portada cargada.
-  if (cuponera?.portadaModo !== 'mosaico' || !hayMosaico) {
+  if (cupopack?.portadaModo !== 'mosaico' || !hayMosaico) {
     return (
       <img
-        src={cuponera?.images?.[0]}
+        src={cupopack?.images?.[0]}
         alt={alt}
         style={{ ...base, objectFit: 'cover', ...style }}
       />

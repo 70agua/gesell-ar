@@ -6,23 +6,18 @@ import ReactDOM from 'react-dom';
 import {
   LayoutDashboard, MessageSquare, Bell, Tag, CreditCard, Puzzle,
   LogOut, ArrowLeft, TrendingUp, Eye, EyeOff, MousePointerClick, Users, ChevronRight,
-  Plus, X, Save, ToggleLeft, ToggleRight, Send, Check, Archive,
+  Plus, X, Save, ToggleLeft, ToggleRight, Send, Check,
   Clock, Star, Trash2, Upload, Image, AlertCircle, CheckCircle2, Zap, Crown,
-  Store, Coins, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar, Gift,
+  Store, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar,
   MessageCircle, Edit2, RefreshCw, Package, BarChart2, Home, Search,
-  Inbox, CalendarDays, Minus, Megaphone, Download, Mail, Link2, Wallet,
+  Inbox, CalendarDays, Minus, Megaphone, Download, Mail, Link2,
   Disc3, Info, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { categoriaDeNegocio } from '../lib/datos';
-import { getOrdenesPendientes, getSaldo, debeUsarTokens, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra } from '../lib/cobros';
+import { getSaldo, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra } from '../lib/cobros';
 import { getPuntos } from '../lib/gamificacion';
-import {
-  getCuponerasRegalo, crearCuponeraRegalo, renombrarCuponera, cambiarEstadoCuponera, toggleModoInteligente,
-  eliminarCuponeraRegalo, agregarCupon, quitarCupon, buscarPromosDisponibles, costoCreditosDePromo, sugerirCupones,
-} from '../lib/cuponerasRegalo';
-import { LOCALIDADES } from '../lib/localidades';
-import { FOTOS_GALERIA_MAX, getPlanesConfig } from '../lib/planes';
+import { FOTOS_GALERIA_MAX, getPlanesPro } from '../lib/planes';
 import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
 import { impulsarOferta, costoPorAcceso, costoPorVenta, costoPorResultado } from '../lib/impulso';
 import { sanitizeTituloOferta } from '../lib/ofertas';
@@ -51,7 +46,7 @@ const FONT = "'Inter', system-ui, sans-serif";
 
 // ─── CreditCoin ───────────────────────────────────────────────
 function CreditCoin({ size = 22 }) {
-  return <img src="/cuponera-coin.svg" alt="crédito" style={{ width: size, height: size, display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
+  return <img src="/credito-coin.svg" alt="crédito" style={{ width: size, height: size, display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
 }
 
 // ─── Nav config ─────────────────────────────────────────────
@@ -62,7 +57,6 @@ const NAV_GRUPOS = [
     items: [
       { id: 'ofertas',     label: 'Creadas por mí', Icon: Tag         },
       { id: 'solicitudes', label: 'Ventas',          Icon: Inbox,      alojOnly: true },
-      { id: 'compras',     label: 'Mis cuponeras',   Icon: Wallet      },
     ],
   },
   {
@@ -101,10 +95,10 @@ const MOCK_CHATS = [
 
 const MOCK_NOTIFS = [
   { id: 1, tipo: 'propia', icon: ShoppingBag, color: GREEN, title: 'Cupón propio canjeado', cliente: 'Valentina R.', cupon: 'Escapada Romántica (-15%)', time: 'Hace 5 min', creditos: 0 },
-  { id: 2, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Huésped generó créditos', desc: 'Tu huésped de hab. 104 adquirió cuponera de Churros El Topo. ¡+1 Crédito!', time: 'Hace 22 min', creditos: 1 },
-  { id: 3, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Huésped generó créditos', desc: 'Tu huésped adquirió cuponera de La Pescadería Gesell. ¡+1 Crédito!', time: 'Hace 1 h', creditos: 1 },
+  { id: 2, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Un turista generó créditos', desc: 'Un turista tuyo compró un cupón de Churros El Topo. ¡+1 Crédito!', time: 'Hace 22 min', creditos: 1 },
+  { id: 3, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Un turista generó créditos', desc: 'Un turista tuyo compró un cupón de La Pescadería Gesell. ¡+1 Crédito!', time: 'Hace 1 h', creditos: 1 },
   { id: 4, tipo: 'propia', icon: ShoppingBag, color: GREEN, title: 'Cupón propio canjeado', cliente: 'Martín G.', cupon: 'Pack 3 noches + excursión', time: 'Ayer 18:40', creditos: 0 },
-  { id: 5, tipo: 'tercero', icon: Map, color: YELLOW, title: 'Huésped generó créditos', desc: 'Tu huésped adquirió cuponera de Paseos en Cuatriciclo. ¡+1 Crédito!', time: 'Ayer 11:20', creditos: 1 },
+  { id: 5, tipo: 'tercero', icon: Map, color: YELLOW, title: 'Un turista generó créditos', desc: 'Un turista tuyo compró un cupón de Paseos en Cuatriciclo. ¡+1 Crédito!', time: 'Ayer 11:20', creditos: 1 },
 ];
 
 const MOCK_OFERTAS = [
@@ -120,11 +114,11 @@ const MOCK_FACTURAS = [
 ];
 
 const ADDONS_CATALOG = [
-  { id: 'rumrak',    titulo: 'Rumrak PMS/CRM', desc: 'Gestión hotelera integral: reservas, historial de huéspedes, ingresos/egresos exportable.', precio: 15000, Icon: BarChart2, color: P },
+  { id: 'rumrak',    titulo: 'Rumrak PMS/CRM', desc: 'Gestión hotelera integral: reservas, historial de turistas, ingresos/egresos exportable.', precio: 15000, Icon: BarChart2, color: P },
   { id: 'destaque',  titulo: 'Destaque Fin de Semana', desc: 'Resaltá tu hotel en los listados durante los días de recambio turístico.', precio: 5000, Icon: Star, color: YELLOW },
   { id: 'whatsapp',  titulo: 'WhatsApp Premium', desc: 'Enlace directo al celular desde la ficha pública, sin intermediarios.', precio: 3000, Icon: Smartphone, color: GREEN },
   { id: 'traductor', titulo: 'Traductor IA', desc: 'Traduce tu perfil y promociones al inglés y portugués automáticamente.', precio: 4000, Icon: Globe, color: '#8b5cf6' },
-  { id: 'reservas',  titulo: 'Motor de Reservas Básico', desc: 'Calendario de reservas desde tu ficha de Cuponera.', precio: 8000, Icon: Calendar, color: '#0ea5e9' },
+  { id: 'reservas',  titulo: 'Motor de Reservas Básico', desc: 'Calendario de reservas desde tu ficha en Cuponear.', precio: 8000, Icon: Calendar, color: '#0ea5e9' },
   { id: 'sms',       titulo: 'Alertas SMS Instantáneas', desc: 'Notificaciones de consultas directamente a tu celular.', precio: 2500, Icon: MessageCircle, color: '#ec4899' },
 ];
 
@@ -936,7 +930,7 @@ function ImpulsoInvitacion({ oferta, negocioId, saldo, onClose, onImpulsada, sho
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: BG, border: `1px solid ${LINE}`, borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
                 <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK2 }}>Total del impulso</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT, fontSize: 16, fontWeight: 900, color: INK }}>
-                  <img src="/cuponera-coin.svg" alt="" style={{ width: 18, height: 18 }}/> {creditos} créd.
+                  <img src="/credito-coin.svg" alt="" style={{ width: 18, height: 18 }}/> {creditos} créd.
                 </span>
               </div>
 
@@ -1681,7 +1675,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
   function ShareAsociadasBar() {
     const [email, setEmail] = React.useState('');
     const [sent, setSent] = React.useState(false);
-    const portalUrl = `https://cuponera.ar/beneficios/${negocioId || 'mi-hotel'}`;
+    const portalUrl = `https://cuponear.ar/beneficios/${negocioId || 'mi-hotel'}`;
 
     function handleSendEmail(e) {
       e.preventDefault();
@@ -1704,7 +1698,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
       <div style={{ background:PS, border:`1px solid #c7d0f8`, borderRadius:14, padding:'14px 16px', display:'flex', flexDirection:'column', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={P} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:P }}>Enviá el portal de beneficios a tus huéspedes</span>
+          <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:P }}>Enviá el portal de beneficios a tus turistas</span>
         </div>
 
         {/* Fila: campo email + botón enviar */}
@@ -2242,7 +2236,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK }}>El servicio requiere reserva previa</div>
                 <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 1, lineHeight: 1.4 }}>
-                  Si lo activás, el turista pide disponibilidad (fecha/personas) desde el detalle y vos confirmás. Si no, el cupón se agrega directo a la cuponera.
+                  Si lo activás, el turista pide disponibilidad (fecha/personas) desde el detalle y vos confirmás. Si no, el cupón se agrega directo al carrito.
                 </div>
               </div>
               <div style={{ flexShrink: 0 }}>
@@ -2515,10 +2509,10 @@ function PackFicha({ badge, off, cred, popular, darkIdx = 0 }) {
       </div>
       {/* Cuerpo */}
       <div style={{ padding:'14px 16px 16px', display:'flex', flexDirection:'column', flex:1 }}>
-        <div style={{ fontSize:11, color:MUTED, fontWeight:600, marginBottom:4 }}>Cuponera · Descuento de abono</div>
+        <div style={{ fontSize:11, color:MUTED, fontWeight:600, marginBottom:4 }}>Cupopack · Descuento de abono</div>
         <div style={{ fontFamily:FONT, fontSize:16, fontWeight:600, color:GREEN, lineHeight:1.3, marginBottom:10 }}>Bajá tu abono mensual</div>
         <button style={{ background:P, color:'#fff', border:'none', borderRadius:12, padding:'10px 0', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT }}>
-          <Tag size={14}/> Agregar a cuponera
+          <Tag size={14}/> Agregar al carrito
         </button>
         {/* Cajita de precios */}
         <div style={{ border:`1px solid ${LINE}`, borderRadius:10, overflow:'hidden', marginTop:10 }}>
@@ -2562,7 +2556,7 @@ function MovRow({ m, last }) {
             </div>
             {m.oferta && (
               <div style={{ fontSize:11, color:MUTED, marginTop:2 }}>
-                Tu huésped ya está disfrutando <span style={{ fontWeight:600, color:INK2 }}>{m.oferta}</span>
+                Un turista tuyo ya está disfrutando <span style={{ fontWeight:600, color:INK2 }}>{m.oferta}</span>
               </div>
             )}
             <div style={{ fontSize:11, color:MUTED, marginTop:2 }}>{m.date}</div>
@@ -2648,19 +2642,26 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
     showToast?.(nuevoEstado ? 'Tu negocio volvió a estar visible' : 'Tu negocio quedó oculto de listados y búsquedas', 'ok');
   }
 
-  // Plan real del negocio + precio real del plan Plus (fuente de verdad: tabla `planes`)
+  // Plan real del negocio + precio del tramo de referencia para el upsell.
+  // Fuente de verdad: tabla `planes` (tramos PRO). Se muestra el destacado,
+  // que es el que la base marca como "más elegido".
   const esPlusReal = negocio?.plan === 'plus';
+  // El plan PRO sólo se le ofrece a quien hospeda o arma viajes.
+  const esAlojamiento = categoriaDeNegocio(negocio?.tipo, negocio?.id) === 'alojamiento';
   const [planPlus, setPlanPlus] = useState(null);
   useEffect(() => {
     let vivo = true;
-    getPlanesConfig()
-      .then(planes => { if (vivo) setPlanPlus((planes || []).find(p => p.id === 'plus') || null); })
+    getPlanesPro()
+      .then(planes => {
+        if (!vivo) return;
+        const ps = planes || [];
+        setPlanPlus(ps.find(p => p.destacado) || ps[0] || null);
+      })
       .catch(() => {});
     return () => { vivo = false; };
   }, []);
-  const precioMes  = planPlus?.precioMes ?? 20000;
-  const mesesPago  = (planPlus?.mesesContrato ?? 12) - (planPlus?.mesesGratisBono ?? 1);
-  const precioAnio = precioMes * mesesPago;
+  const precioMes  = planPlus?.precioMes ?? 30000;
+  const precioAnio = planPlus?.total ?? precioMes * 12;
 
   // Historial real de movimientos de la billetera del negocio
   const [movs, setMovs] = useState([]);
@@ -2740,13 +2741,13 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
             {/* Texto — centrado */}
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
               <div style={{ fontFamily:FONT, fontSize:10, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:P, marginBottom:4, whiteSpace:'nowrap' }}>
-                Cupones para tus huéspedes
+                Cupones para tus turistas
               </div>
               <div style={{ fontFamily:FONT, fontSize:18, fontWeight:600, color:INK, lineHeight:1.25, marginBottom:5 }}>
                 ¡Compartí ofertas y sumá créditos!
               </div>
               <div style={{ fontFamily:FONT, fontSize:12, color:INK2, lineHeight:1.4, marginBottom:12 }}>
-                Tus huéspedes canjean ofertas en restaurantes y experiencias. Vos obtenés <b>créditos para usar en tu cuponera ó reducir el valor de tu plan.</b>
+                Tus turistas canjean ofertas en restaurantes y experiencias. Vos obtenés <b>créditos publicitarios para impulsar tus ofertas.</b>
               </div>
               <button style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 16px', borderRadius:10, border:'none', background:P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
                 
@@ -2764,7 +2765,7 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:FONT, fontSize:14, fontWeight:800, color:INK }}>Enviar créditos</div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Pasale saldo a un huésped o amigo al instante.</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Pasale saldo a un turista o amigo al instante.</div>
               {/* Campo de cantidad */}
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, background:BG, border:`1px solid ${LINE}`, borderRadius:10, padding:'8px 12px' }}>
                 <CreditCoin size={16}/>
@@ -2797,7 +2798,7 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:FONT, fontSize:14, fontWeight:800, color:INK }}>Canjear beneficios para vos</div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Usá tus créditos en ofertas de Cuponera y armá tu propia cuponera.</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Usá tus créditos publicitarios para impulsar tus ofertas.</div>
               <button style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 14px', borderRadius:9, border:`1px solid ${LINE}`, background:'#fff', color:INK2, fontFamily:FONT, fontSize:12, fontWeight:600, cursor:'pointer' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                 Explorar el marketplace
@@ -2817,7 +2818,7 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
               </div>
               <div style={{ flex:1 }}>
                 <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Plan activo</div>
-                <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{esPlusReal ? 'PLUS' : 'FREEMIUM'}</div>
+                <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{esPlusReal ? (planPlus?.nombre || 'PRO') : 'SIN PLAN'}</div>
               </div>
               <div style={{ textAlign:'right' }}>
                 {esPlusReal ? (
@@ -2826,7 +2827,9 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
                       <span style={{ fontFamily:FONT, fontSize:26, fontWeight:800, color:INK, letterSpacing:'-0.02em' }}>${precioMes.toLocaleString('es-AR')}</span>
                       <span style={{ fontFamily:FONT, fontSize:13, color:MUTED, fontWeight:600 }}>+ IVA /mes</span>
                     </div>
-                    <div style={{ fontFamily:FONT, fontSize:12, color:INK2, fontWeight:600, marginTop:2 }}>${precioAnio.toLocaleString('es-AR')} + IVA /año (1 mes bonificado)</div>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:INK2, fontWeight:600, marginTop:2 }}>
+                      ${precioAnio.toLocaleString('es-AR')} + IVA por {planPlus?.meses ?? 12} {(planPlus?.meses ?? 12) === 1 ? 'mes' : 'meses'}
+                    </div>
                     <div style={{ fontFamily:FONT, fontSize:11, color:MUTED, marginTop:2 }}>(no incluye impuestos nacionales)</div>
                   </>
                 ) : (
@@ -2850,8 +2853,16 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
                 </span>
               </div>
             );})() : (
+              // El upsell del plan es SÓLO para alojamientos y agencias: lo que
+              // compra el plan es poder regalarle el Pase a los turistas. Al
+              // comercio no se le ofrece — su única compra son créditos
+              // publicitarios, que ya tiene en la billetera.
               <div style={{ background:BG, borderRadius:11, padding:'11px 14px', marginTop:14 }}>
-                <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Publicás sin cargo. Pasate a <b style={{ color:P }}>Plus</b> (${precioMes.toLocaleString('es-AR')} + IVA/mes) para armar cuponeras de regalo y sumar beneficios.</span>
+                {esAlojamiento ? (
+                  <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Publicás sin cargo. Contratá <b style={{ color:P }}>{planPlus?.nombre || 'PRO'}</b> (${precioMes.toLocaleString('es-AR')} + IVA/mes) y regalale el Pase a tus turistas.</span>
+                ) : (
+                  <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Publicar tus ofertas no tiene costo. Si querés que se vean más, comprá <b style={{ color:P }}>créditos publicitarios</b> e impulsalas — sin suscripción.</span>
+                )}
               </div>
             )}
           </Card>
@@ -2871,7 +2882,7 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
           <Card style={{ flex:1 }}>
             <div>
               <div style={{ fontFamily:FONT, fontSize:18, fontWeight:600, color:INK }}>Usá tus créditos para reducir el abono de tu plan!</div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3 }}>Agregálos a tu cuponera y pagá con créditos.</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3 }}>Agregálos a tu carrito y pagá con créditos.</div>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginTop:20 }}>
               {PACKS_ABONO.filter(p => p.badge !== '-10k').map((p, i) => <PackFicha key={p.badge} {...p} darkIdx={i}/>)}
@@ -2910,7 +2921,7 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
       </Card>
 
       {/* ── Visibilidad del negocio ── */}
-      {!perfil?.es_superadmin && negocio?.aprobado && (
+      {!perfil?.es_superadmin && (
         <Card style={{ border: `1px solid ${negocioActivo ? LINE : '#F3D9A8'}`, background: negocioActivo ? CARD : '#FFFBF0' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:14, flexWrap:'wrap' }}>
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>
@@ -3138,7 +3149,7 @@ function RendimientoCard({ plan = 'free', onUpgrade }) {
               ¿Querés multiplicar tus ventas este fin de semana largo?
             </h3>
             <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.65, margin: '0 0 22px' }}>
-              Subí a <strong style={{ color: INK }}>Plan Plus</strong> para desbloquear el Rendimiento Alto y Máximo.
+              Contratá un <strong style={{ color: INK }}>plan PRO</strong> para desbloquear el Rendimiento Alto y Máximo.
             </p>
             <button
               onClick={() => { setShowModal(false); onUpgrade?.(); }}
@@ -3210,7 +3221,7 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, puntos
 
       {/* Logo */}
       <button onClick={onGoHome} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '14px 0 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.08)', width: '100%' }}>
-        <img src="/logo-cuponera-wh.svg" alt="Cuponera" style={{ width: 180, height: 'auto', display: 'block' }} />
+        <img src="/logo-cuponear-wh.svg" alt="Cuponear" style={{ width: 180, height: 'auto', display: 'block' }} />
       </button>
 
       {/* Nav */}
@@ -3232,8 +3243,9 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, puntos
       {/* Saldos: créditos publicitarios + puntos */}
       <SaldosWidget creditos={saldoTokens} puntos={puntos} />
 
-      {/* Comprar créditos (solo plan free con alojamiento) */}
-      {negocio && debeUsarTokens(negocio.tipo, negocio.plan) && (
+      {/* Comprar créditos publicitarios — disponible para cualquier socio:
+          se usan para impulsar ofertas, no para publicarlas. */}
+      {negocio && (
         <div style={{ margin: '0 8px 8px' }}>
           <button onClick={() => setShowComprar(true)} style={{ width: '100%', background: P, color: '#fff', border: 'none', borderRadius: 7, padding: '7px 0', fontFamily: FONT, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
             Comprar créditos
@@ -3346,7 +3358,7 @@ function SolicitudCupones({ negocioId, showToast }) {
                     <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>{s.fecha_checkout ? new Date(s.fecha_checkout + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : '—'}</p>
                   </div>
                   <div>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>Huéspedes</p>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>Personas</p>
                     <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>{s.num_huespedes}</p>
                   </div>
                   {esContraoferta && (
@@ -3435,354 +3447,6 @@ function TabVentas({ negocioId, showToast }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════
-//  TAB COMPRAS
-// ════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════
-//  TAB CUPONERAS (regalo) — sólo socios Plus
-// ════════════════════════════════════════════════════════════
-const ESTADO_BADGE = {
-  borrador:  { label: 'Borrador',  bg: `${MUTED}22`,  color: INK2 },
-  activa:    { label: 'Activa',    bg: `${GREEN}1a`,  color: GREEN },
-  pausada:   { label: 'Pausada',   bg: `${YELLOW}22`, color: '#b45309' },
-  archivada: { label: 'Archivada', bg: `${MUTED}22`,  color: MUTED },
-};
-
-function TabCuponeras({ negocio, perfil, showToast, saldoTokens, setSaldoTokens, setShowComprar }) {
-  const esPlus = negocio?.plan === 'plus';
-
-  const [loading, setLoading]       = useState(esPlus);
-  const [cuponeras, setCuponeras]   = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [alias, setAlias]           = useState(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [createNombre, setCreateNombre] = useState('');
-  const [editingId, setEditingId]   = useState(null);
-  const [editingNombre, setEditingNombre] = useState('');
-  const [busTexto, setBusTexto]         = useState('');
-  const [busLocalidad, setBusLocalidad] = useState('');
-  const [busResultados, setBusResultados] = useState([]);
-  const [busLoading, setBusLoading]     = useState(false);
-  const [sugiriendo, setSugiriendo]     = useState(false);
-
-  const selected = cuponeras.find(c => c.id === selectedId) || null;
-
-  useEffect(() => {
-    if (esPlus && negocio?.id) cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [negocio?.id, esPlus]);
-
-  useEffect(() => {
-    if (esPlus && negocio?.id) buscar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [negocio?.id, esPlus]);
-
-  async function cargar() {
-    setLoading(true);
-    const [cups, aliasRes] = await Promise.all([
-      getCuponerasRegalo(negocio.id),
-      supabase.from('socio_alias').select('codigo, unidades_declaradas').eq('negocio_id', negocio.id).maybeSingle(),
-    ]);
-    setCuponeras(cups);
-    setAlias(aliasRes.data || null);
-    setSelectedId(prev => (prev && cups.some(c => c.id === prev)) ? prev : (cups[0]?.id || null));
-    setLoading(false);
-  }
-
-  async function refrescarSaldo() {
-    const nuevo = await getSaldo(negocio.id);
-    setSaldoTokens?.(nuevo);
-  }
-
-  async function handleCrear() {
-    if (!createNombre.trim()) return;
-    const { data, error } = await crearCuponeraRegalo(negocio.id, createNombre.trim());
-    if (error) { showToast('Error al crear la cuponera', 'error'); return; }
-    setCreateNombre(''); setShowCreate(false);
-    await cargar();
-    setSelectedId(data.id);
-  }
-
-  async function handleRenombrar(id) {
-    if (!editingNombre.trim()) { setEditingId(null); return; }
-    await renombrarCuponera(id, editingNombre.trim());
-    setEditingId(null);
-    await cargar();
-  }
-
-  async function handleEliminar(id) {
-    if (!window.confirm('¿Eliminar esta cuponera? Se devuelven los créditos de los cupones que tenía.')) return;
-    await eliminarCuponeraRegalo(negocio.id, id);
-    await cargar();
-    await refrescarSaldo();
-    showToast('Cuponera eliminada', 'ok');
-  }
-
-  async function handleCambiarEstado(id, estado) {
-    await cambiarEstadoCuponera(id, estado);
-    await cargar();
-    showToast(`Cuponera ${ESTADO_BADGE[estado]?.label.toLowerCase() || estado}`, 'ok');
-  }
-
-  async function handleToggleModo(id, actual) {
-    await toggleModoInteligente(id, !actual);
-    await cargar();
-  }
-
-  async function buscar() {
-    setBusLoading(true);
-    setSugiriendo(false);
-    setBusResultados(await buscarPromosDisponibles({ texto: busTexto, localidad: busLocalidad || negocio?.localidad }));
-    setBusLoading(false);
-  }
-
-  async function handleSugerir() {
-    setBusLoading(true);
-    setSugiriendo(true);
-    const excluirIds = selected?.cuponeras_regalo_cupones.map(c => c.promocion_id) || [];
-    setBusResultados(await sugerirCupones(busLocalidad || negocio?.localidad, { excluirIds }));
-    setBusLoading(false);
-  }
-
-  async function handleAgregarCupon(promo) {
-    if (!selected) { showToast('Creá o elegí una cuponera primero', 'error'); return; }
-    const yaIncluido = selected.cuponeras_regalo_cupones.some(c => c.promocion_id === promo.id);
-    if (yaIncluido) { showToast('Ese cupón ya está en la cuponera', 'error'); return; }
-    const { error } = await agregarCupon(negocio.id, selected.id, promo, selected.cuponeras_regalo_cupones.length);
-    if (error) { showToast(error, 'error'); return; }
-    await cargar();
-    await refrescarSaldo();
-  }
-
-  async function handleQuitarCupon(cuponeraCuponId) {
-    await quitarCupon(negocio.id, cuponeraCuponId);
-    await cargar();
-    await refrescarSaldo();
-  }
-
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: MUTED }}>Cargando cuponeras...</div>;
-
-  if (!esPlus) {
-    return (
-      <div style={{ padding: '32px 36px' }}>
-        <Card style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <Gift size={36} color={P} style={{ margin: '0 auto 14px', display: 'block' }} />
-          <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 800, color: INK, marginBottom: 8 }}>Las cuponeras regalo son para socios Plus</div>
-          <div style={{ fontFamily: FONT, fontSize: 13, color: MUTED, marginBottom: 18, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>
-            Armá una plantilla de cupones de otros socios y regalásela a tus huéspedes con tu alias — la pagás una sola vez al armarla.
-          </div>
-          <button style={{ background: P, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-            Pasate a Plus
-          </button>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ padding: '32px 36px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: INK, margin: 0 }}>Mis cuponeras</h2>
-      </div>
-
-      {/* Saldo de créditos + alias */}
-      <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT, fontSize: 13, color: INK2 }}>
-          <Coins size={16} color={YELLOW}/> <b style={{ color: INK }}>{saldoTokens}</b> créditos disponibles
-          <button onClick={() => setShowComprar?.(true)} style={{ background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Comprar más</button>
-        </div>
-        {alias && (
-          <div style={{ fontFamily: FONT, fontSize: 13, color: INK2 }}>
-            Alias: <b style={{ color: INK }}>{alias.codigo}</b> · {alias.unidades_declaradas} activaciones/semana
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-
-        {/* ─── Catálogo (izquierda) ─── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <Search size={14} color={MUTED} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}/>
-              <input value={busTexto} onChange={e => setBusTexto(e.target.value)} onKeyDown={e => e.key === 'Enter' && buscar()}
-                placeholder="Buscar por título..."
-                style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px 9px 30px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13, outline: 'none', color: INK }}/>
-            </div>
-            <select value={busLocalidad} onChange={e => setBusLocalidad(e.target.value)}
-              style={{ padding: '9px 10px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13, color: INK, cursor: 'pointer', outline: 'none' }}>
-              <option value="">{negocio?.localidad || 'Toda localidad'}</option>
-              {LOCALIDADES.filter(l => l !== negocio?.localidad).map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-            <button onClick={buscar} style={{ background: PS, color: P, border: 'none', borderRadius: 10, padding: '0 16px', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Buscar</button>
-          </div>
-
-          <button onClick={handleSugerir} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: sugiriendo ? P : PS, color: sugiriendo ? '#fff' : P, border: `1.5px dashed ${P}55`, borderRadius: 12, padding: '11px 0', fontFamily: FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 16 }}>
-            <Zap size={15}/> Sugerir cupones de mi zona automáticamente
-          </button>
-
-          {busLoading ? (
-            <div style={{ textAlign: 'center', padding: 30, color: MUTED, fontFamily: FONT, fontSize: 13 }}>Buscando…</div>
-          ) : busResultados.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 30, color: MUTED, fontFamily: FONT, fontSize: 13 }}>Sin resultados</div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-              {busResultados.map(p => {
-                const costo = costoCreditosDePromo(p);
-                const yaIncluido = selected?.cuponeras_regalo_cupones.some(c => c.promocion_id === p.id);
-                return (
-                  <div key={p.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    <img src={p.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width: '100%', height: 100, objectFit: 'cover' }}/>
-                    <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-                      <div style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 700, color: INK, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.titulo}</div>
-                      <div style={{ fontFamily: FONT, fontSize: 10.5, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.negocios?.nombre}</div>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: INK2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Coins size={11} color={YELLOW}/> {costo} crédito{costo !== 1 ? 's' : ''}
-                      </span>
-                      <button disabled={yaIncluido || !selected} onClick={() => handleAgregarCupon(p)}
-                        style={{ marginTop: 'auto', background: yaIncluido ? LINE : P, color: yaIncluido ? MUTED : '#fff', border: 'none', borderRadius: 8, padding: '7px 0', fontFamily: FONT, fontSize: 11.5, fontWeight: 700, cursor: (yaIncluido || !selected) ? 'default' : 'pointer' }}>
-                        {yaIncluido ? 'Ya agregado' : 'Añadir a cuponera'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ─── Panel de la cuponera (derecha, 36%) ─── */}
-        <div style={{ width: '36%', flexShrink: 0, position: 'sticky', top: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK }}>Tus cuponeras</span>
-            <button onClick={() => setShowCreate(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-              <Plus size={13}/> Nueva
-            </button>
-          </div>
-
-          {showCreate && (
-            <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 12, marginBottom: 12, display: 'flex', gap: 6 }}>
-              <input autoFocus value={createNombre} onChange={e => setCreateNombre(e.target.value)}
-                placeholder="Nombre de la cuponera" onKeyDown={e => e.key === 'Enter' && handleCrear()}
-                style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 12.5, outline: 'none', color: INK }} />
-              <button onClick={handleCrear} style={{ background: P, color: '#fff', border: 'none', borderRadius: 8, padding: '0 12px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Crear</button>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-            {cuponeras.map(c => {
-              const eb = ESTADO_BADGE[c.estado] || ESTADO_BADGE.borrador;
-              const active = selectedId === c.id;
-              return (
-                <button key={c.id} onClick={() => setSelectedId(c.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 999, border: `1.5px solid ${active ? P : LINE}`, background: active ? PS : '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 11.5, fontWeight: 700, color: active ? P : INK2 }}>
-                  {c.nombre}
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: eb.color }} />
-                </button>
-              );
-            })}
-            {cuponeras.length === 0 && (
-              <div style={{ fontFamily: FONT, fontSize: 12, color: MUTED }}>Sin cuponeras todavía</div>
-            )}
-          </div>
-
-          {selected ? (
-            <Card>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-                {editingId === selected.id ? (
-                  <input autoFocus value={editingNombre} onChange={e => setEditingNombre(e.target.value)}
-                    onBlur={() => handleRenombrar(selected.id)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleRenombrar(selected.id); if (e.key === 'Escape') setEditingId(null); }}
-                    style={{ flex: 1, border: `1px solid ${P}`, borderRadius: 6, padding: '2px 7px', fontFamily: FONT, fontSize: 14, fontWeight: 700, outline: 'none', color: INK }} />
-                ) : (
-                  <span style={{ fontFamily: FONT, fontSize: 15, fontWeight: 800, color: INK }}>{selected.nombre}</span>
-                )}
-                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                  <button onClick={() => { setEditingId(selected.id); setEditingNombre(selected.nombre); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 3 }}><Edit2 size={12}/></button>
-                  <button onClick={() => handleEliminar(selected.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 3 }}><Trash2 size={12}/></button>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, background: ESTADO_BADGE[selected.estado]?.bg, color: ESTADO_BADGE[selected.estado]?.color, fontFamily: FONT }}>
-                  {ESTADO_BADGE[selected.estado]?.label}
-                </span>
-                <span style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Coins size={11} color={YELLOW}/> {selected.costo_creditos} usados
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT, fontSize: 11.5, color: INK2 }}>
-                  <Zap size={11} color={selected.modo_inteligente ? GREEN : MUTED}/>
-                  <Toggle on={selected.modo_inteligente} onChange={() => handleToggleModo(selected.id, selected.modo_inteligente)} />
-                </span>
-              </div>
-
-              {!negocio?.puede_compartir_cuponeras && (
-                <div style={{ background: `${YELLOW}15`, border: `1px solid ${YELLOW}40`, borderRadius: 10, padding: '8px 10px', marginBottom: 12, fontFamily: FONT, fontSize: 11, color: '#b45309' }}>
-                  Comprobante pendiente de aprobación — podés armar la cuponera, pero no publicarla todavía.
-                </div>
-              )}
-
-              {selected.cuponeras_regalo_cupones.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px 0', color: MUTED }}>
-                  <Tag size={26} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.3 }}/>
-                  <div style={{ fontFamily: FONT, fontSize: 12.5 }}>Todavía no agregaste cupones</div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14, maxHeight: 320, overflowY: 'auto' }}>
-                  {selected.cuponeras_regalo_cupones.map(cup => (
-                    <div key={cup.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: `1px solid ${LINE}`, borderRadius: 10 }}>
-                      <img src={cup.promociones?.imagen_url || '/cuponera-coin.svg'} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}/>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: FONT, fontSize: 11.5, fontWeight: 700, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cup.promociones?.titulo}</div>
-                        <div style={{ fontFamily: FONT, fontSize: 10, color: MUTED }}>{cup.promociones?.negocios?.nombre}</div>
-                      </div>
-                      <span style={{ fontSize: 10.5, fontFamily: FONT, fontWeight: 700, color: INK2, display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                        <Coins size={10} color={YELLOW}/> {cup.costo_creditos}
-                      </span>
-                      <button onClick={() => handleQuitarCupon(cup.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 3, flexShrink: 0 }}><Trash2 size={12}/></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {selected.estado === 'borrador' && (
-                  <button onClick={() => handleCambiarEstado(selected.id, 'activa')} disabled={selected.cuponeras_regalo_cupones.length === 0 || !negocio?.puede_compartir_cuponeras}
-                    title={!negocio?.puede_compartir_cuponeras ? 'Pendiente de aprobación del comprobante de pago' : ''}
-                    style={{ background: GREEN, color: '#fff', border: 'none', borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: (selected.cuponeras_regalo_cupones.length && negocio?.puede_compartir_cuponeras) ? 'pointer' : 'not-allowed', opacity: (selected.cuponeras_regalo_cupones.length && negocio?.puede_compartir_cuponeras) ? 1 : 0.5 }}>
-                    Publicar
-                  </button>
-                )}
-                {selected.estado === 'activa' && (
-                  <button onClick={() => handleCambiarEstado(selected.id, 'pausada')} style={{ background: 'transparent', color: '#b45309', border: `1px solid ${YELLOW}55`, borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                    Pausar
-                  </button>
-                )}
-                {selected.estado === 'pausada' && (
-                  <button onClick={() => handleCambiarEstado(selected.id, 'activa')} disabled={!negocio?.puede_compartir_cuponeras}
-                    title={!negocio?.puede_compartir_cuponeras ? 'Pendiente de aprobación del comprobante de pago' : ''}
-                    style={{ background: GREEN, color: '#fff', border: 'none', borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: negocio?.puede_compartir_cuponeras ? 'pointer' : 'not-allowed', opacity: negocio?.puede_compartir_cuponeras ? 1 : 0.5 }}>
-                    Reactivar
-                  </button>
-                )}
-                {selected.estado !== 'archivada' && (
-                  <button onClick={() => handleCambiarEstado(selected.id, 'archivada')} style={{ background: 'transparent', color: MUTED, border: `1px solid ${LINE}`, borderRadius: 9, padding: '8px 14px', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Archive size={12}/> Archivar
-                  </button>
-                )}
-              </div>
-            </Card>
-          ) : (
-            <Card style={{ textAlign: 'center', padding: '32px 16px', color: MUTED }}>
-              <Wallet size={32} style={{ opacity: 0.25, marginBottom: 10 }}/>
-              <div style={{ fontFamily: FONT, fontSize: 13 }}>Creá una cuponera para empezar</div>
-            </Card>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ════════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
@@ -3876,7 +3540,6 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
         {tab === 'solicitudes' && <TabVentas negocioId={perfil?.negocio_id} showToast={showToast}/>}
         {tab === 'empresa' && <TabEmpresa negocio={negocio} showToast={showToast}/>}
         {tab === 'galeria' && <TabGaleria negocio={negocio} showToast={showToast}/>}
-        {tab === 'compras'     && <TabCuponeras negocio={negocio} perfil={perfil} showToast={showToast} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens} setShowComprar={setShowComprar}/>}
         {tab === 'inbox'       && <TabInbox/>}
         {tab === 'addons'      && <TabAddons addonTotal={addonTotal} setAddonTotal={setAddonTotal} showToast={showToast}/>}
       </main>
@@ -3884,8 +3547,9 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       <Toast toast={toast}/>
 
       {showComprar && (
-        <ComprarTokensModal negocioId={perfil?.negocio_id} onClose={() => setShowComprar(false)}
-          onSuccess={(nuevos) => { setSaldoTokens(p => p + nuevos); setShowComprar(false); }}/>
+        <ComprarTokensModal negocioId={perfil?.negocio_id} saldoActual={saldoTokens}
+          onClose={() => setShowComprar(false)}
+          onCompraExitosa={(acreditados) => { setSaldoTokens(p => p + acreditados); setShowComprar(false); }}/>
       )}
 
       <style>{`

@@ -5,21 +5,111 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Zap, X, Store, Mail, Lock, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getPlanesConfig, registrarIntentoPagoTarjeta } from '../lib/planes';
+import { getPlanesPro, registrarIntentoPagoTarjeta } from '../lib/planes';
 import { existeNegocioConNombre } from '../lib/validacionRegistro';
 import { DESC_MIN } from '../lib/perfilNegocio';
 import PlanPicker from '../components/PlanPicker';
 
 const PLUS_COLOR = '#2563eb'; // blue-600, mismo azul que ya usan los CTA de este archivo
 
-// Cupo semanal por defecto de activaciones de cuponera regalo (socio_alias.unidades_declaradas)
+// Cupo semanal por defecto de activaciones de pase-regalo (socio_alias.unidades_declaradas)
 const UNIDADES_DEFAULT = 20;
 
 // Estilo visual por plan — el copy/precios/beneficios vienen de la tabla `planes` (editable en Superadmin)
-const PLAN_ESTILOS = {
-  free: { colorBorde: 'border-slate-200', icon: <Store size={26} className="text-slate-400" />, ctaColor: 'bg-slate-900 hover:bg-slate-800 text-white', titleClass: 'text-green-600' },
-  plus: { colorBorde: 'border-blue-500 shadow-xl shadow-blue-100', badge: 'Más elegido', badgeColor: 'bg-blue-600', icon: <Zap size={26} className="text-blue-600" />, ctaColor: 'bg-blue-600 hover:bg-blue-700 text-white', titleClass: 'text-blue-600' },
+// ─── Tarjeta de un tramo PRO ──────────────────────────────────
+// Los tres tramos son el MISMO plan con distinto compromiso, así que la
+// tarjeta es una sola y lo único que cambia es el destacado (que sale de la
+// base, no de una constante acá).
+// Tailwind escanea literales: las clases NO se pueden interpolar
+// (`bg-${x}-600` no genera nada). Por eso cada acento es un objeto de
+// strings completos.
+const ACENTOS = {
+  azul: {
+    borde: 'border-blue-500 shadow-xl shadow-blue-100',
+    badge: 'bg-blue-600',
+    texto: 'text-blue-600',
+    cta:   'bg-blue-600 hover:bg-blue-700 text-white',
+  },
+  esmeralda: {
+    borde: 'border-emerald-500 shadow-xl shadow-emerald-100',
+    badge: 'bg-emerald-600',
+    texto: 'text-emerald-600',
+    cta:   'bg-emerald-600 hover:bg-emerald-700 text-white',
+  },
 };
+
+function PlanCard({ plan, mensual, acento = 'azul', onElegir }) {
+  const destacado = plan.destacado;
+  const ahorro    = mensual > 0 ? mensual * plan.meses - plan.total : 0;
+  const conIva    = Math.round((plan.precioMes || 0) * 1.21);
+  const c         = ACENTOS[acento] || ACENTOS.azul;
+
+  return (
+    <div className={`relative bg-white border-2 rounded-3xl p-7 flex flex-col ${destacado ? c.borde : 'border-slate-200'}`}>
+      {destacado && (
+        <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${c.badge} text-white text-xs font-black px-4 py-1 rounded-full`}>
+          El más elegido
+        </div>
+      )}
+
+      <div className="mb-2">
+        {destacado ? <Zap size={26} className={c.texto} /> : <Store size={26} className="text-slate-400" />}
+      </div>
+      <h3 className={`text-[30px] leading-none font-black ${destacado ? c.texto : 'text-slate-900'}`}>
+        {plan.nombre}
+      </h3>
+
+      <div className="flex items-baseline gap-1 mt-2.5">
+        <span className="text-2xl font-black text-slate-900">${conIva.toLocaleString('es-AR')}</span>
+        <span className="text-slate-400 text-xs font-medium">/ mes</span>
+      </div>
+      <p className="text-slate-400 text-xs font-medium mt-0.5 italic">
+        Precio sin impuestos: ${(plan.precioMes || 0).toLocaleString('es-AR')}
+      </p>
+      <p className="text-slate-400 text-xs font-medium mt-1">
+        {plan.meses === 1
+          ? 'Sin permanencia'
+          : `${plan.meses} meses por adelantado · $${plan.total.toLocaleString('es-AR')} + IVA`}
+      </p>
+      {ahorro > 0 && (
+        <p className="text-emerald-600 text-xs font-bold mt-0.5">Ahorrás ${ahorro.toLocaleString('es-AR')} contra el mensual</p>
+      )}
+      {plan.descripcion && <p className="text-sm text-slate-600 font-normal leading-snug mt-3 mb-4">{plan.descripcion}</p>}
+
+      <div className="flex-1 flex flex-col mb-6 mt-3">
+        <ul className="space-y-1.5">
+          {plan.creditosMes > 0 && (
+            <li className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
+              <Check size={13} className="mt-0.5 shrink-0 text-green-500" />
+              {plan.creditosMes} créditos publicitarios por mes
+            </li>
+          )}
+          {plan.creditosBono > 0 && (
+            <li className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
+              <Check size={13} className="mt-0.5 shrink-0 text-green-500" />
+              +{plan.creditosBono} créditos publicitarios de bienvenida
+            </li>
+          )}
+          {plan.beneficios.map((b, i) => (
+            <li key={i} className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
+              <Check size={13} className="mt-0.5 shrink-0 text-green-500" />{b}
+            </li>
+          ))}
+        </ul>
+        <div className="flex-1" />
+      </div>
+
+      <button
+        onClick={onElegir}
+        className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer ${
+          destacado ? c.cta : 'bg-slate-900 hover:bg-slate-800 text-white'
+        }`}
+      >
+        Elegir este plan
+      </button>
+    </div>
+  );
+}
 
 const OTROS_SERVICIOS = [
   {
@@ -37,7 +127,7 @@ const OTROS_SERVICIOS = [
     items: [
       'Catering y organización de eventos',
       'Box de desayunos a pedido',
-      'Viandas congeladas para ofrecer a tus huéspedes',
+      'Viandas congeladas para ofrecer a tus turistas',
     ],
   },
 ];
@@ -126,6 +216,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
   const [error, setError]           = useState('');
   const [sectorGastro, setSectorGastro] = useState(sectorInicial);
   const [datosTarjetaPlus, setDatosTarjetaPlus] = useState(null);
+  const [nombrePlan, setNombrePlan] = useState('');   // solo para el título del modal
   const [form, setForm] = useState({
     nombre:      '',
     descripcion: '',
@@ -133,7 +224,9 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
     localidad:   'Villa Gesell',
     email:       '',
     password:    '',
-    plan:        planInicial === 'plus' ? null : 'free', // Plus recién queda confirmado tras cargar los datos de tarjeta
+    // Si vino con un tramo preseleccionado, queda en null hasta que cargue los
+    // datos de pago. Si entró por "sumarte sin plan" ('free'), ya está resuelto.
+    plan:        (planInicial === 'free' || !TIPOS_ALOJ.includes(tipoInicial)) ? 'free' : null,
   });
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -144,7 +237,8 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
   };
 
   async function registrar() {
-    if (!form.plan) return setError('Elegí un plan para continuar');
+    // El comercio no elige plan: no existe para él.
+    if (esAlojamiento && !form.plan) return setError('Elegí un plan para continuar');
     if (!form.nombre || !form.email || !form.password) return setError('Completá todos los campos');
     if (!form.descripcion.trim()) return setError('Contanos brevemente de qué se trata tu negocio.');
     if (form.descripcion.trim().length < DESC_MIN) return setError(`La descripción debe tener al menos ${DESC_MIN} caracteres.`);
@@ -166,7 +260,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
 
     const { data: negocio, error: negError } = await supabase
       .from('negocios')
-      .insert({ nombre: form.nombre, descripcion: form.descripcion.trim(), tipo: form.tipo, localidad: form.localidad, plan: 'free', aprobado: false, activo: false })
+      .insert({ nombre: form.nombre, descripcion: form.descripcion.trim(), tipo: form.tipo, localidad: form.localidad, plan: 'free', aprobado: true, activo: true })
       .select().single();
     if (negError) { setLoading(false); return setError('Error al crear el perfil'); }
 
@@ -174,7 +268,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
       id: authData.user.id, nombre: form.nombre, negocio_id: negocio.id, es_superadmin: false,
     });
 
-    if (form.plan === 'plus' && datosTarjetaPlus) {
+    if (datosTarjetaPlus) {
       let comprobanteUrl = null;
       if (datosTarjetaPlus.comprobanteFile) {
         const ext = datosTarjetaPlus.comprobanteFile.name.split('.').pop().toLowerCase();
@@ -199,7 +293,9 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
           <div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Nuevo socio</p>
             <h2 className="text-white font-black text-xl">
-              {form.plan ? `Plan ${form.plan === 'plus' ? 'Plus' : 'Gratis'}` : 'Elegí tu plan'}
+              {!esAlojamiento
+                ? 'Publicar es gratis'
+                : !form.plan ? 'Elegí tu plan' : form.plan === 'free' ? 'Sin plan' : nombrePlan || 'Plan contratado'}
             </h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={22} /></button>
@@ -207,18 +303,31 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
 
         <div className="p-8 space-y-4">
 
-          {/* ── Selector de plan (todas las categorías) ── */}
+          {/* ── Selector de plan — SÓLO alojamientos y agencias ──
+              El comercio no contrata nada: entra publicando una oferta. Lo que
+              compra el plan es poder regalar el Pase, y eso sólo tiene sentido
+              para quien hospeda o arma viajes. */}
+          {!esAlojamiento ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+              <p className="text-sm font-black text-emerald-900">Sumarte no cuesta nada</p>
+              <p className="text-xs text-emerald-800 font-medium mt-1 leading-relaxed">
+                Publicás tu oferta y ya estás adentro. Si más adelante querés que se vea más,
+                comprás créditos publicitarios desde tu panel — sin suscripción.
+              </p>
+            </div>
+          ) : (
           <div>
             <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Plan</label>
             <PlanPicker
-              value={form.plan}
+              planInicial={planInicial}
               primaryColor={PLUS_COLOR}
               saving={loading}
               unidadesDeclaradas={UNIDADES_DEFAULT}
-              onConfirmFree={() => { setForm(f => ({ ...f, plan: 'free' })); setDatosTarjetaPlus(null); }}
-              onConfirmPlus={datos => { setForm(f => ({ ...f, plan: 'plus' })); setDatosTarjetaPlus(datos); }}
+              onConfirmFree={() => { setForm(f => ({ ...f, plan: 'free' })); setDatosTarjetaPlus(null); setNombrePlan(''); }}
+              onConfirmPlus={datos => { setForm(f => ({ ...f, plan: datos.codigoPlan })); setDatosTarjetaPlus(datos); setNombrePlan(datos.nombrePlan || ''); }}
             />
           </div>
+          )}
 
           {/* Nombre */}
           <div>
@@ -320,7 +429,7 @@ function ModalRegistro({ planInicial, tipoInicial = 'Hotel', onClose, onSuccess 
 
           {error && <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">{error}</div>}
 
-          <button onClick={registrar} disabled={loading || !form.plan}
+          <button onClick={registrar} disabled={loading || (esAlojamiento && !form.plan)}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-4 rounded-2xl font-black text-base transition-all shadow-lg active:scale-[0.98] cursor-pointer"
           >
             {loading ? 'Creando cuenta...' : 'Crear mi cuenta'}
@@ -343,9 +452,12 @@ export default function SociosView({ onBack }) {
   const [categoriaSocios, setCategoriaSocios] = useState('alojamientos'); // 'alojamientos' | 'comercios'
   const [planesData, setPlanesData]       = useState([]);
 
-  useEffect(() => { getPlanesConfig().then(setPlanesData); }, []);
+  useEffect(() => { getPlanesPro().then(setPlanesData).catch(() => setPlanesData([])); }, []);
 
-  const planes = planesData.map(p => ({ ...p, ...PLAN_ESTILOS[p.id] }));
+  const planes = planesData;
+  // Referencia para calcular el ahorro de cada tramo: el mensual sin
+  // permanencia es el precio "de lista".
+  const mensualRef = Math.max(...planes.map(p => p.precioMes || 0), 0);
 
   return (
     <div className="min-h-screen bg-white">
@@ -416,64 +528,38 @@ export default function SociosView({ onBack }) {
       {categoriaSocios === 'alojamientos' && (
       <div id="planes-alojamiento" className="max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-14">
-          <h2 className="text-4xl font-black text-slate-900 mb-3">Planes para alojamientos</h2>
-          <p className="text-slate-500 font-medium">Elegí el plan que mejor se adapta a tu negocio</p>
+          <h2 className="text-4xl font-black text-slate-900 mb-3">Planes para alojamientos y agencias</h2>
+          <p className="text-slate-500 font-medium max-w-xl mx-auto">
+            El plan te habilita a regalarle el Pase a tus turistas: todos los descuentos del destino durante su estadía, con tu marca.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch max-w-3xl mx-auto">
-          {planes.map(plan => {
-            const esGratis = plan.id === 'free';
-            return (
-              <div key={plan.id} className={`relative border-2 ${plan.colorBorde} rounded-3xl p-7 flex flex-col`}>
-                {plan.badge && (
-                  <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.badgeColor} text-white text-xs font-black px-4 py-1 rounded-full`}>
-                    {plan.badge}
-                  </div>
-                )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch max-w-5xl mx-auto">
+          {planes.map(plan => (
+            <PlanCard key={plan.id} plan={plan} mensual={mensualRef} acento="azul"
+              onElegir={() => { setTipoDefault('Hotel'); setModalPlan(plan.id); }} />
+          ))}
+        </div>
 
-                <div className="mb-2">{plan.icon}</div>
-                <h3 className={`text-[38px] leading-none font-black ${plan.titleClass}`}>{plan.nombre}</h3>
-
-                {esGratis ? (
-                  <p className="text-[16px] text-slate-900 font-normal leading-snug mt-2.5 mb-4">{plan.descripcion}</p>
-                ) : (
-                  <>
-                    <div className="flex items-baseline gap-1 mt-2.5">
-                      <span className="text-2xl font-black text-slate-900">${(plan.precioMes || 0).toLocaleString('es-AR')}</span>
-                      <span className="text-slate-400 text-xs font-medium">+ IVA / mes</span>
-                    </div>
-                    {plan.mesesContrato && <p className="text-slate-400 text-xs font-medium mt-0.5">Contratando por {plan.mesesContrato} meses</p>}
-                    {plan.mesesGratisBono && <p className="text-emerald-600 text-xs font-bold mt-0.5">+ {plan.mesesGratisBono} mes extra SIN CARGO (luego del primer año)</p>}
-                    <p className="text-sm text-slate-600 font-normal leading-snug mt-3 mb-4">{plan.descripcion}</p>
-                  </>
-                )}
-
-                <div className="flex-1 flex flex-col mb-6">
-                  <ul className="space-y-1.5">
-                    {plan.beneficios.map((b, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
-                        <Check size={13} className="mt-0.5 shrink-0 text-green-500" />{b}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex-1" />
-                </div>
-
-                <button
-                  onClick={() => { setTipoDefault('Hotel'); setModalPlan(plan.id); }}
-                  className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer ${plan.ctaColor}`}
-                >
-                  Elegir este plan
-                </button>
-              </div>
-            );
-          })}
+        {/* Publicar nunca cuesta: el plan es para visibilidad y beneficios. */}
+        <div className="max-w-3xl mx-auto mt-8 text-center">
+          <p className="text-slate-500 text-sm font-medium">
+            Publicar tus ofertas es gratis y no necesita plan.{' '}
+            <button onClick={() => { setTipoDefault('Hotel'); setModalPlan('free'); }}
+              className="font-black text-slate-900 underline underline-offset-2 cursor-pointer">
+              Sumarte sin plan
+            </button>
+          </p>
         </div>
       </div>
 
       )} {/* fin alojamientos */}
 
-      {/* Tabla de planes — Comercios y servicios */}
+      {/* Comercios y servicios — NO hay plan que contratar.
+          Entran gratis publicando una oferta; lo único que pueden comprar son
+          créditos publicitarios para impulsarla. El plan PRO es exclusivo de
+          alojamientos y agencias de turismo, porque lo que compra es la
+          capacidad de regalar pases a sus clientes. */}
       {categoriaSocios === 'comercios' && (
       <div id="planes-salidas" className="bg-emerald-950 px-6 py-20">
         <div className="max-w-6xl mx-auto">
@@ -481,67 +567,44 @@ export default function SociosView({ onBack }) {
             <div className="inline-flex items-center gap-2 bg-emerald-800/60 text-emerald-300 text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-4">
               <span>🍽️</span> Restaurantes, cafés y actividades
             </div>
-            <h2 className="text-4xl font-black text-white mb-3">Planes para Salidas y Aventura & Relax</h2>
-            <p className="text-emerald-300 font-medium">Los mismos planes Gratis y Plus que Alojamientos, adaptados a tu rubro.</p>
+            <h2 className="text-4xl font-black text-white mb-3">Sumate gratis</h2>
+            <p className="text-emerald-300 font-medium max-w-xl mx-auto">
+              No hay plan ni cuota. Publicás una oferta y ya estás en Cuponear, con tu ficha y tus descuentos a la vista de todos los turistas del destino.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch max-w-3xl mx-auto">
-            {planes.map(plan => {
-              const esGratis = plan.id === 'free';
-              return (
-                <div key={plan.id} className={`relative bg-white border-2 ${plan.colorBorde} rounded-3xl p-7 flex flex-col`}>
-                  {plan.badge && (
-                    <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.badgeColor} text-white text-xs font-black px-4 py-1 rounded-full`}>
-                      {plan.badge}
-                    </div>
-                  )}
-                  <div className="mb-2">{plan.icon}</div>
-                  <h3 className={`text-[38px] leading-none font-black ${plan.titleClass}`}>{plan.nombre}</h3>
-
-                  {esGratis ? (
-                    <p className="text-[16px] text-slate-900 font-normal leading-snug mt-2.5 mb-4">{plan.descripcion}</p>
-                  ) : (
-                    <>
-                      <div className="flex items-baseline gap-1 mt-2.5">
-                        <span className="text-2xl font-black text-slate-900">${(plan.precioMes || 0).toLocaleString('es-AR')}</span>
-                        <span className="text-slate-400 text-xs font-medium">+ IVA / mes</span>
-                      </div>
-                      {plan.mesesContrato && <p className="text-slate-400 text-xs font-medium mt-0.5">Contratando por {plan.mesesContrato} meses</p>}
-                      {plan.mesesGratisBono && <p className="text-emerald-600 text-xs font-bold mt-0.5">+ {plan.mesesGratisBono} mes extra SIN CARGO (luego del primer año)</p>}
-                      <p className="text-sm text-slate-600 font-normal leading-snug mt-3 mb-4">{plan.descripcion}</p>
-                    </>
-                  )}
-
-                  <div className="flex-1 flex flex-col mb-6">
-                    <ul className="space-y-1.5">
-                      {plan.beneficios.map((b, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[13px] leading-snug font-normal text-slate-600">
-                          <Check size={13} className="mt-0.5 shrink-0 text-emerald-500" />{b}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="flex-1" />
-                  </div>
-                  <button
-                    onClick={() => { setTipoDefault('Restaurante'); setModalPlan(plan.id); }}
-                    className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer ${plan.ctaColor}`}
-                  >
-                    Elegir este plan
-                  </button>
-                </div>
-              );
-            })}
+          <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+            {[
+              { n: '1', t: 'Publicás tu oferta', d: 'Es el único requisito para entrar. Sin costo.' },
+              { n: '2', t: 'La revisamos', d: 'Miramos que sirva y no tenga problemas legales.' },
+              { n: '3', t: 'Recibís clientes', d: 'Los turistas la compran y la canjean en tu local.' },
+            ].map(p => (
+              <div key={p.n} className="bg-emerald-900/50 border border-emerald-800 rounded-2xl p-5">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-emerald-950 font-black grid place-items-center mb-3">{p.n}</div>
+                <p className="font-black text-white text-sm mb-1">{p.t}</p>
+                <p className="text-emerald-300 text-xs font-medium leading-relaxed">{p.d}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Opción destacada — servicio independiente de los planes */}
-          <div className="max-w-lg mx-auto mt-8 border border-amber-200 bg-amber-50 rounded-2xl p-4">
+          <div className="text-center">
+            <button
+              onClick={() => { setTipoDefault('Restaurante'); setModalPlan('free'); }}
+              className="bg-white text-emerald-950 px-8 py-4 rounded-2xl font-black text-sm transition-all active:scale-95 cursor-pointer hover:bg-emerald-50"
+            >
+              Publicar mi oferta
+            </button>
+          </div>
+
+          {/* Lo único que se le puede vender a este socio. */}
+          <div className="max-w-lg mx-auto mt-10 border border-amber-200 bg-amber-50 rounded-2xl p-4">
             <div className="flex items-start gap-2">
               <span className="text-lg leading-none mt-0.5">⭐</span>
               <div>
-                <p className="text-sm font-black text-amber-900">¡Destacá tu negocio y hacete ver!</p>
-                <p className="text-sm text-amber-900 mt-0.5"><span className="font-bold">Opcional:</span> <span className="font-normal">5 créditos/mes ($10.000 + IVA)</span></p>
+                <p className="text-sm font-black text-amber-900">¿Querés que tu oferta se vea más?</p>
+                <p className="text-sm text-amber-900 mt-0.5"><span className="font-bold">Opcional:</span> <span className="font-normal">créditos publicitarios, desde $2.000 + IVA c/u</span></p>
                 <p className="text-xs text-amber-700 font-normal mt-0.5 leading-relaxed">
-                  Tu perfil y ofertas aparecen con mucha mayor visibilidad, y podés vincularlas a alojamientos Plus para llegar directo a sus huéspedes. ¡Preparate para recibir clientes!
+                  Los comprás cuando querés y los usás para impulsar la oferta que elijas. No es una suscripción: se gastan y listo.
                 </p>
               </div>
             </div>

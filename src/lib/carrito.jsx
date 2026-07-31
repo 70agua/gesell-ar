@@ -1,15 +1,15 @@
 // ============================================================
-//  src/lib/cuponera.jsx — Context global de la cuponera
+//  src/lib/carrito.jsx — Context global del carrito de compra
 // ============================================================
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { calcularPrecioCupon, CREDITO_TOTAL } from './cobros';
 
-const CuponeraContext = createContext(null);
+const CarritoContext = createContext(null);
 
 // Cupón que el visitante quiso agregar estando deslogueado. Se guarda en
 // sessionStorage para sobrevivir el viaje al login/registro (incluido el
 // redirect completo de Google) y se reinyecta al volver ya con sesión.
-const PENDING_KEY = 'cuponera_pending';
+const PENDING_KEY = 'carrito_pending';
 const PENDING_TTL = 10 * 60 * 1000; // 10 min
 
 function guardarPendiente(oferta) {
@@ -39,7 +39,7 @@ const ACCENT_BY_CAT = {
 };
 
 function ofertaToCupon(oferta) {
-  // Cupón grupal: precio y descuento ya congelados al agregar a la cuponera.
+  // Cupón grupal: precio y descuento ya congelados al agregar al carrito.
   const grupal = oferta._grupal || null;
 
   const ahorro = oferta.ahorroEstimado || oferta.savings || 0;
@@ -77,7 +77,7 @@ function ofertaToCupon(oferta) {
   };
 }
 
-export function CuponeraProvider({ children, session, onLoginRequired, onCheckout }) {
+export function CarritoProvider({ children, session, onLoginRequired, onCheckout }) {
   const [cupones,    setCupones]    = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toast,      setToast]      = useState(false); // aviso "cupón agregado"
@@ -122,7 +122,7 @@ export function CuponeraProvider({ children, session, onLoginRequired, onCheckou
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Compra directa de una cuponera entera: mete todos los cupones de una y va
+  // Compra directa de un Cupopack entero: mete todos los cupones de una y va
   // al pago sin abrir el drawer — el turista no arma nada, se lleva el pack.
   const comprarAhora = useCallback((ofertas) => {
     if (!session) {
@@ -139,7 +139,7 @@ export function CuponeraProvider({ children, session, onLoginRequired, onCheckou
   }, [session, onLoginRequired, onCheckout]);
 
   const removeCupon   = useCallback((id) => setCupones(prev => prev.filter(c => c.id !== id)), []);
-  const clearCuponera = useCallback(() => setCupones([]), []);
+  const clearCarrito = useCallback(() => setCupones([]), []);
   const openDrawer    = useCallback(() => setDrawerOpen(true),  []);
   const closeDrawer   = useCallback(() => setDrawerOpen(false), []);
   const dismissToast  = useCallback(() => setToast(false), []);
@@ -150,10 +150,10 @@ export function CuponeraProvider({ children, session, onLoginRequired, onCheckou
   }, [closeDrawer, onCheckout]);
 
   return (
-    <CuponeraContext.Provider value={{ cupones, drawerOpen, addCupon, comprarAhora, removeCupon, clearCuponera, openDrawer, closeDrawer, handleCheckout }}>
+    <CarritoContext.Provider value={{ cupones, drawerOpen, addCupon, comprarAhora, removeCupon, clearCarrito, openDrawer, closeDrawer, handleCheckout }}>
       {children}
       <CuponAgregadoToast open={toast} onClose={dismissToast} onOpenDrawer={() => { dismissToast(); openDrawer(); }} />
-    </CuponeraContext.Provider>
+    </CarritoContext.Provider>
   );
 }
 
@@ -180,7 +180,7 @@ function CuponAgregadoToast({ open, onClose, onOpenDrawer }) {
         </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0B1020', marginBottom: 2 }}>¡Agregaste un cupón a tu cuponera!</div>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0B1020', marginBottom: 2 }}>¡Agregaste un cupón a tu carrito!</div>
         <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.4 }}>La encontrás arriba a la derecha cuando quieras.</div>
       </div>
       <button
@@ -195,8 +195,8 @@ function CuponAgregadoToast({ open, onClose, onOpenDrawer }) {
   );
 }
 
-export function useCuponera() {
-  const ctx = useContext(CuponeraContext);
-  if (!ctx) throw new Error('useCuponera debe usarse dentro de CuponeraProvider');
+export function useCarrito() {
+  const ctx = useContext(CarritoContext);
+  if (!ctx) throw new Error('useCarrito debe usarse dentro de CarritoProvider');
   return ctx;
 }

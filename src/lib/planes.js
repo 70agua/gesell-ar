@@ -1,19 +1,24 @@
 // ============================================================
 //  src/lib/planes.js
-//  Fuente única de verdad para el modelo de planes Gratis/Plus.
-//  Reemplaza las copias duplicadas que existían en SociosView.jsx
-//  y LoginView.jsx (incluyendo el plan Black, ya eliminado).
+//  Fuente única de verdad del modelo de planes.
+//
+//  UN SOLO MODELO: PRO por tramos (pro_1 / pro_6 / pro_12). El viejo
+//  Gratis/Plus se eliminó — no queda ni copy ni lectura de esas filas.
+//  "free" ya no es un plan que se elige: es el estado de un negocio que
+//  todavía no contrató, y vive en `negocios.plan`.
 // ============================================================
 
 import { supabase } from './supabase';
 import { acreditarTokens } from './cobros';
 
-// Créditos publicitarios que recibe un socio Plus: 15 por mes (recurrente).
-// Al alta se acredita el primer mes; la reposición mensual todavía no está
-// mecanizada (falta el job/top-up recurrente) — ver brief de planes.
-const CREDITOS_PLUS_MENSUALES = 15;
+// Fallback de créditos publicitarios mensuales si la fila de `planes` no
+// trae el dato. La reposición recurrente la hace el job
+// `reponer-creditos-mensuales` (ver db/20260731_fase0_desbloqueo_socio.sql).
+const CREDITOS_PRO_MENSUALES = 15;
 
 // Tope de fotos en la galería del perfil, según plan.
+// La clave sigue siendo el valor de `negocios.plan` ('free' | 'plus'), que es
+// el flag denormalizado de "¿paga?" — cualquier tramo PRO guarda 'plus' ahí.
 export const FOTOS_GALERIA_MAX = { free: 4, plus: 20 };
 
 // ─── Los tres tramos PRO — el modelo vigente ──────────────────
@@ -41,36 +46,6 @@ export async function getPlanesPro() {
     destacado:     !!p.destacado,
     beneficios:    Array.isArray(p.beneficios) ? p.beneficios : [],
   }));
-}
-
-// ─── LEGACY — copy/precios del modelo Freemium/Plus ───────────
-// Sólo la consumen las pantallas de alta viejas (SociosView, PlanPicker y el
-// onboarding comercial de LoginView). Sigue leyendo las filas 'gratis'/'plus',
-// que quedaron en la tabla con activo=false para no romper las suscripciones
-// que las referencian. Se va junto con esas pantallas.
-export async function getPlanesConfig() {
-  const { data } = await supabase
-    .from('planes')
-    .select('*')
-    .in('codigo', ['gratis', 'plus'])
-    .order('codigo', { ascending: true });
-  const filas = data || [];
-  // 'gratis' antes que 'plus' en el orden alfabético ya nos sirve, pero lo hacemos explícito
-  const orden = { gratis: 0, plus: 1 };
-  return filas
-    .slice()
-    .sort((a, b) => (orden[a.codigo] ?? 9) - (orden[b.codigo] ?? 9))
-    .map(p => ({
-      id: p.codigo === 'gratis' ? 'free' : p.codigo,
-      planId: p.id,
-      codigo: p.codigo,
-      nombre: p.nombre,
-      descripcion: p.descripcion || '',
-      precioMes: p.precio_mes != null ? Number(p.precio_mes) : null,
-      mesesContrato: p.meses_contrato,
-      mesesGratisBono: p.meses_gratis_bono,
-      beneficios: Array.isArray(p.beneficios) ? p.beneficios : [],
-    }));
 }
 
 // ─── Edición de copy/precios (Superadmin) ─────────────────────
@@ -111,28 +86,21 @@ export async function generarAliasUnico(negocioId, unidadesDeclaradas = 0) {
   return { data, error };
 }
 
-// ─── Registrar intención de pago con tarjeta (alta de Plus) ───
+// ─── Registrar intención de pago con tarjeta (alta de un tramo PRO) ───
 // Nunca recibe ni guarda el número completo de tarjeta ni el CVV — solo
 // titular, últimos 4 dígitos y vencimiento, a modo de referencia. No hay
-// gateway real conectado todavía: se confirma al instante, igual que
-// confirmarCompra() en cobros.js hace hoy con forma_pago 'tarjeta'/'mercadopago'.
-// Para transferencia, el negocio queda operativo pero sin poder compartir
-// cuponeras hasta que el comprobante se apruebe manualmente (ver Superadmin).
-export async function registrarIntentoPagoTarjeta(negocioId, { titular, ultimos4, vencimiento, unidadesDeclaradas = 0, formaPago = 'tarjeta', comprobanteUrl = null }) {
+// gateway real conectado todavía: se confirma al instante.
+export async function registrarIntentoPagoTarjeta(negocioId, { titular, ultimos4, vencimiento, unidadesDeclaradas = 0, formaPago = 'tarjeta', comprobanteUrl = null, codigoPlan = 'pro_12' }) {
   const { error } = await supabase.from('intentos_pago_tarjeta').insert({
     negocio_id: negocioId, titular, ultimos_4: ultimos4, vencimiento, estado: 'confirmado',
     forma_pago: formaPago, comprobante_url: comprobanteUrl,
   });
   if (error) return { error };
-  if (formaPago === 'transferencia') {
-    await supabase.from('negocios').update({ puede_compartir_cuponeras: false }).eq('id', negocioId);
-  }
-  return crearSuscripcionPlus(negocioId, { unidadesDeclaradas });
+  return crearSuscripcionPro(negocioId, { codigoPlan, unidadesDeclaradas });
 }
 
 // ─── Alta de suscripción de pago para un negocio ──────────────
-// `codigoPlan` es el tramo elegido: 'pro_1' | 'pro_6' | 'pro_12' (o el viejo
-// 'plus', que sigue funcionando para las pantallas que todavía lo usan).
+// `codigoPlan` es el tramo elegido: 'pro_1' | 'pro_6' | 'pro_12'.
 //
 // `negocios.plan` queda en 'plus' para CUALQUIER tramo pagado. Esa columna es
 // el flag denormalizado que consultan media docena de componentes para saber
@@ -163,24 +131,22 @@ export async function crearSuscripcionPro(negocioId, { codigoPlan = 'pro_12', un
   const { data: aliasExistente } = await supabase.from('socio_alias').select('id').eq('negocio_id', negocioId).maybeSingle();
   if (!aliasExistente) {
     await generarAliasUnico(negocioId, unidadesDeclaradas);
-    const creditos = (plan.creditos_incluidos ?? CREDITOS_PLUS_MENSUALES) + (plan.creditos_bono || 0);
+    const creditos = (plan.creditos_incluidos ?? CREDITOS_PRO_MENSUALES) + (plan.creditos_bono || 0);
     await acreditarTokens(negocioId, creditos);
   }
 
   return { error: null };
 }
 
-// Alias del modelo viejo, para las pantallas que todavía no migraron.
-export async function crearSuscripcionPlus(negocioId, opts = {}) {
-  return crearSuscripcionPro(negocioId, { ...opts, codigoPlan: 'plus' });
-}
-
 // ─── Leer el plan vigente de un negocio ───────────────────────
+// Devuelve null si el negocio no contrató nada: "sin plan" es un estado
+// normal, no un error. Por eso maybeSingle() y no single() (que responde 406
+// cuando no hay filas).
 export async function getPlanActual(negocioId) {
   const { data } = await supabase
     .from('suscripciones_socio')
     .select('*, planes(codigo, nombre)')
     .eq('negocio_id', negocioId)
-    .single();
+    .maybeSingle();
   return data;
 }

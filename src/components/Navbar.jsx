@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { locations } from '../data/mockData';
 import { FAMILIAS_PACK, MAS_PACKS } from '../lib/familiasPack';
-import { useCuponera } from '../lib/cuponera';
+import { useCarrito } from '../lib/carrito';
 import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
 import Icono from './Icono';
 
@@ -41,14 +41,6 @@ function ChevD({ size = 12 }) {
     </svg>
   );
 }
-function ChevR() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m9 6 6 6-6 6"/>
-    </svg>
-  );
-}
-
 // ─── Animación base dropdown ─────────────────────────────────
 const DROP_BASE = {
   position: 'absolute', top: 'calc(100% + 10px)',
@@ -575,7 +567,7 @@ function SitiosDrop() {
 
 // ─── Dropdown "Planes y suscripción" ─────────────────────────
 // Tres intenciones que no se parecen, en el orden en que conviene ofrecerlas:
-// el turista que paga su pase, el huésped que ya lo tiene pagado y sólo viene
+// el turista que paga su pase, el que ya lo tiene pagado y sólo viene
 // a canjearlo, y último el alojamiento que se suscribe — es el que menos
 // tráfico trae y el único que ya sabe lo que vino a buscar.
 // Los íconos ya no se dibujan acá: son los mismos archivos que usa el resto del
@@ -594,7 +586,7 @@ const PLANES_OPCIONES = [
   },
   {
     id: 'regalo',
-    titulo: 'Me regalaron una cuponera',
+    titulo: 'Me regalaron un Pase',
     bajada: 'Activala con el código de 6 números.',
     vista: 'canjear-regalo',
     opts: {},
@@ -604,7 +596,7 @@ const PLANES_OPCIONES = [
   {
     id: 'hoteleria',
     titulo: 'Suscripción para hotelería',
-    bajada: 'Regalá cuponeras a todos tus huéspedes.',
+    bajada: 'Regalá el Pase a todos tus turistas.',
     vista: 'checkout-hotelero',
     opts: {},
     // La misma casita que el bloque de alojamiento de la home.
@@ -650,7 +642,7 @@ function PlanesDrop({ onNavigate }) {
   );
 }
 
-// ─── Dropdown "Packs todo incluido" — cuponeras Cuponear ─────
+// ─── Dropdown de Cupopacks ─────
 // Todo el desplegable va al 75%: ancho, paddings, gaps e íconos. El cuerpo de
 // letra NO escala — a 12,5px ya estaba en el piso legible.
 function PacksDrop({ onNavigate }) {
@@ -684,7 +676,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
   const [condensed,   setCondensed]   = useState(false);
-  const { openDrawer } = useCuponera();
+  const { openDrawer } = useCarrito();
 
   const sitiosRef = useRef(null);
   const alojRef   = useRef(null);
@@ -944,7 +936,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <NavUnderline activo={seccionActiva === 'aventura'} />
             </div>
 
-            {/* Cuponeras (ex "Packs todo incluido") — en negrita: es el
+            {/* Cupopacks — en negrita: es el
                 producto propio de Cuponear, no una categoría más. */}
             <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={packsRef}
               onMouseEnter={() => hoverOpen('packs')}
@@ -952,7 +944,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             >
               <div style={{ position: 'relative' }}>
                 <button onClick={() => nav('packs')} style={{ ...navBtnSt, fontWeight: 700, color: colorNav('packs') }}>
-                  Cuponeras <ChevD />
+                  Cupopacks <ChevD />
                 </button>
                 {(openMenu === 'packs' || closingMenu === 'packs') && (
                   <div ref={dropRef} style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
@@ -1027,7 +1019,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                 {userMenuOpen && (
                   <div style={{ ...DROP_BASE, right: 0, transform: 'none', minWidth: 220, padding: '8px 0', animation: 'dropFadeRight .15s ease-out' }}>
                     <UserMenuItem icon={HeartIco}    label="Favoritos"   onClick={() => { setView('favoritos');  setUserMenuOpen(false); }} />
-                    <UserMenuItem icon={CuponeraIco} label="Cuponera"    onClick={() => { openDrawer();           setUserMenuOpen(false); }} />
+                    <UserMenuItem icon={CarritoIco} label="Carrito"     onClick={() => { openDrawer();           setUserMenuOpen(false); }} />
                     {esSocioOAdmin ? (
                       <UserMenuItem icon={DashIco} label="Mi panel" onClick={() => { setView(perfil?.es_superadmin ? 'superadmin' : 'admin'); setUserMenuOpen(false); }} />
                     ) : (
@@ -1086,7 +1078,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               // En mobile no hay hover: el desplegable se abre en entradas planas.
               ...(session ? [] : [
                 { label: 'Pase turista',               action: () => nav('checkout-pase', { preguntarPerfil: true }) },
-                { label: 'Me regalaron una cuponera',  action: () => nav('canjear-regalo') },
+                { label: 'Me regalaron un Pase',  action: () => nav('canjear-regalo') },
                 { label: 'Suscripción para hotelería', action: () => nav('checkout-hotelero') },
               ]),
             ].map(item => (
@@ -1156,11 +1148,6 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
-function NavSep() {
-  return <div style={{ width: 1, height: 16, background: '#d8d8e4', margin: '0 2px', flexShrink: 0 }} />;
-}
-
 const menuItemSt = (primary = false, muted = false) => ({
   width: '100%', textAlign: 'left', background: 'none', border: 'none',
   padding: '10px 18px', fontSize: 14, fontWeight: primary ? 600 : 500,
@@ -1198,7 +1185,7 @@ function UserMenuItem({ icon: Icon, label, sub, badge, onClick }) {
 }
 
 const HeartIco    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
-const CuponeraIco = () => <img src="/ico-disc.svg" alt="" style={{ width: 20, height: 20, flexShrink: 0 }} />;
+const CarritoIco = () => <img src="/ico-disc.svg" alt="" style={{ width: 20, height: 20, flexShrink: 0 }} />;
 const PersonIco   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>;
 const DashIco     = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
 const LogoutIco   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;

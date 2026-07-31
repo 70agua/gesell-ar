@@ -33,7 +33,7 @@ Supabase ──► src/lib/datos.js ──► normalize functions ──► view
 
 Client singleton in `src/lib/supabase.js`. Import `{ supabase }` from there — never create a second client.
 
-Key tables: `negocios`, `perfiles`, `promociones`, `alianzas`, `consultas`, `socio_tokens`, `token_compras`, `ordenes_cobro`, `planes`, `suscripciones_socio`, `socio_alias`.
+Key tables: `negocios`, `perfiles`, `promociones`, `alianzas`, `consultas`, `socio_tokens`, `token_compras`, `planes`, `suscripciones_socio`, `socio_alias`, `creditos_mensuales`.
 
 Auth via `src/lib/auth.js`. Session is checked at app boot and stored in `App.jsx` state. `perfil` is the row from the `perfiles` table (includes `es_superadmin`, `negocio_id`, and the joined `negocios` row).
 
@@ -42,24 +42,62 @@ Auth via `src/lib/auth.js`. Session is checked at app boot and stored in `App.js
 | Context | File | What it does |
 |---|---|---|
 | `LoadingProvider` | `src/lib/loading.jsx` | Global overlay. Use `useLoadingFn(asyncFn)` to wrap any async call. |
-| `CuponeraProvider` | `src/lib/cuponera.jsx` | Wallet of active coupons. `addCupon(oferta)` opens the drawer. |
+| `CarritoProvider` | `src/lib/carrito.jsx` | Carrito de compra. `addCupon(oferta)` abre el drawer (`CarritoDrawer`). |
 | `FavoritosProvider` | `src/lib/favoritos.jsx` | Heart-saves for accommodations, persisted to Supabase. |
 
 ### Business roles & plans
 
-**Cuponear v2 pivot (Fase 1, unified plan model):** the old Freemium/Plus/Black three-tier model is gone. There are now exactly two plans, shared across all three partner categories (Alojamiento, Salidas, Aventura & Relax): **Gratis** and **Plus** ($20.000+IVA/mes). Plan copy/pricing/features live in `src/lib/planes.js` (`PLAN_DEFS`) — this is the single source of truth; `SociosView.jsx` and `LoginView.jsx` both import from it instead of declaring their own copies.
+**Un solo modelo: PRO por tramos** (unificado el 2026-07-31 — el viejo Gratis/Plus se eliminó, filas y todo). Hay tres tramos del *mismo* plan, que sólo se diferencian por el compromiso, compartidos entre las tres categorías (Alojamiento, Salidas, Aventura & Relax):
 
-- **Turista**: public user, gets 2 credits on registration.
-- **Socio Gratis** (any category): free to publish. Alojamiento pays credits per canje (`debeUsarTokens`); Salidas/Aventura & Relax never pay.
-- **Socio Plus** (any category, $20.000+IVA/mes, $240.000+IVA/año): no per-publish charge; alojamiento still pays credits per canje. Gets 50 créditos on signup, a unique 6-digit alias (`socio_alias`), and (from Fase 2 onward) can build gift cuponeras. Use `crearSuscripcionPlus(negocioId, { unidadesDeclaradas })` from `src/lib/planes.js` to upgrade a negocio — it upserts `suscripciones_socio`, syncs `negocios.plan`/`fecha_alta_plus`, and generates the alias.
-- **Superadmin**: `perfil.es_superadmin === true`. Accesses `SuperAdminView`.
-- Gastronomy/experience partners: always free to publish; income via credit sales to tourists (unaffected by Plus signup, which is a separate subscription fee).
+| código | compromiso | precio/mes (sin IVA) | créditos/mes | bono |
+|---|---|---|---|---|
+| `pro_1` | sin permanencia | $45.000 | 15 | +5 |
+| `pro_6` | 6 meses | $37.500 | 15 | +20 |
+| `pro_12` | 12 meses | $30.000 | 15 | +60 |
 
-`negocios.plan` (`'free'|'plus'`) remains the fast denormalized flag most components gate on. `planes` (catalog) and `suscripciones_socio` (one row per negocio — billing lifecycle: `estado`, `fecha_renovacion`, `meses_gratis_acumulados/usados`) are the source of truth for subscription state, used by later phases (referidos, extras).
+Copy, precios y bonos viven en la tabla `planes` (editables desde SuperAdmin → General), **no** en constantes de código. Se leen con `getPlanesPro()` de `src/lib/planes.js`, única fuente de verdad. `planes.destacado` marca "El más elegido" y un índice parcial garantiza que sea uno solo.
 
-### Credit/token system
+- **Turista**: usuario público, recibe 2 créditos al registrarse.
+- **Socio sin plan** (`negocios.plan === 'free'`): publicar es gratis y no requiere plan. No es un plan que se contrata — es el estado de quien todavía no pagó, y por eso *no* tiene fila en `suscripciones_socio`.
+- **Socio PRO** (cualquier categoría): contrata un tramo con `crearSuscripcionPro(negocioId, { codigoPlan, unidadesDeclaradas })`. Eso hace upsert en `suscripciones_socio`, pone `negocios.plan = 'plus'` + `fecha_alta_plus`, genera el alias de 6 dígitos y acredita los créditos del primer mes más el bono del tramo. La reposición mensual la hace el cron `reponer-creditos-mensuales`.
+- **Superadmin**: `perfil.es_superadmin === true`. Accede a `SuperAdminView`.
 
-Defined in `src/lib/cobros.js`. 1 crédito = $2.000 + 21% IVA. `debeUsarTokens(tipo, plan)` tells you if a business owes tokens. Balances live in `socio_tokens` (per `negocio_id`). `src/lib/gamificacion.js` handles credits earned by tourists.
+`negocios.plan` (`'free'|'plus'`) sigue siendo el flag denormalizado rápido que consultan media docena de componentes: la pregunta que se hacen es "¿paga?", no "¿qué tramo?". Cualquier tramo PRO guarda `'plus'` ahí. El tramo concreto vive en `suscripciones_socio`.
+
+**El negocio no se aprueba.** El socio se da de alta y queda publicado (`aprobado` quedó obsoleta, siempre `true`). La visibilidad la decide `negocios.activo`, que maneja el propio socio. Lo único que se modera son las **ofertas** (`promociones.aprobada`).
+
+### Terminología — vocabulario cerrado
+
+"Cuponera" está **retirada**: no se usa para nada, ni en código ni en UI ni en comunicación. Las tres cosas que antes cubría esa palabra son:
+
+| Concepto | Qué es | Dónde vive |
+|---|---|---|
+| **Carrito** | Mecanismo de compra de varios cupones sueltos | `src/lib/carrito.jsx`, `CarritoDrawer.jsx` |
+| **Pase** | Acceso por N días: regulares ilimitados + N premium | `src/lib/pases.js` |
+| **Cupopack** | Selección curada de cupones que arma Cuponear | `src/lib/cupopacks.js`, `CupopackModal.jsx`, `PortadaCupopack.jsx` |
+
+Además: **créditos publicitarios** (del socio) y **puntos** (del turista) — nunca "créditos" ni "tokens" a secas.
+
+**"Huésped" también se retiró del copy** (2026-07-31). El actor es **turista**, que es como ya se llama en el código. El plan no es sólo para alojamientos —también para agencias de turismo—, así que "huésped" quedaba corto. Para *contar gente* (capacidad de una unidad, cantidad en una solicitud) se dice **personas**, no "turistas": es un conteo, no el nombre del actor. Los identificadores de código y las columnas siguen igual (`unidad_precio='huesped'`, `min_huespedes`, `max_huespedes`, `num_huespedes`, `exclusivoHuespedes`).
+
+### Dos monedas, cuatro tablas que dicen "token"
+
+Los nombres de tabla son históricos y **todavía no se renombran** (renombrar esquema es riesgoso y no urgente). El mapeo canónico es:
+
+| Tabla | Moneda | De quién | Se maneja en |
+|---|---|---|---|
+| `socio_tokens` | Créditos publicitarios (saldo) | Socio | `src/lib/cobros.js` |
+| `token_compras` | Créditos publicitarios (compras) | Socio | `src/lib/cobros.js` |
+| `usuario_tokens` | Puntos (saldo) | Turista | `src/lib/gamificacion.js` |
+| `token_movimientos` | Puntos (historial) | Turista | `src/lib/gamificacion.js` |
+
+Otros nombres legacy en base que **no** se renombraron: `cuponeras_locales` / `cuponeras_locales_cupones` / `cuponera_local_id` (son los Cupopacks), `cuponeras` / `cuponera_items` / `cuponera_id` (solicitudes de alojamiento), y los valores `gastado_cuponera` y `click_cuponera`.
+
+### Credit system
+
+Definido en `src/lib/cobros.js`. 1 crédito = $2.000 + 21% IVA. Saldos en `socio_tokens` (por `negocio_id`).
+
+**Ningún socio paga por publicar ni por canjear.** El único débito de créditos es el impulso voluntario de una oferta (`src/lib/impulso.js`). El plan compra visibilidad, no funcionalidad básica.
 
 ### Offer types
 

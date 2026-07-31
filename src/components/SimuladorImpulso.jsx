@@ -132,7 +132,7 @@ export default function SimuladorImpulso({ value, onChange, dias, onChangeDias }
     <div style={{ fontFamily: FONT }}>
       {/* Valor grande: moneda + créditos (pesos entre paréntesis, weight liviano) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <img src="/cuponera-coin.svg" alt="" style={{ width: 40, height: 40, flexShrink: 0 }}/>
+        <img src="/credito-coin.svg" alt="" style={{ width: 40, height: 40, flexShrink: 0 }}/>
         <div style={{ fontSize: 42, fontWeight: 900, lineHeight: 1, color: INK }}>
           {Math.round(creditosAnim)}{' '}
           <span style={{ fontSize: 20, fontWeight: 500, color: INK }}>créditos</span>{' '}

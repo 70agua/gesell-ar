@@ -1,7 +1,7 @@
 // ============================================================
 //  src/components/CtaPase.jsx
 //  El CTA de una oferta, contado desde el pase. Reemplaza al viejo
-//  "Agregar a cuponera", que no distinguía nada.
+//  "Agregar a cuponera", que no distinguía nada. Hoy el destino es el carrito.
 //
 //  Cinco situaciones, según la regla de lib/pases.js (nivelEnPase) y el pase
 //  del que mira (useMiPase):
@@ -12,7 +12,7 @@
 //               · premium con elecciones → usás una de las N que te quedan
 //               · premium sin elecciones → lo sumás a mitad de precio
 //
-//  El botón siempre hace algo: sumar el cupón a la cuponera (onSumar) o
+//  El botón siempre hace algo: sumar el cupón al carrito (onSumar) o
 //  gastar una elección premium (onElegir). El upsell nunca bloquea.
 // ============================================================
 
@@ -73,7 +73,7 @@ export default function CtaPase({
     </button>
   );
 
-  if (sumado) return boton('Ya está en tu cuponera', { accion: undefined, tono: 'ok' });
+  if (sumado) return boton('Ya está en tu carrito', { accion: undefined, tono: 'ok' });
 
   // ─── Sin pase: acá vive el upsell ───────────────────────────
   if (!conPase) {
@@ -91,7 +91,7 @@ export default function CtaPase({
             </span>
           )}
         </Nota>
-        {boton(precioLista > 0 ? `Sumarlo por ${fmt(precioLista)}` : 'Sumarlo a mi cuponera', { accion: onSumar })}
+        {boton(precioLista > 0 ? `Sumarlo por ${fmt(precioLista)}` : 'Sumarlo a mi carrito', { accion: onSumar })}
         <button
           onClick={onComprarPase}
           style={{ width: '100%', marginTop: 8, background: 'none', border: 'none', color: C.primary, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: C.font, padding: '4px 0' }}
@@ -109,7 +109,7 @@ export default function CtaPase({
         <Nota tono="ok">
           <span>Incluido en tu pase: no gastás ninguna elección.</span>
         </Nota>
-        {boton('Sumarlo a mi cuponera', { accion: onSumar })}
+        {boton('Sumarlo a mi carrito', { accion: onSumar })}
       </>
     );
   }

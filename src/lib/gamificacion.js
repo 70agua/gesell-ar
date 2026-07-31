@@ -44,8 +44,8 @@ export const ACCIONES = {
     emoji:       '📲',
   },
   primera_compra: {
-    label:       'Primera cuponera',
-    descripcion: 'Comprás tu primera cuponera',
+    label:       'Primera compra',
+    descripcion: 'Comprás tu primer cupón',
     puntos:      300,
     unica_vez:   true,
     emoji:       '🛍️',
@@ -127,7 +127,7 @@ export async function otorgarPuntos(userId, accionKey, referenciaId = null) {
 }
 
 // ─── Usar puntos como parte de pago ──────────────────────────
-export async function gastarPuntos(userId, cantidad, cuponeraId) {
+export async function gastarPuntos(userId, cantidad, referenciaId) {
   const wallet = await getPuntos(userId);
   if (wallet.balance < cantidad)
     return { ok: false, mensaje: 'No tenés suficientes puntos' };
@@ -139,10 +139,10 @@ export async function gastarPuntos(userId, cantidad, cuponeraId) {
 
   await supabase.from('token_movimientos').insert({
     user_id:       userId,
-    tipo:          'gastado_cuponera',
+    tipo:          'gastado_cuponera',   // valor legacy en DB: la Fase 2 no renombra datos
     cantidad:      -cantidad,
     descripcion:   'Puntos usados como parte de pago',
-    referencia_id: cuponeraId,
+    referencia_id: referenciaId,
   });
 
   return { ok: true };

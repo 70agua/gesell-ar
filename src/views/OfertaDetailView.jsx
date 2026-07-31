@@ -8,7 +8,7 @@ import {
   MapPin, Users, Gift, X, Send, Home,
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
-import { useCuponera } from '../lib/cuponera';
+import { useCarrito } from '../lib/carrito';
 import CtaPase from '../components/CtaPase';
 import useMiPase from '../hooks/useMiPase';
 import { elegirPremium } from '../lib/pases';
@@ -41,7 +41,7 @@ const C = {
 
 // ─── Pasos de "Cómo se usa" ──────────────────────────────────
 const PASOS = [
-  { num: 1, title: 'Sumás el cupón a tu cuponera',    desc: 'Con el Gesell PaSS la mayoría ya vienen incluidos; los descuentos PLUS los elegís (uno por día de pase) y el resto los sumás a mitad de precio. Sin pase, lo comprás suelto.' },
+  { num: 1, title: 'Sumás el cupón a tu carrito',    desc: 'Con el Gesell PaSS la mayoría ya vienen incluidos; los descuentos PLUS los elegís (uno por día de pase) y el resto los sumás a mitad de precio. Sin pase, lo comprás suelto.' },
   { num: 2, title: '¡Tu cupón ya está listo! Te lo enviamos por mail, pero también podés descargarlo.',  desc: ' ahora. Al momento de tu visita, solo tenés que mostrar el código QR desde el celular. Si surge algún inconveniente, el comercio puede validar tu reserva con un código de 6 dígitos. Por seguridad, no compartas este código con nadie.' },
   { num: 3, title: 'Disfrutás el beneficio',  desc: 'El socio escanea y confirma. ¡Listo! El descuento se aplica en el momento.' },
 ];
@@ -277,7 +277,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
 
   if (!oferta) return null;
 
-  const { addCupon } = useCuponera();
+  const { addCupon } = useCarrito();
   const mostrarCreditos = useMostrarCreditos();
   const favCtx = useFavoritos();
   const esFav  = favCtx?.esFavorito(oferta.id);
@@ -289,7 +289,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   const [pax, setPax] = useState(grupoCfg?.minPax || 1);
   const pricing = useGroupPricing(oferta, pax);
 
-  // Agregar a la cuponera. Para grupales, congelamos pax/descuento/total/QR.
+  // Agregar al carrito. Para grupales, congelamos pax/descuento/total/QR.
   const handleAgregar = () => {
     if (grupoCfg && pricing) {
       const qr = (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -494,7 +494,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
             {/* 5 — Descripción */}
             <p className="text-[15px] mt-6 mb-8" style={{ color: C.ink2, lineHeight: 1.7 }}>
               {oferta.description || oferta.desc ||
-                'Aprovechá esta oferta exclusiva de uno de nuestros socios verificados. Guardala en tu cuponera y canjeala cuando quieras durante tu estadía en Villa Gesell.'}
+                'Aprovechá esta oferta exclusiva de uno de nuestros socios verificados. Guardala en tu carrito y canjeala cuando quieras durante tu estadía en Villa Gesell.'}
             </p>
 
             {/* Cómo se usa */}
