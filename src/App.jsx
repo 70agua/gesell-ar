@@ -23,11 +23,14 @@ import OfertasRegaloView  from './views/OfertasRegaloView';
 import PublicarOfertaView    from './views/PublicarOfertaView';
 import BeneficiosPortalView  from './views/BeneficiosPortalView';
 import FavoritosView         from './views/FavoritosView';
+import MisCuponesView        from './views/MisCuponesView';
+import MiPaseView            from './views/MiPaseView';
 import CheckoutView          from './views/CheckoutView';
 import CheckoutPaseView      from './views/CheckoutPaseView';
 import CheckoutHoteleroView  from './views/CheckoutHoteleroView';
 import CanjearRegaloView     from './views/CanjearRegaloView';
 import PaseDebugView         from './views/PaseDebugView'; // ⚠️ TEMPORAL (Brief 1) — entra por ?pase-debug=1
+import CanjearView           from './views/CanjearView';   // entra por ?canjear=<negocioId> (QR del socio)
 
 import { getAlojamientos, getGastronomia, getAventura, getNegocioById } from './lib/datos';
 import { ALL_PROMOS }                      from './data/mockData';
@@ -45,9 +48,15 @@ import BienvenidaTuristaWizard           from './components/BienvenidaTuristaWiz
 function AppContent() {
   const { isLoading } = useLoading();
 
+  // El QR estático del socio apunta a ?canjear=<negocioId>: el turista cae
+  // directo en la pantalla de canje con ese comercio ya resuelto.
   // ⚠️ TEMPORAL (Brief 1): ?pase-debug=1 arranca en el panel de prueba del Pase
+  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const [canjearNegocioId] = useState(() => params?.get('canjear') || null);
   const [view, setView]                 = useState(
-    () => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('pase-debug')) ? 'pase-debug' : 'home'
+    () => params?.has('canjear') ? 'canjear'
+        : params?.has('pase-debug') ? 'pase-debug'
+        : 'home'
   );
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedOferta, setSelectedOferta]     = useState(null);
@@ -490,6 +499,21 @@ function AppContent() {
               onActivarOferta={handleOpenOferta}
             />
           )}
+          {view === 'mi-pase' && (
+            <MiPaseView
+              session={session}
+              onBack={() => { setView('home'); window.scrollTo(0, 0); }}
+              onComprarPase={() => { setView('checkout-pase'); window.scrollTo(0, 0); }}
+              onExplorar={() => { setView('ofertas'); window.scrollTo(0, 0); }}
+            />
+          )}
+          {view === 'mis-cupones' && (
+            <MisCuponesView
+              session={session}
+              onBack={() => { setView('home'); window.scrollTo(0, 0); }}
+              onExplorar={() => { setView('ofertas'); window.scrollTo(0, 0); }}
+            />
+          )}
           {view === 'favoritos' && (
             <FavoritosView
               accommodations={alojamientos}
@@ -504,7 +528,15 @@ function AppContent() {
             <CheckoutView
               session={session}
               onBack={() => { setView('home'); window.scrollTo(0, 0); }}
-              onSuccess={() => { setView('home'); window.scrollTo(0, 0); }}
+              onSuccess={() => { setView('mis-cupones'); window.scrollTo(0, 0); }}
+            />
+          )}
+          {view === 'canjear' && (
+            <CanjearView
+              session={session}
+              negocioId={canjearNegocioId}
+              onSalir={() => { setView('mis-cupones'); window.scrollTo(0, 0); }}
+              onLoginRequired={() => { setLoginInitialTab('ingresar'); setView('login'); window.scrollTo(0, 0); }}
             />
           )}
           {/* ⚠️ TEMPORAL (Brief 1): panel de prueba del Pase — borrar con Brief 2 */}

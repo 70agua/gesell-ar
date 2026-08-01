@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { useCarrito } from '../lib/carrito';
+import { trackVistaOferta } from '../lib/tracking';
 import CtaPase from '../components/CtaPase';
 import useMiPase from '../hooks/useMiPase';
 import { elegirPremium } from '../lib/pases';
@@ -274,6 +275,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   // detrás de una condición.
   const miPase = useMiPase(session);
   const [avisoPase, setAvisoPase] = useState('');
+  useEffect(() => { if (oferta?.id) trackVistaOferta(oferta.id); }, [oferta?.id]);
 
   if (!oferta) return null;
 

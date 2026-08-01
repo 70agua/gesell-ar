@@ -4,7 +4,10 @@
 //
 //  Lo consume la ficha de oferta para decidir qué decirle: "ya lo tenés",
 //  "usá una de tus elecciones" o "sumalo a mitad de precio". Sin sesión o sin
-//  pase activo devuelve `pase: null` y la UI muestra el upsell.
+//  pase devuelve `pase: null` y la UI muestra el upsell.
+//
+//  Devuelve TAMBIÉN el pase comprado y sin activar (`pendiente: true`): quien
+//  ya pagó no tiene que ver el upsell de comprarlo otra vez.
 //
 //  El tope de elecciones sale de la instancia (una por día comprado) y cae al
 //  catálogo cuando la compra no lo trae — mismo criterio que el RPC
@@ -14,7 +17,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-const VACIO = { cargando: false, pase: null, usadas: 0, total: 0, restantes: 0 };
+const VACIO = { cargando: false, pase: null, usadas: 0, total: 0, restantes: 0, activo: false, pendiente: false };
 
 export default function useMiPase(session) {
   const userId = session?.user?.id || null;
@@ -26,11 +29,17 @@ export default function useMiPase(session) {
     let vivo = true;
 
     (async () => {
+      // Antes esto miraba SÓLO los pases 'activo', con lo cual quien ya había
+      // comprado —pero todavía no activó— era invisible para toda la app: se
+      // le seguía ofreciendo comprar el pase que ya tenía. Ahora entran los
+      // dos estados y el consumidor decide con `activo` / `pendiente`.
       const { data: pases } = await supabase
         .from('usuario_pases')
         .select('*, pases(*)')
         .eq('user_id', userId)
-        .eq('estado', 'activo')
+        .in('estado', ['activo', 'pendiente'])
+        // El activo manda sobre el pendiente si por algún motivo hay de los dos.
+        .order('estado', { ascending: true })
         .order('creado_en', { ascending: false })
         .limit(1);
 
@@ -49,6 +58,8 @@ export default function useMiPase(session) {
       if (vivo) setEstado({
         cargando: false, pase, usadas, total,
         restantes: Math.max(0, total - usadas),
+        activo:    pase.estado === 'activo',
+        pendiente: pase.estado === 'pendiente',
       });
     })();
 

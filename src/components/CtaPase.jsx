@@ -45,11 +45,14 @@ function Nota({ children, tono = 'info' }) {
 
 export default function CtaPase({
   promo, precioLista, miPase,
-  onSumar, onElegir, onComprarPase,
+  onSumar, onElegir, onComprarPase, onActivarPase,
   compacto = false, sumado = false,
 }) {
   const premium   = nivelEnPase(promo) === 'premium';
   const conPase   = !!miPase?.pase;
+  // Comprado pero todavía sin activar: no se puede canjear, pero tampoco hay
+  // que ofrecerle comprar el pase que ya tiene.
+  const pendiente = !!miPase?.pendiente;
   const restantes = miPase?.restantes || 0;
   const mitad     = precioSueltoConPase(precioLista);
 
@@ -97,6 +100,24 @@ export default function CtaPase({
           style={{ width: '100%', marginTop: 8, background: 'none', border: 'none', color: C.primary, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: C.font, padding: '4px 0' }}
         >
           Ver el Gesell PaSS →
+        </button>
+      </>
+    );
+  }
+
+  // ─── Pase comprado y sin activar ────────────────────────────
+  if (pendiente) {
+    return (
+      <>
+        <Nota tono="ok">
+          <span>Ya tenés el Pase. Activalo cuando llegues y este cupón entra sin costo.</span>
+        </Nota>
+        {boton('Activar mi Pase', { accion: onActivarPase, tono: 'ok' })}
+        <button
+          onClick={onSumar}
+          style={{ width: '100%', marginTop: 8, background: 'none', border: 'none', color: C.muted, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: C.font, padding: '4px 0' }}
+        >
+          Comprarlo suelto igual
         </button>
       </>
     );

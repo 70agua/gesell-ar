@@ -11,14 +11,17 @@ import {
   Store, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar,
   MessageCircle, Edit2, RefreshCw, Package, BarChart2, Home, Search,
   Inbox, CalendarDays, Minus, Megaphone, Download, Mail, Link2,
-  Disc3, Info, Loader2,
+  Disc3, Info, Loader2, Ticket,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { categoriaDeNegocio } from '../lib/datos';
-import { getSaldo, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra } from '../lib/cobros';
+import { getSaldo, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra, AHORRO_MIN, PRECIO_MIN, gananciaNeta, esCuponDeEntrada } from '../lib/cobros';
 import { getPuntos } from '../lib/gamificacion';
+import TabCanjes from './socio/TabCanjes';
 import { FOTOS_GALERIA_MAX, getPlanesPro } from '../lib/planes';
 import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
+import { AHORRO_BASE_MAX } from '../lib/pases';
+import { getStatsNegocio } from '../lib/tracking';
 import { impulsarOferta, costoPorAcceso, costoPorVenta, costoPorResultado } from '../lib/impulso';
 import { sanitizeTituloOferta } from '../lib/ofertas';
 import ComprarTokensModal from '../components/ComprarTokensModal';
@@ -57,6 +60,7 @@ const NAV_GRUPOS = [
     items: [
       { id: 'ofertas',     label: 'Creadas por mí', Icon: Tag         },
       { id: 'solicitudes', label: 'Ventas',          Icon: Inbox,      alojOnly: true },
+      { id: 'canjes',      label: 'Canjes y QR',     Icon: Ticket      },
     ],
   },
   {
@@ -178,173 +182,164 @@ const PERIODOS = [
   { val: 'custom',  label: 'Personalizado' },
 ];
 
-function TabEstadisticas() {
-  const [periodo, setPeriodo]       = useState('30d');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
+// ═══════════════════════════════════════════════════════════
+//  TAB ESTADÍSTICAS — datos reales, o nada
+//
+//  Esto era 100% hardcodeado: números inventados que el socio podía tomar
+//  por ciertos. Ahora sale de `stats_negocio()`, que lee lo que realmente se
+//  midió (visitas de ficha, vistas de oferta, agregados al carrito, ventas y
+//  canjes).
+//
+//  Con poco historial NO se rellena: se muestra lo que hay y se dice que
+//  falta. Un gráfico inventado es peor que un gráfico vacío.
+// ═══════════════════════════════════════════════════════════
+const RANGOS = [
+  { dias: 7,  label: '7 días' },
+  { dias: 30, label: '30 días' },
+  { dias: 90, label: '90 días' },
+];
 
-  const kpis = [
-    { label: 'Visitas a tu perfil',          value: 348, sub: '+12% vs período anterior', Icon: Eye,              color: P        },
-    { label: 'Clicks en tus ofertas',         value: 127, sub: '+8% vs período anterior',  Icon: MousePointerClick, color: GREEN    },
-    { label: 'Clicks en ofertas de socios',   value: 89,  sub: 'Generan créditos a tu favor', Icon: TrendingUp,   color: YELLOW   },
-    { label: 'Consultas recibidas',           value: 14,  sub: '3 sin responder',           Icon: MessageSquare,   color: '#8b5cf6'},
-    { label: 'Favoritos acumulados',          value: 52,  sub: 'Tu ficha guardada',          Icon: Star,            color: '#f43f5e'},
-    { label: 'Tasa de conversión',            value: '3.7%', sub: 'Visitas → consulta',     Icon: BarChart2,       color: '#0ea5e9'},
-  ];
+function Metrica({ label, valor, sub }) {
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 14, padding: '15px 17px', flex: 1, minWidth: 132 }}>
+      <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      <div style={{ fontFamily: FONT, fontSize: 25, fontWeight: 800, color: INK, marginTop: 4, letterSpacing: '-0.02em' }}>{valor}</div>
+      {sub && <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
 
-  // Datos mock para gráficos
-  const trafico  = [42,58,35,71,89,64,77,95,55,82,68,91,73,87,110,98,120,105,88,115,94,127,108,140,132,145,119,138];
-  const maxT = Math.max(...trafico);
-  const consultas = [2,5,3,7,4,6,8,5,9,7,11,8,10,14];
-  const maxC = Math.max(...consultas);
+// Barras simples, sin librería: con pocos días una curva suavizada miente.
+function SerieVisitas({ serie }) {
+  const max = Math.max(...serie.map(d => d.cantidad), 1);
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 90, marginTop: 14 }}>
+      {serie.map(d => (
+        <div key={d.fecha} title={`${d.fecha}: ${d.cantidad}`} style={{
+          flex: 1, minWidth: 3, height: `${Math.max(4, (d.cantidad / max) * 100)}%`,
+          background: P, opacity: 0.75, borderRadius: '3px 3px 0 0',
+        }} />
+      ))}
+    </div>
+  );
+}
 
-  const topOfertas = [
-    { nombre: 'Noche gratis en temporada baja', clicks: 47, conv: '18%' },
-    { nombre: '2×1 en cena incluida',           clicks: 31, conv: '12%' },
-    { nombre: 'Late check-out sin cargo',        clicks: 28, conv: '9%'  },
-    { nombre: 'Upgrade de habitación',           clicks: 21, conv: '7%'  },
-  ];
+function TabEstadisticas({ negocio }) {
+  const [dias, setDias]   = useState(30);
+  const [datos, setDatos] = useState(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    if (!negocio?.id) { setCargando(false); return; }
+    let vivo = true;
+    setCargando(true);
+    getStatsNegocio(negocio.id, dias).then(d => { if (vivo) { setDatos(d); setCargando(false); } });
+    return () => { vivo = false; };
+  }, [negocio?.id, dias]);
+
+  const filtros = (
+    <div style={{ display: 'flex', gap: 8 }}>
+      {RANGOS.map(r => (
+        <button key={r.dias} onClick={() => setDias(r.dias)} style={{
+          border: `1px solid ${dias === r.dias ? P : LINE}`,
+          background: dias === r.dias ? PS : '#fff',
+          color: dias === r.dias ? P : INK2,
+          borderRadius: 999, padding: '7px 14px', fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+        }}>{r.label}</button>
+      ))}
+    </div>
+  );
+
+  if (cargando) return <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: FONT, fontSize: 13, color: MUTED }}>Cargando…</div>;
+
+  if (!datos) return (
+    <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: '40px 24px', textAlign: 'center' }}>
+      <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: INK, marginBottom: 6 }}>Todavía no hay datos</div>
+      <div style={{ fontFamily: FONT, fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+        Las métricas empiezan a acumularse cuando los turistas ven tus ofertas.
+      </div>
+    </div>
+  );
+
+  const sinDatos = datos.visitas_total === 0 && datos.vistas_oferta === 0;
+  // Con menos de una semana de registro cualquier tendencia es ruido.
+  const pocoHistorial = datos.dias_con_datos > 0 && datos.dias_con_datos < 7;
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      {/* Header con selector de período */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0, marginRight:'auto' }}>Estadísticas</h2>
-        <select value={periodo} onChange={e => setPeriodo(e.target.value)}
-          style={{ padding:'7px 12px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, background:CARD, cursor:'pointer', outline:'none' }}
-        >
-          {PERIODOS.map(p => <option key={p.val} value={p.val}>{p.label}</option>)}
-        </select>
-        {periodo === 'custom' && (<>
-          <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)}
-            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}/>
-          <span style={{ fontFamily:FONT, fontSize:12, color:MUTED }}>hasta</span>
-          <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)}
-            style={{ padding:'7px 10px', borderRadius:10, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, color:INK, outline:'none' }}/>
-        </>)}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontFamily: FONT, fontSize: 17, fontWeight: 800, color: INK }}>Cómo te está yendo</div>
+        {filtros}
       </div>
 
-      {/* KPIs — 3 columnas × 2 filas */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
-        {kpis.map(k => (
-          <Card key={k.label} style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ fontFamily:FONT, fontSize:12, fontWeight:600, color:INK2 }}>{k.label}</span>
-              <div style={{ width:34, height:34, borderRadius:10, background:k.color+'15', display:'grid', placeItems:'center' }}>
-                <k.Icon size={17} color={k.color}/>
-              </div>
-            </div>
-            <div style={{ fontFamily:FONT, fontSize:28, fontWeight:800, color:INK }}>{k.value}</div>
-            <div style={{ fontFamily:FONT, fontSize:11, color:k.color, fontWeight:600 }}>{k.sub}</div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Gráficos en 2 columnas */}
-      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14 }}>
-
-        {/* Tráfico — barras */}
-        <Card>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>Visitas al perfil</div>
-            <span style={{ fontFamily:FONT, fontSize:11, color:MUTED }}>Últimas 4 semanas</span>
+      {sinDatos ? (
+        <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: '40px 24px', textAlign: 'center' }}>
+          <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: INK, marginBottom: 6 }}>
+            Sin movimiento en estos {dias} días
           </div>
-          <div style={{ display:'flex', alignItems:'flex-end', gap:4, height:90 }}>
-            {trafico.map((v,i) => (
-              <div key={i} style={{ flex:1, background: i >= 24 ? P : `${P}30`, borderRadius:'3px 3px 0 0', height:`${(v/maxT)*100}%`, minWidth:4, transition:'height 0.3s' }}/>
-            ))}
+          <div style={{ fontFamily: FONT, fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+            Cuando alguien vea tu ficha o tus ofertas, lo vas a ver acá. Nada de esto se estima:
+            son visitas reales.
           </div>
-          <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, fontFamily:FONT, fontSize:10, color:MUTED }}>
-            <span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span style={{ color:P, fontWeight:700 }}>Sem 4 (actual)</span>
-          </div>
-        </Card>
-
-        {/* Consultas — barras verticales */}
-        <Card>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>Consultas</div>
-            <span style={{ fontFamily:FONT, fontSize:11, color:MUTED }}>14 días</span>
-          </div>
-          <div style={{ display:'flex', alignItems:'flex-end', gap:5, height:90 }}>
-            {consultas.map((v,i) => (
-              <div key={i} style={{ flex:1, background: i >= 10 ? '#8b5cf6' : '#8b5cf620', borderRadius:'3px 3px 0 0', height:`${(v/maxC)*100}%`, minWidth:6 }}/>
-            ))}
-          </div>
-          <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, fontFamily:FONT, fontSize:10, color:MUTED }}>
-            <span>Día 1</span><span>Día 14</span>
-          </div>
-        </Card>
-      </div>
-
-      {/* Top ofertas */}
-      <Card>
-        <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Rendimiento de ofertas</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-          {topOfertas.map((o, i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 0', borderBottom: i < topOfertas.length-1 ? `1px solid ${BG}` : 'none' }}>
-              <div style={{ width:26, height:26, borderRadius:8, background: i===0 ? `${YELLOW}25` : BG, display:'grid', placeItems:'center', flexShrink:0 }}>
-                <span style={{ fontFamily:FONT, fontSize:12, fontWeight:800, color: i===0 ? YELLOW : MUTED }}>#{i+1}</span>
-              </div>
-              <div style={{ flex:1, fontFamily:FONT, fontSize:13, fontWeight:600, color:INK }}>{o.nombre}</div>
-              <div style={{ textAlign:'right' }}>
-                <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>{o.clicks} clicks</div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:GREEN, fontWeight:600 }}>conv. {o.conv}</div>
-              </div>
-              {/* Barra de progreso */}
-              <div style={{ width:80, height:6, background:LINE, borderRadius:999, overflow:'hidden', flexShrink:0 }}>
-                <div style={{ height:'100%', background:P, borderRadius:999, width:`${(o.clicks/topOfertas[0].clicks)*100}%` }}/>
-              </div>
-            </div>
-          ))}
         </div>
-      </Card>
+      ) : (
+        <>
+          {pocoHistorial && (
+            <div style={{ background: '#FFF7E5', border: '1px solid #F3D9A8', borderRadius: 13, padding: '12px 15px' }}>
+              <div style={{ fontFamily: FONT, fontSize: 12.5, color: '#8A6412', lineHeight: 1.5 }}>
+                Llevamos <b>{datos.dias_con_datos} día{datos.dias_con_datos !== 1 ? 's' : ''}</b> midiendo.
+                Los números son reales, pero todavía son pocos para sacar conclusiones.
+              </div>
+            </div>
+          )}
 
-      {/* Fuente de tráfico */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-        <Card>
-          <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Fuente de tráfico</div>
-          {[
-            { label:'Búsqueda directa', pct:42, color:P },
-            { label:'Recomendación de otro alojamiento', pct:28, color:GREEN },
-            { label:'Redes sociales', pct:18, color:YELLOW },
-            { label:'Otros', pct:12, color:MUTED },
-          ].map(s => (
-            <div key={s.label} style={{ marginBottom:10 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>{s.label}</span>
-                <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:INK }}>{s.pct}%</span>
-              </div>
-              <div style={{ height:6, background:LINE, borderRadius:999, overflow:'hidden' }}>
-                <div style={{ height:'100%', background:s.color, borderRadius:999, width:`${s.pct}%` }}/>
-              </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <Metrica label="Visitas a tu ficha" valor={datos.visitas_total} />
+            <Metrica label="Vistas de ofertas"  valor={datos.vistas_oferta} />
+            <Metrica label="Al carrito"         valor={datos.agregados_carrito} />
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <Metrica label="Cupones vendidos" valor={datos.ventas} />
+            <Metrica label="Canjes"           valor={datos.canjes} />
+            <Metrica label="Ahorro entregado" valor={`$${Number(datos.ahorro_entregado || 0).toLocaleString('es-AR')}`} />
+          </div>
+
+          {datos.serie_visitas?.length > 1 && (
+            <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: '16px 20px' }}>
+              <div style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 700, color: INK }}>Visitas por día</div>
+              <SerieVisitas serie={datos.serie_visitas} />
             </div>
-          ))}
-        </Card>
-        <Card>
-          <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK, marginBottom:14 }}>Créditos ganados</div>
-          <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:90, marginBottom:8 }}>
-            {[1,2,1,3,2,4,3,5,4,6,5,7].map((v,i) => (
-              <div key={i} style={{ flex:1, background: i >= 9 ? '#f9c829' : '#f9c82930', borderRadius:'3px 3px 0 0', height:`${(v/7)*100}%` }}/>
-            ))}
-          </div>
-          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:FONT, fontSize:10, color:MUTED }}>
-            <span>Hace 12 sem</span><span style={{ color:'#f9c829', fontWeight:700 }}>Últimas 3 sem</span>
-          </div>
-          <div style={{ marginTop:14, paddingTop:12, borderTop:`1px solid ${BG}`, display:'flex', alignItems:'center', gap:8 }}>
-            <CreditCoin size={22}/>
-            <div>
-              <div style={{ fontFamily:FONT, fontSize:20, fontWeight:800, color:INK }}>+8 créditos</div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:GREEN, fontWeight:600 }}>este mes</div>
+          )}
+
+          {datos.top_ofertas?.length > 0 && (
+            <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 20px', borderBottom: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13.5, fontWeight: 700, color: INK }}>
+                Tus ofertas más vistas
+              </div>
+              {datos.top_ofertas.map((o, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px',
+                  borderBottom: i === datos.top_ofertas.length - 1 ? 'none' : `1px solid ${LINE}`,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0, fontFamily: FONT, fontSize: 13, color: INK }}>{o.titulo}</div>
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: MUTED, whiteSpace: 'nowrap' }}>
+                    {o.vistas} vista{o.vistas !== 1 ? 's' : ''} · {o.carrito} al carrito
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        </Card>
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════
-//  TAB 2 — INBOX
+//  TAB INBOX — mock. NO se toca en la Fase 7.
+//  Pasa a la Fase 5b, donde se convierte en la bandeja única del socio con
+//  dos tipos: consultas y solicitudes de fecha. Misma lógica que
+//  TabPendientes en el superadmin.
 // ════════════════════════════════════════════════════════════
 // ── Avatar helper ────────────────────────────────────────────
 function ChatAvatar({ chat, size = 40 }) {
@@ -747,6 +742,8 @@ function dbRowToItem(p) {
     formatos:  [...(p.offer_type === 'Flash' ? ['flash'] : []), ...(p.is_group ? ['grupal'] : [])],
     ahorro:    p.ahorro_estimado ?? '',
     precio:    p.precio_manual != null ? String(p.precio_manual) : (p.ahorro_estimado ? String(calcularPrecioCupon(Number(p.ahorro_estimado))) : ''),
+    premiumIlimitado: p.premium_ilimitado,                       // null = todavía no eligió
+    cupoPremium: p.cupo_mensual_premium != null ? String(p.cupo_mensual_premium) : '',
     flashFechaFin: p.fecha_fin_flash ? new Date(p.fecha_fin_flash) : null,
     fechaDesde: p.fecha_inicio ? new Date(p.fecha_inicio) : null,
     fechaHasta: p.fecha_fin ? new Date(p.fecha_fin) : null,
@@ -1318,7 +1315,16 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
       imagen_url:      imagenUrl,
       offer_type:      esFlash ? 'Flash' : 'Normal',
       ahorro_estimado: editForm.ahorro ? Number(editForm.ahorro) : null,
-      precio_manual:   editForm.precio ? Number(editForm.precio) : null,
+      // `precio_manual` saltea la escalera de comisiones entera, así que es
+      // override EXCLUSIVO del superadmin. Cuando edita el socio el campo ni
+      // se incluye en el payload: si hubiera un override puesto, no se pisa.
+      ...(modoAdmin ? { precio_manual: editForm.precio ? Number(editForm.precio) : null } : {}),
+      // Capa premium: sólo tiene sentido con ahorro > $15.000. Se guarda tal
+      // cual eligió el socio; `null` significa que todavía no eligió y la base
+      // no deja publicar así.
+      premium_ilimitado:     editForm.premiumIlimitado ?? null,
+      cupo_mensual_premium:  editForm.premiumIlimitado === false && editForm.cupoPremium
+                               ? Number(editForm.cupoPremium) : null,
       fecha_fin_flash: esFlash && Number(editForm.flashHoras) > 0 ? new Date(Date.now() + Math.min(72, Number(editForm.flashHoras)) * 3600000).toISOString() : null,
       fecha_fin:       !esFlash && editForm.fechaHasta ? editForm.fechaHasta.toISOString() : null,
       fecha_inicio:    !esFlash && editForm.fechaDesde ? editForm.fechaDesde.toISOString() : null,
@@ -1447,6 +1453,26 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
     if (!editForm.imagenes[0]?.src) { showToast('Subí una foto para la oferta', 'err'); return false; }
     if (!sanitizeTituloOferta(editForm.titulo).trim()) { showToast('El título es obligatorio y solo puede tener letras y números', 'err'); return false; }
     if (!editForm.descuentos.some(d => (d.valor || '').trim())) { showToast('Cargá al menos un descuento', 'err'); return false; }
+
+    // Piso de ahorro publicable: por debajo, el cupón no llega al mínimo de
+    // venta y el precio quedaría clavado en el piso sin margen.
+    const ahorroNum = Number(editForm.ahorro) || 0;
+    if (ahorroNum > 0 && ahorroNum < AHORRO_MIN) {
+      showToast(`El ahorro mínimo para publicar es $${AHORRO_MIN.toLocaleString('es-AR')}`, 'err');
+      return false;
+    }
+
+    // Premium: elección explícita, sin default. Si no elige, no se publica.
+    if (ahorroNum > AHORRO_BASE_MAX) {
+      if (editForm.premiumIlimitado == null) {
+        showToast('Elegí cuántos canjes premium por mes aceptás (o marcá ilimitado)', 'err');
+        return false;
+      }
+      if (editForm.premiumIlimitado === false && !(Number(editForm.cupoPremium) >= 1)) {
+        showToast('Poné al menos 1 canje premium por mes, o marcá ilimitado', 'err');
+        return false;
+      }
+    }
 
     const esGrupal = editForm.formatos.includes('grupal');
 
@@ -2039,23 +2065,114 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
                 placeholder="Ej. 5000" style={{ ...inputSt, paddingRight: 34 }}/>
               <EstadoGuardadoIcono activo={campoActivo === 'ahorro'} status={saveStatus}/>
             </div>
-            <div style={{ marginTop: 12 }}>
-              <FieldLabel label="Precio del cupón ($, IVA incl.)"/>
-              <div style={{ position: 'relative' }}>
-                <input value={editForm.precio} inputMode="numeric"
-                  onChange={e => setCampoTexto('precio', soloNum(e.target.value).slice(0, 9))}
-                  placeholder="Ej. 1500" style={{ ...inputSt, paddingRight: 34 }}/>
-                <EstadoGuardadoIcono activo={campoActivo === 'precio'} status={saveStatus}/>
+            {/* El precio a mano es override del SUPERADMIN. Al socio no se le
+                ofrece: si pudiera fijarlo, se saltearía la escalera de
+                comisiones entera y el precio dejaría de derivar del ahorro. */}
+            {modoAdmin && (
+              <div style={{ marginTop: 12 }}>
+                <FieldLabel label="Precio manual ($, IVA incl.) — override"/>
+                <div style={{ position: 'relative' }}>
+                  <input value={editForm.precio} inputMode="numeric"
+                    onChange={e => setCampoTexto('precio', soloNum(e.target.value).slice(0, 9))}
+                    placeholder={`Sugerido: ${calcularPrecioCupon(Number(editForm.ahorro)) || 0}`}
+                    style={{ ...inputSt, paddingRight: 34 }}/>
+                  <EstadoGuardadoIcono activo={campoActivo === 'precio'} status={saveStatus}/>
+                </div>
+                {Number(editForm.ahorro) > 0 && Number(editForm.precio) !== calcularPrecioCupon(Number(editForm.ahorro)) && (
+                  <button type="button"
+                    onClick={() => setCampoTexto('precio', String(calcularPrecioCupon(Number(editForm.ahorro)) || ''))}
+                    style={{ marginTop: 6, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                    Volver al calculado: ${calcularPrecioCupon(Number(editForm.ahorro)).toLocaleString('es-AR')}
+                  </button>
+                )}
+                <p style={{ marginTop: 6, fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+                  Vacío = usa la escalera de comisiones. Con valor, la saltea. Excepcional.
+                </p>
               </div>
-              {Number(editForm.ahorro) > 0 && Number(editForm.precio) !== calcularPrecioCupon(Number(editForm.ahorro)) && (
-                <button type="button"
-                  onClick={() => setCampoTexto('precio', String(calcularPrecioCupon(Number(editForm.ahorro)) || ''))}
-                  style={{ marginTop: 6, background: 'none', border: 'none', color: P, fontFamily: FONT, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-                  Usar sugerido: ${calcularPrecioCupon(Number(editForm.ahorro)).toLocaleString('es-AR')}
-                </button>
-              )}
-            </div>
-            <p style={{ marginTop: 6, fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>El precio se sugiere automáticamente a partir del ahorro declarado, pero podés editarlo.</p>
+            )}
+
+            {/* Qué significa el ahorro cargado, en plata concreta. Se muestra
+                apenas escribe, sin esperar a que intente publicar. */}
+            {(() => {
+              const a = Number(editForm.ahorro) || 0;
+              if (a <= 0) return null;
+              if (a < AHORRO_MIN) return (
+                <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                  <div style={{ fontFamily: FONT, fontSize: 12, fontWeight: 700, color: '#B91C1C' }}>
+                    Ahorro muy bajo para publicar
+                  </div>
+                  <div style={{ fontFamily: FONT, fontSize: 11.5, color: '#B91C1C', marginTop: 2, lineHeight: 1.45 }}>
+                    El mínimo es ${AHORRO_MIN.toLocaleString('es-AR')}. Por debajo, el cupón no llega al precio mínimo de venta.
+                  </div>
+                </div>
+              );
+              const precioSug = calcularPrecioCupon(a);
+              const neta = gananciaNeta(a);
+              const entrada = esCuponDeEntrada(a);
+              return (
+                <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: BG, border: `1px solid ${LINE}` }}>
+                  <div style={{ fontFamily: FONT, fontSize: 12, color: INK2, lineHeight: 1.5 }}>
+                    El turista paga <b style={{ color: INK }}>${precioSug.toLocaleString('es-AR')}</b> por este cupón
+                    {' '}y se lleva <b style={{ color: GREEN }}>${neta.toLocaleString('es-AR')}</b> de ganancia neta.
+                  </div>
+                  {entrada && (
+                    <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 5, lineHeight: 1.45 }}>
+                      Es un <b>cupón de entrada</b>: precio fijo de ${PRECIO_MIN.toLocaleString('es-AR')}. Se muestra por su ganancia neta y no entra en espacios destacados.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── Capa premium del Pase ──
+                Arriba de $15.000 la oferta entra como PREMIUM: el turista la
+                usa gastando uno de los pocos slots de su Pase, así que llegan
+                menos pero valen más. El socio tiene que decidir explícitamente
+                cuántos acepta por mes — sin default, porque un default
+                silencioso lo dejaba afuera sin que se enterara. */}
+            {Number(editForm.ahorro) > AHORRO_BASE_MAX && (
+              <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, background: PS, border: `1px solid ${P}33` }}>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK, marginBottom: 3 }}>
+                  ¿Cuántos canjes premium aceptás por mes?
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 11.5, color: INK2, lineHeight: 1.5, marginBottom: 12 }}>
+                  Por el ahorro que ofrecés, esta oferta entra en la capa premium del Pase.
+                  Poné un tope si tenés capacidad limitada, o dejala sin tope.
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button type="button"
+                    onClick={() => { setEditForm(f => ({ ...f, premiumIlimitado: false })); setIsDirty(true); }}
+                    style={{
+                      padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: FONT, fontSize: 12.5, fontWeight: 700,
+                      border: `1.5px solid ${editForm.premiumIlimitado === false ? P : LINE}`,
+                      background: editForm.premiumIlimitado === false ? '#fff' : 'transparent',
+                      color: editForm.premiumIlimitado === false ? P : INK2,
+                    }}>Con tope mensual</button>
+
+                  {editForm.premiumIlimitado === false && (
+                    <input value={editForm.cupoPremium} inputMode="numeric" placeholder="Ej. 10"
+                      onChange={e => setCampoTexto('cupoPremium', soloNum(e.target.value).slice(0, 4))}
+                      style={{ ...inputSt, width: 96, padding: '9px 12px' }} />
+                  )}
+
+                  <button type="button"
+                    onClick={() => { setEditForm(f => ({ ...f, premiumIlimitado: true, cupoPremium: '' })); setIsDirty(true); }}
+                    style={{
+                      padding: '9px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: FONT, fontSize: 12.5, fontWeight: 700,
+                      border: `1.5px solid ${editForm.premiumIlimitado === true ? P : LINE}`,
+                      background: editForm.premiumIlimitado === true ? '#fff' : 'transparent',
+                      color: editForm.premiumIlimitado === true ? P : INK2,
+                    }}>Sin tope</button>
+                </div>
+
+                {editForm.premiumIlimitado == null && (
+                  <div style={{ fontFamily: FONT, fontSize: 11.5, color: '#B45309', marginTop: 10, lineHeight: 1.45 }}>
+                    Elegí una de las dos para poder publicar.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           </>
           )}
@@ -3536,7 +3653,8 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
         {tab === 'cuenta'      && <TabCuenta credits={credits} addonTotal={addonTotal} setShowComprar={setShowComprar} perfil={perfil} negocio={negocio} setNegocio={setNegocio} showToast={showToast} onCuentaEliminada={handleLogout}/>}
         {tab === 'notif'       && <TabNovedades credits={credits} setCredits={setCredits} onGoToVentas={() => setTab('solicitudes')}/>}
         {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} negocioTipo={negocio?.tipo} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens}/>}
-        {tab === 'stats'       && <TabEstadisticas/>}
+        {tab === 'canjes'      && <TabCanjes negocio={negocio} showToast={showToast}/>}
+        {tab === 'stats'       && <TabEstadisticas negocio={negocio}/>}
         {tab === 'solicitudes' && <TabVentas negocioId={perfil?.negocio_id} showToast={showToast}/>}
         {tab === 'empresa' && <TabEmpresa negocio={negocio} showToast={showToast}/>}
         {tab === 'galeria' && <TabGaleria negocio={negocio} showToast={showToast}/>}

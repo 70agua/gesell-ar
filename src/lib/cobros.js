@@ -26,19 +26,73 @@ export const CREDITO_PRECIO = 2000;
 export const CREDITO_IVA    = 420;
 export const CREDITO_TOTAL  = CREDITO_PRECIO + CREDITO_IVA;
 
-// Tabla escalonada: ahorro declarado → precio del cupón (con IVA incluido)
-// Techo absoluto: $14.520 ARS. El precio final se redondea a la centena
-// (última decena en 00): desde 50 hacia arriba, debajo de 50 hacia abajo.
+// ─── Precio del cupón ─────────────────────────────────────────
+// Piso, techo y ahorro mínimo publicable.
+//
+// PRECIO_MIN existe porque sin él la tabla escalonada devolvía precios por
+// debajo del mínimo de venta: un ahorro de $5.000 daba $1.512. El piso es
+// $2.000 + IVA = $2.420, elevado a la centena siguiente.
+export const PRECIO_MIN = 2500;
+export const PRECIO_MAX = 20000;
+export const AHORRO_MIN = 5000;
+
+// Debajo de este ahorro el cupón se comunica por su GANANCIA NETA
+// (ahorro − precio) y no por el ahorro bruto: con ratio 2x, "ahorrás $5.000
+// por $2.500" invita a hacer la resta. Tampoco entra en espacios destacados.
+export const AHORRO_CUPON_ENTRADA = 10000;
+
+// Tramos de comisión. El del 25% (ahorro ≤ $5.000) se eliminó: su techo cae
+// entero dentro de la zona del piso, así que nunca llegaba a aplicarse.
+//
+// `hasta` es el techo del tramo; `pct` la comisión que se cobra SOBRE LA
+// PORCIÓN del ahorro que cae dentro de él.
+const TRAMOS_COMISION = [
+  { hasta:  15000, pct: 0.20 },
+  { hasta:  40000, pct: 0.15 },
+  { hasta: 100000, pct: 0.10 },
+  { hasta: Infinity, pct: 0.07 },
+];
+
+// Comisión MARGINAL, como el impuesto a las ganancias: cada tramo se aplica
+// sólo a la porción del ahorro que le corresponde.
+//
+// Antes la comisión del tramo se aplicaba a TODO el ahorro, y eso hacía que
+// el precio bajara al cruzar un borde: con $15.000 de ahorro el cupón salía
+// $3.600 y con $15.001 salía $2.700. Un socio que subía el ahorro un peso
+// bajaba el precio $900. Marginal, el precio es monótono: más ahorro nunca
+// puede dar un cupón más barato.
+function comisionMarginal(ahorro) {
+  let acumulado = 0, piso = 0;
+  for (const { hasta, pct } of TRAMOS_COMISION) {
+    if (ahorro <= piso) break;
+    acumulado += (Math.min(ahorro, hasta) - piso) * pct;
+    piso = hasta;
+  }
+  return acumulado;
+}
+
+// Precio del cupón con IVA incluido. Se redondea a la centena (desde 50 hacia
+// arriba) y recién después se acota entre el piso y el techo.
+//
+// Consecuencia buscada: entre $5.000 y ~$10.300 de ahorro el precio se clava
+// en $2.500 y el porcentaje del tramo es decorativo. Al socio se le comunica
+// como "cupón de entrada, $2.500 fijo", no como un porcentaje.
 export function calcularPrecioCupon(ahorroDeclarado) {
-  if (!ahorroDeclarado || ahorroDeclarado <= 0) return 0;
-  let comision;
-  if (ahorroDeclarado <= 5000)        comision = 0.25;
-  else if (ahorroDeclarado <= 15000)  comision = 0.20;
-  else if (ahorroDeclarado <= 40000)  comision = 0.15;
-  else if (ahorroDeclarado <= 100000) comision = 0.10;
-  else                                comision = 0.07;
-  const conIva = Math.min(ahorroDeclarado * comision * 1.21, 14520);
-  return Math.round(conIva / 100) * 100;
+  if (!ahorroDeclarado || ahorroDeclarado <= 0) return 0;   // 0 = cupón de regalo
+  const bruto = comisionMarginal(ahorroDeclarado) * 1.21;
+  const redondeado = Math.round(bruto / 100) * 100;
+  return Math.min(Math.max(redondeado, PRECIO_MIN), PRECIO_MAX);
+}
+
+// ¿Es un cupón de entrada? (los de ahorro chico, que se comunican distinto)
+export function esCuponDeEntrada(ahorro) {
+  return ahorro > 0 && ahorro < AHORRO_CUPON_ENTRADA;
+}
+
+// Lo que el turista se lleva de más: ahorro − lo que pagó por el cupón.
+export function gananciaNeta(ahorro) {
+  if (!ahorro || ahorro <= 0) return 0;
+  return Math.max(0, ahorro - calcularPrecioCupon(ahorro));
 }
 
 // ─── Fuente única del precio de activación de un cupón ────────

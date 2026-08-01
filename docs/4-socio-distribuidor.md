@@ -4,7 +4,10 @@ Documento de producto. **No implementar todavía**: depende de las fases 5b y 6 
 Complementa `1-reset-conceptual.md`.
 
 
-> **Changelog** · 2026-07-31
+> **Changelog** · 2026-08-01
+> §5 y §6 corregidos: los tramos PRO son formas de pago, no niveles de servicio. 1 premium fijo para todos; el tope de regalos es un parámetro global editable desde superadmin, arranca en 150.
+>
+> · 2026-07-31
 > Modo venta postergado hasta la pasarela. Duración fija por destino. Precios sin anclar: falta la escalera del Pase.
 
 ---
@@ -84,20 +87,20 @@ Suscripción (misma tanda, renovación automática): **−20%**. Ej. 100/mes rec
 ## 5. Duración y premium
 
 - **Duración: fija por destino.** No es configurable por socio ni por plan. Es una propiedad del destino (en Gesell, la estadía típica es de 7 días).
-- **Premium: 1 incluido, configurable por plan.** Es la única palanca comercial del pase-regalo, y alcanza. Una segunda perilla daría lugar a que cada socio negocie.
+- **Premium: 1 incluido, igual para todos.** Los tres tramos (`pro_1`, `pro_6`, `pro_12`) son **formas de pago**, no niveles de servicio: cambia el compromiso, no lo que recibe el socio. No hay un tramo que dé más premium que otro.
 - Más premium: el socio compra **upgrade packs** ($6.000 c/u, mínimo 10), que otorgan +1 premium cada uno.
 
 ---
 
-## 6. Conflicto a resolver: el ilimitado del PRO
+## 6. Tope de pases regalo
 
-El PRO de alojamiento hoy da **pases regalo ilimitados**. Una inmobiliaria toma PRO y distribuye gratis, con lo cual nadie compra tandas y el precio del distribuidor queda socavado por el propio plan de Cuponear.
+El plan pago daba pases regalo **ilimitados**, lo que socavaba el precio de las tandas: cualquier distribuidor tomaba el plan y repartía gratis.
 
-**Propuesta:** ponerle al PRO un cupo mensual de **150 pases**. Un alojamiento real nunca lo toca (20 unidades × rotación ≈ 60-100/mes), así que no se rompe el principio de que *el precio tiene que empujar el regalo, no gravarlo*. Por encima de ese número, compra tandas como cualquier distribuidor.
+**Resuelto:** tope mensual global de pases regalo, **editable desde los ajustes del superadmin**, que arranca en **150/mes**.
 
-**Pendiente de decisión.**
-
----
+- Un alojamiento real nunca lo toca (20 unidades × rotación ≈ 60-100/mes), así que no se rompe el principio de que *el precio tiene que empujar el regalo, no gravarlo*.
+- Por encima de ese número, el socio compra tandas como cualquier distribuidor.
+- Es un parámetro global, no un atributo del plan: se calibra con datos reales de temporada sin tocar código.
 
 ## 7. El límite real es la saturación del socio
 

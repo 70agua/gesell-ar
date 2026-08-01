@@ -163,7 +163,9 @@ Manda el que llegue primero. Avisar al socio antes de que venza. Job recurrente 
 
 **Turista:** elige fecha y cantidad de personas. **Sin texto libre.** Ve el estado: *"1 beneficio premium esperando respuesta"*. Puede cancelar una solicitud `ENVIADA`.
 
-**Socio:** bandeja en el panel con tres botones — **Sí / No / Proponer otra fecha**. Sin texto libre. `TabInbox` hoy es data mock; hay que construirla de verdad.
+**Socio:** bandeja en el panel con tres botones — **Sí / No / Proponer otra fecha**. Sin texto libre.
+
+`TabInbox` (hoy data mock) se construye acá, no en la Fase 7, y pasa a ser la **bandeja única del socio** con dos tipos filtrables: **consultas** (las que hoy sólo ve el superadmin) y **solicitudes de fecha**. Misma lógica que `TabPendientes` en el superadmin: un solo lugar donde mirar lo que espera respuesta, en vez de un tab por cada cosa.
 
 **Notificaciones** en cada cambio de estado, a las dos partes. Al socio, además, aviso previo al vencimiento.
 
@@ -209,8 +211,9 @@ Hoy el checkout hotelero promete un código que el panel no muestra. Promesa rot
 - [ ] Cupo mensual de regalos y consumo
 - [ ] Upgrade packs: saldo, compra, asignación — con el nuevo significado de +1 premium (§4.2)
 - [ ] Lista de huéspedes que activaron y ahorro generado
-- [ ] Reemplazar `TabEstadisticas` (hoy 100% hardcodeado) — requiere tracking real: `visitas` y `oferta_stats` están en 0 y nadie escribe en ellas
-- [ ] `TabInbox` hoy es mock; las consultas reales solo se ven en el superadmin
+- [ ] Reemplazar `TabEstadisticas` (hoy 100% hardcodeado) — **empezar por el tracking, no por la pantalla**: `visitas` y `oferta_stats` están en 0 y nadie escribe en ellas. Instrumentar vistas de ficha, vistas de oferta, clicks a contacto y canjes. Recién con eso arriba, la pantalla. Si el volumen es bajo, mostrar lo que haya y avisar que falta historial — **nunca rellenar con mock**.
+
+> `TabInbox` **NO se toca en esta fase**. Pasa a la Fase 5b, donde se convierte en la bandeja única del socio con dos tipos: consultas y solicitudes de fecha. Misma lógica que `TabPendientes` en el superadmin.
 
 ---
 

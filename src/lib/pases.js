@@ -59,11 +59,10 @@ export const esCategoriaPase = () => true;
 const esBase        = (promo) => (promo.ahorroEstimado || 0) <= AHORRO_BASE_MAX;
 const esPremium     = (promo) => (promo.ahorroEstimado || 0) >  AHORRO_BASE_MAX;
 
-// Flag de upsell (Brief 6): true si la oferta entra sin gastar elecciones.
-// Lo consume el detalle de oferta: "esto lo tenías incluido".
-export function incluidaEnPase(promo) {
-  return esBase(promo);
-}
+// `incluidaEnPase()` se eliminó (Fase 6): devolvía exactamente
+// `nivelEnPase(promo) === 'incluida'`, que es la función que ya consumen
+// OfertaCard y CtaPase. Dos nombres para la misma regla es justo cómo se
+// desincroniza una regla.
 
 // ─── Qué le pasa a una oferta cuando tenés pase ───────────────
 // DOS situaciones, y sólo dos. Es la regla que tiene que contar TODA la
@@ -280,17 +279,21 @@ export async function getOfertasPremium({ soloConCupo = true } = {}) {
     .filter(p => p.negocios?.activo !== false)
     .map(p => {
       const norm  = normalizePromo(p);
+      const ilimitado = p.premium_ilimitado === true;
       const cupo  = p.cupo_mensual_premium;
       const usados = usadosPorPromo.get(p.id) || 0;
       return {
         ...norm,
+        premiumIlimitado: ilimitado,
         cupoMensualPremium: cupo,
-        cupoRestante: cupo != null ? Math.max(0, cupo - usados) : null,
+        // `null` en cupoRestante significa "sin tope", no "sin datos".
+        cupoRestante: ilimitado ? null : (cupo != null ? Math.max(0, cupo - usados) : 0),
       };
     })
     .filter(p => !esAlojamiento(p) && esPremium(p))
-    .filter(p => (p.cupoMensualPremium || 0) > 0)          // el socio habilitó premium
-    .filter(p => !soloConCupo || (p.cupoRestante || 0) > 0);
+    // El socio eligió participar: o puso un cupo, o dijo ilimitado.
+    .filter(p => p.premiumIlimitado || (p.cupoMensualPremium || 0) > 0)
+    .filter(p => !soloConCupo || p.premiumIlimitado || (p.cupoRestante || 0) > 0);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -461,6 +464,39 @@ export async function elegirPremium(usuarioPaseId, promocionId) {
   return data; // { ok } | { ok:false, error }
 }
 
+// §4.3: los slots se OCUPAN, no se consumen. Soltar una elección devuelve el
+// slot, siempre que todavía no se haya canjeado — ahí sí queda congelado.
+export async function quitarPremium(usuarioPaseId, promocionId) {
+  const { data, error } = await supabase.rpc('quitar_premium_pase', {
+    p_usuario_pase_id: usuarioPaseId, p_promocion_id: promocionId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data?.ok) return { ok: false, error: data?.error };
+  return { ok: true };
+}
+
+// ─── Activación ───────────────────────────────────────────────
+// Server-side: la activación define la vigencia, así que no puede depender
+// del reloj del cliente.
+export async function activarPaseAhora(usuarioPaseId) {
+  const { data, error } = await supabase.rpc('activar_pase', { p_usuario_pase_id: usuarioPaseId });
+  if (error) return { ok: false, error: error.message };
+  if (!data?.ok) return { ok: false, error: data?.error };
+  return { ok: true, dias: data.dias, venceEl: data.vence_el, yaEstaba: !!data.ya_estaba };
+}
+
+// Programar el arranque. `fecha` null desprograma.
+// Es lo que le permite al turista comprar, pedir fechas (Fase 5b) y recién
+// arrancar el día que viaja, sin quemar días esperando respuestas.
+export async function programarActivacion(usuarioPaseId, fecha) {
+  const { data, error } = await supabase.rpc('programar_activacion_pase', {
+    p_usuario_pase_id: usuarioPaseId, p_fecha: fecha || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data?.ok) return { ok: false, error: data?.error, limite: data?.limite };
+  return { ok: true, fecha: data.fecha };
+}
+
 export async function getElecciones(usuarioPaseId) {
   const { data } = await supabase
     .from('pase_elecciones')
@@ -473,139 +509,39 @@ export async function getElecciones(usuarioPaseId) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  Canje (flujo QR en el comercio). 1 por comercio por pase.
-//  Elegibilidad: base por tramo/categoría, o premium ya elegida.
-//  Snapshot de ahorro. +100 puntos si comprado o upgradeado.
+//  Canje — DELEGADO al mecanismo único (Fase 5).
+//
+//  Acá vivían `canjearPase()` y `canjearEstadia()`, que escribían
+//  `pase_canjes` y sólo se alcanzaban desde PaseDebugView. Eran el segundo
+//  camino de canje, en paralelo al del cupón comprado.
+//
+//  Ahora los dos pasan por la RPC `canjear_beneficio`, que valida del lado
+//  del servidor (elegibilidad base/premium, 1 canje por comercio, estadía
+//  una sola vez), escribe el libro único `canjes` y acredita los puntos.
+//  Estas funciones quedan como envoltorio para lo que todavía las llama.
+//
+//  La promoción alcanza para resolver todo: la RPC busca sola el pase activo
+//  del usuario de la sesión, así que `usuarioPaseId` y `userId` se ignoran.
 // ═══════════════════════════════════════════════════════════
-export async function canjearPase({ usuarioPaseId, userId, promocionId }) {
-  const { data: up } = await supabase
-    .from('usuario_pases').select('*').eq('id', usuarioPaseId).single();
-  if (!up) return { ok: false, error: 'pase_no_encontrado' };
-
-  // Alojamiento va por la ruta de estadía: no exige el pase activado ni
-  // consume días. Se resuelve antes del chequeo de estado.
-  const { data: rawAloj } = await supabase
-    .from('promociones')
-    .select('id, negocios(tipo)')
-    .eq('id', promocionId)
-    .single();
-  if (TIPOS_ALOJAMIENTO.has(rawAloj?.negocios?.tipo || '')) {
-    return canjearEstadia({ usuarioPaseId, userId, promocionId, usuarioPase: up });
-  }
-
-  if (up.estado !== 'activo') return { ok: false, error: 'pase_no_activo' };
-  if (up.vence_el && new Date(up.vence_el).getTime() < Date.now()) {
-    await supabase.from('usuario_pases').update({ estado: 'vencido' }).eq('id', usuarioPaseId);
-    return { ok: false, error: 'pase_vencido' };
-  }
-
-  const { data: rawPromo } = await supabase
-    .from('promociones')
-    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
-    .eq('id', promocionId)
-    .single();
-  if (!rawPromo || rawPromo.activa !== true) return { ok: false, error: 'promo_no_disponible' };
-  const promo = normalizePromo(rawPromo);
-
-  // Elegibilidad: base (tramo 25/20) directa; premium (15/10/7) sólo si fue elegida
-  let elegible = esBase(promo);
-  if (!elegible && esPremium(promo)) {
-    const { data: el } = await supabase
-      .from('pase_elecciones')
-      .select('id')
-      .eq('usuario_pase_id', usuarioPaseId)
-      .eq('promocion_id', promocionId)
-      .maybeSingle();
-    elegible = !!el;
-  }
-  if (!elegible) return { ok: false, error: 'no_elegible' };
-
-  const ahorro = promo.ahorroEstimado || 0;
-  const { error } = await supabase.from('pase_canjes').insert({
-    usuario_pase_id: usuarioPaseId,
-    promocion_id:    promocionId,
-    negocio_id:      promo.negocioId,
-    ahorro_monto:    ahorro,
-  });
-  if (error) {
-    if (error.code === '23505') return { ok: false, error: 'ya_canjeado_comercio' };
-    return { ok: false, error: error.message };
-  }
-
-  // Puntos: solo pase comprado o upgradeado. Regalo sin upgrade = 0.
-  if (up.tipo === 'comprado' || up.upgrade_aplicado) {
-    await acreditarPuntos(userId, PUNTOS_PASE.canje, 'pase_canje', 'Canje con el Pase', usuarioPaseId);
-  }
-  return { ok: true, ahorro };
+export async function canjearPase({ promocionId }) {
+  const { data, error } = await supabase.rpc('canjear_beneficio', { p_tipo: 'pase', p_ref: promocionId });
+  if (error) return { ok: false, error: error.message };
+  if (!data?.ok) return { ok: false, error: data?.error };
+  return { ok: true, ahorro: Number(data.ahorro) || 0, comprobante: data.comprobante };
 }
 
-// ═══════════════════════════════════════════════════════════
-//  Canje del descuento de estadía (alojamiento).
-//  Es el que se puede usar ANTES de viajar: acepta el pase en
-//  'pendiente' (dentro de la ventana de activación) y no toca
-//  fecha_activacion ni vence_el — los días del pase no arrancan acá.
-// ═══════════════════════════════════════════════════════════
-export async function canjearEstadia({ usuarioPaseId, userId, promocionId, usuarioPase = null }) {
-  const up = usuarioPase || (await supabase
-    .from('usuario_pases').select('*').eq('id', usuarioPaseId).single()).data;
-  if (!up) return { ok: false, error: 'pase_no_encontrado' };
-  // Los pases-regalo del hotelero vienen sin estadía (no financia la
-  // reserva de la competencia). Legacy sin la columna → se asume incluida.
-  if (up.incluye_estadia === false) return { ok: false, error: 'estadia_no_incluida' };
-  if (up.estadia_usada_el) return { ok: false, error: 'estadia_ya_usada' };
+// La estadía la resuelve la misma RPC: si la promo es de un alojamiento,
+// entra por la rama 'estadia' sola.
+export const canjearEstadia = canjearPase;
 
-  // Pendiente: vale mientras no se pase la ventana de 12 meses desde la
-  // compra. Activo: vale mientras el pase no haya vencido.
-  if (up.estado === 'pendiente') {
-    const limite = new Date(up.fecha_compra).getTime() + VENTANA_ACTIVACION_MESES * 30 * 24 * 3600 * 1000;
-    if (Date.now() > limite) return { ok: false, error: 'ventana_vencida' };
-  } else if (up.estado === 'activo') {
-    if (up.vence_el && new Date(up.vence_el).getTime() < Date.now()) {
-      await supabase.from('usuario_pases').update({ estado: 'vencido' }).eq('id', usuarioPaseId);
-      return { ok: false, error: 'pase_vencido' };
-    }
-  } else {
-    return { ok: false, error: 'pase_no_activo' };
-  }
-
-  const { data: rawPromo } = await supabase
-    .from('promociones')
-    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
-    .eq('id', promocionId)
-    .single();
-  if (!rawPromo || rawPromo.activa !== true) return { ok: false, error: 'promo_no_disponible' };
-  const promo = normalizePromo(rawPromo);
-  if (!esOfertaEstadia(promo)) return { ok: false, error: 'no_es_estadia' };
-
-  const ahorro = promo.ahorroEstimado || 0;
-  const { error } = await supabase.from('pase_canjes').insert({
-    usuario_pase_id: usuarioPaseId,
-    promocion_id:    promocionId,
-    negocio_id:      promo.negocioId,
-    ahorro_monto:    ahorro,
-  });
-  if (error) {
-    if (error.code === '23505') return { ok: false, error: 'ya_canjeado_comercio' };
-    return { ok: false, error: error.message };
-  }
-
-  const { error: e2 } = await supabase
-    .from('usuario_pases')
-    .update({ estadia_usada_el: new Date().toISOString(), estadia_promocion_id: promocionId })
-    .eq('id', usuarioPaseId);
-  if (e2) return { ok: false, error: e2.message };
-
-  if (up.tipo === 'comprado' || up.upgrade_aplicado) {
-    await acreditarPuntos(userId, PUNTOS_PASE.canje, 'pase_canje', 'Descuento de estadía', usuarioPaseId);
-  }
-  return { ok: true, ahorro, estadia: true };
-}
-
+// Los canjes del Pase viven en `canjes`, el libro ÚNICO que comparten el
+// cupón comprado y el Pase (Fase 5). `pase_canjes` quedó obsoleta.
 export async function getCanjes(usuarioPaseId) {
   const { data } = await supabase
-    .from('pase_canjes')
+    .from('canjes')
     .select('*, promociones(titulo), negocios(nombre)')
     .eq('usuario_pase_id', usuarioPaseId)
+    .eq('estado', 'confirmado')
     .order('canjeado_el', { ascending: false });
   return data || [];
 }
@@ -613,9 +549,10 @@ export async function getCanjes(usuarioPaseId) {
 // Contador de ahorro del viaje ("Ahorraste $X este viaje").
 export async function getAhorroPase(usuarioPaseId) {
   const { data } = await supabase
-    .from('pase_canjes')
+    .from('canjes')
     .select('ahorro_monto')
-    .eq('usuario_pase_id', usuarioPaseId);
+    .eq('usuario_pase_id', usuarioPaseId)
+    .eq('estado', 'confirmado');
   return (data || []).reduce((acc, c) => acc + (Number(c.ahorro_monto) || 0), 0);
 }
 

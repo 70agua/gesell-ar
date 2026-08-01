@@ -3,6 +3,7 @@
 // ============================================================
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { calcularPrecioCupon, CREDITO_TOTAL } from './cobros';
+import { trackAgregarCarrito } from './tracking';
 
 const CarritoContext = createContext(null);
 
@@ -84,6 +85,8 @@ export function CarritoProvider({ children, session, onLoginRequired, onCheckout
 
   // Inserta el cupón (dedupe por id) y abre el drawer.
   const insertarCupon = useCallback((oferta) => {
+    // Se mide acá y no en cada vista: es el único camino al carrito.
+    if (oferta?.id) trackAgregarCarrito(oferta.id);
     const cupon = ofertaToCupon(oferta);
     setCupones(prev => {
       if (prev.some(c => c.id === cupon.id)) return prev;

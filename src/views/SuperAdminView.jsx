@@ -7,6 +7,8 @@ import { TabOfertas as SocioOfertasEditor } from './AdminNegocioView';
 import { CoinSVG } from '../components/Token';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
+import { getVentasPendientes, confirmarVentaTransferencia, anularVentaPendiente } from '../lib/compras';
+import { getCanjesReportados, anularCanje, descartarReporteCanje } from '../lib/canjes';
 import { getPlanesPro, actualizarPlanCopy } from '../lib/planes';
 import { supabase } from '../lib/supabase';
 import { PORTADA_CATEGORIAS, listarPortadasAdmin, crearPortada, actualizarPortada, eliminarPortada } from '../lib/portadas';
@@ -55,7 +57,7 @@ const A = {
 const TABS = [
   { id: 'resumen',   label: 'Resumen'   },
   { id: 'socios',    label: 'Socios comerciales' },
-  { id: 'creditos',  label: 'Créditos publicitarios' },
+  { id: 'pendientes', label: 'Pendientes' },
   { id: 'turistas',  label: 'Turistas'  },
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'estadisticas', label: 'Estadísticas y ventas' },
@@ -119,7 +121,7 @@ function Sidebar({ tab, setTab, subTab, setSubTab, stats, perfil, onLogout, onGo
       <nav style={{ display:'flex', flexDirection:'column', gap:2, marginTop:10 }}>
         {TABS.map(t => {
           const active = tab === t.id;
-          const badge = t.id === 'marketplace' ? stats.ofertas : t.id === 'consultas' ? stats.consultas : 0;
+          const badge = t.id === 'pendientes' ? stats.pendientes : t.id === 'marketplace' ? stats.ofertas : t.id === 'consultas' ? stats.consultas : 0;
           // El badge de consultas es un círculo de notificación rojo (mensajes sin leer de Cuponix).
           const esNotif = t.id === 'consultas';
           return (
@@ -190,6 +192,8 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
   const [ofertas, setOfertas]     = useState([]);
   const [ventas, setVentas]       = useState([]);
   const [compras, setCompras]     = useState([]);   // token_compras — créditos publicitarios
+  const [ventasPend, setVentasPend] = useState([]); // ventas por transferencia sin confirmar
+  const [canjesRep, setCanjesRep]   = useState([]); // canjes reportados por el socio
   const [loading, setLoading]     = useState(true);
   const [toast, setToast]         = useState(null);
   const [negocioEditando, setNegocioEditando] = useState(null);
@@ -229,6 +233,8 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     }
     if (ventRes.data) setVentas(ventRes.data);
     if (comRes.data) setCompras(comRes.data);
+    setVentasPend(await getVentasPendientes());
+    setCanjesRep(await getCanjesReportados());
     setLoading(false);
   }
 
@@ -264,6 +270,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     activos:    negocios.filter(n => n.activo).length,
     inactivos:  negocios.filter(n => !n.activo).length,
     creditosVendidos: compras.reduce((acc, c) => acc + (Number(c.cantidad) || 0), 0),
+    pendientes: compras.filter(c => PAGO_A_CONCILIAR.has(c.forma_pago)).length + ventasPend.length + canjesRep.length,
     consultas:  consultas.filter(c => !c.leida).length,
     ofertas:    ofertasPendientes,
     ventas:     ventas.length,
@@ -322,7 +329,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
           <>
             {tab === 'resumen'   && <TabResumen stats={stats} negocios={negocios} consultas={consultas} ofertas={ofertas} ventas={ventas} onEditarSocio={onEditarSocio} setTab={setTab} setOfertas={setOfertas} showToast={showToast} onActualizar={cargarTodo} />}
             {tab === 'socios'    && <TabNegocios negocios={negocios} onToggle={toggleActivo} onEditarComoSocio={onEditarSocio} onActualizar={cargarTodo} />}
-            {tab === 'creditos'  && <TabCreditos compras={compras} />}
+            {tab === 'pendientes' && <TabPendientes compras={compras} ventas={ventasPend} canjes={canjesRep} onActualizar={cargarTodo} showToast={showToast} />}
             {tab === 'turistas'  && <TabTuristas usuarios={turistas} onToggle={toggleActivoUsuario} onActualizar={cargarTodo} />}
             {tab === 'marketplace' && <TabMarketplace ofertas={ofertas} setOfertas={setOfertas} showToast={showToast} negocioEditando={negocioEditando} setNegocioEditando={setNegocioEditando} filtroNegocioId={filtroNegocioId} setFiltroNegocioId={setFiltroNegocioId} negocios={negocios} onActualizar={cargarTodo} />}
             {tab === 'consultas' && <TabConsultas consultas={consultas} onLeer={marcarLeida} />}
@@ -353,7 +360,7 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
 
   const kpis = [
     { t:'Socios activos',  v: stats.activos,    d:'+4 este mes',        bg:'#E8F5EC', col:A.green  },
-    { t:'Créditos vendidos', v: stats.creditosVendidos, d:'a socios',       bg:'#FFF7E5', col:'#C28A1B' },
+    { t:'Pendientes',        v: stats.pendientes,       d:'esperan decisión', bg:'#FFF7E5', col:'#C28A1B' },
     { t:'Ofertas pend.',   v: stats.ofertas,    d:'revisión requerida',  bg:A.primarySoft, col:A.primary },
     { t:'Ventas totales',  v: stats.ventas,     d:`$${stats.ingresos.toLocaleString('es-AR')} acumulados`, bg:'#F3E8FF', col:'#7A3FD8' },
   ];
@@ -462,11 +469,12 @@ function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, s
 }
 
 // ═══════════════════════════════════════════════════════════
-//  TAB: CRÉDITOS PUBLICITARIOS
-//  Historial de compras. Los créditos se acreditan solos al comprar, sin
-//  aprobación de nadie: acá no se habilita nada, se mira.
-//  Lo único que aporta es separar las compras por transferencia y efectivo,
-//  que son las que hay que ir a chequear contra el banco o la caja.
+//  TAB: PENDIENTES — bandeja única
+//
+//  Antes había un tab por cada cosa que esperaba una decisión: créditos por
+//  transferencia, ventas por transferencia y ahora canjes reportados. Tres
+//  lugares distintos para el mismo gesto (mirar algo y decidir) hacen que
+//  alguno se quede sin mirar. Es una sola bandeja con filtro por tipo.
 // ═══════════════════════════════════════════════════════════
 const FORMA_PAGO_LABEL = {
   transferencia: 'Transferencia',
@@ -475,43 +483,79 @@ const FORMA_PAGO_LABEL = {
   tarjeta:       'Tarjeta',
 };
 
+// Las compras de créditos que hay que ir a chequear contra el banco o la caja.
+const PAGO_A_CONCILIAR = new Set(['transferencia', 'efectivo']);
+
 const fmtFechaCompra = iso => iso
   ? new Date(iso).toLocaleDateString('es-AR', { day:'numeric', month:'short' })
   : null;
 
-// Las que hay que ir a chequear a mano contra el banco o la caja.
-const PAGO_A_CONCILIAR = new Set(['transferencia', 'efectivo']);
+const fmtPesos = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-AR');
 
-function TabCreditos({ compras }) {
-  const [filtro, setFiltro] = useState('conciliar');   // conciliar | online | todas
+// Una fila de la bandeja, con la misma gramática para los tres tipos:
+// qué pasó · de quién · cuánto · qué se puede hacer.
+function FilaPendiente({ icono, titulo, detalle, monto, acciones, tono = 'neutro', ultima }) {
+  const fondo = { neutro: A.primarySoft, alerta: '#FFF7E5' }[tono] || A.primarySoft;
+  return (
+    <div style={{
+      display:'flex', alignItems:'center', gap:14, padding:'14px 16px', flexWrap:'wrap',
+      borderBottom: ultima ? 'none' : `1px solid ${A.line}`,
+    }}>
+      <div style={{ width:38, height:38, borderRadius:11, background:fondo, display:'grid', placeItems:'center', flexShrink:0, fontSize:17 }}>
+        {icono}
+      </div>
+      <div style={{ flex:1, minWidth:190 }}>
+        <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink }}>{titulo}</div>
+        <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginTop:2, lineHeight:1.45 }}>{detalle}</div>
+      </div>
+      {monto != null && (
+        <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink, minWidth:96, textAlign:'right' }}>
+          {fmtPesos(monto)}
+        </div>
+      )}
+      <div style={{ display:'flex', gap:8, flexShrink:0 }}>{acciones}</div>
+    </div>
+  );
+}
 
-  const aConciliar = compras.filter(c => PAGO_A_CONCILIAR.has(c.forma_pago));
-  const listadas =
-    filtro === 'conciliar' ? aConciliar :
-    filtro === 'online'    ? compras.filter(c => !PAGO_A_CONCILIAR.has(c.forma_pago)) :
-    compras;
+function TabPendientes({ compras, ventas, canjes, onActualizar, showToast }) {
+  const [filtro, setFiltro]   = useState('todos');
+  const [enCurso, setEnCurso] = useState(null);
 
-  const totalListado = listadas.reduce((acc, c) => acc + (Number(c.total_con_iva) || 0), 0);
-  const credsListados = listadas.reduce((acc, c) => acc + (Number(c.cantidad) || 0), 0);
+  const creditos = compras.filter(c => PAGO_A_CONCILIAR.has(c.forma_pago));
 
-  const FILTROS = [
-    { id: 'conciliar', label: `Transferencia y efectivo (${aConciliar.length})` },
-    { id: 'online',    label: 'Tarjeta y MercadoPago' },
-    { id: 'todas',     label: 'Todas' },
+  const TIPOS = [
+    { id: 'todos',    label: `Todo (${creditos.length + ventas.length + canjes.length})` },
+    { id: 'canjes',   label: `Canjes reportados (${canjes.length})` },
+    { id: 'ventas',   label: `Ventas por confirmar (${ventas.length})` },
+    { id: 'creditos', label: `Créditos por conciliar (${creditos.length})` },
   ];
+  const ver = id => filtro === 'todos' || filtro === id;
+
+  async function correr(clave, fn, exito) {
+    setEnCurso(clave);
+    const res = await fn();
+    setEnCurso(null);
+    if (!res.ok) return showToast(`No se pudo: ${res.error}`, 'error');
+    showToast(exito);
+    onActualizar();
+  }
+
+  const vacia = (ver('canjes') ? canjes.length : 0) + (ver('ventas') ? ventas.length : 0)
+              + (ver('creditos') ? creditos.length : 0) === 0;
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
       <div style={{ background:A.primarySoft, border:`1px solid ${A.line}`, borderRadius:14, padding:'14px 16px' }}>
-        <div style={{ fontFamily:A.font, fontSize:13, color:A.ink2 }}>
-          Los créditos se acreditan solos al comprar — acá no se habilita nada.
-          Esta lista es para conciliar: las compras por <strong>transferencia y efectivo</strong> son
-          las que hay que verificar contra el banco o la caja.
+        <div style={{ fontFamily:A.font, fontSize:13, color:A.ink2, lineHeight:1.5 }}>
+          Todo lo que espera una decisión, en un solo lugar. Los <b>canjes reportados</b> y las
+          <b> ventas por transferencia</b> tienen a alguien esperando del otro lado; los
+          <b> créditos</b> son conciliación contra el banco.
         </div>
       </div>
 
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {FILTROS.map(f => (
+        {TIPOS.map(f => (
           <button key={f.id} onClick={() => setFiltro(f.id)} style={{
             border: `1px solid ${filtro === f.id ? A.primary : A.line}`,
             background: filtro === f.id ? A.primarySoft : '#fff',
@@ -522,49 +566,60 @@ function TabCreditos({ compras }) {
       </div>
 
       <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:16, overflow:'hidden' }}>
-        {listadas.length === 0 && (
-          <div style={{ padding:'40px 18px', textAlign:'center', fontFamily:A.font, fontSize:13, color:A.muted }}>
-            Sin compras acá todavía.
+        {vacia && (
+          <div style={{ padding:'44px 18px', textAlign:'center', fontFamily:A.font, fontSize:13, color:A.muted }}>
+            No hay nada esperando.
           </div>
         )}
-        {listadas.map((c, i) => (
-          <div key={c.id} style={{
-            display:'flex', alignItems:'center', gap:14, padding:'14px 16px', flexWrap:'wrap',
-            borderBottom: i === listadas.length - 1 ? 'none' : `1px solid ${A.line}`,
-          }}>
-            <div style={{ width:38, height:38, borderRadius:11, background:A.primarySoft, display:'grid', placeItems:'center', flexShrink:0 }}>
-              <CoinSVG size={20} />
-            </div>
 
-            <div style={{ flex:1, minWidth:180 }}>
-              <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink }}>
-                {c.negocios?.nombre || 'Socio sin nombre'}
-              </div>
-              <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginTop:2 }}>
-                {c.cantidad} crédito{c.cantidad !== 1 ? 's' : ''} · {FORMA_PAGO_LABEL[c.forma_pago] || c.forma_pago}
-                {c.descuento_pct > 0 ? ` · ${c.descuento_pct}% off` : ''}
-                {c.creado_en ? ` · ${fmtFechaCompra(c.creado_en)}` : ''}
-              </div>
-            </div>
+        {/* ── Canjes reportados: es lo que tiene a un turista sin su cupón ── */}
+        {ver('canjes') && canjes.map((c, i) => (
+          <FilaPendiente key={c.id} icono="⚠️" tono="alerta"
+            ultima={i === canjes.length - 1 && !ver('ventas') && !ver('creditos')}
+            titulo={`Canje reportado · ${c.comprobante}`}
+            detalle={`${c.negocios?.nombre || 'socio'} — ${c.promociones?.titulo || 'oferta'} · ${c.reporte_motivo || 'sin motivo'} · ${fmtFechaCompra(c.reportado_el) || ''}`}
+            monto={c.ahorro_monto}
+            acciones={<>
+              <ABtn variant="danger" style={{ fontSize:12, padding:'7px 12px' }}
+                onClick={() => correr(c.id, () => anularCanje(c.id, c.reporte_motivo), 'Canje anulado — el cupón volvió al turista')}>
+                {enCurso === c.id ? 'Anulando…' : 'Anular canje'}
+              </ABtn>
+              <ABtn style={{ fontSize:12, padding:'7px 12px' }}
+                onClick={() => correr(c.id, () => descartarReporteCanje(c.id), 'Reporte descartado — el canje queda como está')}>
+                Estaba bien
+              </ABtn>
+            </>} />
+        ))}
 
-            <div style={{ fontFamily:A.font, fontSize:14, fontWeight:700, color:A.ink, minWidth:100, textAlign:'right' }}>
-              ${Number(c.total_con_iva || 0).toLocaleString('es-AR')}
-            </div>
+        {/* ── Ventas por transferencia ── */}
+        {ver('ventas') && ventas.map((v, i) => (
+          <FilaPendiente key={v.id} icono="🧾" tono="alerta"
+            ultima={i === ventas.length - 1 && !ver('creditos')}
+            titulo={`Venta por transferencia · ${(v.venta_items || []).length} cupón(es)`}
+            detalle={`${(v.venta_items || []).map(it => it.promociones?.titulo).filter(Boolean).join(' · ') || 'sin detalle'}${v.puntos_usados > 0 ? ` · ${v.puntos_usados} puntos aplicados` : ''} · ${fmtFechaCompra(v.creado_en) || ''}`}
+            monto={v.monto_total}
+            acciones={<>
+              <ABtn variant="success" style={{ fontSize:12, padding:'7px 12px' }}
+                onClick={() => correr(v.id, () => confirmarVentaTransferencia(v.id), 'Cupones emitidos y cashback acreditado')}>
+                {enCurso === v.id ? 'Emitiendo…' : 'Confirmar pago'}
+              </ABtn>
+              <ABtn variant="danger" style={{ fontSize:12, padding:'7px 12px' }}
+                onClick={() => correr(v.id, () => anularVentaPendiente(v.id), 'Venta anulada')}>Anular</ABtn>
+            </>} />
+        ))}
 
-            {PAGO_A_CONCILIAR.has(c.forma_pago) && (
-              <span style={{ background:'#FFF7E5', color:'#8A6412', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:600, fontFamily:A.font, flexShrink:0 }}>
-                Verificar cobro
-              </span>
-            )}
-          </div>
+        {/* ── Créditos por conciliar: no bloquean a nadie, se verifican ── */}
+        {ver('creditos') && creditos.map((c, i) => (
+          <FilaPendiente key={c.id} icono={<CoinSVG size={19} />}
+            ultima={i === creditos.length - 1}
+            titulo={`${c.negocios?.nombre || 'Socio'} · ${c.cantidad} crédito${c.cantidad !== 1 ? 's' : ''}`}
+            detalle={`${FORMA_PAGO_LABEL[c.forma_pago] || c.forma_pago}${c.descuento_pct > 0 ? ` · ${c.descuento_pct}% off` : ''} · ${fmtFechaCompra(c.creado_en) || ''} — ya acreditados, falta verificar que entró la plata`}
+            monto={c.total_con_iva}
+            acciones={<span style={{ fontFamily:A.font, fontSize:11, fontWeight:600, color:'#8A6412', background:'#FFF7E5', padding:'4px 10px', borderRadius:999 }}>
+              Verificar cobro
+            </span>} />
         ))}
       </div>
-
-      {listadas.length > 0 && (
-        <div style={{ fontFamily:A.font, fontSize:12.5, color:A.muted, textAlign:'right' }}>
-          {listadas.length} compra{listadas.length !== 1 ? 's' : ''} · {credsListados} créditos · ${totalListado.toLocaleString('es-AR')}
-        </div>
-      )}
     </div>
   );
 }

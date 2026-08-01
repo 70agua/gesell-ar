@@ -4,7 +4,7 @@
 // ============================================================
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { getOfertasDestacadas } from '../lib/datos';
+import { getPromos } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'60px 0' }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { useCarrito } from '../lib/carrito';
 import { ALL_PROMOS } from '../data/mockData';
@@ -114,9 +114,14 @@ export default function OfertasRegaloView({ onBack, onOpenOferta }) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      let data = await getOfertasDestacadas();
-      // Si no hay destacadas en DB todavía, mostramos las primeras promos como respaldo
-      if (!data || data.length === 0) data = ALL_PROMOS.slice(0, 12);
+      // Ofertas de regalo = las que no se cobran (`tokens_costo === 0`).
+      // Antes esto leía `getOfertasDestacadas()`, que filtraba por una columna
+      // `destacada_home` que no existe en la base: la query fallaba y la vista
+      // caía SIEMPRE al mock. Ahora lee datos reales, con el mock de respaldo
+      // mientras no haya suficientes ofertas de regalo cargadas.
+      const todas = await getPromos(300);
+      let data = (todas || []).filter(p => p.tokens_costo === 0);
+      if (data.length === 0) data = ALL_PROMOS.slice(0, 12);
       setOfertas(data);
       setLoading(false);
     })();

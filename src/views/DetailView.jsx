@@ -18,6 +18,7 @@ import { supabase }                                    from '../lib/supabase';
 import { getPromosDeNegocio, getAlianzasPorNegocio, getPromosLocalidad } from '../lib/datos';
 import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
 import { useCarrito } from '../lib/carrito';
+import { trackVistaFicha } from '../lib/tracking';
 import CtaPase from '../components/CtaPase';
 import useMiPase from '../hooks/useMiPase';
 import { elegirPremium } from '../lib/pases';
@@ -1697,6 +1698,10 @@ const CLASE_PLURAL = {
 };
 
 export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired, onComprarPase }) {
+  // El tracking va antes del return temprano: los hooks no pueden quedar
+  // detrás de una condición. La visita se cuenta una vez por pestaña.
+  useEffect(() => { if (item?.id) trackVistaFicha(item.id); }, [item?.id]);
+
   if (!item) return null;
 
   const { addCupon } = useCarrito();

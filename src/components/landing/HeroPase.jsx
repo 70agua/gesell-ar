@@ -25,6 +25,7 @@
 // ============================================================
 
 import { useEffect, useRef, useState } from 'react';
+import usePaseStats from '../../hooks/usePaseStats';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -115,6 +116,7 @@ const MOBILE_DECO = [
 
 export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }) {
   const [cols] = useState(buildColumns);
+  const stats = usePaseStats();
   const rafRef  = useRef(0);
   const heroRef = useRef(null);
   const colRefs = useRef([]);
@@ -214,7 +216,12 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
                  segundo titular. El link de explorar va acá, al final de la
                  frase: es el camino del que todavía no compra. */}
           <p className="pv3-sub">
-            Un pase y listo: descuentos en alojamiento, restaurantes, salidas y compras de toda la ciudad.{' '}
+            Un pase y listo: descuentos en alojamiento, restaurantes, salidas y compras de toda la ciudad.
+            {/* Datos vivos del catálogo, nunca hardcodeados: si la consulta
+                falla o el catálogo está vacío, la línea no aparece. */}
+            {stats.ok && (
+              <> Ya son <b>{stats.lugares} lugares</b> y hasta <b>${stats.ahorro}</b> de ahorro.</>
+            )}{' '}
             <button className="pv3-link" onClick={() => onVerDescuentos?.()}>Mirá todo lo que entra</button>
           </p>
 
@@ -246,7 +253,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           <div className="pv3-b2b">
             <span className="pv3-b2b-txt">¿Tenés un alojamiento ó agencia de turismo?</span>
             <button className="pv3-b2b-cta" onClick={suscribir}>
-              Regalá pases con descuentos a tus clientes <span aria-hidden="true">→</span>
+              Regalá pases  <span aria-hidden="true">→</span>
             </button>
           </div>
         </div>

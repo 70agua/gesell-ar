@@ -283,19 +283,6 @@ export async function getPromos(limit = 8) {
     .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash).getTime() > now));
 }
 
-// ─── Ofertas destacadas para la home ──────────────────────────
-export async function getOfertasDestacadas() {
-  const { data } = await supabase
-    .from('promociones')
-    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
-    .eq('activa', true)
-    .eq('aprobada', true)
-    .eq('destacada_home', true)
-    .order('creado_en', { ascending: false });
-
-  return (data || []).filter(p => p.negocios?.activo !== false).map(normalizePromo);
-}
-
 // ─── Promos propias de un negocio ─────────────────────────────
 export async function getPromosDeNegocio(negocioId) {
   const { data } = await supabase

@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import PaSSMark from './PaSSMark';
 import { secondsUntil } from '../lib/ofertas';
-import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
+import { precioActivacionARS, creditosActivacion, esCuponDeEntrada, gananciaNeta } from '../lib/cobros';
 import HeartButton from './HeartButton';
 import { CreditTooltip } from './InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
@@ -44,6 +44,7 @@ const MODALIDAD_AHORRO = {
 };
 function ahorroLegend(promo) {
   if (promo.categoria !== 'alojamiento') return null;
+  if (esCuponDeEntrada(promo.ahorroEstimado)) return null;   // ya no es un ahorro sobre la estadía
   return MODALIDAD_AHORRO[promo.ahorroModalidad] || 'en toda la estadía';
 }
 
@@ -164,8 +165,14 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, gr
 // ─── Franja "Ahorrás $X aprox. · Ganás X pts." ────────────────
 //  Fila principal en una sola línea (se achica si no entra). Si hay
 //  leyenda (alojamientos) va en un renglón aparte, agrandando el recuadro.
+// En los cupones de entrada (ahorro < $10.000) el ahorro bruto se lee mal:
+// con ratio 2x, "ahorrás $5.000" al lado de "pagás $2.500" invita a hacer la
+// resta. Ahí se muestra la GANANCIA NETA, que es lo que el turista se lleva
+// de verdad.
 function FranjaAhorro({ ahorroEstimado, legend }) {
   const pts = calcPts(ahorroEstimado);
+  const entrada = esCuponDeEntrada(ahorroEstimado);
+  const monto   = entrada ? gananciaNeta(ahorroEstimado) : ahorroEstimado;
   const outerRef = useRef(null);
   const innerRef = useRef(null);
   const [scale, setScale] = useState(1);
@@ -191,9 +198,9 @@ function FranjaAhorro({ ahorroEstimado, legend }) {
       <div ref={outerRef} style={{ overflow: 'hidden' }}>
         <div ref={innerRef} style={{ display: 'flex', width: 'max-content', minWidth: '100%', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, whiteSpace: 'nowrap', transform: `scale(${scale})`, transformOrigin: 'left center' }}>
           <span style={{ color: A.green }}>
-            <span style={{ fontSize: 11, fontWeight: 700 }}>Ahorrás </span>
-            <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(ahorroEstimado)} </span>
-            <span style={{ fontSize: 11, fontWeight: 700 }}>aprox.</span>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>{entrada ? 'Ganás ' : 'Ahorrás '}</span>
+            <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(monto)} </span>
+            <span style={{ fontSize: 11, fontWeight: 700 }}>{entrada ? 'netos' : 'aprox.'}</span>
           </span>
           {pts > 0 && (
             <span style={{ fontSize: 11, fontStyle: 'italic', fontWeight: 600, color: A.green }}>Ganás {pts.toLocaleString('es-AR')} pts.</span>

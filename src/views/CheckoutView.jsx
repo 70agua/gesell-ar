@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useCarrito } from '../lib/carrito';
 import { getPuntos, pesosDePuntos, puntosDeCompra } from '../lib/gamificacion';
 import { consumirImpulso } from '../lib/impulso';
+import { registrarCompra } from '../lib/compras';
 
 const A = {
   ink:         '#0B1020',
@@ -110,7 +111,7 @@ function CuponRow({ c }) {
 }
 
 // ── Vista de éxito post-pago (v1 inline, reemplazar con PostPagoView en ítem 4) ──
-function SuccessState({ cupones, cashback, onDone }) {
+function SuccessState({ cashback, codigos = [], onDone }) {
   return (
     <div style={{ textAlign: 'center', padding: '60px 24px', maxWidth: 480, margin: '0 auto' }}>
       <div style={{
@@ -124,7 +125,7 @@ function SuccessState({ cupones, cashback, onDone }) {
         ¡Cupones activados!
       </h2>
       <p style={{ margin: '0 0 24px', fontSize: 15, color: A.ink2, lineHeight: 1.5 }}>
-        Tus {cupones.length === 1 ? 'cupón está listo' : `${cupones.length} cupones están listos'`} para canjear en el local.
+        {codigos.length === 1 ? 'Tu cupón está listo' : `Tus ${codigos.length} cupones están listos`} para canjear en el local.
       </p>
 
       {cashback > 0 && (
@@ -141,27 +142,21 @@ function SuccessState({ cupones, cashback, onDone }) {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {cupones.map(c => (
-          <div key={c.id} style={{
-            background: A.bg, borderRadius: 12, padding: '12px 16px',
-            display: 'flex', alignItems: 'center', gap: 12,
+        {codigos.map(cod => (
+          <div key={cod} style={{
+            background: A.bg, borderRadius: 12, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
           }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 8, background: c.accent,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontSize: 9, fontWeight: 800, textAlign: 'center',
-            }}>{c.d}</div>
-            <div style={{ flex: 1, textAlign: 'left' }}>
-              <div style={{ fontSize: 12, color: A.muted }}>{c.p}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: A.ink }}>{c.t}</div>
-            </div>
-            <div style={{
-              fontSize: 10, fontWeight: 700, color: A.green, textTransform: 'uppercase',
-              letterSpacing: '0.06em', background: A.greenSoft, padding: '3px 8px', borderRadius: 6,
-            }}>ACTIVO</div>
+            <span style={{ fontSize: 12, color: A.muted, textAlign: 'left' }}>Código del cupón</span>
+            <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em', color: A.ink, fontVariantNumeric: 'tabular-nums' }}>
+              {cod}
+            </span>
           </div>
         ))}
       </div>
+      <p style={{ margin: '14px 0 0', fontSize: 12.5, color: A.muted, lineHeight: 1.5 }}>
+        Los tenés siempre a mano en <b style={{ color: A.ink2 }}>Mis cupones</b>.
+      </p>
 
       <button
         onClick={onDone}
@@ -228,6 +223,8 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
   const [metodoPago, setMetodoPago]                   = useState(null); // 'tarjeta' | 'transferencia'
   const [step, setStep]                               = useState('checkout'); // 'checkout' | 'success' | 'pending'
   const [procesando, setProcesando]                   = useState(false);
+  const [error, setError]                             = useState(null);
+  const [resultado, setResultado]                     = useState(null);  // lo que devolvió la RPC
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -245,9 +242,24 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
   const handlePagar = async () => {
     if (!metodoPago) return;
     setProcesando(true);
+    setError(null);
 
-    // Simular latencia de procesamiento
-    await new Promise(r => setTimeout(r, 1200));
+    // La compra se persiste del lado del servidor: venta + items + cupones +
+    // puntos, todo en una transacción. El precio lo recalcula la RPC, no viaja
+    // desde acá.
+    const res = await registrarCompra({
+      cupones,
+      formaPago: metodoPago,
+      usarPuntos: aplicarPuntos,
+    });
+
+    if (!res.ok) {
+      setError(res.error === 'oferta_no_disponible'
+        ? 'Una de las ofertas de tu carrito ya no está disponible. Revisalo y probá de nuevo.'
+        : 'No pudimos registrar tu compra. Probá de nuevo en un momento.');
+      setProcesando(false);
+      return;
+    }
 
     // Impulso: cada cupón vendido de una oferta impulsada consume presupuesto.
     cupones.forEach(c => {
@@ -255,13 +267,9 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
       if (of?.impulsoActivo && of?.id) consumirImpulso(of.id, 'venta');
     });
 
-    if (metodoPago === 'tarjeta') {
-      clearCarrito();
-      setStep('success');
-    } else {
-      clearCarrito();
-      setStep('pending');
-    }
+    setResultado(res);
+    clearCarrito();
+    setStep(res.estado === 'completada' ? 'success' : 'pending');
     setProcesando(false);
   };
 
@@ -276,7 +284,7 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
     );
   }
 
-  if (step === 'success') return <SuccessState cupones={cupones} cashback={cashback} onDone={onSuccess} />;
+  if (step === 'success') return <SuccessState cashback={resultado?.cashback ?? cashback} codigos={resultado?.codigos || []} onDone={onSuccess} />;
   if (step === 'pending') return <PendingState onDone={onSuccess} />;
 
   return (
@@ -394,6 +402,15 @@ export default function CheckoutView({ session, onBack, onSuccess }) {
             />
           </div>
         </section>
+
+        {error && (
+          <div style={{
+            background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12,
+            padding: '12px 16px', marginBottom: 14, fontSize: 13.5, color: '#B91C1C', lineHeight: 1.5,
+          }}>
+            {error}
+          </div>
+        )}
 
         {/* CTA final */}
         <button
