@@ -20,6 +20,7 @@ import {
 } from '../lib/pases';
 import { getMisSolicitudes, cancelarSolicitud, enviarSolicitud, ESTADOS as ESTADOS_SOL, textoError as txtSol } from '../lib/solicitudes';
 import SolicitarFecha from '../components/SolicitarFecha';
+import CupopacksParaPase from '../components/CupopacksParaPase';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE',
@@ -439,6 +440,15 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
           oferta: { id: s.promocion_id, title: s.promociones?.titulo, proveedorNombre: s.negocios?.nombre },
           origenId: s.id, fechaSugerida: s.fecha_propuesta,
         })} />
+
+      {/* El atajo para el que no quiere elegir entre cuarenta premium. Va
+          ANTES del elector manual y no después: si ya eligió a mano, ofrecerle
+          que le armemos la selección llega tarde. Se esconde solo cuando no
+          queda ningún Cupopack que entre. */}
+      <CupopacksParaPase
+        paseId={pase.id} libres={restantes} total={total}
+        elegidasIds={elecciones.map(e => e.promocion_id)}
+        onCambio={async () => { setError(null); await cargar(); }} />
 
       <Premium pase={pase} elegidas={elecciones} restantes={restantes} total={total}
         canjeadas={canjeadas} pedidas={pedidas} onError={setError}

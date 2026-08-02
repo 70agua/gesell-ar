@@ -66,6 +66,8 @@ Copy, precios y bonos viven en la tabla `planes` (editables desde SuperAdmin →
 
 **El negocio no se aprueba.** El socio se da de alta y queda publicado (`aprobado` quedó obsoleta, siempre `true`). La visibilidad la decide `negocios.activo`, que maneja el propio socio. Lo único que se modera son las **ofertas** (`promociones.aprobada`).
 
+**Ser hotelero no es condición para suscribirse; tener cuenta sí** (2026-08-02). `CheckoutHoteleroView` dejó de abrir con un formulario "TU ALOJAMIENTO": ahora abre con el ingreso a Cuponear, y al que es nuevo se le piden **dos** datos del negocio —tipo de empresa (Alojamiento / Agencia de turismo / Inmobiliaria / Revendedor / Otros) y nombre—, nada más. Localidad, descripción y fotos se piden después del pago, desde el panel. El que ya tiene cuenta **y** negocio no crea otro: se le contrata el plan al que ya está (`crearSuscripcionPro`). Los tres tipos nuevos se sumaron al CHECK de `negocios.tipo` (`db/20260802_tipos_empresa_socio.sql`) y a los sets de `categoriaDeNegocio`: Inmobiliaria → alojamiento, Agencia de turismo → aventura_relax, Revendedor → salidas por descarte.
+
 ### ⚠️ Los CHECK constraints se desactualizan y no fallan hasta que corren
 
 Van **tres** casos en los que un `CHECK` viejo bloqueó vocabulario nuevo, y los tres se descubrieron recién al ejecutar:

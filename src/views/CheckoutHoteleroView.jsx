@@ -1,7 +1,8 @@
 // ============================================================
 //  src/views/CheckoutHoteleroView.jsx
-//  El otro lado del mostrador: el alojamiento que quiere regalarles el pase
-//  a sus turistas. Misma gramática que CheckoutPaseView — mismas tarjetas,
+//  El otro lado del mostrador: la empresa que quiere regalarles el pase a sus
+//  turistas — alojamiento, agencia de turismo, inmobiliaria o revendedor; ser
+//  hotelero no es condición. Misma gramática que CheckoutPaseView — mismas tarjetas,
 //  mismo tilde de selección, mismo captcha, mismo paso 2 — para que las dos
 //  puertas del paso 0 se sientan el mismo producto.
 //
@@ -14,9 +15,9 @@ import { useEffect, useState } from 'react';
 import { Check, CreditCard, Loader2, MapPin } from 'lucide-react';
 import CaptchaDeslizar from '../components/CaptchaDeslizar';
 import Icono from '../components/Icono';
-import { getPlanesPro } from '../lib/planes';
+import { getPlanesPro, crearSuscripcionPro } from '../lib/planes';
 import { altaSocio, ERRORES_ALTA } from '../lib/altaSocio';
-import { loginConIdentificador, pareceEmail, getSession } from '../lib/auth';
+import { loginConIdentificador, pareceEmail, getPerfil } from '../lib/auth';
 
 // Misma paleta acotada que el checkout del pase.
 const C = {
@@ -31,8 +32,19 @@ const C = {
   font:        "'Inter', system-ui, sans-serif",
 };
 
-const TIPOS_ALOJ  = ['Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Hostel', 'Glamping'];
-const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
+// Qué clase de empresa se suscribe. Dejó de ser "tipo de alojamiento": el plan
+// también lo contratan agencias de turismo, inmobiliarias y revendedores, así
+// que ser hotelero no es condición. Lo único que sí es condición es tener
+// cuenta.
+// El `valor` es lo que va a `negocios.tipo` — vocabulario cerrado por el CHECK
+// de la tabla (db/20260802_tipos_empresa_socio.sql).
+const TIPOS_EMPRESA = [
+  { valor: 'alojamiento',        label: 'Alojamiento' },
+  { valor: 'Agencia de turismo', label: 'Agencia de turismo' },
+  { valor: 'Inmobiliaria',       label: 'Inmobiliaria' },
+  { valor: 'Revendedor',         label: 'Revendedor' },
+  { valor: 'Otro',               label: 'Otros' },
+];
 
 const fmt = n => `$${Math.round(Number(n) || 0).toLocaleString('es-AR')}`;
 const emailValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
@@ -165,7 +177,7 @@ function TramoPago({ p, mensual, activo, onSelect }) {
 const PASOS = [
   { t: 'Elegís un plan de suscripción',      d: 'Y completás el formulario con los datos de tu empresa' },
   { t: 'Tu cliente lée el QR de tu empresa, o carga el código de 6 dígitos.', d: 'El pase se le activará cuando lo apruebes.' },
-  { t: '¡Listo para empezar a ahorrar!', d: 'Va a disfrutar de descuentos en los comercios adheridos durante su estadía.' },
+  { t: '¡Listos para ahorrar!', d: 'Descuentos en los comercios adheridos durante toda la estadía.' },
 ];
 
 // Vive DENTRO del contenedor del plan, así que no trae marco propio: el borde
@@ -198,12 +210,12 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
   const [planes, setPlanes]   = useState(null);
   const [planId, setPlanId]   = useState('pro_12');
 
-  // Del alojamiento, acá, sólo lo que lo identifica. La ficha completa
-  // (descripción, unidades, fotos) se carga después del pago, desde el panel:
-  // pedirla en el checkout alargaba el formulario justo antes de cobrar.
+  // De la empresa, acá, sólo lo que la identifica: qué es y cómo se llama. El
+  // resto de la ficha (localidad, descripción, unidades, fotos) se carga
+  // después del pago, desde el panel — pedirla en el checkout alargaba el
+  // formulario justo antes de cobrar.
   const [nombre, setNombre]           = useState('');
-  const [tipo, setTipo]               = useState(TIPOS_ALOJ[0]);
-  const [localidad, setLocalidad]     = useState(LOCALIDADES[0]);
+  const [tipo, setTipo]               = useState('');
 
   // De la persona: los mismos datos que se le piden a un turista nuevo. Nunca
   // se mezclan con los del negocio — son dos entidades distintas.
@@ -220,6 +232,13 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
   const [error, setError]     = useState('');
   const [enviando, setEnviando] = useState(false);
   const [listo, setListo]     = useState(null);
+
+  // El que entra con cuenta hecha normalmente ya tiene su empresa colgada del
+  // perfil, así que no se le pide nada de eso. La excepción es el turista que
+  // se convierte en socio: recién al validar la contraseña sabemos que no tiene
+  // ninguna, y ahí sí le mostramos los dos campos.
+  const [pideEmpresa, setPideEmpresa] = useState(false);
+  const conEmpresa = esNuevo || pideEmpresa;
 
   useEffect(() => {
     getPlanesPro()
@@ -238,7 +257,10 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
   async function enviar() {
     setError('');
 
-    if (!nombre.trim())                 return setError('Poné el nombre de tu alojamiento.');
+    if (conEmpresa) {
+      if (!tipo)                        return setError('Elegí qué tipo de empresa es.');
+      if (!nombre.trim())               return setError('Poné el nombre de tu empresa.');
+    }
     if (esNuevo) {
       if (!nombrePersona.trim() || !apellido.trim()) return setError('Completá tu nombre y apellido.');
       if (!emailValido(email))          return setError('Revisá el mail: no parece válido.');
@@ -260,10 +282,27 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
     if (!esNuevo) {
       const { error: errLogin } = await loginConIdentificador(usuario, password);
       if (errLogin) { setEnviando(false); return setError('Usuario o contraseña incorrectos.'); }
+
+      // Si esa cuenta ya tiene su empresa, no se crea otra: sólo se le contrata
+      // el plan a la que ya está. Es el socio sin plan que viene a pagar.
+      const perfil = await getPerfil();
+      if (perfil?.negocio_id) {
+        await crearSuscripcionPro(perfil.negocio_id, { codigoPlan: planId });
+        setEnviando(false);
+        return setListo({ nombre: perfil.negocios?.nombre || 'Tu empresa', plan });
+      }
+
+      // Cuenta sin empresa (el turista que se convierte en socio): recién acá
+      // sabemos que hay que pedirle los dos datos.
+      if (!pideEmpresa) {
+        setPideEmpresa(true);
+        setEnviando(false);
+        return setError('Tu cuenta todavía no tiene una empresa: contanos qué es y cómo se llama.');
+      }
     }
 
     const r = await altaSocio({
-      negocio: { nombre, tipo, localidad },
+      negocio: { nombre, tipo },
       cuenta:  { email, password },
       // Al que ya tenía cuenta no le mandamos persona: sus datos ya están en el
       // perfil y este formulario no se los pidió.
@@ -274,11 +313,10 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
     setEnviando(false);
     if (!r.ok) return setError(ERRORES_ALTA[r.error] || 'No se pudo completar el alta. Probá de nuevo.');
 
-    const sesion = await getSession();
-    setListo({ nombre, plan, conSesion: !!sesion?.user?.id });
+    setListo({ nombre, plan });
   }
 
-  // ── Paso 2: dado de alta, esperando moderación ──
+  // ── Paso 2: dado de alta y operativo ──
   if (listo) {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
@@ -288,11 +326,12 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
               <Check size={26} strokeWidth={3} />
             </span>
             <div style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-0.01em' }}>
-              {listo.nombre} quedó registrado
+              {listo.nombre} quedó registrada
             </div>
             <p style={{ fontSize: 14.5, color: C.muted, lineHeight: 1.6, margin: '10px auto 0', maxWidth: 460 }}>
-              Lo revisamos antes de publicarlo — te avisamos por mail cuando esté en línea.
-              {' Tu código de 6 dígitos para regalar pases ya está en tu panel.'}
+              Los datos que faltan —ubicación, descripción y fotos— los completás
+              cuando quieras desde tu panel.
+              {' Tu código de 6 dígitos para regalar pases ya está ahí.'}
             </p>
             <button
               onClick={onListo}
@@ -333,7 +372,7 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
             lineHeight: 1.4, textAlign: 'center',
           }}>
             <MapPin size={15} strokeWidth={2.4} style={{ flexShrink: 0 }} />
-            Beneficios para alojamientos en Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas.
+            Beneficios para empresas de Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas.
           </div>
 
           {/* Banda promocional. El primary se mantiene plano hasta la mitad —
@@ -354,7 +393,7 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
                 fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
                 padding: '4px 10px', borderRadius: 999, marginBottom: 12,
               }}>
-                Suscripción para hotelería
+                Regalá pases a tus clientes
               </span>
               <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: '0.01em', lineHeight: 1.15 }}>
                 Regalá descuentos y beneficios a tus clientes
@@ -401,39 +440,14 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
           </div>
         </div>
 
-        {/* Alta: alojamiento + cuenta en una sola tarjeta. Son dos bloques
-            rotulados, no dos tarjetas: es un solo trámite, y separarlos hacía
-            que el formulario se leyera el doble de largo de lo que es.
-            Del alojamiento va únicamente lo que lo identifica — la ficha
-            (descripción, unidades, fotos) se completa después, desde el panel. */}
+        {/* Alta: una sola tarjeta, y lo primero es la cuenta. Antes arrancaba
+            con un bloque "TU ALOJAMIENTO" que daba por sentado que el que se
+            suscribe es un hotelero — y no lo es: también contratan agencias de
+            turismo, inmobiliarias y revendedores. Ser hotelero no es condición;
+            tener cuenta sí. Del negocio se piden dos datos y nada más (qué es y
+            cómo se llama): el resto de la ficha se completa después del pago,
+            desde el panel. */}
         <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
-          <div style={{ ...labelSt, marginBottom: 14 }}>TU ALOJAMIENTO</div>
-
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelSt} htmlFor="hot-nombre">Nombre</label>
-            <input id="hot-nombre" value={nombre} onChange={e => setNombre(e.target.value)}
-              placeholder="Hotel Las Dunas" style={inputSt}
-              onFocus={e => e.currentTarget.style.borderColor = C.primary}
-              onBlur={e => e.currentTarget.style.borderColor = C.line} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelSt} htmlFor="hot-tipo">Tipo</label>
-              <select id="hot-tipo" value={tipo} onChange={e => setTipo(e.target.value)} style={inputSt}>
-                {TIPOS_ALOJ.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelSt} htmlFor="hot-loc">Localidad</label>
-              <select id="hot-loc" value={localidad} onChange={e => setLocalidad(e.target.value)} style={inputSt}>
-                {LOCALIDADES.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Cuenta de la persona que administra ese alojamiento */}
-          <div style={{ borderTop: `1px solid ${C.line}`, margin: '22px 0 0', paddingTop: 20 }}>
             <div style={{ ...labelSt, display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
               INGRESÁ A
               <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 17, width: 'auto', display: 'block' }} />
@@ -442,7 +456,7 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
             <div role="tablist" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, background: C.bg, borderRadius: 12, marginBottom: 16 }}>
               {[{ id: true, label: 'Soy nuevo' }, { id: false, label: 'Ya tengo cuenta' }].map(t => (
                 <button key={t.label} role="tab" aria-selected={esNuevo === t.id}
-                  onClick={() => { setEsNuevo(t.id); setError(''); }}
+                  onClick={() => { setEsNuevo(t.id); setError(''); setPideEmpresa(false); }}
                   style={{
                     padding: '13px 10px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: C.font,
                     fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', transition: 'background .15s, color .15s',
@@ -456,12 +470,36 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
               ))}
             </div>
 
+            {/* La empresa: qué es y cómo se llama. Alcanza para contratar. */}
+            {conEmpresa && (
+              <>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelSt} htmlFor="hot-tipo">Tipo de empresa</label>
+                  {/* Sin default: que arranque en "Alojamiento" sería volver a
+                      dar por sentado quién se suscribe. */}
+                  <select id="hot-tipo" value={tipo} onChange={e => setTipo(e.target.value)}
+                    style={{ ...inputSt, color: tipo ? C.ink : C.muted }}>
+                    <option value="">Elegí una opción</option>
+                    {TIPOS_EMPRESA.map(t => <option key={t.valor} value={t.valor}>{t.label}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelSt} htmlFor="hot-nombre">Nombre de la empresa</label>
+                  <input id="hot-nombre" value={nombre} onChange={e => setNombre(e.target.value)}
+                    placeholder="Cómo se llama tu empresa" style={inputSt}
+                    onFocus={e => e.currentTarget.style.borderColor = C.primary}
+                    onBlur={e => e.currentTarget.style.borderColor = C.line} />
+                </div>
+              </>
+            )}
+
             {/* Nombre y apellido de la PERSONA. Nada de esto se usa como default
-                del negocio: el que atiende no se llama igual que el hotel. */}
+                del negocio: el que atiende no se llama igual que la empresa. */}
             {esNuevo && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
-                  <label style={labelSt} htmlFor="hot-pnombre">Nombre</label>
+                  <label style={labelSt} htmlFor="hot-pnombre">Nombre del titular</label>
                   <input id="hot-pnombre" type="text" autoComplete="given-name"
                     value={nombrePersona} onChange={e => setNombrePersona(e.target.value)}
                     placeholder="Tu nombre" style={inputSt}
@@ -484,7 +522,7 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
               <input id="hot-user" type={esNuevo ? 'email' : 'text'} autoComplete={esNuevo ? 'email' : 'username'}
                 value={esNuevo ? email : usuario}
                 onChange={e => (esNuevo ? setEmail : setUsuario)(e.target.value)}
-                placeholder={esNuevo ? 'vos@tualojamiento.com' : 'vos@tualojamiento.com, ó 1155555555'} style={inputSt}
+                placeholder={esNuevo ? 'vos@tuempresa.com' : 'vos@tuempresa.com, ó 1155555555'} style={inputSt}
                 onFocus={e => e.currentTarget.style.borderColor = C.primary}
                 onBlur={e => e.currentTarget.style.borderColor = C.line} />
             </div>
@@ -538,23 +576,23 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
                 <CaptchaDeslizar verificado={humano} onVerificar={setHumano} />
               </div>
             )}
-          </div>
         </div>
 
         {/* Total + alta */}
         <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '22px 24px' }}>
-          {/* Lo que se paga hoy, que en los tramos largos NO es el precio por
+          {plan?.nombre && (
+              <div style={{ fontSize: 13, color: C.primary, fontWeight: 600, marginTop: 2,textAlign: 'center' }}>{plan.nombre}</div>
+            )}
+            {/* Lo que se paga hoy, que en los tramos largos NO es el precio por
               mes: es el total por adelantado. Mostrarlo acá evita la sorpresa. */}
-          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{ textAlign: 'center', marginBottom: 18, marginTop: 10 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: C.muted, letterSpacing: '0.03em' }}>
-              {plan ? (plan.meses === 1 ? 'PAGÁS POR MES' : `PAGÁS HOY, POR ${plan.meses} MESES`) : 'TOTAL'}
+              {plan ? (plan.meses === 1 ? 'PAGÁS POR MES' : `Pagás hoy, cubrís los próximos ${plan.meses} meses`) : 'TOTAL'}
             </div>
             <div style={{ fontSize: 27, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', marginTop: 4 }}>
               {plan ? `${fmt(plan.total)} + IVA` : '—'}
             </div>
-            {plan?.nombre && (
-              <div style={{ fontSize: 13, color: C.ink2, fontWeight: 600, marginTop: 2 }}>{plan.nombre}</div>
-            )}
+            
           </div>
 
           {error && (
@@ -582,7 +620,7 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
           </button>
 
           <p style={{ fontSize: 12, color: C.muted, textAlign: 'center', lineHeight: 1.5, margin: '12px 0 0' }}>
-            Revisamos cada alojamiento antes de publicarlo.
+            El resto de los datos de tu empresa te los pedimos después, desde tu panel.
           </p>
         </div>
       </div>

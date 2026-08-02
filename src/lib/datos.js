@@ -18,9 +18,13 @@ const LOCALIDADES_CERCANAS = {
   'El Salvaje':        ['Villa Gesell'],
 };
 
-export const TIPOS_ALOJ   = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Casa', 'Hostel', 'Glamping']);
-const TIPOS_GASTRO = new Set(['salidas', 'Restaurante', 'Restaurantes', 'Bar', 'Bares', 'Café', 'Cafés & Dulces', 'Cafés y Dulces', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Heladerías', 'Bodegón', 'Panadería', 'Panaderías', 'Discoteca', 'Discotecas', 'Cine y Teatro', 'Cines y Teatros', 'Show y Recital', 'Shows y Recitales', 'Centro Cultural', 'Centros Culturales', 'Otro', 'Otros']);
-const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga & Mindfulness', 'Masajes', 'Salón de belleza', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos']);
+// 'Inmobiliaria' entra acá: lo que publica es dónde dormir. 'Agencia de
+// turismo' entra en experiencias, que es lo que vende. 'Revendedor' y 'Otro'
+// caen en salidas por descarte — ninguno de los dos aparece en los listados
+// (las consultas de sección filtran por una lista explícita de tipos).
+export const TIPOS_ALOJ   = new Set(['alojamiento', 'Hotel', 'Cabaña', 'Departamento', 'Domo', 'Dormi', 'Carpa', 'Casa', 'Hostel', 'Glamping', 'Inmobiliaria']);
+const TIPOS_GASTRO = new Set(['salidas', 'Restaurante', 'Restaurantes', 'Bar', 'Bares', 'Café', 'Cafés & Dulces', 'Cafés y Dulces', 'Balneario', 'Gourmet', 'Pastelería', 'Parrilla', 'Heladería', 'Heladerías', 'Bodegón', 'Panadería', 'Panaderías', 'Discoteca', 'Discotecas', 'Cine y Teatro', 'Cines y Teatros', 'Show y Recital', 'Shows y Recitales', 'Centro Cultural', 'Centros Culturales', 'Otro', 'Otros', 'Revendedor']);
+const TIPOS_EXP    = new Set(['aventura_relax', 'Experiencia', 'Excursion', 'Actividad', 'Spa', 'Deportes acuáticos', 'Cabalgatas', 'Kitesurf', 'Yoga & Mindfulness', 'Masajes', 'Salón de belleza', 'Tour fotográfico', 'Pesca deportiva', 'Senderismo', 'Espectáculos', 'Agencia de turismo']);
 
 // Categorías reales que un socio puede elegir al dar de alta su negocio
 // (fuente única — `negocios.categoria` guarda uno o dos de estos valores,
@@ -372,6 +376,10 @@ function normalizeCuponDeCupopack(p) {
     lng:              n.lng != null ? Number(n.lng) : null,
     ahorro_estimado:  Number(p.ahorro_estimado) || 0,
     precio_activacion: precio,
+    // Necesario para los Cupopacks: una premium con fecha a confirmar NO se
+    // puede elegir de un tap —hay que pedirla— y la RPC la rechaza con
+    // `requiere_solicitud`. Sin este dato, el pack la intentaría y fallaría.
+    requiereFecha:    p.requiere_fecha === true,
     tieneStock:       p.tiene_stock    || false,
     stockRestante:    p.stock_restante != null ? Number(p.stock_restante) : null,
     categoria:        categoriaDeNegocio(n.tipo),
@@ -388,7 +396,7 @@ export async function getCupopacks() {
       cuponeras_locales_cupones (
         promociones (
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
-          ahorro_estimado, precio_manual, activa, aprobada,
+          ahorro_estimado, precio_manual, activa, aprobada, requiere_fecha,
           tiene_stock, stock_maximo, stock_restante,
           negocios ( nombre, tipo, localidad, descripcion, lat, lng, galeria )
         )
@@ -432,7 +440,7 @@ export async function getCupopacksDestacadas() {
       cuponeras_locales_cupones (
         promociones (
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
-          ahorro_estimado, precio_manual, activa, aprobada,
+          ahorro_estimado, precio_manual, activa, aprobada, requiere_fecha,
           tiene_stock, stock_maximo, stock_restante,
           negocios ( nombre, tipo, localidad, descripcion, lat, lng, galeria )
         )

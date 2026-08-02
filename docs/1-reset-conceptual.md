@@ -4,7 +4,10 @@ Documento de producto. Define **qué es cada cosa** y qué deja de existir.
 Se lee antes de `2-tareas-urgentes.md`, que es la ejecución.
 
 
-> **Changelog** · 2026-07-31
+> **Changelog** · 2026-08-02
+> §5 reescrito: el Cupopack es un producto pago, no una plantilla sin precio.
+>
+> · 2026-07-31
 > Corregido §6 (duración fija por destino). Nuevo §9 (ofertas exclusivas, aparcado). Glosario: "personas" y baja de "huésped".
 
 ---
@@ -37,7 +40,7 @@ Hoy "cuponera" significa tres cosas distintas en el código. Es el problema más
 
 Se evaluó crear un producto nuevo: un conjunto curado con precio propio y checkout propio. **Se descartó.** El Pase lo domina en todo (más cupones, elegidos por el usuario, e incluye lo que el pack vendía). Un producto que es un subconjunto peor de otro no debe existir.
 
-Lo que se rescata es la curaduría, que pasa a ser un **Cupopack**: una selección pre-armada de premium dentro del Pase (§5). Sin tablas nuevas, sin precio propio, sin checkout propio.
+Lo que se rescata es la curaduría, que se materializa en el **Cupopack** (§5): un producto pago que el que tiene Pase puede pagar con sus slots. Sin tablas nuevas, sin precio propio, sin checkout propio.
 
 ---
 
@@ -75,67 +78,22 @@ Motivo: hoy hay dinero cobrado (hasta $360.000 en `pro_12`) y cero servicio pres
 
 ## 4. Qué cambia
 
-### 4.1 Precio del cupón: piso, techo y comisión marginal
-
-`cobros.js → calcularPrecioCupon`. Dos problemas resueltos juntos: **no tenía piso** (un ahorro de $5.000 daba $1.512, por debajo del mínimo de venta) y **la comisión no era marginal**, con lo cual el precio bajaba al cruzar un borde de tramo.
+### 4.1 Piso de precio del cupón
+`cobros.js → calcularPrecioCupon` no tiene mínimo. Un ahorro de $5.000 da $1.512, por debajo del mínimo de venta.
 
 ```
 PRECIO_MIN = 2500      // $2.000 + IVA = $2.420, elevado a la centena siguiente
-PRECIO_MAX = 20000     // techo
+PRECIO_MAX = 14520     // techo actual, se conserva
 AHORRO_MIN = 5000      // ahorro mínimo publicable
-AHORRO_CUPON_ENTRADA = 10000
-
-comision = suma marginal por tramo:
-    20% sobre la porción hasta  $15.000
-    15% sobre la porción de     $15.000 a $40.000
-    10% sobre la porción de     $40.000 a $100.000
-     7% sobre la porción por encima de $100.000
-
-precio = clamp(redondear_centena(comision * 1.21), PRECIO_MIN, PRECIO_MAX)
+precio = clamp(redondear_centena(ahorro * comision * 1.21), PRECIO_MIN, PRECIO_MAX)
 ```
-
-**Comisión marginal, como el impuesto a las ganancias.** Antes la comisión del tramo se aplicaba a *todo* el ahorro, y eso hacía que subir el ahorro un peso **bajara** el precio: con $15.000 el cupón salía $3.600 y con $15.001 salía $2.700. Un socio lo iba a encontrar. Marginal, el precio es monótono: más ahorro nunca da un cupón más barato.
-
-| ahorro | precio | ganancia neta | |
-|---|---|---|---|
-| $5.000 | $2.500 | $2.500 | piso |
-| $10.000 | $2.500 | $7.500 | piso |
-| $12.000 | $2.900 | $9.100 | |
-| $15.000 | $3.600 | $11.400 | borde |
-| $15.001 | $3.600 | $11.401 | borde — ya no baja |
-| $20.000 | $4.500 | $15.500 | |
-| $40.000 | $8.200 | $31.800 | borde |
-| $40.001 | $8.200 | $31.801 | borde — ya no baja |
-| $60.000 | $10.600 | $49.400 | tramo del 10% |
-| $100.000 | $15.400 | $84.600 | borde |
-| $145.000 | $19.200 | $125.800 | tramo del 7% |
-| $153.395 | $20.000 | $133.395 | primer techo |
-| $300.000 | $20.000 | $280.000 | techo |
 
 Consecuencias:
 - **Entre $5.000 y ~$10.300 de ahorro el precio se clava en $2.500.** El porcentaje del tramo es decorativo ahí abajo. A los socios se les comunica como *"cupón de entrada, $2.500 fijo"*, no como un porcentaje.
-- **El tramo del 25% se eliminó** (su techo caía dentro de la zona del piso).
-- Con `PRECIO_MAX = 20000` el techo se toca recién a los **$153.395** de ahorro, así que **los cuatro tramos son alcanzables**. Con el techo anterior de $14.520 se tocaba a los ~$92.700 y los tramos del 10% y 7% no llegaban a aplicarse nunca.
-- La comisión marginal **sube el precio** en la franja media-alta respecto de la tabla anterior (un ahorro de $60.000 pasó de $7.300 a $10.600). Es el costo asumido de que sea monótona.
+- **El tramo del 25% queda muerto** (su techo cae dentro de la zona del piso). Se puede sacar de la tabla.
 - El piso bajo es deliberado: sin compra chica (un café, una merienda) el catálogo queda demasiado exclusivo.
 
-**Comunicación de estos cupones:** debajo de `AHORRO_CUPON_ENTRADA` se muestra **ganancia neta** (`ahorro − precio`) en vez del ahorro bruto, y no son elegibles para espacios destacados. Con ratio 2x, "ahorrás $5.000 por $2.500" invita a hacer la resta.
-
-> La regla de excluirlos de espacios destacados **queda anotada para el §7**: hoy no hay ningún espacio destacado que la pueda aplicar. Las tiras de la home se arman por categoría y recencia, no por un ranking. `destacada_home` y `getOfertasDestacadas()` eran de una versión anterior y se borraron.
-
-#### `precio_manual` — override del superadmin
-
-`promociones.precio_manual` fija el precio del cupón a mano y **saltea la escalera entera**. Existe para casos excepcionales.
-
-**Sólo lo puede usar el superadmin.** El campo se sacó del panel del socio: si el socio pudiera fijarlo, el precio dejaría de derivar del ahorro declarado y la escalera de comisiones no significaría nada. Cuando edita el socio, `precio_manual` ni siquiera viaja en el payload, así que un override puesto por el superadmin no se pisa.
-
-Al socio se le muestra el precio calculado y la ganancia neta que se lleva el turista, como información: puede verlo, no fijarlo.
-
-> Al reasignar el catálogo de prueba se encontraron **19 ofertas con `precio_manual` cargado**, que estaban salteando la escalera sin que nadie lo hubiera decidido. Se limpiaron.
-
-#### El precio también se calcula del lado del servidor
-
-La compra del turista (§ Fase 4) **no acepta precios del cliente**: los recalcula con `precio_cupon()` y `precio_cupon_grupal()`, espejos SQL de `calcularPrecioCupon()` y `calcularPrecioGrupal()`. Si cambia la escalera en JS, hay que cambiarla en SQL también.
+**Comunicación de estos cupones:** mostrar **ganancia neta** (`ahorro − precio`) en vez del ahorro bruto, y no hacerlos elegibles para espacios destacados. Con ratio 2x, "ahorrás $5.000 por $2.500" invita a hacer la resta.
 
 ### 4.2 Upgrade pack del hotelero → +1 premium
 Hoy el upgrade ($6.000, mín. 10) solo habilita que el huésped gane puntos. El hotel paga $6.000 para que su huésped gane 300 puntos ($300). No cierra y no se puede vender.
@@ -162,22 +120,13 @@ Un canje anulado es un **error operativo** (no había mesa, se escaneó el cupó
 
 ## 5. Cupopacks
 
-Reemplazan al producto descartado de §2.
+Selección curada de cupones (premium y regulares) que Cuponear arma bajo un concepto editorial y **vende como unidad**, con precio y checkout propios. Puede traer un **beneficio adicional** que no existe comprando los cupones sueltos.
 
-**Qué son:** un conjunto de premium pre-elegidos, con nombre editorial, que llena los slots del Pase de un tap.
+Quien tiene Pase no compra el Cupopack: lo **paga con sus slots premium** (los regulares los cubre el Pase). En ese caso no recibe el beneficio adicional, porque ya pagó esos premium al comprar el Pase.
 
-> Comprás el Pase de 3 días → *"¿Te armamos la selección? **Cupopack Finde clásico en Mar de las Pampas**: late checkout, cena en El Nido, spa"* → un tap y los 3 slots quedan ocupados.
+Es **un solo producto con tres formas de pago**. Definición completa, reglas y copy en `3-cupopacks.md`.
 
-**Reglas:**
-- No es una entidad con precio, stock ni checkout. Es una plantilla de elecciones.
-- Solo puede contener premium (ahorro > $15.000).
-- La cantidad de premium del Cupopack tiene que coincidir con los días del pase, o se ofrece la que entre.
-- Reversible: el usuario puede deshacerla o cambiar cualquier elección mientras no haya canjeado.
-- Curaduría manual de Cuponear. No se automatiza: la curaduría es el valor.
-
-**Por qué existe:** el usuario no quiere elegir entre 40 premium, quiere que ya esté elegido. Es el único valor que sobrevivió del producto descartado, y no necesita infraestructura propia.
-
----
+> ⚠️ Una versión anterior de este documento decía que el Cupopack no tenía precio ni checkout. Era falso.
 
 ## 6. Pase-regalo
 

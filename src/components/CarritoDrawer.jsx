@@ -257,7 +257,7 @@ export default function CarritoDrawer() {
               fontSize: 12, fontWeight: 700,
             }}>
               <BoltIcon width={12} height={12} />
-              Ahorrás {fmt(saved)} en total
+              Ahorrás {fmt(saved)} aprox. en total
             </div>
           )}
         </div>

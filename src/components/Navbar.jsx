@@ -576,13 +576,23 @@ function SitiosDrop() {
 const PLANES_OPCIONES = [
   {
     id: 'contratar',
-    titulo: 'Pase turista',
-    bajada: 'Comprá tu pase y usá los descuentos que se ofrecen en la zona.',
+    titulo: 'Pase diario ó semanal',
+    bajada: 'Comprá tu pase y aprovechá los descuentos que se ofrecen en la zona.',
     vista: 'checkout-pase',
     opts: { preguntarPerfil: true },
     // El mismo sello del hero, con la misma inclinación.
     icono: '/gesell-pass-03.svg',
     girado: true,
+  },
+  {
+    id: 'hoteleria',
+    titulo: 'Suscripción para empresas',
+    bajada: 'Regalá el Pase a tus clientes.',
+    vista: 'checkout-hotelero',
+    opts: {},
+    // La misma casita que el bloque de alojamiento de la home.
+    icono: '/iconos/cabania.json',
+    lado: 37,
   },
   {
     id: 'regalo',
@@ -592,16 +602,6 @@ const PLANES_OPCIONES = [
     opts: {},
     icono: '/iconos/regalo.json',
     lado: 41,
-  },
-  {
-    id: 'hoteleria',
-    titulo: 'Suscripción para hotelería',
-    bajada: 'Regalá el Pase a todos tus turistas.',
-    vista: 'checkout-hotelero',
-    opts: {},
-    // La misma casita que el bloque de alojamiento de la home.
-    icono: '/iconos/cabania.json',
-    lado: 37,
   },
 ];
 

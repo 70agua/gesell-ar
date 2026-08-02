@@ -3,9 +3,16 @@
 //  Card canónica de oferta/cupón — usada en Favoritos, OfertasView,
 //  Marketplace (grid y lista), y las minifichas de HomeView.
 //  Estructura: header (avatar+nombre+localidad) → imagen con badge
-//  + heart → franja "Ahorrás/Ganás" → precio → botón "Ver oferta"
-//  → sello del Pase: "Incluido en el GESELL PaSS" si es base,
-//    "Elegilo con el GESELL PaSS" si es premium.
+//  + heart → franja "Ahorrás" con "Ver oferta" a la derecha → sello del
+//  Pase, que es el CTA grande ("Incluido en el GESELL PaSS" si es base,
+//  "Elegilo con el GESELL PaSS" si es premium) → al pie, en texto suelto,
+//  "ó compralo suelto por $X".
+//
+//  El orden es una jerarquía: mirar la oferta cuesta menos que comprarla, así
+//  que "Ver oferta" va primero pero en texto; el Pase es lo que queremos que
+//  elija, y se lleva la única forma de botón; el cupón suelto es la opción
+//  cara y va último, sin forma de botón y sin hover — no se la ofrece, se la
+//  menciona.
 // ============================================================
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
@@ -22,6 +29,7 @@ import { nivelEnPase } from '../lib/pases';
 
 const A = {
   primary: '#2545E6',
+  primarySoft: '#EEF1FF',
   ink:     '#0B1020',
   ink2:    '#3D4255',
   muted:   '#6B7280',
@@ -36,17 +44,23 @@ const A = {
 const fmtPesos = n => '$' + Math.round(n).toLocaleString('es-AR');
 // Puntos mostrados en la franja de ahorro: ahorroEstimado / 4
 
-// Leyenda del ahorro. Los alojamientos SIEMPRE la muestran (evita confusión
-// sobre a qué corresponde el ahorro); default seguro = "en toda la estadía".
+// Segunda línea del ahorro. Nunca falta: el número solo no dice sobre qué se
+// ahorra, y esa pregunta la contesta o la modalidad (alojamientos, donde
+// cambia todo si es por noche o por estadía) o, en el resto, la referencia
+// contra la que se comparó. Default seguro del alojamiento = "en toda la
+// estadía".
 const MODALIDAD_AHORRO = {
   por_persona:        'por persona',
   por_noche:          'por noche',
   en_toda_la_estadia: 'en toda la estadía',
 };
 function ahorroLegend(promo) {
-  if (promo.categoria !== 'alojamiento') return null;
-  if (esCuponDeEntrada(promo.ahorroEstimado)) return null;   // ya no es un ahorro sobre la estadía
-  return MODALIDAD_AHORRO[promo.ahorroModalidad] || 'en toda la estadía';
+  // El cupón de entrada no muestra un ahorro sobre la estadía, así que tampoco
+  // le corresponde la modalidad: cae en la leyenda genérica.
+  if (promo.categoria === 'alojamiento' && !esCuponDeEntrada(promo.ahorroEstimado)) {
+    return MODALIDAD_AHORRO[promo.ahorroModalidad] || 'en toda la estadía';
+  }
+  return 'del precio original';
 }
 
 function CoinSVG({ size = 13 }) {
@@ -172,9 +186,14 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, gr
 //  turista ya está evaluando la compra.
 // En los cupones de entrada (ahorro < $10.000) el ahorro bruto se lee mal:
 // con ratio 2x, "ahorrás $5.000" al lado de "pagás $2.500" invita a hacer la
-// resta. Ahí se muestra la GANANCIA NETA, que es lo que el turista se lleva
-// de verdad.
-function FranjaAhorro({ ahorroEstimado, legend }) {
+// resta. Ahí el monto es la GANANCIA NETA, que es lo que el turista se lleva
+// de verdad — pero el verbo sigue siendo "Ahorrás": nunca "Ganás", que es de
+// los puntos y confunde dos monedas distintas. Y el monto siempre lleva
+// "aprox.": es una estimación en los dos casos.
+//
+// A la derecha va `accion` — el "Ver oferta". Va acá y no abajo porque es lo
+// más barato que puede hacer el turista, y en la franja no le compite al Pase.
+function FranjaAhorro({ ahorroEstimado, legend, accion = null }) {
   const entrada = esCuponDeEntrada(ahorroEstimado);
   const monto   = entrada ? gananciaNeta(ahorroEstimado) : ahorroEstimado;
   const outerRef = useRef(null);
@@ -195,24 +214,53 @@ function FranjaAhorro({ ahorroEstimado, legend }) {
     return () => ro.disconnect();
   }, [ahorroEstimado, monto]);
 
-  if (!(ahorroEstimado > 0)) return null;
+  const hayAhorro = ahorroEstimado > 0;
+  // Sin ahorro la franja igual se dibuja si tiene que llevar el "Ver oferta":
+  // es el único lugar donde vive ese enlace.
+  if (!hayAhorro && !accion) return null;
 
   return (
-    <div style={{ background: A.greenSoft, padding: '11px 16px' }}>
-      <div ref={outerRef} style={{ overflow: 'hidden' }}>
-        <div ref={innerRef} style={{ display: 'flex', width: 'max-content', minWidth: '100%', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, whiteSpace: 'nowrap', transform: `scale(${scale})`, transformOrigin: 'left center' }}>
-          <span style={{ color: A.green }}>
-            <span style={{ fontSize: 11, fontWeight: 700 }}>{entrada ? 'Ganás ' : 'Ahorrás '}</span>
-            <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(monto)} </span>
-            <span style={{ fontSize: 11, fontWeight: 700 }}>{entrada ? 'netos' : 'aprox.'}</span>
-          </span>
-
-        </div>
+    <div style={{ background: A.greenSoft, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {hayAhorro && (
+          <>
+            <div ref={outerRef} style={{ overflow: 'hidden' }}>
+              <div ref={innerRef} style={{ display: 'flex', width: 'max-content', minWidth: '100%', alignItems: 'baseline', gap: 10, whiteSpace: 'nowrap', transform: `scale(${scale})`, transformOrigin: 'left center' }}>
+                <span style={{ color: A.green }}>
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>Ahorrás </span>
+                  <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(monto)} </span>
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>aprox.</span>
+                </span>
+              </div>
+            </div>
+            {legend && (
+              <div style={{ fontSize: 11, fontWeight: 700, color: A.green }}>{legend}</div>
+            )}
+          </>
+        )}
       </div>
-      {legend && (
-        <div style={{ fontSize: 11, fontWeight: 700, color: A.green }}>{legend}</div>
-      )}
+      {accion}
     </div>
+  );
+}
+
+// ─── "Ver oferta" — enlace, no botón ──────────────────────────
+// Sólo texto: sin borde ni fondo. Es lo que menos compromete de la ficha y no
+// tiene que verse como el CTA — ese lugar es del Pase.
+function VerOfertaLink({ promo, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); onOpen && onOpen(promo); }}
+      style={{
+        flexShrink: 0, background: 'none', border: 'none', padding: 0,
+        fontFamily: A.font, fontSize: 12.5, fontWeight: 800, color: A.green,
+        textDecoration: 'underline', textUnderlineOffset: 2,
+        lineHeight: 1.2, whiteSpace: 'nowrap', cursor: 'pointer',
+      }}
+    >
+      Ver oferta
+    </button>
   );
 }
 
@@ -301,47 +349,48 @@ function SelloPase({ promo }) {
       type="button"
       onClick={clickable ? (e => { e.stopPropagation(); comprarPase(); }) : undefined}
       style={{
-        alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 7,
+        alignSelf: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        // Alto clavado al del botón "Ver oferta" que había antes acá: el CTA de
+        // la ficha cambió de texto, no de peso.
+        minHeight: 38, boxSizing: 'border-box', padding: '0 22px',
         background: A.primarySoft, border: `1px solid ${A.primary}22`, borderRadius: 999,
-        padding: '6px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 700,
+        fontFamily: A.font, fontSize: 13.5, fontWeight: 800,
         color: A.primary, cursor: clickable ? 'pointer' : 'default', lineHeight: 1,
       }}
     >
       <span>{texto}</span>
-      {conMarca && <PaSSMark size={10} conGesell />}
+      {conMarca && <PaSSMark size={11} conGesell />}
     </button>
   );
 }
 
-// ─── Precio + CTAs ─────────────────────────────────────────────
-// El Pase manda y el cupón suelto va detrás, en la misma línea y en menor
-// jerarquía: leído así se entiende solo que el suelto es la opción cara.
-// Antes el precio suelto iba centrado y protagónico arriba del botón, que es
-// exactamente al revés de lo que conviene mostrar.
+// ─── Pie: el Pase y, debajo, el cupón suelto ───────────────────
+// El Pase se queda con la única forma de botón de la ficha. El suelto es la
+// opción cara: va abajo, en texto, sin recuadro y sin hover — clickearlo abre
+// el detalle, igual que el resto de la ficha, pero nada en su aspecto lo
+// empuja. "Ver oferta" ya no vive acá: se mudó a la franja de ahorro.
 function PrecioYAcciones({ promo, onOpen, hideActions = false, hidePrecio = false, hideAgregar = false }) {
   const suelto = precioSuelto(promo);
 
   return (
-    <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       {!hideActions && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {!hideAgregar && <SelloPase promo={promo} />}
-            {!hidePrecio && suelto && (
-              <span style={{ fontFamily: A.font, fontSize: 11.5, color: A.muted, whiteSpace: 'nowrap' }}>
-                · o suelto por <span style={{ fontWeight: 700, color: A.ink2 }}>{suelto}</span>
-              </span>
-            )}
-          </div>
+          {!hideAgregar && <SelloPase promo={promo} />}
 
-          <button
-            onClick={e => { e.stopPropagation(); onOpen && onOpen(promo); }}
-            style={{ alignSelf: 'center', background: '#fff', border: '1.5px solid #E8E9EE', borderRadius: 14, padding: '9px 40px', fontSize: 14.5, fontWeight: 800, color: A.ink, cursor: 'pointer', transition: 'border-color .15s, color .15s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = A.primary; e.currentTarget.style.color = A.primary; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E8E9EE'; e.currentTarget.style.color = A.ink; }}
-          >
-            Ver oferta
-          </button>
+          {!hidePrecio && suelto && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onOpen && onOpen(promo); }}
+              style={{
+                alignSelf: 'center', background: 'none', border: 'none', padding: 0,
+                fontFamily: A.font, fontSize: 12, color: A.muted, lineHeight: 1.3,
+                cursor: 'pointer',
+              }}
+            >
+              ó compralo suelto por <span style={{ fontWeight: 700, color: A.ink2 }}>{suelto}</span>
+            </button>
+          )}
         </>
       )}
     </div>
@@ -376,7 +425,8 @@ export default function OfertaCard({ promo, onOpen, onClick, variant = 'grid', i
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <ProveedorHeader promo={promo} size={38} />
           {reviewSlot}
-          <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
+          <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)}
+            accion={<VerOfertaLink promo={promo} onOpen={abrir} />} />
           <StockStrip tieneStock={promo.tieneStock} stockRestante={promo.stockRestante} />
           <PrecioYAcciones promo={promo} onOpen={abrir} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
         </div>
@@ -398,7 +448,8 @@ export default function OfertaCard({ promo, onOpen, onClick, variant = 'grid', i
       {fixedHeight
         ? <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{reviewSlot}</div>
         : reviewSlot}
-      <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)} />
+      <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)}
+        accion={hideActions ? null : <VerOfertaLink promo={promo} onOpen={abrir} />} />
       <PrecioYAcciones promo={promo} onOpen={abrir} hideActions={hideActions} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
     </div>
   );

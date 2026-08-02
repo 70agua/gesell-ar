@@ -93,7 +93,7 @@ const SECONDARY_FILTERS = [
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria }) {
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria, onVerPase }) {
   const [activeTypes,    setActiveTypes]    = useState(new Set());
   const [activeSecondary, setActiveSecondary] = useState([]);
   const [tabAloj,        setTabAloj]        = useState('Todos'); // eslint-disable-line
@@ -152,7 +152,7 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
       ))}
 
       {/* ── Cupopacks ─────────────────────────────────────────── */}
-      <CupopacksSection onOpenPack={onOpenPack} onVerPacks={onVerPacks} />
+      <CupopacksSection onOpenPack={onOpenPack} onVerPacks={onVerPacks} onVerPase={onVerPase} />
     </div>
   );
 }
@@ -751,7 +751,7 @@ function CupopackCard({ cupopack, onVerCupopack }) {
   );
 }
 
-function CupopacksSection({ onOpenPack, onVerPacks }) {
+function CupopacksSection({ onOpenPack, onVerPacks, onVerPase }) {
   const [modal, setModal] = useState(null); // { cupopack, startIndex }
   const [cupopacks, setCupopacks] = useState(null); // null = cargando
 
@@ -838,6 +838,7 @@ function CupopacksSection({ onOpenPack, onVerPacks }) {
           cupopack={modal.cupopack}
           startIndex={modal.startIndex}
           onClose={() => setModal(null)}
+          onVerPase={onVerPase}
         />
       )}
     </section>

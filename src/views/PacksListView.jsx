@@ -168,7 +168,7 @@ function CupopackFila({ cupopack, onVerDetalle, onComprar }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-export default function PacksListView({ onBack, familia = null, onFamiliaChange }) {
+export default function PacksListView({ onBack, familia = null, onFamiliaChange, onVerPase }) {
   const [cupopacks, setCupopacks] = useState(null); // null = cargando
   const [modal, setModal] = useState(null);
   const { comprarAhora } = useCarrito();
@@ -272,7 +272,7 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange 
       </div>
 
       {modal && (
-        <CupopackModal cupopack={modal} startIndex={0} onClose={() => setModal(null)} />
+        <CupopackModal cupopack={modal} startIndex={0} onClose={() => setModal(null)} onVerPase={onVerPase} />
       )}
     </div>
   );

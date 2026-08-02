@@ -379,7 +379,7 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
   const esHotelero = perfil.tipo === 'alojamiento';
   const NAV_STEPS = [
     { n:1, label:'Mi Empresa',  sub:'Perfil del negocio' },
-    ...(esHotelero ? [{ n:2, label:'Plan', sub:'Regalá el Pase a tus turistas' }] : []),
+    ...(esHotelero ? [{ n:2, label:'Plan', sub:'Regalá el Pase a tus clientes' }] : []),
     { n:3, label:'Crear cupón', sub:'Captá clientes desde el día 1' },
   ];
 
@@ -473,7 +473,7 @@ export function OnboardingComercial({ regUserId, rNombre, rApellido, rEmail, onC
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <VolverBtn onClick={irAtras} />
-                <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Regalá el Pase a tus turistas</h1>
+                <h1 style={{ margin:0, fontSize:24, fontWeight:800, color:OBINK }}>Regalá el pase a tus clientes</h1>
               </div>
 
               {errors._ && <div style={{ padding:'10px 14px', background:'#fef2f2', borderRadius:10, fontSize:13, color:'#ef4444', fontFamily:OBFONT }}>{errors._}</div>}

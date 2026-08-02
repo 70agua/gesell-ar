@@ -370,6 +370,7 @@ function AppContent() {
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
               onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
               onSuscribirHoteleria={() => { setView('checkout-hotelero'); window.scrollTo(0, 0); }}
+              onVerPase={() => { setView('mi-pase'); window.scrollTo(0, 0); }}
               onNavMarketplaceTipo={(filtro) => { setMarketplaceTipo(filtro || 'todos'); setView('marketplace'); window.scrollTo(0, 0); }}
               onNavCuponear={(target) => {
                 // Entramos SIEMPRE al listado con los filtros vacíos (inclusive):
@@ -473,6 +474,7 @@ function AppContent() {
                 onBack={() => setView('home')}
                 familia={packFamilia}
                 onFamiliaChange={setPackFamilia}
+                onVerPase={() => { setView('mi-pase'); window.scrollTo(0, 0); }}
               />
             </div>
           )}

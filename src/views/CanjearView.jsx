@@ -54,7 +54,7 @@ function Comprobante({ res, onListo }) {
           <div style={{ fontSize: 13, color: A.muted, marginTop: 2 }}>{res.negocio}</div>
           {res.ahorro > 0 && (
             <div style={{ fontSize: 13.5, fontWeight: 700, color: A.green, marginTop: 8 }}>
-              Ahorrás {fmt(res.ahorro)}
+              Ahorrás {fmt(res.ahorro)} aprox.
             </div>
           )}
         </div>
@@ -83,7 +83,7 @@ function Confirmacion({ item, negocio, onConfirmar, onCancelar, enviando }) {
       <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 16, padding: 18, marginBottom: 16 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{item.titulo}</div>
         {item.ahorro > 0 && (
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: A.green, marginTop: 6 }}>Ahorrás {fmt(item.ahorro)}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: A.green, marginTop: 6 }}>Ahorrás {fmt(item.ahorro)} aprox.</div>
         )}
       </div>
 
@@ -267,7 +267,7 @@ export default function CanjearView({ session, negocioId, onSalir, onLoginRequir
                 <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{it.titulo}</span>
                 {it.ahorro > 0 && (
                   <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: A.green, marginTop: 3 }}>
-                    Ahorrás {fmt(it.ahorro)}
+                    Ahorrás {fmt(it.ahorro)} aprox.
                   </span>
                 )}
               </span>

@@ -8,6 +8,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, CreditCard, Loader2, Minus, Plus } from 'lucide-react';
 import { getPasesDestino, comprarPaseAnonimo, vincularComprasPase, eleccionesPremium, contarIncluidasEnPase } from '../lib/pases';
+import { usePasePropio } from '../lib/pasePropio';
+import CupopacksParaPase from '../components/CupopacksParaPase';
 import PaSSMark from '../components/PaSSMark';
 import Icono from '../components/Icono';
 import CaptchaDeslizar from '../components/CaptchaDeslizar';
@@ -218,6 +220,24 @@ function PasoPerfil({ onElegir }) {
   );
 }
 
+// El provider ya estaba montado cuando la compra ni existía, así que su lectura
+// es vieja: hay que pedirle que vuelva a mirar una vez, al aterrizar acá.
+function OfertaPostCompra() {
+  const { pase, libres, total, elegidasIds, refrescar } = usePasePropio();
+  const [listo, setListo] = useState(false);
+
+  useEffect(() => { refrescar().then(() => setListo(true)); }, [refrescar]);
+
+  if (!listo || !pase || libres <= 0) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <CupopacksParaPase
+        paseId={pase.id} libres={libres} total={total}
+        elegidasIds={elegidasIds} onCambio={refrescar} />
+    </div>
+  );
+}
+
 export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero, preguntarPerfil = false }) {
   // null = todavía no contestó el paso 0. Si no hay que preguntar, entra
   // derecho como turista, que es lo que venía haciendo hasta ahora.
@@ -410,6 +430,15 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
               {listo.conSesion ? 'Empezar a explorar' : 'Volver al inicio'}
             </button>
           </div>
+
+          {/* El momento principal del Cupopack (§6 de docs/3-cupopacks.md):
+              acaba de pagar y tiene los slots vacíos. Podemos ofrecerlo acá
+              porque desde la Fase 8 se eligen premium con el pase todavía sin
+              activar — antes había que activarlo y eso quemaba días de viaje.
+
+              Sólo con sesión: sin cuenta el pase queda esperando a que confirme
+              el mail, y todavía no hay a qué colgarle las elecciones. */}
+          {listo.conSesion && <OfertaPostCompra />}
         </div>
       </div>
     );

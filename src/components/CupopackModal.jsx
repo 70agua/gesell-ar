@@ -18,6 +18,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
 import { aplicarBeneficioCupopack, tipoBeneficio } from '../lib/beneficiosCupopack';
+import { usePasePropio } from '../lib/pasePropio';
+import { encajeEnPase, cupopackAplicado, aplicarCupopack, deshacerCupopack } from '../lib/cupopacks';
+import PaSSMark from './PaSSMark';
 
 const C = {
   ink:      '#0B1020',
@@ -333,10 +336,99 @@ function CuponPila({ cupon, i, esRegalo, onOpen }) {
         </span>
         <span className="cp-lado">
           {cupon.badge && <span className="cp-badge">{cupon.badge}</span>}
-          {cupon.ahorro_estimado > 0 && <span className="cp-ahorro">Ahorrás {fmt(cupon.ahorro_estimado)}</span>}
+          {cupon.ahorro_estimado > 0 && <span className="cp-ahorro">Ahorrás {fmt(cupon.ahorro_estimado)} aprox.</span>}
         </span>
       </button>
     </div>
+  );
+}
+
+// ─── §plantilla · Pie para el que YA tiene el Pase ───────────
+//
+// Al que tiene Pase activo no se le vende nada: sus cupones regulares ya vienen
+// con el Pase, y los premium se ELIGEN — ocupan uno de los slots que ya pagó.
+// Por eso este pie reemplaza al checkout entero en vez de convivir con él;
+// mostrarle un precio a quien no tiene que pagar es la peor de las dos.
+//
+// Reversible en un tap, como manda §5 de 3-cupopacks.md: un pack cerrado que no
+// se puede deshacer genera rechazo, y la elección se libera hasta el canje.
+function PieConPase({ cupones, onVerPase }) {
+  const { pase, libres, total, elegidasIds, refrescar } = usePasePropio();
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState(null);
+
+  const { premium, entran, sobran } = encajeEnPase(cupones, libres);
+  const puesto    = cupopackAplicado(cupones, elegidasIds, libres || premium.length);
+  const regulares = cupones.length - premium.length;
+
+  // Si está puesto, lo que hay que soltar es lo elegido, no lo que "entra":
+  // con los slots llenos `libres` es 0 y `entran` vendría vacío.
+  const aDeshacer = premium.filter(c => elegidasIds.includes(c.id));
+
+  const accionar = async () => {
+    if (!pase || ocupado) return;
+    setOcupado(true); setAviso(null);
+    const r = puesto
+      ? await deshacerCupopack(pase.id, cupones, elegidasIds)
+      : await aplicarCupopack(pase.id, cupones, libres);
+    await refrescar();
+    setOcupado(false);
+
+    if (puesto) {
+      // Lo ya canjeado no se suelta, y eso no es un error: es el único estado
+      // que congela la elección. Se dice, no se esconde.
+      if (r.fallidos.length) setAviso(`${r.quitados.length} liberados. ${r.fallidos.length} ya los canjeaste y quedan en tu Pase.`);
+      else setAviso(null);
+    } else if (r.fallidos.length) {
+      setAviso(r.fallidos[0].texto);
+    }
+  };
+
+  const sinLugar = !puesto && entran.length === 0 && premium.length > 0;
+
+  return (
+    <section className="cp-checkout">
+      <p className="cp-pase-rotulo">Tenés el <PaSSMark size={12} conGesell /></p>
+
+      {/* El estado se dice en una frase, no en una tabla: cuántos ya vienen y
+          cuántos ocupan lugar. Nunca "incluye": los regulares vienen con el
+          Pase, los premium se eligen. */}
+      <p className="cp-promesa" style={{ textAlign: 'left' }}>
+        {regulares > 0 && (
+          <>{regulares} {regulares === 1 ? 'cupón ya viene' : 'cupones ya vienen'} con tu Pase. </>
+        )}
+        {premium.length > 0
+          ? <>Los {premium.length === 1 ? 'otro' : `otros ${premium.length}`} son beneficios premium <strong>elegidos por nosotros</strong>.</>
+          : <>No hay nada más que elegir.</>}
+      </p>
+
+      {premium.length > 0 && (
+        <p className="cp-puntos" style={{ textAlign: 'left', fontStyle: 'normal' }}>
+          {puesto
+            ? `Ocupan ${aDeshacer.length} de tus ${total}. Podés sacarlos o cambiar cualquiera cuando quieras.`
+            : sinLugar
+              ? 'No te quedan beneficios premium disponibles.'
+              : `Ocupan ${entran.length} de los ${libres} que te quedan.${sobran > 0 ? ` ${sobran} no entran.` : ''}`}
+        </p>
+      )}
+
+      {aviso && <p className="cp-pase-aviso">{aviso}</p>}
+
+      {premium.length > 0 && (
+        sinLugar
+          ? <button className="cp-cta cp-cta-hueco" onClick={onVerPase}>Ver mi Pase</button>
+          : (
+            <button className={`cp-cta${puesto ? ' cp-cta-hueco' : ''}`} onClick={accionar} disabled={ocupado}>
+              {ocupado ? 'Un segundo…' : puesto ? 'Sacarlos de mi Pase' : 'Elegirlos con mi Pase'}
+            </button>
+          )
+      )}
+
+      <p className="cp-legal">
+        Elegir un beneficio premium no lo reserva ni lo confirma: lo guarda para que lo canjees
+        en el comercio. Cada uno tiene sus propios términos, que podés ver en su detalle.
+      </p>
+    </section>
   );
 }
 
@@ -378,14 +470,14 @@ function CheckoutResumen({ cupopack, totalAhorro, totalPuntos, puntosTachado, pr
         </p>
       )}
 
-      {/* Los puntos, chicos y colgados de la promesa: son un vuelto de la
-          compra, no otro número de la cuenta. */}
+      {/* Los puntos, colgados de la promesa: son un vuelto de la compra, no
+          otro número de la cuenta. En itálica y amarillo —el del CTA— para que
+          se lean como un aparte y no como parte del precio; sin negrita, que es
+          el peso que en este bloque se reserva para las cifras que se deciden. */}
       {totalPuntos > 0 && (
-        <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: '10px 0 0', lineHeight: 1.4 }}>
-          Ganás <strong style={{ color: '#fff', fontWeight: 700 }}>{totalPuntos.toLocaleString('es-AR')} puntos</strong>
-          {afecta === 'puntos' && puntosTachado != null && (
-            <span style={{ color: C.yellow, fontWeight: 700 }}> (×{cupopack.beneficioValor})</span>
-          )}
+        <p className="cp-puntos">
+          Ganás {totalPuntos.toLocaleString('es-AR')} puntos
+          {afecta === 'puntos' && puntosTachado != null && <> (×{cupopack.beneficioValor})</>}
         </p>
       )}
 
@@ -401,15 +493,19 @@ function CheckoutResumen({ cupopack, totalAhorro, totalPuntos, puntosTachado, pr
           {fmt(precioFinal)}
         </span>
       </button>
-      <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)', textAlign: 'center', margin: '12px 0 0', lineHeight: 1.4 }}>
+      <p className="cp-legal">
         Estás comprando los descuentos, no los servicios ni productos en sí. Cada beneficio tiene sus propios términos y condiciones de canje, que podés ver en la sección "Qué incluye" de cada cupón.
       </p>
     </section>
   );
 }
 
-export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
+export default function CupopackModal({ cupopack, startIndex = 0, onClose, onVerPase }) {
   const cupones = cupopack?.cupones || [];
+  // Pendiente cuenta igual: ya lo compró. Venderle los cupones sueltos a quien
+  // pagó el Pase es cobrarle dos veces por lo mismo.
+  const { activo, pendiente } = usePasePropio();
+  const tienePase = activo || pendiente;
   const [view, setView] = useState('grid');  // 'grid' o 'detail'
   const [idx, setIdx] = useState(startIndex);
   const [dir, setDir] = useState(0);
@@ -665,11 +761,19 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
                 ))}
               </div>
 
-              <CheckoutResumen
-                cupopack={cupopack}
-                totalAhorro={totalAhorro} totalPuntos={totalPuntos} puntosTachado={puntosTachado}
-                precioFinal={precioFinal} precioTachado={precioTachado}
-              />
+              {/* Dos pies para el mismo Cupopack, y sólo uno a la vez. Con el
+                  Pase activo no hay nada que comprar —los regulares vienen con
+                  él y los premium se eligen—, así que el checkout no se
+                  atenúa: se reemplaza. Ver §plantilla. */}
+              {tienePase ? (
+                <PieConPase cupones={cupones} onVerPase={() => { onClose?.(); onVerPase?.(); }} />
+              ) : (
+                <CheckoutResumen
+                  cupopack={cupopack}
+                  totalAhorro={totalAhorro} totalPuntos={totalPuntos} puntosTachado={puntosTachado}
+                  precioFinal={precioFinal} precioTachado={precioTachado}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -988,14 +1092,45 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
            el checkout ya está posicionado detrás de ella, y se descubre solo al
            encogerse. */
 
+        .cp-legal {
+          margin: 12px 0 0; text-align: center;
+          font-size: 11.5px; line-height: 1.4; color: rgba(255,255,255,0.45);
+        }
+
+        /* ─── §plantilla · pie del que tiene Pase ─────────────── */
+        .cp-pase-rotulo {
+          display: flex; align-items: center; gap: 5px;
+          margin: 0 0 12px; font-size: 12.5px; font-weight: 700;
+          color: rgba(255,255,255,0.6);
+        }
+        .cp-pase-aviso {
+          margin: 14px 0 0; padding: 10px 13px; border-radius: 10px;
+          background: rgba(255,201,60,0.14); border: 1px solid rgba(255,201,60,0.35);
+          font-size: 12.5px; line-height: 1.45; color: ${C.yellow};
+        }
+        /* La versión hueca es para las acciones que no son la principal:
+           deshacer y salir a Mi Pase. Mismo tamaño, otro peso. */
+        .cp-cta-hueco {
+          background: none; border: 1.5px solid rgba(255,255,255,0.35); color: #fff;
+        }
+        .cp-cta-hueco:hover { background: rgba(255,255,255,0.1); }
+        .cp-cta:disabled { opacity: 0.6; cursor: default; }
+
         /* Libre de envolver: el precio dejó de estar debajo —ahora vive en el
-           botón—, así que que la frase crezca ya no le roba lugar a nada. */
+           botón—, así que que la frase crezca ya no le roba lugar a nada.
+           Centrados los dos: son el pie de la pila, que va a lo ancho, y el CTA
+           de abajo también está centrado. */
         .cp-promesa {
-          margin: 0;
+          margin: 0; text-align: center;
           font-size: clamp(15px, 1.9vw, 19px);
           font-weight: 600; color: rgba(255,255,255,0.9); line-height: 1.45;
         }
         .cp-promesa strong { color: #fff; font-weight: 800; }
+        .cp-puntos {
+          margin: 10px 0 0; text-align: center;
+          font-size: 13.5px; font-style: italic; font-weight: 400;
+          color: ${C.yellow}; line-height: 1.4;
+        }
 
         /* La decisión completa en un solo objeto: qué hago y cuánto pago. El
            tachado va pegado al precio vivo, que es donde la comparación sirve. */
