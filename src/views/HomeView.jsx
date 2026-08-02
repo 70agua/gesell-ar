@@ -786,14 +786,14 @@ function CupopacksSection({ onOpenPack, onVerPacks }) {
             <IcoBolt /> Viajá con packs de cupones
           </div>
           <h2 style={{ fontSize: 'clamp(34px, 3vw, 52px)', fontWeight: 700, lineHeight: 1.05, margin: '0 0 10px' }}>
-            Packs{' '}
+            Cupopacks:{' '}
             <button
               onClick={onVerPacks}
               style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: A.yellow, cursor: 'pointer', textDecoration: 'none', transition: 'opacity .15s' }}
               onMouseEnter={e => e.currentTarget.style.opacity = '0.78'}
               onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
-              todo incluído
+              Todo en uno
             </button>
           </h2>
           <p style={{ fontSize: 21, fontStyle: 'italic', fontWeight: 400, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45, letterSpacing: '-0.01em', margin: '18px 0 16px', maxWidth: 1120 }}>

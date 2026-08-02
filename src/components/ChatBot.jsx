@@ -591,18 +591,24 @@ function SpeechBubble({ onDismiss }) {
   const suffixShown = typed.slice(BUBBLE_PREFIX.length + BUBBLE_NAME.length);
   const [countdown, setCountdown] = useState(10);
 
+  // El updater de setState tiene que ser puro: React lo corre en fase de
+  // render, así que avisarle al padre desde adentro es un setState de otro
+  // componente mientras éste se está renderizando. La cuenta baja acá y el
+  // aviso sale en un efecto aparte, cuando llega a cero.
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(c => {
-        if (c <= 1) {
-          onDismiss();
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
+    const timer = setInterval(() => setCountdown(c => (c <= 1 ? 0 : c - 1)), 1000);
     return () => clearInterval(timer);
-  }, [onDismiss]);
+  }, []);
+
+  // El ref evita repetir el aviso si el padre re-renderiza —onDismiss es una
+  // arrow inline y cambia de identidad en cada render suyo— antes de desmontar.
+  const avisado = useRef(false);
+  useEffect(() => {
+    if (countdown === 0 && !avisado.current) {
+      avisado.current = true;
+      onDismiss();
+    }
+  }, [countdown, onDismiss]);
 
   return (
     <div style={{

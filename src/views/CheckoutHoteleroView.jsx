@@ -153,7 +153,7 @@ function TramoPago({ p, mensual, activo, onSelect }) {
         <div style={{ fontSize: 11, color: C.muted, marginTop: 2, whiteSpace: 'nowrap' }}>+ IVA por mes</div>
         {p.meses > 1 && (
           <div style={{ fontSize: 11, fontWeight: 600, color: C.ink2, lineHeight: 1.35, marginTop: 6 }}>
-            {fmt(p.total)} + IVA por adelantado
+            {fmt(p.total)} + IVA pagando por adelantado
           </div>
         )}
       </div>
@@ -163,9 +163,9 @@ function TramoPago({ p, mensual, activo, onSelect }) {
 
 // ─── Cómo funciona, contado desde el mostrador del hotel ─────
 const PASOS = [
-  { t: 'Sumás tu alojamiento',      d: 'Cargás los datos, lo revisamos y queda publicado en Cuponear.' },
-  { t: 'Le regalás el pase a tu turista', d: 'Le pasás tu código de 6 dígitos al hacer el check-in y el pase se le activa solo.' },
-  { t: 'Tu turista ahorra en todos lados', d: 'Usa los descuentos de los comercios adheridos durante su estadía. El pase de regalo no incluirá otros alojamientos, sólo ofertas en el tuyo, por si desea alojarse en el futuro.' },
+  { t: 'Elegís un plan de suscripción',      d: 'Y completás el formulario con los datos de tu empresa' },
+  { t: 'Tu cliente lée el QR de tu empresa, o carga el código de 6 dígitos.', d: 'El pase se le activará cuando lo apruebes.' },
+  { t: '¡Listo para empezar a ahorrar!', d: 'Va a disfrutar de descuentos en los comercios adheridos durante su estadía.' },
 ];
 
 // Vive DENTRO del contenedor del plan, así que no trae marco propio: el borde
@@ -356,14 +356,13 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
               }}>
                 Suscripción para hotelería
               </span>
-              <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.15 }}>
-                Regalá a tus turistas descuentos en toda la zona
+              <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: '0.01em', lineHeight: 1.15 }}>
+                Regalá descuentos y beneficios a tus clientes
               </div>
               {/* El margen negativo le presta 20px del gap: el párrafo cortaba
                   antes de tiempo y la línea quedaba corta al lado del titular. */}
               <p style={{ fontSize: 14, lineHeight: 1.55, margin: '10px -20px 0 0', color: 'rgba(255,255,255,0.88)' }}>
-                No hay que instalar nada: el pase lo activa el turista con un código desde el celular
-                al realizar su check-in, y lo puede usar en todos los comercios adheridos.
+                Se activa con un código que vos le das y lo puede usar en todos los comercios y experiencias turísticas adheridas.
               </p>
             </div>
             <IlustracionRegalo />

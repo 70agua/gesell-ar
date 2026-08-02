@@ -1,32 +1,23 @@
 // ============================================================
 //  src/components/CupopackModal.jsx
-//  Modal de un Cupopack: coverflow de sus cupones + riel de checkout.
-//  - Vista de entrada a PANTALLA COMPLETA, sin bordes redondeados.
-//  - Dos columnas:
-//      · Izquierda  → cabecera con identidad Cuponear + título grande
-//                     + grilla de cupones (mismo contenido que hoy).
-//      · Derecha    → panel "checkout": punto ahorro, activación y CTA de pago.
-//  - Vista de detalle (coverflow) idéntica al original.
+//  Modal de un Cupopack: la pila de sus cupones + resumen de checkout.
+//
+//  Vista de entrada: una VENTANA FLOTANTE (no pantalla completa) con un solo
+//  eje de scroll, y adentro, en orden: cabecera con identidad Cuponear y la
+//  pila de cupones, coronada por la barra fija "Resumen del Cupopack" y
+//  cerrada por el precio. Pila + barra + precio son UN paquete: ver §cierre.
+//
+//  La pila es lo único no evidente. Cada cupón entra grande y, al llegar a su
+//  altura de anclaje, se encoge hasta quedar de un renglón y se queda ahí:
+//  arriba se va acumulando la lista de los que ya viste, abajo sigue el que
+//  estás mirando. Cómo está hecho, en §pila.
+//
+//  Vista de detalle (coverflow) idéntica al original.
 // ============================================================
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
 import { aplicarBeneficioCupopack, tipoBeneficio } from '../lib/beneficiosCupopack';
-import OfertaCard from './OfertaCard';
-
-// Mapea un cupón del Cupopack a la forma `promo` que espera <OfertaCard/>.
-const cuponAPromo = c => ({
-  id: c.id,
-  proveedorNombre: c.socio,
-  negocioLocalidad: c.localidad,
-  image: c.imagen,
-  title: c.titulo,
-  badge: c.badge,
-  ahorroEstimado: c.ahorro_estimado,
-  offerType: 'Normal',
-  tieneStock: c.tieneStock,
-  stockRestante: c.stockRestante,
-});
 
 const C = {
   ink:      '#0B1020',
@@ -287,193 +278,133 @@ function CuponCard({ cupon, cupopack, cupones, idx, dir, onClose, onBack }) {
 }
 
 // ─── Recuadro del beneficio adicional ──
-function BeneficioBox({ texto, icono, tipo, valor, compact = false, dark = false }) {
+// Dos renglones y nada más: el rótulo y el beneficio. La tercera línea repetía
+// en jerga lo que el título ya dice ("Triplicás los puntos" / "Multiplicás tus
+// puntos ×3") y engordaba el recuadro justo arriba del precio.
+function BeneficioBox({ texto, icono }) {
   const Icon = getBeneficioIcon(icono);
-  const detalle = {
-    puntos_mult:  valor > 1 ? `Multiplicás tus puntos ×${valor}` : null,
-    precio_pct:   valor > 0 ? `${valor}% de descuento en la activación del Cupopack` : null,
-    precio_fijo:  valor > 0 ? `$${Number(valor).toLocaleString('es-AR')} de descuento en la activación` : null,
-    cupon_regalo: 'Sumás un cupón extra de regalo',
-  }[tipo] || null;
-
   return (
     <div style={{
-      display: 'flex', alignItems: compact ? 'flex-start' : 'center', gap: 12,
-      background: dark ? 'rgba(255,201,60,0.14)' : 'linear-gradient(90deg, rgba(255,201,60,0.14), rgba(255,201,60,0.05))',
-      border: `1px solid rgba(255,201,60,0.4)`, borderRadius: 16, padding: compact ? '14px 16px' : '16px 18px',
+      display: 'flex', alignItems: 'center', gap: 12,
+      background: 'rgba(255,201,60,0.14)',
+      border: '1px solid rgba(255,201,60,0.4)', borderRadius: 16, padding: '13px 16px',
     }}>
-      <div style={{ width: compact ? 40 : 44, height: compact ? 40 : 44, borderRadius: '50%', background: C.yellow, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-        <Icon size={compact ? 18 : 22} color={C.ink} strokeWidth={2.4} />
+      <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.yellow, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        <Icon size={18} color={C.ink} strokeWidth={2.4} />
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: compact ? 9.5 : 10.5, fontWeight: 700, color: dark ? C.yellow : '#B5852A', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: compact ? 2 : 3 }}>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: C.yellow, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
           Beneficio adicional
         </div>
-        <div style={{ fontSize: compact ? 13.5 : 15, fontWeight: 800, color: dark ? '#fff' : C.ink, lineHeight: 1.25 }}>{texto}</div>
-        {detalle && <div style={{ fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.7)' : C.ink2, marginTop: 2 }}>{detalle}</div>}
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', lineHeight: 1.25 }}>{texto}</div>
       </div>
     </div>
   );
 }
 
-// ─── Cómo funciona el Cupopack (franja horizontal con miniaturas) ──
-const TicketIco = () => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4Z"/><path d="M13 6v1M13 11.5v1M13 17v1"/></svg>;
-const QrIco = () => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3M17 14v3M20 14v.01M14 20v.01M20 20v.01M17 17.5v.01"/></svg>;
-const SmileIco = () => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>;
-
-const PASOS = [
-  { n: 1, t: 'Comprás el Cupopack', d: 'Pagás una vez y ya es tuya.',            bg: '#FBE7D4', accent: '#C9741F', icon: <TicketIco /> },
-  { n: 2, t: 'Escaneás un QR en el lugar',      d: 'El descuento se aplica solo.', bg: '#E2E8FB', accent: '#3B5BE8', icon: <QrIco /> },
-  { n: 3, t: '¡A disfrutar!',       d: 'Aprovechás todos los beneficios.',       bg: '#DFF1E8', accent: '#1B9A63', icon: <SmileIco /> },
-];
-function ComoFunciona() {
+// ─── §pila · Ficha de un cupón dentro de la pila ─────────────
+// UNA sola caja para los dos estados, no dos componentes que se intercambian:
+// cambiar de componente a mitad de camino corta la continuidad justo en el
+// momento en que el usuario está mirando el cambio. Acá todo interpola contra
+// --p (0 = ficha grande, 1 = renglón), que escribe el scroll en el nodo.
+function CuponPila({ cupon, i, esRegalo, onOpen }) {
+  const fmt = n => `$${Math.round(Number(n) || 0).toLocaleString('es-AR')}`;
   return (
-    <div style={{ marginBottom: 30, background: 'linear-gradient(120deg, #FBF3EC 0%, #EEF1FB 52%, #E9F4EF 100%)', borderRadius: 20, padding: '20px 24px' }}>
-      <div className="cupon-pasos" style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-        {PASOS.map((p, i) => (
-          <React.Fragment key={p.n}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-              <div style={{ width: 58, height: 58, borderRadius: 16, background: p.bg, color: p.accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{p.icon}</div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: p.accent, letterSpacing: '0.02em', marginBottom: 2 }}>Paso {p.n}</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.ink, lineHeight: 1.2, marginBottom: 3 }}>{p.t}</div>
-                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.35 }}>{p.d}</div>
-              </div>
-            </div>
-            {i < 2 && (
-              <div className="cupon-paso-arrow" style={{ color: '#C3C8D4', flexShrink: 0, padding: '0 8px' }}><ChevR s={20} /></div>
-            )}
-          </React.Fragment>
-        ))}
-      </div>
+    <div className={`cp-card${esRegalo ? ' cp-card-regalo' : ''}`} style={{ '--i': i }}>
+      {/* Contenido en <span>: el modelo de contenido de <button> no admite
+          <div>, y toda la ficha tiene que ser un solo objetivo clickeable. */}
+      <button className="cp-inner" onClick={onOpen} aria-label={`Ver el cupón ${cupon.titulo}`}>
+        <span className="cp-thumb">
+          <img src={cupon.imagen} alt="" />
+          {esRegalo && <span className="cp-regalo">REGALO</span>}
+        </span>
+        <span className="cp-texto">
+          {/* Socio y localidad juntos, y los dos enteros. Lo que los cortaba
+              no era el espacio sino el `nowrap`: sin él la línea envuelve, y
+              como el alto de fila se mide (§medida), la fila crece sola para
+              alojarla. El · va pegado al socio con espacio duro para que el
+              corte, si pasa, caiga antes de la localidad y no deje el punto
+              huérfano abriendo el segundo renglón. */}
+          <span className="cp-socio">
+            {cupon.socio}{cupon.localidad ? <>{'\u00A0·'} {cupon.localidad}</> : null}
+          </span>
+          <span className="cp-titulo">{cupon.titulo}</span>
+          {cupon.beneficio && <span className="cp-benef">{cupon.beneficio}</span>}
+        </span>
+        <span className="cp-lado">
+          {cupon.badge && <span className="cp-badge">{cupon.badge}</span>}
+          {cupon.ahorro_estimado > 0 && <span className="cp-ahorro">Ahorrás {fmt(cupon.ahorro_estimado)}</span>}
+        </span>
+      </button>
     </div>
   );
 }
 
-// ─── Envoltorio de "cupón de regalo" (borde amarillo + chip) ──
-function CuponRegaloWrap({ icono, children }) {
-  const Icon = getBeneficioIcon(icono);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', borderRadius: 22, border: `2px solid ${C.yellow}`, overflow: 'hidden', background: '#fff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', background: 'rgba(255,201,60,0.16)', borderBottom: '1px solid rgba(255,201,60,0.5)' }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: C.yellow, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-          <Icon size={16} color={C.ink} strokeWidth={2.6} />
-        </div>
-        <span style={{ fontSize: 11.5, fontWeight: 900, color: '#8A5A00', letterSpacing: '0.07em' }}>CUPÓN DE REGALO</span>
-      </div>
-      <div style={{ flex: 1, display: 'flex' }}>{children}</div>
-    </div>
-  );
-}
-
-// ─── Fila de dato del panel checkout (estilo ticket: label izq · valor der) ──
-function RailRow({ label, children, tach }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '15px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-      <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.72)' }}>{label}</div>
-      <div style={{ textAlign: 'right' }}>
-        {tach}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// ─── Panel checkout (columna derecha) ────────────────────────
-function CheckoutRail({ cupopack, cupones, totalAhorro, totalPuntos, puntosTachado, precioFinal, precioTachado }) {
+// ─── Pie del paquete: el precio y nada más ───────────────────
+// Ya no lleva título propio: el del paquete es la barra fija "Resumen del
+// Cupopack" que corona la pila, y repetirlo acá partía en dos algo que es una
+// sola cosa. Cierra el recorrido —se llega después de haber pasado por todos
+// los cupones, que es cuando el precio se puede juzgar.
+//
+// Todo apilado, sin tabular: qué se lleva (los N cupones y el ahorro, en una
+// frase), los puntos que deja, el botón —que lleva el precio adentro— y la
+// letra chica. Ni el ahorro ni los puntos son filas propias: enfrentados en
+// columna contra el precio parecían tres cifras a comparar. Y el precio no es
+// un bloque aparte: dentro del botón, la decisión queda entera en un objeto.
+function CheckoutResumen({ cupopack, totalAhorro, totalPuntos, puntosTachado, precioFinal, precioTachado }) {
   const fmt = n => `$${Math.round(n).toLocaleString('es-AR')}`;
-  const tachSt = { fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textDecoration: 'line-through' };
 
   // Dónde impacta el beneficio adicional: 'puntos' | 'precio' | null.
   const afecta = cupopack?.beneficioAdicional ? tipoBeneficio(cupopack.beneficioTipo).afecta : null;
   const beneficioBox = (
-    <BeneficioBox
-      texto={cupopack?.beneficioAdicional}
-      icono={cupopack?.beneficioIcono}
-      tipo={cupopack?.beneficioTipo}
-      valor={cupopack?.beneficioValor}
-      compact
-      dark
-    />
+    <BeneficioBox texto={cupopack?.beneficioAdicional} icono={cupopack?.beneficioIcono} />
   );
 
   return (
-    <aside
-      className="cupon-rail"
-      style={{
-        width: 400, flexShrink: 0, background: C.primaryDeep, color: '#fff',
-        display: 'flex', flexDirection: 'column', height: '100%',
-        borderLeft: '1px solid rgba(255,255,255,0.08)',
-      }}
-    >
-      {/* Encabezado del panel */}
-      <div style={{ padding: '26px 30px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ position: 'relative', width: 74, height: 44, marginBottom: 14 }}>
-          <img src="/ico-disc.svg" alt="" style={{ width: 44, position: 'absolute', top: 0, left: 0, zIndex: 2 }} />
-          <img src="/ico-disc.svg" alt="" style={{ width: 44, position: 'absolute', top: 0, left: 26, zIndex: 1, opacity: 0.55 }} />
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em' }}>
-          Resumen del Cupopack
-        </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
-          {cupones.length} cupones para canjear
-        </div>
-      </div>
+    <section className="cp-checkout">
+      {/* El beneficio adicional, sea del tipo que sea, va junto al precio: es
+          lo único que queda en este bloque de lo que puede modificarlo. */}
+      {(afecta === 'puntos' || afecta === 'precio') && (
+        <div style={{ marginBottom: 20 }}>{beneficioBox}</div>
+      )}
 
-      {/* Cuerpo scrolleable */}
-      <div className="cupon-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 30px 20px' }}>
-        {/* El beneficio de puntos aparece justo antes del conteo */}
-        {afecta === 'puntos' && (
-          <div style={{ padding: '16px 0 0' }}>{beneficioBox}</div>
-        )}
-
-        <RailRow label="Puntos que ganás"
-          tach={puntosTachado != null && <div><span style={tachSt}>{puntosTachado.toLocaleString('es-AR')} pts.</span></div>}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, justifyContent: 'flex-end' }}>
-            {afecta === 'puntos' && puntosTachado != null && (
-              <span style={{ fontSize: 16, fontWeight: 800, color: C.yellow, fontStyle: 'italic' }}>×{cupopack.beneficioValor}</span>
-            )}
-            <span style={{ fontSize: 21, fontWeight: 400, fontStyle: 'italic', lineHeight: 1 }}>{totalPuntos.toLocaleString('es-AR')}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>pts.</span>
-          </div>
-        </RailRow>
-
-        <RailRow label="Ahorro estimado">
-          <div>
-            <span style={{ fontSize: 21, fontWeight: 700, lineHeight: 1 }}>{fmt(totalAhorro)}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.55)', marginLeft: 6 }}>aprox.</span>
-          </div>
-        </RailRow>
-      </div>
-
-      {/* Pie fijo: precio + CTA */}
-      <div style={{ padding: '20px 30px 26px', background: 'rgba(0,0,0,0.18)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        {/* El beneficio sobre el precio aparece junto a la activación */}
-        {afecta === 'precio' && (
-          <div style={{ marginBottom: 16 }}>{beneficioBox}</div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16 }}>
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Activá los {cupones.length} cupones por</span>
-          <div style={{ textAlign: 'right' }}>
-            {precioTachado != null && <div style={{ ...tachSt, marginBottom: 2 }}>{fmt(precioTachado)}</div>}
-            <div style={{ fontSize: 30, fontWeight: 800, color: C.yellow, lineHeight: 1 }}>{fmt(precioFinal)}</div>
-          </div>
-        </div>
-        <button
-          style={{
-            width: '100%', padding: '16px', background: C.yellow, color: C.ink, border: 'none',
-            borderRadius: 14, fontSize: 16, fontWeight: 800, cursor: 'pointer', transition: 'background .15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = '#FFD966'}
-          onMouseLeave={e => e.currentTarget.style.background = C.yellow}
-        >
-          Ir al pago
-        </button>
-        <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)', textAlign: 'center', margin: '12px 0 0', lineHeight: 1.4 }}>
-          Estás comprando un Cupopack de descuentos, no los servicios ni productos en sí.
+      {/* Qué se lleva. Generoso pero no del tamaño del precio: es la promesa,
+          y la cifra del botón es la que se decide. El conteo salió de acá: ya
+          está en el chip de la cabecera, que además queda fijo, y repetirlo le
+          robaba el renglón al único dato que este bloque tiene para aportar. */}
+      {totalAhorro > 0 && (
+        <p className="cp-promesa">
+          Ahorro total estimado de <strong>{fmt(totalAhorro)}</strong>
         </p>
-      </div>
-    </aside>
+      )}
+
+      {/* Los puntos, chicos y colgados de la promesa: son un vuelto de la
+          compra, no otro número de la cuenta. */}
+      {totalPuntos > 0 && (
+        <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', margin: '10px 0 0', lineHeight: 1.4 }}>
+          Ganás <strong style={{ color: '#fff', fontWeight: 700 }}>{totalPuntos.toLocaleString('es-AR')} puntos</strong>
+          {afecta === 'puntos' && puntosTachado != null && (
+            <span style={{ color: C.yellow, fontWeight: 700 }}> (×{cupopack.beneficioValor})</span>
+          )}
+        </p>
+      )}
+
+      {/* El precio va DENTRO del botón: es la decisión completa en un solo
+          objeto, sin que el ojo tenga que juntar una cifra de arriba con una
+          acción de abajo. Y si hay descuento, el precio viejo se tacha acá
+          mismo —al lado del que se paga—, que es donde la comparación sirve. */}
+      <button className="cp-cta" style={{ marginTop: 22 }}>
+        <span>Comprar cuponera</span>
+        <span className="cp-cta-sep" aria-hidden="true" />
+        <span className="cp-cta-precio">
+          {precioTachado != null && <s>{fmt(precioTachado)}</s>}
+          {fmt(precioFinal)}
+        </span>
+      </button>
+      <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)', textAlign: 'center', margin: '12px 0 0', lineHeight: 1.4 }}>
+        Estás comprando los descuentos, no los servicios ni productos en sí. Cada beneficio tiene sus propios términos y condiciones de canje, que podés ver en la sección "Qué incluye" de cada cupón.
+      </p>
+    </section>
   );
 }
 
@@ -482,6 +413,11 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
   const [view, setView] = useState('grid');  // 'grid' o 'detail'
   const [idx, setIdx] = useState(startIndex);
   const [dir, setDir] = useState(0);
+  // Índice del cupón cuyo detalle se está por abrir, a la espera de confirmar.
+  const [aConfirmar, setAConfirmar] = useState(null);
+  const scrollRef = useRef(null);
+  const stackRef  = useRef(null);
+  const rafRef    = useRef(0);
 
   const go = useCallback((d) => {
     setIdx(prev => {
@@ -496,13 +432,12 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
     return sum + precio;
   }, 0);
   const totalAhorro = cupones.reduce((sum, c) => sum + (Number(c.ahorro_estimado) || 0), 0);
-  const puntosBase = calcPts(totalAhorro);
 
   const { puntos: totalPuntos, precio: precioFinal, puntosTachado, precioTachado } =
     aplicarBeneficioCupopack({
       tipo: cupopack?.beneficioTipo,
       valor: cupopack?.beneficioValor,
-      puntosBase,
+      puntosBase: calcPts(totalAhorro),
       precioBase: totalPrecio,
     });
 
@@ -520,105 +455,223 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; };
   }, [go, onClose, view]);
 
+  // §pila · El encogido de cada ficha.
+  //
+  // No pasa por el estado de React: sería un re-render de todo el modal por
+  // frame de scroll. El rAF escribe --p directo en el nodo y el resto lo
+  // resuelve el CSS interpolando contra esa variable.
+  //
+  // Las medidas se leen de las custom properties de .cp-scroll en vez de estar
+  // acá: así el breakpoint que achica la pila en mobile no obliga a mantener
+  // los mismos números sincronizados en dos lugares.
+  useEffect(() => {
+    const cont = scrollRef.current;
+    const stack = stackRef.current;
+    if (view !== 'grid' || !cont || !stack) return;
+
+    const cards = Array.from(stack.querySelectorAll('.cp-card'));
+
+    // §medida · Cuánto mide un renglón, de verdad.
+    //
+    // El alto de fila no puede ser una constante: un título de dos o tres
+    // líneas no entra en una fila pensada para una, y recortarlo no es opción
+    // —tiene que leerse entero—. Así que se pregunta.
+    //
+    // Sale UN alto para todas y no uno por ficha a propósito. El anclaje de
+    // cada una es `título + i × alto`, y con filas de alturas distintas habría
+    // que acumular sumas parciales en cuatro fórmulas más (el margen y el
+    // mínimo del checkout de §cierre entre ellas). Una lista de renglones
+    // parejos además se lee mejor que una de renglones de alturas caprichosas.
+    const hero = cont.querySelector('.cp-hero');
+    const medir = () => {
+      // La clase fuerza el estado final —cabecera reducida, fichas de un
+      // renglón— para poder preguntar cuánto miden así. Es un ciclo de layout
+      // sincrónico, sin pintado en el medio, así que no parpadea.
+      cont.classList.add('cp-midiendo');
+
+      // La cabecera reducida es el techo del que cuelgan todos los anclajes.
+      // Se mide REDUCIDA y no entera porque para cuando la primera ficha llega
+      // a anclarse ya terminó de encogerse hace rato.
+      if (hero) cont.style.setProperty('--title-h', `${Math.ceil(hero.offsetHeight)}px`);
+
+      let alto = 0;
+      cards.forEach(el => {
+        const inner = el.querySelector('.cp-inner');
+        if (inner) alto = Math.max(alto, inner.offsetHeight);
+      });
+      cont.classList.remove('cp-midiendo');
+
+      const cs = getComputedStyle(cont);
+      const rowGap = parseFloat(cs.getPropertyValue('--row-gap')) || 8;
+      if (alto > 0) cont.style.setProperty('--row-h', `${Math.ceil(alto) + rowGap}px`);
+    };
+
+    const pintar = () => {
+      rafRef.current = 0;
+      const cs = getComputedStyle(cont);
+      const rowH   = parseFloat(cs.getPropertyValue('--row-h'))   || 58;
+      const titleH = parseFloat(cs.getPropertyValue('--title-h')) || 54;
+      const tope   = parseFloat(cs.getPropertyValue('--tope'))     || 0;
+      const trans  = parseFloat(cs.getPropertyValue('--trans'))   || 130;
+      const transH = parseFloat(cs.getPropertyValue('--trans-h')) || 150;
+
+      // La cabecera se encoge contra el scroll crudo, no contra la posición de
+      // ningún elemento: es lo primero que se mueve y no depende de nada.
+      if (hero) hero.style.setProperty('--h', clamp(cont.scrollTop / transH, 0, 1).toFixed(3));
+
+      // El alto visible del scroll no se puede escribir en CSS, y de él depende
+      // el mínimo del checkout —lo que hace que el último scroll termine justo
+      // con el paquete armado y no en un vacío. Ver §cierre.
+      cont.style.setProperty('--vh', `${cont.clientHeight}px`);
+
+      const contTop = cont.getBoundingClientRect().top;
+      cards.forEach((el, i) => {
+        // Distancia de la ficha al techo del área visible del scroll, contra
+        // la altura en la que le toca anclarse. Una vez anclada, `rel` queda
+        // clavado en `anclaje` y --p se queda en 1 sin trabajo extra.
+        const rel = el.getBoundingClientRect().top - contTop;
+        const anclaje = titleH + tope + i * rowH;
+        const p = clamp((anclaje + trans - rel) / trans, 0, 1);
+        el.style.setProperty('--p', p.toFixed(3));
+      });
+    };
+    const agendar = () => { if (!rafRef.current) rafRef.current = requestAnimationFrame(pintar); };
+    // Sólo el ANCHO obliga a volver a medir: es lo que cambia los cortes de
+    // línea. El alto cambia solo por la barra del navegador al scrollear en
+    // mobile, y remedir en cada scroll es trabajo al pedo sobre el eje caliente.
+    let anchoPrevio = cont.clientWidth;
+    const alRedimensionar = () => {
+      if (cont.clientWidth !== anchoPrevio) { anchoPrevio = cont.clientWidth; medir(); }
+      agendar();
+    };
+
+    medir();
+    pintar();
+    // Si Inter todavía no cargó, la medición sale con la tipografía de reserva
+    // y los títulos cortan en otro lado. Se vuelve a preguntar cuando esté.
+    document.fonts?.ready.then(() => { if (stackRef.current) alRedimensionar(); });
+    cont.addEventListener('scroll', agendar, { passive: true });
+    window.addEventListener('resize', alRedimensionar);
+    return () => {
+      cont.removeEventListener('scroll', agendar);
+      window.removeEventListener('resize', alRedimensionar);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [view, cupones.length]);
+
   const cupon = cupones[idx];
   const portada = cupopack?.images?.[0];
   // Si el beneficio regala un cupón, marcamos el último como "de regalo".
   const regaloIdx = cupopack?.beneficioTipo === 'cupon_regalo' ? cupones.length - 1 : -1;
 
   const overlay = (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9500, background: '#fff', fontFamily: C.font }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9500, fontFamily: C.font }}>
       {view === 'grid' ? (
-        // ─── Vista de entrada: pantalla completa, dos columnas ───
-        <div className="cupon-fullscreen" style={{ position: 'absolute', inset: 0, display: 'flex' }}>
-          {/* Columna izquierda: identidad + título + grilla */}
-          <div className="cupon-main" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-            {/* Cabecera con identidad Cuponear */}
-            <header
-              style={{
-                position: 'relative', overflow: 'hidden', flexShrink: 0,
-                padding: '24px 44px 44px',
-                background: `linear-gradient(120deg, ${C.primaryDeep} 0%, ${C.primary} 100%)`,
-                color: '#fff',
-              }}
-            >
-              {/* Portada difuminada de fondo */}
-              {portada && (
-                <>
-                  <img src={portada} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.9 }} />
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(120deg, rgba(11,16,32,0.9) 0%, rgba(27,38,93,0.62) 58%, rgba(37,69,230,0.42) 100%)` }} />
-                </>
-              )}
+        // ─── Vista de entrada: ventana flotante con un solo scroll ───
+        <div className="cp-overlay" onClick={onClose}>
+          <div className="cp-window" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={cupopack?.title}>
 
-              <div style={{ position: 'relative' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 22 }}>
-                  {/* Logo + chip del Cupopack, juntos a la izquierda */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minWidth: 0 }}>
-                    <button onClick={onClose} aria-label="Cerrar" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <img src="/logo-cuponear-wh.svg" alt="Cuponear" style={{ height: 41, width: 'auto', transition: 'opacity .15s' }} onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }} onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }} />
+            {/* Acciones: van sobre la imagen de cabecera, pero colgadas de la
+                ventana y no del scroll. Al bajar la cabecera se va y el cierre
+                tiene que seguir estando; el fondo oscuro traslúcido las hace
+                legibles tanto sobre la foto como sobre el blanco de la pila. */}
+            <div className="cp-acciones">
+              <button aria-label="Compartir" className="cp-ico"><Share size={17} /></button>
+              <button aria-label="Favorito" className="cp-ico"><Heart size={17} /></button>
+              <button onClick={onClose} aria-label="Cerrar" className="cp-ico"><IcoClose /></button>
+            </div>
+
+            {/* Salir de la cuponera al detalle de un cupón es un cambio de
+                contexto completo —se pierde la pila y el precio de vista—, así
+                que se avisa antes en vez de después. */}
+            {aConfirmar != null && (
+              <div className="cp-confirm" onClick={() => setAConfirmar(null)}>
+                <div className="cp-confirm-caja" onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true">
+                  <div className="cp-confirm-tit">Vas a salir de la cuponera</div>
+                  <p className="cp-confirm-txt">
+                    Se abre el detalle de <strong>{cupones[aConfirmar]?.titulo}</strong>. Vas a poder volver al Cupopack desde ahí.
+                  </p>
+                  <div className="cp-confirm-btns">
+                    <button className="cp-confirm-no" onClick={() => setAConfirmar(null)}>Cancelar</button>
+                    <button className="cp-confirm-si" onClick={() => { setIdx(aConfirmar); setAConfirmar(null); setView('detail'); }}>
+                      Ver el cupón
                     </button>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(255,201,60,0.18)', border: '1px solid rgba(255,201,60,0.4)', color: C.yellow, padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
-                      Cupopack · {cupones.length} cupones
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <button aria-label="Compartir" style={railIconBtn}><Share size={18} /></button>
-                    <button aria-label="Favorito" style={railIconBtn}><Heart size={18} /></button>
                   </div>
                 </div>
-
-                <h1 className="cupon-title" style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, margin: '0 0 12px', maxWidth: '16ch' }}>
-                  {cupopack?.title}
-                </h1>
-                <p style={{ fontSize: 15.5, color: 'rgba(255,255,255,0.82)', lineHeight: 1.55, margin: 0, maxWidth: '52ch' }}>
-                  {cupopack?.subtitle}
-                </p>
               </div>
-            </header>
+            )}
 
-            {/* Grilla de cupones */}
-            <div style={{ padding: '28px 44px 44px', flexShrink: 0 }}>
-              {/* Cómo funciona: 3 pasos, compacto */}
-              <ComoFunciona />
+            <div
+              className="cp-scroll cupon-scroll"
+              ref={scrollRef}
+              style={{ '--n': cupones.length }}
+            >
+              {/* Cabecera: identidad Cuponear + nombre del Cupopack */}
+              {/* Cabecera: la de siempre —portada, logo, título, descripción y
+                  chip— pero fija arriba y encogiéndose al scrollear.
 
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', margin: '0 0 16px' }}>
-                Cupones que incluye
-              </h2>
+                  Al reducirse quedan el nombre del Cupopack y el chip, los dos
+                  a tamaño pleno y sobre la misma imagen. Se van el logo y la
+                  descripción, que son contexto de entrada y no hacen falta para
+                  saber qué estás mirando mientras recorrés los cupones. Los
+                  botones de acción no participan: cuelgan de la ventana, no del
+                  scroll, así que ya estaban siempre.
 
-              <div className="cupon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 20 }}>
-                {cupones.map((c, i) => {
-                  const card = (
-                    <OfertaCard
-                      promo={cuponAPromo(c)}
-                      onOpen={() => { setIdx(i); setView('detail'); }}
-                      hidePrecio hideAgregar hideHeart
-                    />
-                  );
-                  return i === regaloIdx
-                    ? <CuponRegaloWrap key={c.id} icono={cupopack?.beneficioIcono}>{card}</CuponRegaloWrap>
-                    : <React.Fragment key={c.id}>{card}</React.Fragment>;
-                })}
+                  El encogido lo maneja --h (0 entera → 1 reducida), que escribe
+                  el scroll igual que --p en las fichas. */}
+              <header className="cp-hero">
+                {portada && (
+                  <>
+                    <img src={portada} alt="" className="cp-hero-bg" />
+                    <div className="cp-hero-velo" />
+                  </>
+                )}
+                <div className="cp-hero-in">
+                  <span className="cp-logo-caja">
+                    <img src="/logo-cuponear-wh.svg" alt="Cuponear" className="cp-logo" />
+                  </span>
+
+                  <h1 className="cupon-title">{cupopack?.title}</h1>
+
+                  {cupopack?.subtitle && <p className="cp-hero-sub">{cupopack.subtitle}</p>}
+
+                  {/* El conteo va DESPUÉS de la descripción: es el dato que
+                      cierra la promesa, no el que la abre. */}
+                  <div className="cp-chip-caja">
+                    <span className="cp-chip">{cupones.length} cupones incluidos</span>
+                  </div>
+                </div>
+              </header>
+
+              {/* §pila · Las fichas son hermanas de UN mismo contenedor junto al
+                  título, y ahí está la gracia: `sticky` se suelta al terminar el
+                  bloque que lo contiene, así que si cada una tuviera su propia
+                  caja se despegaría al pasar y no se acumularía nada.
+
+                  El checkout queda AFUERA a propósito. Siendo hermano, el borde
+                  de .cp-pack es su techo: cuando el paquete no entra —mobile—
+                  el checkout al subir empuja al título y a los renglones fuera
+                  de cuadro, que es la única salida honesta cuando no hay lugar
+                  para todo. Adentro, en cambio, nada se movería nunca. */}
+              <div className="cp-pack" ref={stackRef}>
+                {cupones.map((c, i) => (
+                  <CuponPila
+                    key={c.id}
+                    cupon={c}
+                    i={i}
+                    esRegalo={i === regaloIdx}
+                    onOpen={() => setAConfirmar(i)}
+                  />
+                ))}
               </div>
+
+              <CheckoutResumen
+                cupopack={cupopack}
+                totalAhorro={totalAhorro} totalPuntos={totalPuntos} puntosTachado={puntosTachado}
+                precioFinal={precioFinal} precioTachado={precioTachado}
+              />
             </div>
           </div>
-
-          {/* Columna derecha: checkout */}
-          <CheckoutRail
-            cupopack={cupopack} cupones={cupones}
-            totalAhorro={totalAhorro} totalPuntos={totalPuntos}
-            puntosTachado={puntosTachado} precioFinal={precioFinal} precioTachado={precioTachado}
-          />
-
-          {/* Cerrar (fijo, arriba a la derecha absoluto) */}
-          <button
-            onClick={onClose}
-            aria-label="Cerrar"
-            style={{
-              position: 'fixed', top: 20, right: 20, zIndex: 20,
-              width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.25)',
-              background: 'rgba(11,16,32,0.55)', backdropFilter: 'blur(6px)', color: '#fff',
-              display: 'grid', placeItems: 'center', cursor: 'pointer',
-            }}
-          ><IcoClose /></button>
         </div>
       ) : (
         // ─── Vista Detail: detalle de cupón (idéntica al original) ───
@@ -680,24 +733,338 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
         .cupon-scroll::-webkit-scrollbar { width: 8px; }
         .cupon-scroll::-webkit-scrollbar-thumb { background: rgba(120,130,150,0.35); border-radius: 8px; }
         .cupon-tabs::-webkit-scrollbar { display: none; }
-        @media (max-width: 1024px) {
-          .cupon-fullscreen { flex-direction: column !important; }
-          .cupon-main { overflow-y: visible !important; }
-          .cupon-rail { width: 100% !important; height: auto !important; border-left: none !important; border-top: 1px solid rgba(255,255,255,0.1) !important; }
-          .cupon-fullscreen { overflow-y: auto; }
+
+        /* ─── Ventana flotante ───────────────────────────────── */
+        .cp-overlay {
+          position: absolute; inset: 0;
+          background: rgba(5,10,25,0.62); backdrop-filter: blur(5px);
+          display: flex; align-items: center; justify-content: center; padding: 26px;
         }
-        @media (max-width: 860px) {
-          .cupon-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        .cp-window {
+          position: relative; display: flex; flex-direction: column;
+          width: min(940px, 100%); height: min(90vh, 940px);
+          background: #fff; border-radius: 26px; overflow: hidden;
+          box-shadow: 0 50px 110px -30px rgba(5,10,25,0.75), 0 0 0 1px rgba(255,255,255,0.12);
+        }
+        .cp-acciones {
+          position: absolute; top: 16px; right: 16px; z-index: 40;
+          display: flex; gap: 8px;
+        }
+        .cp-ico {
+          display: grid; place-items: center; cursor: pointer;
+          width: 36px; height: 36px; border-radius: 50%;
+          border: 1px solid rgba(255,255,255,0.22);
+          background: rgba(11,16,32,0.55); backdrop-filter: blur(6px); color: #fff;
+          transition: background .15s;
+        }
+        .cp-ico:hover { background: rgba(11,16,32,0.8); }
+
+        /* Las medidas del paquete viven acá, en el ancestro común de la pila y
+           del checkout: los dos las necesitan y el breakpoint las cambia en un
+           solo lugar. El JS también las lee de acá para el anclaje. */
+        .cp-scroll {
+          --big-h: 172px;
+          --row-h: 84px;
+          --row-gap: 12px;
+          --title-h: 54px;
+          --gap: 28px;
+          --tope: 18px;
+          --aire: 26px;
+          --aire-fin: 20px;
+          --pad-x: 34px;
+          --thumb: 150px;
+          --thumb-min: 84px;
+          --trans: 130px;
+          --trans-h: 150px;
+          --runway: 140px;
+          /* overscroll-behavior: sin esto, al llegar al final de la pila el
+             scroll se lo lleva la página de atrás.
+
+             overflow-anchor: OBLIGATORIO acá. El browser, cuando algo que está
+             por encima del viewport cambia de alto, corrige el scroll para que
+             lo visible no se mueva. Con una cabecera que se encoge contra el
+             scroll eso es un bucle: encoge → el browser corrige el scroll →
+             cambia --h → cambia el alto → vuelve a corregir. Se ve como un
+             parpadeo al bajar y volver a subir. */
+          flex: 1; min-height: 0; overflow-y: auto;
+          overscroll-behavior: contain; overflow-anchor: none;
+        }
+
+        /* Cabecera fija que se encoge. Conserva SU imagen de fondo —no un
+           color plano—: la portada es parte de la identidad del Cupopack y al
+           reducirse queda de franja, que es lo que había que lograr.
+
+           z-index 3 para ganarle a la pila (2), que al tener z-index propio
+           encierra a sus fichas y no las deja pasar por encima.
+
+           El alto reducido no está acá: lo mide el JS (§medida), porque el
+           título usa clamp() y cambia con el ancho, y de ese alto cuelga el
+           anclaje de todos los renglones. */
+        .cp-hero {
+          --h: 0;
+          position: sticky; top: 0; z-index: 3;
+          overflow: hidden;
+          padding: calc(18px + (1 - var(--h)) * 14px) var(--pad-x) calc(18px + (1 - var(--h)) * 16px);
+          background: linear-gradient(120deg, ${C.primaryDeep} 0%, ${C.primary} 100%);
+          color: #fff;
+        }
+        .cp-hero-bg   { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
+        .cp-hero-velo { position: absolute; inset: 0; background: linear-gradient(120deg, rgba(11,16,32,0.9) 0%, rgba(27,38,93,0.62) 58%, rgba(37,69,230,0.42) 100%); }
+        .cp-hero-in   { position: relative; }
+
+        /* El logo colapsa desde una caja y no por su propio max-height: sobre
+           el <img> el alto máximo lo escala, y encogerse no es lo mismo que
+           irse. Se desvanece ×2.6 para estar fuera bastante antes de cerrar. */
+        .cp-logo-caja {
+          display: block; overflow: hidden;
+          max-height: calc((1 - var(--h)) * 48px);
+          margin-bottom: calc((1 - var(--h)) * 22px);
+          opacity: calc(1 - var(--h) * 2.6);
+        }
+        .cp-logo { display: block; height: 48px; width: auto; }
+
+        /* Lo único que NO se encoge. El tope de ancho deja libre la esquina de
+           los botones de acción: sin eso, en pantallas angostas un título largo
+           se metía debajo de ellos. */
+        .cupon-title {
+          font-size: 38px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05;
+          margin: 0; max-width: min(20ch, calc(100% - 132px));
+        }
+        .cp-hero-sub {
+          margin: calc((1 - var(--h)) * 12px) 0 0; max-width: 52ch;
+          max-height: calc((1 - var(--h)) * 100px); overflow: hidden;
+          opacity: calc(1 - var(--h) * 2.6);
+          font-size: 15.5px; line-height: 1.55; color: rgba(255,255,255,0.82);
+        }
+        /* El chip acompaña al título en la franja reducida: dice de cuántos
+           cupones es la pila que estás recorriendo, y eso sirve todo el rato.
+           Sólo achica su margen, no su cuerpo. */
+        .cp-chip-caja { margin-top: calc(10px + (1 - var(--h)) * 6px); }
+        .cp-chip {
+          display: inline-flex; align-items: center;
+          background: rgba(255,201,60,0.18); border: 1px solid rgba(255,201,60,0.4);
+          color: ${C.yellow}; padding: 5px 13px; border-radius: 999px;
+          font-size: 12.5px; font-weight: 700;
+        }
+
+        /* ─── §pila ──────────────────────────────────────────────
+           Todo el encogido sale de --p (0 grande → 1 renglón), que escribe el
+           scroll.
+
+           z-index 2 sobre el checkout (1): mientras la última ficha sigue
+           grande tiene que taparlo, porque el checkout ya está ahí abajo
+           —subido por su margen negativo— esperando a que la ficha se cierre
+           para aparecer justo debajo del renglón. */
+        /* flow-root: sin eso el margen inferior de la última ficha se escapa
+           del contenedor en vez de contarse dentro, y toda la aritmética de
+           §cierre —que depende del alto exacto de .cp-pack— queda 16px corrida. */
+        .cp-pack { position: relative; z-index: 2; display: flow-root; padding: var(--aire) 0 var(--runway); }
+        /* La CAJA mide un renglón; la ficha grande le desborda por abajo y la
+           siguiente —que pinta encima por tener mayor z-index— tapa lo que
+           sobra. El margen inferior repone la diferencia, así el alto del flujo
+           sigue siendo el mismo de antes: si cambiara, cada encogido movería el
+           scroll bajo el dedo.
+
+           Que la caja mida --row-h y no --big-h es lo que arregla el
+           solapamiento. El sticky suelta al elemento cuando su caja ya no entra
+           en lo que queda del contenedor: con una caja de 172px la última ficha
+           se despegaba apenas 16px después de anclarse y se iba trepando por
+           encima de las anteriores. Con 72px el margen pasa a ser de más de
+           200px, sumando --runway. */
+        /* §medida · Estado efímero: las fichas se pintan como renglón y con
+           alto libre para poder preguntarles cuánto miden de verdad. El thumb
+           baja a 1px porque su <img> al 100% de un alto automático se resuelve
+           contra el alto intrínseco de la foto y falseaba la cuenta; y sin
+           stretch, .cp-texto entrega su alto real en vez del del contenedor. */
+        .cp-midiendo .cp-hero  { --h: 1 !important; }
+        .cp-midiendo .cp-card  { --p: 1 !important; }
+        .cp-midiendo .cp-inner { height: auto !important; align-items: flex-start; }
+        .cp-midiendo .cp-thumb { height: 1px; }
+
+        .cp-card {
+          --p: 0;
+          position: sticky;
+          top: calc(var(--title-h) + var(--tope) + var(--i) * var(--row-h));
+          z-index: calc(var(--i) + 1);
+          height: var(--row-h);
+          margin: 0 var(--pad-x) calc(var(--big-h) + var(--gap) - var(--row-h));
+          pointer-events: none;
+        }
+        .cp-inner {
+          pointer-events: auto;
+          display: flex; align-items: stretch; width: 100%; overflow: hidden;
+          height: calc(var(--big-h) - var(--p) * (var(--big-h) - var(--row-h) + var(--row-gap)));
+          padding: 0; text-align: left; cursor: pointer; font-family: inherit;
+          background: #fff; border: 1px solid ${C.line};
+          border-radius: calc(20px - var(--p) * 8px);
+          box-shadow: 0 calc(20px - var(--p) * 16px) calc(44px - var(--p) * 36px) -22px rgba(5,10,25,0.5);
+          transition: border-color .15s;
+        }
+        .cp-inner:hover { border-color: ${C.primary}; }
+        .cp-card-regalo .cp-inner { border: 2px solid ${C.yellow}; }
+
+        .cp-thumb {
+          position: relative; flex-shrink: 0; overflow: hidden; background: ${C.line};
+          width: calc(var(--thumb) - var(--p) * (var(--thumb) - var(--thumb-min)));
+        }
+        .cp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .cp-regalo {
+          position: absolute; top: 8px; left: 8px;
+          background: ${C.yellow}; color: ${C.ink};
+          font-size: 9.5px; font-weight: 900; letter-spacing: 0.08em;
+          padding: 3px 7px; border-radius: 999px;
+          opacity: calc(1 - var(--p) * 3);
+        }
+
+        .cp-texto {
+          flex: 1; min-width: 0; overflow: hidden;
+          display: flex; flex-direction: column; justify-content: center;
+          gap: calc(2px + (1 - var(--p)) * 4px);
+          padding: 0 calc(16px + (1 - var(--p)) * 6px);
+        }
+        .cp-socio { font-size: 12px; line-height: 1.35; font-weight: 600; color: ${C.muted}; }
+        /* Sin recorte a un renglón: el título tiene que leerse entero, y para
+           eso la fila se mide y crece (ver §medida). El clamp a 3 queda de tope
+           de cordura para un título desmedido. */
+        .cp-titulo {
+          font-size: calc(19px - var(--p) * 5px); font-weight: 800; color: ${C.ink};
+          line-height: 1.25; letter-spacing: -0.01em;
+          display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        /* Se desvanecen rápido (×2.6) PERO además colapsan su alto. Con opacity
+           sola seguían ocupando lugar: el contenido centrado del renglón medía
+           ~90px dentro de una caja de 56 y se cortaba arriba y abajo, que es de
+           dónde salía el solapamiento entre fichas. */
+        .cp-benef {
+          font-size: 13px; color: ${C.ink2}; line-height: 1.45;
+          opacity: calc(1 - var(--p) * 2.6);
+          max-height: calc((1 - var(--p)) * 40px);
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .cp-lado {
+          flex-shrink: 0; display: flex; flex-direction: column;
+          align-items: flex-end; justify-content: center;
+          gap: calc((1 - var(--p)) * 6px);
+          padding-right: calc(16px + (1 - var(--p)) * 6px);
+        }
+        .cp-badge {
+          background: ${C.yellow}; color: ${C.ink}; white-space: nowrap;
+          font-size: calc(19px - var(--p) * 5px); font-weight: 900; letter-spacing: -0.02em; line-height: 1;
+          padding: calc(6px - var(--p) * 1px) calc(11px - var(--p) * 2px); border-radius: 999px;
+        }
+        .cp-ahorro {
+          font-size: 12px; line-height: 1.4; font-weight: 600; color: ${C.green}; white-space: nowrap;
+          opacity: calc(1 - var(--p) * 2.6);
+          max-height: calc((1 - var(--p)) * 18px); overflow: hidden;
+        }
+
+        /* ─── §cierre ────────────────────────────────────────────
+           Los dos números que hacen que el paquete termine armado y no en un
+           vacío blanco:
+
+           · margin-top negativo = -(big-h + gap - row-h), más --aire-fin. Lo
+             primero es exactamente lo que sobra de la caja de la última ficha
+             cuando pasa a renglón, así que el checkout aterriza pegado abajo del
+             último renglón en el mismo instante en que ese renglón termina de
+             cerrarse; sin eso quedaban 130px de blanco esperando. Lo segundo lo
+             baja un poco para que la pila respire antes del precio.
+
+             El --aire de arriba de la pila, en cambio, NO entra en ninguna de
+             las dos cuentas: se cancela solo, porque corre por igual al techo
+             de la pila y al lugar donde cae el checkout.
+
+             --tope (la separación entre la cabecera y el primer renglón) sí
+             entra en el min-height: baja el anclaje de TODOS los renglones, así
+             que el paquete armado ocupa esos píxeles de más.
+
+           · min-height = alto visible - título - renglones - --aire-fin. Con eso el último
+             scroll posible deja la pantalla mostrando exactamente el paquete
+             completo: título arriba, los N renglones, y el pago llenando lo que
+             queda. Un checkout más bajo dejaría scroll de sobra —y blanco al
+             final—; uno más alto es el caso mobile, donde no entra y entonces
+             sí empuja al título fuera de cuadro.
+
+           z-index 1, DEBAJO de la pila: mientras la última ficha sigue grande
+           el checkout ya está posicionado detrás de ella, y se descubre solo al
+           encogerse. */
+
+        /* Libre de envolver: el precio dejó de estar debajo —ahora vive en el
+           botón—, así que que la frase crezca ya no le roba lugar a nada. */
+        .cp-promesa {
+          margin: 0;
+          font-size: clamp(15px, 1.9vw, 19px);
+          font-weight: 600; color: rgba(255,255,255,0.9); line-height: 1.45;
+        }
+        .cp-promesa strong { color: #fff; font-weight: 800; }
+
+        /* La decisión completa en un solo objeto: qué hago y cuánto pago. El
+           tachado va pegado al precio vivo, que es donde la comparación sirve. */
+        .cp-cta {
+          width: 100%; display: flex; align-items: center; justify-content: center;
+          gap: 14px; padding: 16px 20px; border: none; border-radius: 14px;
+          background: ${C.yellow}; color: ${C.ink};
+          font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;
+          transition: background .15s;
+        }
+        .cp-cta:hover { background: #FFD966; }
+        .cp-cta-sep { width: 1px; align-self: stretch; margin: 2px 0; background: rgba(11,16,32,0.22); }
+        .cp-cta-precio {
+          display: inline-flex; align-items: baseline; gap: 7px;
+          font-variant-numeric: tabular-nums; white-space: nowrap;
+        }
+        .cp-cta-precio s { font-size: 13px; font-weight: 700; color: rgba(11,16,32,0.45); }
+
+        /* Aviso de salida. Va dentro de .cp-window y no del scroll: tapa la
+           ventana entera, incluidas las acciones flotantes. */
+        .cp-confirm {
+          position: absolute; inset: 0; z-index: 60;
+          background: rgba(5,10,25,0.55); backdrop-filter: blur(3px);
+          display: flex; align-items: center; justify-content: center; padding: 24px;
+        }
+        .cp-confirm-caja {
+          width: 100%; max-width: 380px; padding: 24px 24px 20px;
+          background: #fff; border-radius: 20px;
+          box-shadow: 0 30px 70px -20px rgba(5,10,25,0.6);
+        }
+        .cp-confirm-tit { font-size: 18px; font-weight: 800; color: ${C.ink}; letter-spacing: -0.02em; margin-bottom: 8px; }
+        .cp-confirm-txt { font-size: 14px; color: ${C.ink2}; line-height: 1.5; margin: 0 0 20px; }
+        .cp-confirm-txt strong { color: ${C.ink}; font-weight: 700; }
+        .cp-confirm-btns { display: flex; gap: 10px; }
+        .cp-confirm-no, .cp-confirm-si {
+          flex: 1; padding: 13px 16px; border-radius: 12px; cursor: pointer;
+          font-family: inherit; font-size: 14.5px; font-weight: 700;
+          transition: background .15s, border-color .15s;
+        }
+        .cp-confirm-no { border: 1px solid ${C.line}; background: #fff; color: ${C.ink2}; }
+        .cp-confirm-no:hover { background: ${C.bg}; }
+        .cp-confirm-si { border: none; background: ${C.primary}; color: #fff; }
+        .cp-confirm-si:hover { background: #1b34b8; }
+
+        .cp-checkout {
+          position: relative; z-index: 1;
+          margin-top: calc(var(--row-h) - var(--big-h) - var(--gap) - var(--runway) + var(--aire-fin));
+          min-height: calc(var(--vh, 640px) - var(--title-h) - var(--tope) - var(--n) * var(--row-h) - var(--aire-fin));
+          background: ${C.primaryDeep}; color: #fff;
+          padding: 22px var(--pad-x) 30px;
+          /* El min-height casi siempre sobra sobre el contenido, y ese sobrante
+             tiene que ir ARRIBA. Como bloque normal el contenido se apoyaba en
+             el techo y dejaba el resto vacío abajo, que se leía como que la
+             pantalla no terminaba. Empujado al pie, el sobrante queda de aire
+             entre los renglones y el precio, y el CTA cierra contra el borde. */
+          display: flex; flex-direction: column; justify-content: flex-end;
+        }
+
+        @media (max-width: 760px) {
+          .cp-overlay { padding: 0; }
+          .cp-window { width: 100%; height: 100%; border-radius: 0; }
+          .cp-scroll { --big-h: 150px; --row-h: 78px; --title-h: 48px; --thumb: 100px; --thumb-min: 70px; --pad-x: 20px; --trans: 110px; --trans-h: 120px; --gap: 20px; --row-gap: 10px; --tope: 14px; --aire: 18px; --aire-fin: 14px; --runway: 120px; }
+          .cp-hero { padding: 22px var(--pad-x) 26px; }
+          .cp-logo { height: 38px; margin-bottom: 18px; }
+          .cupon-title { font-size: 28px; }
         }
         @media (max-width: 720px) {
-          .cupon-title { font-size: 32px !important; }
-          .cupon-pasos { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
-          .cupon-paso-arrow { display: none !important; }
           .cupon-sidecover { display: none !important; }
           .cupon-nav-arrow { width: 40px !important; height: 40px !important; }
-        }
-        @media (max-width: 520px) {
-          .cupon-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
@@ -705,11 +1072,6 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose }) {
 
   return createPortal(overlay, document.body);
 }
-
-const railIconBtn = {
-  width: 38, height: 38, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.28)',
-  background: 'rgba(255,255,255,0.12)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer',
-};
 
 const arrowSt = {
   position: 'absolute', top: '50%', transform: 'translateY(-50%)',
