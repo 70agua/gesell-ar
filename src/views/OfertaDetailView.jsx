@@ -613,7 +613,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                         </span>
                       </>
                     ) : (
-                      <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>AR${precioCreditosARS.toLocaleString('es-AR')}</span>
+                      <span style={{ fontSize: 30, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>${precioCreditosARS.toLocaleString('es-AR')}</span>
                     )}
                   </div>
 
@@ -623,7 +623,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                     <InfoTooltip />
                   </div>
                   <div style={{ padding: '4px 14px 16px' }}>
-                    <span style={{ fontSize: 11, color: C.muted }}>{mostrarCreditos ? `(AR$${precioCreditosARS.toLocaleString('es-AR')})` : 'IVA incluido'}</span>
+                    <span style={{ fontSize: 11, color: C.muted }}>{mostrarCreditos ? `($${precioCreditosARS.toLocaleString('es-AR')})` : 'IVA incluido'}</span>
                   </div>
 
                 </div>

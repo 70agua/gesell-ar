@@ -18,6 +18,8 @@ import {
   elegirPremium, quitarPremium, activarPaseAhora, programarActivacion,
   estadoEstadia, getOfertasEstadia,
 } from '../lib/pases';
+import { getMisSolicitudes, cancelarSolicitud, enviarSolicitud, ESTADOS as ESTADOS_SOL, textoError as txtSol } from '../lib/solicitudes';
+import SolicitarFecha from '../components/SolicitarFecha';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE',
@@ -134,7 +136,7 @@ function PaseSinActivar({ pase, onActivado, onError }) {
 }
 
 // ─── Elección de premium ──────────────────────────────────────
-function Premium({ pase, elegidas, restantes, total, canjeadas, onCambio, onError }) {
+function Premium({ pase, elegidas, restantes, total, canjeadas, pedidas = [], onCambio, onError, onPedirFecha }) {
   const [ofertas, setOfertas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [enCurso, setEnCurso] = useState(null);
@@ -156,6 +158,9 @@ function Premium({ pase, elegidas, restantes, total, canjeadas, onCambio, onErro
     if (!r.ok) return onError(txt(r.error));
     onCambio();
   }
+
+  // Las que necesitan confirmación no se eligen: se piden.
+  const idsPedidas = new Set(pedidas);
 
   return (
     <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 16, padding: 20 }}>
@@ -196,6 +201,18 @@ function Premium({ pase, elegidas, restantes, total, canjeadas, onCambio, onErro
                 </div>
                 {canjeada ? (
                   <span style={{ fontSize: 11, fontWeight: 700, color: A.muted, background: A.bg, padding: '5px 10px', borderRadius: 999 }}>Usado</span>
+                ) : o.requiereFecha ? (
+                  idsPedidas.has(o.id) ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#B45309', background: '#FFF7E5', padding: '5px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                      Fecha pedida
+                    </span>
+                  ) : (
+                    <button onClick={() => onPedirFecha(o)} disabled={bloqueada} style={{
+                      padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, fontFamily: A.font,
+                      border: 'none', background: bloqueada ? A.line : A.primary, color: bloqueada ? A.muted : '#fff',
+                      cursor: bloqueada ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                    }}>Pedir fecha</button>
+                  )
                 ) : (
                   <button onClick={() => alternar(o.id)} disabled={bloqueada || enCurso === o.id} style={{
                     padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, fontFamily: A.font,
@@ -252,6 +269,80 @@ function Estadia({ estado }) {
   );
 }
 
+// ─── Solicitudes de fecha ─────────────────────────────────────
+// Los premium que necesitan confirmación no se eligen: se piden. Mientras
+// esperan respuesta ocupan un slot "en suspenso"; si el comercio no puede,
+// se libera solo.
+//
+// ⚠️ COPY: nunca "reservá" ni "disponibilidad" (Ley 18.829).
+function Solicitudes({ userId, onCambio, onError, onReintentar }) {
+  const [items, setItems] = useState([]);
+  const [enCurso, setEnCurso] = useState(null);
+
+  const cargar = useCallback(() => {
+    if (userId) getMisSolicitudes(userId).then(setItems);
+  }, [userId]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const vivas = items.filter(s => ['enviada', 'contrapropuesta', 'aceptada'].includes(s.estado));
+  if (vivas.length === 0) return null;
+
+  async function cancelar(s) {
+    setEnCurso(s.id);
+    const r = await cancelarSolicitud(s.id);
+    setEnCurso(null);
+    if (!r.ok) return onError(txtSol(r.error));
+    cargar(); onCambio();
+  }
+
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${A.line}` }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Fechas que pediste</div>
+        <div style={{ fontSize: 12.5, color: A.muted, marginTop: 2, lineHeight: 1.5 }}>
+          El comercio confirma o te propone otra. Mientras esperás, el beneficio queda apartado.
+        </div>
+      </div>
+      {vivas.map((s, i) => {
+        const est = ESTADOS_SOL[s.estado] || ESTADOS_SOL.enviada;
+        return (
+          <div key={s.id} style={{
+            padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            borderBottom: i === vivas.length - 1 ? 'none' : `1px solid ${A.line}`,
+          }}>
+            <div style={{ flex: 1, minWidth: 190 }}>
+              <span style={{
+                display: 'inline-block', background: est.bg, color: est.color, fontSize: 10.5, fontWeight: 800,
+                padding: '3px 9px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4,
+              }}>{est.label}</span>
+              <div style={{ fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>
+                {s.promociones?.titulo || 'Beneficio'}
+              </div>
+              <div style={{ fontSize: 12, color: A.muted, marginTop: 2 }}>
+                {s.negocios?.nombre} · {fmtFecha(s.fecha_pedida)} · {s.personas} persona{s.personas !== 1 ? 's' : ''}
+              </div>
+            </div>
+
+            {s.estado === 'enviada' && (
+              <button onClick={() => cancelar(s)} disabled={enCurso === s.id} style={{
+                background: 'none', border: `1px solid ${A.line}`, borderRadius: 9, padding: '7px 12px',
+                fontSize: 12, fontWeight: 600, color: A.ink2, cursor: 'pointer', fontFamily: A.font,
+              }}>{enCurso === s.id ? '…' : 'Cancelar'}</button>
+            )}
+
+            {s.estado === 'contrapropuesta' && (
+              <button onClick={() => onReintentar(s)} style={{
+                background: A.primary, color: '#fff', border: 'none', borderRadius: 9, padding: '8px 13px',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: A.font, whiteSpace: 'nowrap',
+              }}>Me sirve el {fmtFecha(s.fecha_propuesta)}</button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Vista ────────────────────────────────────────────────────
 export default function MiPaseView({ session, onBack, onComprarPase, onExplorar }) {
   const [pase, setPase]         = useState(null);
@@ -260,6 +351,9 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
   const [ahorro, setAhorro]     = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError]       = useState(null);
+  const [solicitudes, setSolic] = useState([]);
+  const [pidiendo, setPidiendo] = useState(null);   // { oferta, origenId, fechaSugerida }
+  const [refrescar, setRefrescar] = useState(0);
 
   const cargar = useCallback(async () => {
     const uid = session?.user?.id;
@@ -269,10 +363,10 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
     const p = pases.find(x => x.estado === 'activo') || pases.find(x => x.estado === 'pendiente') || null;
     setPase(p);
     if (p) {
-      const [el, cj, ah] = await Promise.all([
-        getElecciones(p.id), getCanjes(p.id), getAhorroPase(p.id),
+      const [el, cj, ah, sol] = await Promise.all([
+        getElecciones(p.id), getCanjes(p.id), getAhorroPase(p.id), getMisSolicitudes(uid),
       ]);
-      setElecc(el || []); setCanjes(cj || []); setAhorro(ah || 0);
+      setElecc(el || []); setCanjes(cj || []); setAhorro(ah || 0); setSolic(sol || []);
     }
     setCargando(false);
   }, [session]);
@@ -324,6 +418,8 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
   const restantes = Math.max(0, total - usadas);
   const estadia   = estadoEstadia(pase);
   const canjeadas = canjes.map(c => c.promocion_id);
+  // Una oferta con solicitud viva no se puede volver a pedir.
+  const pedidas = solicitudes.filter(s => ['enviada','aceptada'].includes(s.estado)).map(s => s.promocion_id);
 
   return marco(
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -337,9 +433,27 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
 
       <Estadia estado={estadia} />
 
+      <Solicitudes key={refrescar} userId={session?.user?.id} onError={setError}
+        onCambio={() => cargar()}
+        onReintentar={s => setPidiendo({
+          oferta: { id: s.promocion_id, title: s.promociones?.titulo, proveedorNombre: s.negocios?.nombre },
+          origenId: s.id, fechaSugerida: s.fecha_propuesta,
+        })} />
+
       <Premium pase={pase} elegidas={elecciones} restantes={restantes} total={total}
-        canjeadas={canjeadas} onError={setError}
+        canjeadas={canjeadas} pedidas={pedidas} onError={setError}
+        onPedirFecha={o => setPidiendo({ oferta: o, origenId: null, fechaSugerida: '' })}
         onCambio={() => { setError(null); cargar(); }} />
+
+      {pidiendo && (
+        <SolicitarFecha
+          oferta={pidiendo.oferta}
+          origenId={pidiendo.origenId}
+          fechaSugerida={pidiendo.fechaSugerida}
+          onCerrar={() => setPidiendo(null)}
+          onEnviada={() => { setPidiendo(null); setRefrescar(n => n + 1); cargar(); }}
+        />
+      )}
 
       <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 16, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: canjes.length ? `1px solid ${A.line}` : 'none' }}>

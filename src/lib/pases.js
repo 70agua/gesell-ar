@@ -28,7 +28,9 @@ import { acreditarPuntos } from './gamificacion';
 // ─── Parámetros de negocio ────────────────────────────────────
 export const DESTINO_DEFAULT       = 'gesell';
 export const AHORRO_BASE_MAX       = 15000;   // frontera base/premium
-export const LIMITE_REGALO_FREE    = 10;      // pases-regalo/mes (Free)
+// El tope de pases regalo dejó de ser una constante de código y un atributo
+// del plan: es GLOBAL y vive en `configuracion.pases_regalo_tope_mensual`
+// (arranca en 150/mes), para poder calibrarlo en temporada sin deploy.
 export const UPGRADE_PACK_MIN      = 10;      // compra mayorista mínima
 export const UPGRADE_PACK_PRECIO   = 6000;    // $ por upgrade (50% de $12.000)
 export const VENTANA_ACTIVACION_MESES = 12;   // tope para activar un pase comprado
@@ -285,6 +287,8 @@ export async function getOfertasPremium({ soloConCupo = true } = {}) {
       return {
         ...norm,
         premiumIlimitado: ilimitado,
+        // Las que necesitan confirmación de fecha se PIDEN, no se eligen.
+        requiereFecha: p.requiere_fecha === true,
         cupoMensualPremium: cupo,
         // `null` en cupoRestante significa "sin tope", no "sin datos".
         cupoRestante: ilimitado ? null : (cupo != null ? Math.max(0, cupo - usados) : 0),
@@ -557,83 +561,57 @@ export async function getAhorroPase(usuarioPaseId) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  Cupos de regalo del socio (para el panel del negocio)
+//  Bloque Pase del panel del socio
+//
+//  El tope de regalos es GLOBAL (configuracion.pases_regalo_tope_mensual,
+//  arranca en 150/mes) y no depende del plan: antes el plan pago daba
+//  regalos ilimitados y eso socavaba el precio de las tandas del
+//  distribuidor. Por encima del tope, el socio compra tandas.
 // ═══════════════════════════════════════════════════════════
-export async function getCupoRegaloMes(negocioId) {
-  const mes = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-  const { data } = await supabase
-    .from('pase_cupos_regalo')
-    .select('usados')
-    .eq('negocio_id', negocioId)
-    .eq('mes', mes)
-    .maybeSingle();
-  const usados = data?.usados || 0;
-  return { mes, usados, limiteFree: LIMITE_REGALO_FREE, restanteFree: Math.max(0, LIMITE_REGALO_FREE - usados) };
+
+// Todo el bloque en una sola llamada: alias, cupo del mes, saldo de packs,
+// activaciones y ahorro generado.
+export async function getBloquePase(negocioId) {
+  if (!negocioId) return null;
+  const { data, error } = await supabase.rpc('bloque_pase_socio', { p_negocio_id: negocioId });
+  if (error) { console.error('getBloquePase', error); return null; }
+  if (!data?.ok) return null;
+  return data;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  Packs de upgrades mayoristas (hotel Plus)
-// ═══════════════════════════════════════════════════════════
-export async function getSaldoPacks(negocioId) {
-  const { data } = await supabase
-    .from('negocio_upgrade_packs')
-    .select('*')
-    .eq('negocio_id', negocioId)
-    .maybeSingle();
-  const comprados = data?.comprados || 0;
-  const usados    = data?.usados || 0;
-  return { comprados, usados, saldo: comprados - usados };
+// Asignar un upgrade pack a un pase regalo: +1 premium.
+//
+// Antes esto era un read-then-write desde el cliente que podía gastar dos
+// veces el mismo saldo, y el upgrade sólo habilitaba PUNTOS — el hotel pagaba
+// $6.000 para que su turista ganara 300. Ahora otorga premium, y el descuento
+// del saldo es atómico del lado del servidor.
+export async function asignarUpgradePack(usuarioPaseId) {
+  const { data, error } = await supabase.rpc('asignar_upgrade_pack', {
+    p_usuario_pase_id: usuarioPaseId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data?.ok) return { ok: false, error: data?.error };
+  return { ok: true, premiumTotal: data.premium_total };
 }
 
+// La compra de packs sigue del lado del cliente porque no hay pasarela real:
+// es el mismo mock que el resto de los pagos.
 export async function comprarUpgradePack({ negocioId, cantidad, pagoRef = null }) {
   if (!cantidad || cantidad < UPGRADE_PACK_MIN) {
     return { ok: false, error: `minimo_${UPGRADE_PACK_MIN}` };
   }
-  // Solo Plus
-  const { data: negocio } = await supabase
-    .from('negocios').select('plan').eq('id', negocioId).single();
-  if (negocio?.plan !== 'plus') return { ok: false, error: 'requiere_plus' };
-
   const { data: actual } = await supabase
     .from('negocio_upgrade_packs').select('*').eq('negocio_id', negocioId).maybeSingle();
 
-  if (actual) {
-    const { error } = await supabase
-      .from('negocio_upgrade_packs')
-      .update({ comprados: actual.comprados + cantidad, pago_ref: pagoRef, updated_at: new Date().toISOString() })
-      .eq('negocio_id', negocioId);
-    if (error) return { ok: false, error: error.message };
-  } else {
-    const { error } = await supabase
-      .from('negocio_upgrade_packs')
-      .insert({ negocio_id: negocioId, comprados: cantidad, usados: 0, pago_ref: pagoRef });
-    if (error) return { ok: false, error: error.message };
-  }
-  return { ok: true, ...(await getSaldoPacks(negocioId)) };
-}
+  const { error } = actual
+    ? await supabase.from('negocio_upgrade_packs')
+        .update({ comprados: (actual.comprados || 0) + cantidad, pago_ref: pagoRef, updated_at: new Date().toISOString() })
+        .eq('negocio_id', negocioId)
+    : await supabase.from('negocio_upgrade_packs')
+        .insert({ negocio_id: negocioId, comprados: cantidad, usados: 0, pago_ref: pagoRef });
 
-// El hotel asigna un upgrade de su saldo a un pase-regalo propio.
-export async function asignarUpgradePack({ usuarioPaseId, negocioId }) {
-  const saldo = await getSaldoPacks(negocioId);
-  if (saldo.saldo <= 0) return { ok: false, error: 'sin_saldo' };
-
-  const { data: up } = await supabase
-    .from('usuario_pases').select('*').eq('id', usuarioPaseId).single();
-  if (!up) return { ok: false, error: 'pase_no_encontrado' };
-  if (up.origen_negocio_id !== negocioId) return { ok: false, error: 'no_es_tu_regalo' };
-  if (up.tipo !== 'regalo')  return { ok: false, error: 'no_es_regalo' };
-  if (up.upgrade_aplicado)   return { ok: false, error: 'ya_upgradeado' };
-
-  const { error } = await supabase
-    .from('usuario_pases')
-    .update({ upgrade_aplicado: true, pago_ref_upgrade: `pack:${negocioId}` })
-    .eq('id', usuarioPaseId);
   if (error) return { ok: false, error: error.message };
-
-  await supabase
-    .from('negocio_upgrade_packs')
-    .update({ usados: saldo.usados + 1, updated_at: new Date().toISOString() })
-    .eq('negocio_id', negocioId);
-  // Sin puntos: el pagador es el hotel, no el turista (los puntos son moneda del turista).
-  return { ok: true };
+  return { ok: true, cantidad, total: cantidad * UPGRADE_PACK_PRECIO };
 }
+
+

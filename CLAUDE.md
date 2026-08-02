@@ -66,6 +66,23 @@ Copy, precios y bonos viven en la tabla `planes` (editables desde SuperAdmin →
 
 **El negocio no se aprueba.** El socio se da de alta y queda publicado (`aprobado` quedó obsoleta, siempre `true`). La visibilidad la decide `negocios.activo`, que maneja el propio socio. Lo único que se modera son las **ofertas** (`promociones.aprobada`).
 
+### ⚠️ Los CHECK constraints se desactualizan y no fallan hasta que corren
+
+Van **tres** casos en los que un `CHECK` viejo bloqueó vocabulario nuevo, y los tres se descubrieron recién al ejecutar:
+
+| campo | qué rompía |
+|---|---|
+| `token_movimientos.tipo` | **todos** los movimientos de puntos del Pase venían fallando desde que se escribió `pases.js` |
+| `ventas.estado` | `'pagada'` no era válido — los válidos son `pendiente`/`completada`/`cancelada` |
+| `oferta_stats.evento` | seguía en `'vista'`/`'click_cuponera'`/`'click_ampliar'` |
+
+**Regla: antes de agregar un valor nuevo a un campo con CHECK, mirar la restricción en la base.** El código no falla al escribirlo ni al compilar — falla en runtime, y si el camino es poco transitado puede tardar semanas en aparecer.
+
+```sql
+select conname, pg_get_constraintdef(oid) from pg_constraint
+where conrelid = 'public.<tabla>'::regclass and contype = 'c';
+```
+
 ### Terminología — vocabulario cerrado
 
 "Cuponera" está **retirada**: no se usa para nada, ni en código ni en UI ni en comunicación. Las tres cosas que antes cubría esa palabra son:
@@ -158,6 +175,37 @@ No se mide "click a contacto": ese botón se eliminó en la Fase 2b.
 ### Cupo premium — elección explícita
 
 Una oferta con ahorro > $15.000 entra en la capa premium del Pase, y el socio **tiene que elegir** entre un cupo mensual N o `premium_ilimitado = true`. Sin default: la constraint `promociones_premium_definido` no deja publicarla si no eligió (los borradores sí). El cupo protege al socio de alto ticket; el ilimitado es una opción real, no un 0.
+
+### Pase regalo del socio
+
+Bloque en el panel del socio (`TabCanjes` → `BloquePase`), datos vía `bloque_pase_socio()`.
+
+- **Tope de regalos: global, 150/mes, igual para todos.** Vive en `configuracion.pases_regalo_tope_mensual` y se edita en SuperAdmin → General → Pase. **No es un atributo del plan**: antes el plan pago daba regalos ilimitados y eso socavaba el precio de las tandas del distribuidor. Por encima del tope, el socio compra tandas (`docs/4-socio-distribuidor.md`, sin implementar).
+- **Premium: 1 incluido, igual para todos.** `pro_1`/`pro_6`/`pro_12` son formas de **pago**, no niveles de servicio.
+- **Upgrade packs** ($6.000 c/u, mínimo 10) dan **+1 premium** cada uno sobre un pase regalo concreto, vía `asignar_upgrade_pack()` (descuento de saldo atómico). Se pueden acumular en el mismo pase. Antes sólo habilitaban puntos, que no se podía vender.
+
+### Solicitudes de fecha (premium con reserva)
+
+`src/lib/solicitudes.js` + tabla `solicitudes_fecha`. **No se reutiliza `consultas`**: es una máquina de estados con timeouts y bloqueo de slots.
+
+`promociones.requiere_fecha` es atributo de la **oferta**, no del plan. Con eso marcado, el premium no se elige: se **pide** (fecha + cantidad de personas, sin texto libre) y el socio contesta **Sí / No / Otra fecha**.
+
+**Cómo se ocupa un slot premium** — `slots_premium_ocupados()` es la única definición:
+
+| estado | slot |
+|---|---|
+| `enviada` | en suspenso (cuenta como solicitud) |
+| `aceptada` | **consumido** — se crea la `pase_eleccion`, y recién ahí es canjeable |
+| `rechazada` / `contrapropuesta` / `cancelada` / `vencida` | liberado |
+
+Que la aceptación cree la elección es lo que evita una segunda ruta de canje: `canjear_beneficio` sigue mirando `pase_elecciones`.
+
+- **Se puede pedir con el pase sin activar.** Al aceptarse, la RPC devuelve `proponer_activacion` para ofrecerle activar desde esa fecha — proponer, nunca activar solo.
+- **Timeout 72 h**, o el vencimiento del pase si llega antes. Cron `vencer-solicitudes-fecha`.
+- El tope es **atómico** (`for update` sobre el pase): validado en el cliente, dos pedidos simultáneos pasarían el mismo último slot.
+- ⚠️ **Copy no negociable** (Ley 18.829): nunca "reservá" ni "disponibilidad". Cuponear *transmite* una solicitud; confirma el socio.
+
+`TabInbox` es la **bandeja única del socio**: solicitudes de fecha + consultas, con filtro por tipo. Mismo criterio que `TabPendientes` en el superadmin.
 
 ### Offer types
 

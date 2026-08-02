@@ -28,7 +28,7 @@ const P     = '#475be1';
 const PS    = '#eef0fd';
 const GREEN = '#10b981';
 
-export const VALOR_CREDITO = 2450; // AR$ por crédito publicitario (valor fijo de este simulador)
+export const VALOR_CREDITO = 2450; // $ por crédito publicitario (valor fijo de este simulador)
 
 // 30 días es la base (se ve en el campo custom); acá sólo las alternativas más cortas.
 const DIAS_OPCIONES = [3, 7, 15];

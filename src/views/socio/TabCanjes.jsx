@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { urlQrSocio, getCanjesDeNegocio, reportarCanjeErroneo } from '../../lib/canjes';
+import { getBloquePase, comprarUpgradePack, asignarUpgradePack, UPGRADE_PACK_MIN, UPGRADE_PACK_PRECIO } from '../../lib/pases';
 
 const FONT = "'Inter', system-ui, sans-serif";
 const INK = '#0f172a', INK2 = '#475569', MUTED = '#94a3b8', LINE = '#e2e8f0';
@@ -142,6 +143,184 @@ function ModalReporte({ canje, onCerrar, onEnviado, showToast }) {
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════
+//  BLOQUE PASE — lo que el checkout hotelero venía prometiendo
+//  y el panel no mostraba: el código de 6 dígitos, el cupo del mes, los
+//  upgrade packs y quiénes activaron.
+// ═══════════════════════════════════════════════════════════
+function Alias({ codigo }) {
+  const [copiado, setCopiado] = useState(false);
+  if (!codigo) return (
+    <div style={{ fontFamily: FONT, fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+      Tu código se genera al contratar el plan.
+    </div>
+  );
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <div style={{
+        fontFamily: FONT, fontSize: 34, fontWeight: 900, letterSpacing: '0.2em',
+        color: INK, background: PS, padding: '12px 22px', borderRadius: 14,
+      }}>{codigo}</div>
+      <button onClick={async () => {
+        try { await navigator.clipboard.writeText(codigo); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch { /* a la vista igual */ }
+      }} style={{
+        background: 'none', border: `1px solid ${LINE}`, borderRadius: 9, padding: '8px 14px',
+        fontFamily: FONT, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+        color: copiado ? GREEN : P,
+      }}>{copiado ? '¡Copiado!' : 'Copiar'}</button>
+    </div>
+  );
+}
+
+function BloquePase({ negocio, showToast }) {
+  const [datos, setDatos] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [comprando, setComprando] = useState(false);
+  const [cantidad, setCantidad] = useState(String(UPGRADE_PACK_MIN));
+  const [asignando, setAsignando] = useState(null);
+
+  const cargar = async () => {
+    if (!negocio?.id) { setCargando(false); return; }
+    setDatos(await getBloquePase(negocio.id));
+    setCargando(false);
+  };
+  useEffect(() => { cargar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [negocio?.id]);
+
+  async function comprar() {
+    const n = Number(cantidad);
+    if (!(n >= UPGRADE_PACK_MIN)) return showToast(`El mínimo es ${UPGRADE_PACK_MIN} upgrades`, 'err');
+    setComprando(true);
+    const r = await comprarUpgradePack({ negocioId: negocio.id, cantidad: n });
+    setComprando(false);
+    if (!r.ok) return showToast('No se pudo completar la compra', 'err');
+    showToast(`${n} upgrades comprados · ${fmt(r.total)}`, 'ok');
+    cargar();
+  }
+
+  async function asignar(usuarioPaseId) {
+    setAsignando(usuarioPaseId);
+    const r = await asignarUpgradePack(usuarioPaseId);
+    setAsignando(null);
+    if (!r.ok) return showToast(r.error === 'sin_saldo' ? 'No te quedan upgrades' : 'No se pudo asignar', 'err');
+    showToast(`Listo: ese turista pasa a ${r.premiumTotal} beneficios premium`, 'ok');
+    cargar();
+  }
+
+  if (cargando) return <div style={{ padding: '28px 0', textAlign: 'center', fontFamily: FONT, fontSize: 13, color: MUTED }}>Cargando…</div>;
+  if (!datos) return null;
+
+  const { alias, cupo, packs, activaciones = [], ahorro_generado } = datos;
+  const saldo = packs?.saldo || 0;
+  const pctCupo = cupo.tope > 0 ? Math.min(100, (cupo.usados / cupo.tope) * 100) : 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Código de regalo */}
+      <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: 22 }}>
+        <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: INK, marginBottom: 4 }}>
+          Tu código para regalar el Pase
+        </div>
+        <div style={{ fontFamily: FONT, fontSize: 12.5, color: INK2, lineHeight: 1.5, marginBottom: 16 }}>
+          Dictáselo al turista cuando llega. Con eso activa su Pase: todos los descuentos del
+          destino durante su estadía, con tu marca.
+        </div>
+        <Alias codigo={alias} />
+      </div>
+
+      {/* Cupo del mes */}
+      <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: INK }}>Pases regalados este mes</div>
+          <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: cupo.restante > 0 ? GREEN : '#DC2626' }}>
+            {cupo.usados} de {cupo.tope}
+          </div>
+        </div>
+        <div style={{ height: 8, background: BG, borderRadius: 999, marginTop: 12, overflow: 'hidden' }}>
+          <div style={{ width: `${pctCupo}%`, height: '100%', background: pctCupo > 85 ? '#DC2626' : P, borderRadius: 999 }} />
+        </div>
+        <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 8, lineHeight: 1.5 }}>
+          {cupo.restante > 0
+            ? `Te quedan ${cupo.restante} para este mes. El cupo se renueva el 1.`
+            : 'Llegaste al tope del mes. Se renueva el 1.'}
+        </div>
+      </div>
+
+      {/* Upgrade packs */}
+      <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: 22 }}>
+        <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: INK, marginBottom: 4 }}>
+          Beneficios premium extra
+        </div>
+        <div style={{ fontFamily: FONT, fontSize: 12.5, color: INK2, lineHeight: 1.55, marginBottom: 14 }}>
+          El Pase que regalás trae <b>1 beneficio premium</b> — los de más de $15.000 de ahorro.
+          Cada upgrade que compres le suma <b>uno más</b> al turista que vos elijas.
+        </div>
+
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ background: BG, borderRadius: 12, padding: '12px 18px' }}>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Te quedan</div>
+            <div style={{ fontFamily: FONT, fontSize: 24, fontWeight: 800, color: saldo > 0 ? GREEN : MUTED }}>{saldo}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input value={cantidad} inputMode="numeric"
+              onChange={e => setCantidad(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              style={{ width: 80, padding: '10px 12px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 14, outline: 'none' }} />
+            <button onClick={comprar} disabled={comprando} style={{
+              background: P, color: '#fff', border: 'none', borderRadius: 10, padding: '11px 18px',
+              fontFamily: FONT, fontSize: 13.5, fontWeight: 700, cursor: comprando ? 'not-allowed' : 'pointer', opacity: comprando ? 0.6 : 1,
+            }}>{comprando ? 'Comprando…' : `Comprar · ${fmt(Number(cantidad) * UPGRADE_PACK_PRECIO)}`}</button>
+          </div>
+        </div>
+        <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 10 }}>
+          {fmt(UPGRADE_PACK_PRECIO)} cada uno · mínimo {UPGRADE_PACK_MIN}
+        </div>
+      </div>
+
+      {/* Turistas que activaron */}
+      <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: activaciones.length ? `1px solid ${LINE}` : 'none' }}>
+          <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: INK }}>Turistas que activaron tu Pase</div>
+          <div style={{ fontFamily: FONT, fontSize: 12.5, color: INK2, marginTop: 2 }}>
+            {activaciones.length} activaci{activaciones.length === 1 ? 'ón' : 'ones'} · {fmt(ahorro_generado)} de ahorro generado
+          </div>
+        </div>
+        {activaciones.length === 0 ? (
+          <div style={{ padding: '28px 20px', textAlign: 'center', fontFamily: FONT, fontSize: 13, color: MUTED }}>
+            Todavía no activó nadie. Dictá tu código en el check-in.
+          </div>
+        ) : activaciones.map((a, i) => (
+          <div key={a.usuario_pase_id} style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', flexWrap: 'wrap',
+            borderBottom: i === activaciones.length - 1 ? 'none' : `1px solid ${LINE}`,
+          }}>
+            <div style={{ flex: 1, minWidth: 170 }}>
+              <div style={{ fontFamily: FONT, fontSize: 13, color: INK }}>
+                Activado el {fmtFecha(a.activado_el)}
+                {a.estado !== 'activo' && <span style={{ color: MUTED }}> · {a.estado}</span>}
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 1 }}>
+                {a.premium} premium{a.upgradeado ? ' (con upgrade)' : ''} · {a.canjes} canje{a.canjes !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: GREEN }}>{fmt(a.ahorro)}</div>
+            {a.estado === 'activo' && (
+              <button onClick={() => asignar(a.usuario_pase_id)} disabled={saldo <= 0 || asignando === a.usuario_pase_id}
+                title={saldo <= 0 ? 'No te quedan upgrades' : 'Sumarle un beneficio premium'}
+                style={{
+                  background: 'none', border: `1px solid ${LINE}`, borderRadius: 9, padding: '6px 11px',
+                  fontFamily: FONT, fontSize: 11.5, fontWeight: 600, cursor: saldo > 0 ? 'pointer' : 'not-allowed',
+                  color: saldo > 0 ? P : MUTED, opacity: saldo > 0 ? 1 : 0.5, whiteSpace: 'nowrap',
+                }}>
+                {asignando === a.usuario_pase_id ? '…' : '+1 premium'}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Tab ──────────────────────────────────────────────────────
 export default function TabCanjes({ negocio, showToast }) {
   const [canjes, setCanjes]     = useState([]);
@@ -160,6 +339,8 @@ export default function TabCanjes({ negocio, showToast }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <BloquePase negocio={negocio} showToast={showToast} />
+
       <QrSocio negocioId={negocio?.id} nombre={negocio?.nombre} />
 
       <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden' }}>

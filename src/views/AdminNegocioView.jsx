@@ -22,6 +22,8 @@ import { FOTOS_GALERIA_MAX, getPlanesPro } from '../lib/planes';
 import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
 import { AHORRO_BASE_MAX } from '../lib/pases';
 import { getStatsNegocio } from '../lib/tracking';
+import { getSolicitudesDeNegocio, getConsultasDeNegocio, responderSolicitud, marcarConsultaLeida,
+         ESTADOS as ESTADOS_SOL, textoError as textoErrorSol } from '../lib/solicitudes';
 import { impulsarOferta, costoPorAcceso, costoPorVenta, costoPorResultado } from '../lib/impulso';
 import { sanitizeTituloOferta } from '../lib/ofertas';
 import ComprarTokensModal from '../components/ComprarTokensModal';
@@ -60,7 +62,7 @@ const NAV_GRUPOS = [
     items: [
       { id: 'ofertas',     label: 'Creadas por mí', Icon: Tag         },
       { id: 'solicitudes', label: 'Ventas',          Icon: Inbox,      alojOnly: true },
-      { id: 'canjes',      label: 'Canjes y QR',     Icon: Ticket      },
+      { id: 'canjes',      label: 'Pase y canjes',   Icon: Ticket      },
     ],
   },
   {
@@ -78,24 +80,6 @@ const NAV_BOTTOM = [
   { id: 'notif', label: 'Notificaciones', Icon: Bell },
 ];
 const TIPOS_ALOJ_ADMIN = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi']);
-
-// ─── Mock data ───────────────────────────────────────────────
-const MOCK_CHATS = [
-  { id: 1, nombre: 'Valentina R.', avatar: 'V', avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face', msg: '¿Tienen habitaciones disponibles para el fin de semana del 20?', time: '10:32', labelId: 'pendiente', unread: 2, msgs: [
-    { from: 'turista', text: '¿Tienen habitaciones disponibles para el fin de semana del 20?', time: '10:32' },
-  ]},
-  { id: 2, nombre: 'Lucas M.', avatar: 'L', avatarUrl: null, msg: 'Perfecto, reservamos para 4 personas.', time: 'Ayer', labelId: 'confirmado', unread: 0, msgs: [
-    { from: 'turista', text: '¿Cuál es el precio por noche para una triple?', time: 'Ayer 09:10' },
-    { from: 'socio',   text: 'Hola Lucas, la triple está a $45.000 por noche.', time: 'Ayer 09:45' },
-    { from: 'turista', text: 'Perfecto, reservamos para 4 personas.', time: 'Ayer 10:12' },
-  ]},
-  { id: 3, nombre: 'Florencia G.', avatar: 'F', avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', msg: '¿El desayuno está incluido?', time: 'Lun', labelId: 'interesado', unread: 1, msgs: [
-    { from: 'turista', text: '¿El desayuno está incluido?', time: 'Lun 14:00' },
-  ]},
-  { id: 4, nombre: 'Matías P.', avatar: 'M', avatarUrl: null, msg: '¿Aceptan mascotas pequeñas?', time: 'Dom', labelId: 'pendiente', unread: 1, msgs: [
-    { from: 'turista', text: '¿Aceptan mascotas pequeñas?', time: 'Dom 17:45' },
-  ]},
-];
 
 const MOCK_NOTIFS = [
   { id: 1, tipo: 'propia', icon: ShoppingBag, color: GREEN, title: 'Cupón propio canjeado', cliente: 'Valentina R.', cupon: 'Escapada Romántica (-15%)', time: 'Hace 5 min', creditos: 0 },
@@ -124,12 +108,6 @@ const ADDONS_CATALOG = [
   { id: 'traductor', titulo: 'Traductor IA', desc: 'Traduce tu perfil y promociones al inglés y portugués automáticamente.', precio: 4000, Icon: Globe, color: '#8b5cf6' },
   { id: 'reservas',  titulo: 'Motor de Reservas Básico', desc: 'Calendario de reservas desde tu ficha en Cuponear.', precio: 8000, Icon: Calendar, color: '#0ea5e9' },
   { id: 'sms',       titulo: 'Alertas SMS Instantáneas', desc: 'Notificaciones de consultas directamente a tu celular.', precio: 2500, Icon: MessageCircle, color: '#ec4899' },
-];
-
-const DEFAULT_LABELS = [
-  { id: 'pendiente',  label: 'Pendiente',  color: '#f59e0b' },
-  { id: 'confirmado', label: 'Confirmado', color: GREEN },
-  { id: 'interesado', label: 'Interesado', color: P },
 ];
 
 // ─── Helpers UI ──────────────────────────────────────────────
@@ -167,20 +145,6 @@ function Toast({ toast }) {
     </div>
   );
 }
-
-// ════════════════════════════════════════════════════════════
-//  TAB 1 — DASHBOARD ANALYTICS
-// ════════════════════════════════════════════════════════════
-const PERIODOS = [
-  { val: 'diario',  label: 'Diario' },
-  { val: '7d',      label: 'Últimos 7 días' },
-  { val: 'mensual', label: 'Mensual' },
-  { val: '30d',     label: 'Últimos 30 días' },
-  { val: '3m',      label: 'Últimos 3 meses' },
-  { val: '6m',      label: 'Últimos 6 meses' },
-  { val: '12m',     label: 'Últimos 12 meses' },
-  { val: 'custom',  label: 'Personalizado' },
-];
 
 // ═══════════════════════════════════════════════════════════
 //  TAB ESTADÍSTICAS — datos reales, o nada
@@ -341,19 +305,6 @@ function TabEstadisticas({ negocio }) {
 //  dos tipos: consultas y solicitudes de fecha. Misma lógica que
 //  TabPendientes en el superadmin.
 // ════════════════════════════════════════════════════════════
-// ── Avatar helper ────────────────────────────────────────────
-function ChatAvatar({ chat, size = 40 }) {
-  return (
-    <div style={{ width:size, height:size, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:P, display:'grid', placeItems:'center' }}>
-      {chat.avatarUrl
-        ? <img src={chat.avatarUrl} alt={chat.nombre} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-        : <span style={{ color:'#fff', fontFamily:FONT, fontWeight:700, fontSize: Math.round(size*0.38) }}>{chat.avatar}</span>
-      }
-    </div>
-  );
-}
-
-// ── Label pill ───────────────────────────────────────────────
 function LabelPill({ label, color }) {
   if (!label) return null;
   return (
@@ -363,254 +314,191 @@ function LabelPill({ label, color }) {
   );
 }
 
-function TabInbox() {
-  const [chats, setChats]           = useState(MOCK_CHATS);
-  const [active, setActive]         = useState(1);
-  const [input, setInput]           = useState('');
-  const [labels, setLabels]         = useState(DEFAULT_LABELS);
-  const [search, setSearch]         = useState('');
-  const [filterLabel, setFilterLabel] = useState(null);
-  const [selected, setSelected]     = useState(new Set());
-  const [selectMode, setSelectMode] = useState(false);
-  const [showLabelMgr, setShowLabelMgr] = useState(false);
-  const [newLabelText, setNewLabelText] = useState('');
-  const [newLabelColor, setNewLabelColor] = useState('#8b5cf6');
-  const [editingId, setEditingId]   = useState(null);
-  const messagesEndRef = useRef(null);
+// ═══════════════════════════════════════════════════════════
+//  TAB INBOX — bandeja ÚNICA del socio
+//
+//  Dos tipos filtrables en un solo lugar: SOLICITUDES DE FECHA (premium que
+//  necesita confirmación) y CONSULTAS generales. Mismo criterio que
+//  TabPendientes en el superadmin: un tab por cada cosa hace que alguna se
+//  quede sin mirar.
+//
+//  Era data mock. Las consultas reales sólo se veían en el superadmin.
+//
+//  ⚠️ COPY: Cuponear TRANSMITE una solicitud, no reserva ni confirma nada.
+//  Nunca "reservá" ni "disponibilidad" (Ley 18.829).
+// ═══════════════════════════════════════════════════════════
+const fmtDia = d => d
+  ? new Date(d + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+  : '';
+const horasRestantes = iso => {
+  if (!iso) return null;
+  return Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 3600000));
+};
 
-  const chat = chats.find(c => c.id === active);
-
-  const getLabel = id => labels.find(l => l.id === id);
-
-  const visibleChats = chats.filter(c => {
-    const matchSearch = !search || c.nombre.toLowerCase().includes(search.toLowerCase()) || c.msg.toLowerCase().includes(search.toLowerCase());
-    const matchLabel  = !filterLabel || c.labelId === filterLabel;
-    return matchSearch && matchLabel;
-  });
-
-  function sendMsg() {
-    if (!input.trim()) return;
-    setChats(prev => prev.map(c => c.id === active
-      ? { ...c, msg: input, msgs: [...c.msgs, { from:'socio', text:input, time:'Ahora' }] }
-      : c
-    ));
-    setInput('');
-  }
-
-  function setLabel(labelId) {
-    setChats(prev => prev.map(c => c.id === active ? { ...c, labelId } : c));
-  }
-
-  function toggleSelect(id) {
-    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
-  }
-
-  function deleteSelected() {
-    setChats(prev => prev.filter(c => !selected.has(c.id)));
-    if (selected.has(active)) setActive(chats.find(c => !selected.has(c.id))?.id || null);
-    setSelected(new Set());
-    setSelectMode(false);
-  }
-
-  function addLabel() {
-    if (!newLabelText.trim()) return;
-    const id = newLabelText.toLowerCase().replace(/\s+/g,'-') + '_' + Date.now();
-    setLabels(prev => [...prev, { id, label: newLabelText.trim(), color: newLabelColor }]);
-    setNewLabelText('');
-  }
-
-  function deleteLabel(id) {
-    setLabels(prev => prev.filter(l => l.id !== id));
-    setChats(prev => prev.map(c => c.labelId === id ? { ...c, labelId: null } : c));
-  }
-
-  function saveEditLabel(id, newText) {
-    setLabels(prev => prev.map(l => l.id === id ? { ...l, label: newText } : l));
-    setEditingId(null);
-  }
-
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior:'smooth' }); }, [chat?.msgs]);
-
-  const LABEL_COLORS = ['#f59e0b','#10b981','#475be1','#ef4444','#8b5cf6','#0ea5e9','#ec4899','#64748b'];
+function FilaSolicitud({ s, onResponder, enCurso }) {
+  const [proponiendo, setProponiendo] = useState(false);
+  const [fecha, setFecha] = useState('');
+  const est = ESTADOS_SOL[s.estado] || ESTADOS_SOL.enviada;
+  const horas = s.estado === 'enviada' ? horasRestantes(s.expira_at) : null;
 
   return (
-    <div style={{ display:'flex', gap:0, height:'calc(100vh - 120px)', minHeight:500, borderRadius:16, border:`1px solid ${LINE}`, overflow:'hidden', background:CARD, position:'relative' }}>
-
-      {/* ── Panel izquierdo ── */}
-      <div style={{ width:300, minWidth:300, borderRight:`1px solid ${LINE}`, display:'flex', flexDirection:'column' }}>
-
-        {/* Header tipo email */}
-        <div style={{ padding:'10px 12px', borderBottom:`1px solid ${LINE}`, display:'flex', flexDirection:'column', gap:8 }}>
-          {/* Fila 1: búsqueda */}
-          <div style={{ display:'flex', alignItems:'center', gap:6, background:BG, borderRadius:9, padding:'6px 10px', border:`1px solid ${LINE}` }}>
-            <Search size={13} color={MUTED}/>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar consultas..."
-              style={{ flex:1, border:'none', background:'transparent', fontFamily:FONT, fontSize:12, color:INK, outline:'none' }}
-            />
-            {search && <button onClick={() => setSearch('')} style={{ background:'none', border:'none', cursor:'pointer', padding:0, color:MUTED }}><X size={11}/></button>}
+    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${LINE}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+            <span style={{
+              background: est.bg, color: est.color, fontSize: 10.5, fontWeight: 800,
+              padding: '3px 9px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>{est.label}</span>
+            {horas != null && (
+              <span style={{ fontFamily: FONT, fontSize: 11.5, fontWeight: 600, color: horas <= 12 ? '#DC2626' : MUTED }}>
+                {horas > 0 ? `te quedan ${horas} h para responder` : 'vence en minutos'}
+              </span>
+            )}
           </div>
-          {/* Fila 2: acciones */}
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            {/* Filtro por etiqueta */}
-            <select value={filterLabel || ''} onChange={e => setFilterLabel(e.target.value || null)}
-              style={{ flex:1, padding:'5px 8px', borderRadius:8, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:12, color: filterLabel ? P : INK2, background:CARD, cursor:'pointer', outline:'none' }}
-            >
-              <option value=''>Todas las etiquetas</option>
-              {labels.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
-            </select>
-            {/* Selección múltiple */}
-            <button onClick={() => { setSelectMode(s => !s); setSelected(new Set()); }}
-              title={selectMode ? 'Cancelar selección' : 'Seleccionar'}
-              style={{ width:30, height:30, borderRadius:8, border:`1px solid ${selectMode ? P : LINE}`, background: selectMode ? PS : 'transparent', cursor:'pointer', display:'grid', placeItems:'center', color: selectMode ? P : INK2 }}
-            >
-              <CheckCircle2 size={14}/>
-            </button>
-            {/* Eliminar seleccionados */}
-            <button onClick={deleteSelected} disabled={selected.size === 0}
-              title="Eliminar seleccionados"
-              style={{ width:30, height:30, borderRadius:8, border:`1px solid ${selected.size > 0 ? '#ef4444' : LINE}`, background:'transparent', cursor: selected.size > 0 ? 'pointer' : 'default', display:'grid', placeItems:'center', color: selected.size > 0 ? '#ef4444' : MUTED, opacity: selected.size > 0 ? 1 : 0.4 }}
-            >
-              <Trash2 size={14}/>
-            </button>
-            {/* Gestionar etiquetas */}
-            <button onClick={() => setShowLabelMgr(s => !s)}
-              title="Gestionar etiquetas"
-              style={{ width:30, height:30, borderRadius:8, border:`1px solid ${showLabelMgr ? P : LINE}`, background: showLabelMgr ? PS : 'transparent', cursor:'pointer', display:'grid', placeItems:'center', color: showLabelMgr ? P : INK2 }}
-            >
-              <Tag size={14}/>
-            </button>
+          <div style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: INK }}>
+            {s.promociones?.titulo || 'Beneficio'}
+          </div>
+          <div style={{ fontFamily: FONT, fontSize: 12.5, color: INK2, marginTop: 2 }}>
+            Para el <b>{fmtDia(s.fecha_pedida)}</b> · {s.personas} persona{s.personas !== 1 ? 's' : ''}
+            {s.fecha_propuesta && <> · le propusiste el {fmtDia(s.fecha_propuesta)}</>}
           </div>
         </div>
 
-        {/* Lista de consultas */}
-        <div style={{ flex:1, overflowY:'auto' }}>
-          {visibleChats.length === 0 && (
-            <div style={{ padding:32, textAlign:'center', color:MUTED, fontFamily:FONT, fontSize:13 }}>Sin resultados</div>
-          )}
-          {visibleChats.map(c => {
-            const lbl = getLabel(c.labelId);
-            return (
-              <button key={c.id} onClick={() => { setActive(c.id); if (selectMode) toggleSelect(c.id); }} style={{
-                width:'100%', display:'flex', gap:10, padding:'12px 14px', border:'none', textAlign:'left',
-                background: active === c.id ? PS : 'transparent', cursor:'pointer',
-                borderBottom:`1px solid ${LINE}`, alignItems:'flex-start',
-              }}>
-                {/* Checkbox modo selección */}
-                {selectMode && (
-                  <div onClick={e => { e.stopPropagation(); toggleSelect(c.id); }}
-                    style={{ width:16, height:16, borderRadius:4, border:`2px solid ${selected.has(c.id) ? P : LINE}`, background: selected.has(c.id) ? P : '#fff', display:'grid', placeItems:'center', flexShrink:0, marginTop:12, cursor:'pointer' }}
-                  >
-                    {selected.has(c.id) && <Check size={10} color="#fff"/>}
-                  </div>
-                )}
-                <ChatAvatar chat={c} size={38}/>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>{c.nombre}</span>
-                    <span style={{ fontFamily:FONT, fontSize:10, color:MUTED, flexShrink:0 }}>{c.time}</span>
-                  </div>
-                  <div style={{ fontFamily:FONT, fontSize:12, color:INK2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2 }}>{c.msg}</div>
-                  {lbl && <div style={{ marginTop:4 }}><LabelPill label={lbl.label} color={lbl.color}/></div>}
-                </div>
-                {c.unread > 0 && <span style={{ background:P, color:'#fff', fontSize:10, fontWeight:700, width:17, height:17, borderRadius:'50%', display:'grid', placeItems:'center', flexShrink:0 }}>{c.unread}</span>}
-              </button>
-            );
-          })}
+        {s.estado === 'enviada' && !proponiendo && (
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button onClick={() => onResponder(s, 'aceptar')} disabled={enCurso === s.id} style={{
+              background: GREEN, color: '#fff', border: 'none', borderRadius: 9, padding: '8px 14px',
+              fontFamily: FONT, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+            }}>Sí</button>
+            <button onClick={() => onResponder(s, 'rechazar')} disabled={enCurso === s.id} style={{
+              background: '#FEF2F2', color: '#DC2626', border: 'none', borderRadius: 9, padding: '8px 14px',
+              fontFamily: FONT, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+            }}>No</button>
+            <button onClick={() => setProponiendo(true)} disabled={enCurso === s.id} style={{
+              background: 'none', color: INK2, border: `1px solid ${LINE}`, borderRadius: 9, padding: '8px 14px',
+              fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>Otra fecha</button>
+          </div>
+        )}
+      </div>
+
+      {proponiendo && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input type="date" value={fecha} min={new Date().toISOString().slice(0, 10)}
+            onChange={e => setFecha(e.target.value)}
+            style={{ padding: '9px 12px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13, outline: 'none' }} />
+          <button onClick={() => { onResponder(s, 'proponer', fecha); setProponiendo(false); }}
+            disabled={!fecha} style={{
+              background: !fecha ? LINE : P, color: !fecha ? MUTED : '#fff', border: 'none', borderRadius: 9,
+              padding: '9px 15px', fontFamily: FONT, fontSize: 12.5, fontWeight: 700, cursor: !fecha ? 'not-allowed' : 'pointer',
+            }}>Proponer esta fecha</button>
+          <button onClick={() => setProponiendo(false)} style={{
+            background: 'none', border: 'none', color: MUTED, fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+          }}>Cancelar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabInbox({ negocio, showToast }) {
+  const [filtro, setFiltro] = useState('solicitudes');
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [consultas, setConsultas]     = useState([]);
+  const [cargando, setCargando]       = useState(true);
+  const [enCurso, setEnCurso]         = useState(null);
+
+  const cargar = async () => {
+    if (!negocio?.id) { setCargando(false); return; }
+    const [s, c] = await Promise.all([
+      getSolicitudesDeNegocio(negocio.id), getConsultasDeNegocio(negocio.id),
+    ]);
+    setSolicitudes(s); setConsultas(c); setCargando(false);
+  };
+  useEffect(() => { cargar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [negocio?.id]);
+
+  async function responder(s, respuesta, fechaPropuesta = null) {
+    setEnCurso(s.id);
+    const r = await responderSolicitud({ solicitudId: s.id, respuesta, fechaPropuesta });
+    setEnCurso(null);
+    if (!r.ok) return showToast(textoErrorSol(r.error), 'err');
+    showToast(
+      r.estado === 'aceptada'   ? 'Confirmado. El turista ya puede usar su beneficio.'
+      : r.estado === 'rechazada' ? 'Le avisamos que no vas a poder.'
+      : 'Le propusimos la fecha nueva.', 'ok');
+    cargar();
+  }
+
+  const pendientes = solicitudes.filter(s => s.estado === 'enviada');
+  const sinLeer    = consultas.filter(c => !c.leida);
+
+  const FILTROS = [
+    { id: 'solicitudes', label: `Solicitudes de fecha (${pendientes.length})` },
+    { id: 'consultas',   label: `Consultas (${sinLeer.length})` },
+  ];
+
+  if (cargando) return <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: FONT, fontSize: 13, color: MUTED }}>Cargando…</div>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: PS, border: `1px solid ${LINE}`, borderRadius: 14, padding: '14px 16px' }}>
+        <div style={{ fontFamily: FONT, fontSize: 13, color: INK2, lineHeight: 1.55 }}>
+          Todo lo que espera tu respuesta. Las <b>solicitudes de fecha</b> tienen a un turista
+          esperando y vencen a las 72 horas: si no contestás, se libera su beneficio y lo perdés.
         </div>
       </div>
 
-      {/* ── Panel derecho: chat ── */}
-      {chat && (
-        <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
-          <div style={{ padding:'12px 18px', borderBottom:`1px solid ${LINE}`, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <ChatAvatar chat={chat} size={36}/>
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>{chat.nombre}</div>
-                {getLabel(chat.labelId) && <LabelPill label={getLabel(chat.labelId).label} color={getLabel(chat.labelId).color}/>}
-              </div>
-            </div>
-            {/* Selector de etiqueta */}
-            <select value={chat.labelId || ''} onChange={e => setLabel(e.target.value || null)}
-              style={{ padding:'6px 10px', borderRadius:9, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:12, color:INK, background:CARD, cursor:'pointer', outline:'none' }}
-            >
-              <option value=''>Sin etiqueta</option>
-              {labels.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
-            </select>
-          </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {FILTROS.map(f => (
+          <button key={f.id} onClick={() => setFiltro(f.id)} style={{
+            border: `1px solid ${filtro === f.id ? P : LINE}`,
+            background: filtro === f.id ? PS : '#fff',
+            color: filtro === f.id ? P : INK2,
+            borderRadius: 999, padding: '7px 14px', fontFamily: FONT, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+          }}>{f.label}</button>
+        ))}
+      </div>
 
-          {/* Mensajes */}
-          <div style={{ flex:1, overflowY:'auto', padding:'20px', display:'flex', flexDirection:'column', gap:12 }}>
-            {chat.msgs.map((m,i) => (
-              <div key={i} style={{ display:'flex', justifyContent: m.from === 'socio' ? 'flex-end' : 'flex-start' }}>
-                <div style={{
-                  maxWidth:'70%', padding:'10px 14px',
-                  borderRadius: m.from === 'socio' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                  background: m.from === 'socio' ? P : BG,
-                  color: m.from === 'socio' ? '#fff' : INK,
-                  fontFamily:FONT, fontSize:13,
-                }}>
-                  <div>{m.text}</div>
-                  <div style={{ fontSize:10, marginTop:4, color: m.from === 'socio' ? 'rgba(255,255,255,0.6)' : MUTED, textAlign:'right' }}>{m.time}</div>
+      <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden' }}>
+        {filtro === 'solicitudes' ? (
+          solicitudes.length === 0 ? (
+            <div style={{ padding: '44px 20px', textAlign: 'center', fontFamily: FONT, fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+              Todavía no te pidieron fecha.<br />
+              Sólo llegan pedidos de las ofertas que marcaste como <b>&ldquo;requiere confirmación de fecha&rdquo;</b>.
+            </div>
+          ) : solicitudes.map(s => (
+            <FilaSolicitud key={s.id} s={s} onResponder={responder} enCurso={enCurso} />
+          ))
+        ) : (
+          consultas.length === 0 ? (
+            <div style={{ padding: '44px 20px', textAlign: 'center', fontFamily: FONT, fontSize: 13, color: MUTED }}>
+              Sin consultas.
+            </div>
+          ) : consultas.map((c, i) => (
+            <div key={c.id} style={{
+              padding: '14px 20px', display: 'flex', gap: 12, alignItems: 'flex-start',
+              borderBottom: i === consultas.length - 1 ? 'none' : `1px solid ${LINE}`,
+              background: c.leida ? '#fff' : PS,
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 700, color: INK }}>
+                  {c.nombre || 'Consulta'}
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 12.5, color: INK2, marginTop: 3, lineHeight: 1.5 }}>
+                  {c.mensaje}
                 </div>
               </div>
-            ))}
-            <div ref={messagesEndRef}/>
-          </div>
-
-          {/* Input */}
-          <div style={{ padding:'12px 18px', borderTop:`1px solid ${LINE}`, display:'flex', gap:10 }}>
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMsg()}
-              placeholder="Escribí tu respuesta..."
-              style={{ flex:1, padding:'10px 14px', borderRadius:12, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, outline:'none', color:INK }}
-            />
-            <button onClick={sendMsg} style={{ width:42, height:42, borderRadius:12, background:P, border:'none', cursor:'pointer', display:'grid', placeItems:'center' }}>
-              <Send size={17} color="#fff"/>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Drawer gestión de etiquetas ── */}
-      {showLabelMgr && (
-        <div style={{ position:'absolute', top:0, left:300, bottom:0, width:280, background:CARD, borderRight:`1px solid ${LINE}`, display:'flex', flexDirection:'column', zIndex:20, boxShadow:'4px 0 16px rgba(0,0,0,0.07)' }}>
-          <div style={{ padding:'14px 16px', borderBottom:`1px solid ${LINE}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>Gestionar etiquetas</span>
-            <button onClick={() => setShowLabelMgr(false)} style={{ background:'none', border:'none', cursor:'pointer', color:MUTED }}><X size={16}/></button>
-          </div>
-          <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-            {labels.map(l => (
-              <div key={l.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:10, border:`1px solid ${LINE}`, background:BG }}>
-                <div style={{ width:12, height:12, borderRadius:'50%', background:l.color, flexShrink:0 }}/>
-                {editingId === l.id
-                  ? <input defaultValue={l.label} autoFocus onBlur={e => saveEditLabel(l.id, e.target.value)} onKeyDown={e => e.key === 'Enter' && saveEditLabel(l.id, e.target.value)}
-                      style={{ flex:1, border:`1px solid ${P}`, borderRadius:6, padding:'3px 7px', fontFamily:FONT, fontSize:12, outline:'none' }}/>
-                  : <span style={{ flex:1, fontFamily:FONT, fontSize:12, fontWeight:600, color:INK }}>{l.label}</span>
-                }
-                <button onClick={() => setEditingId(l.id)} style={{ background:'none', border:'none', cursor:'pointer', color:MUTED, padding:2 }}><Edit2 size={12}/></button>
-                <button onClick={() => deleteLabel(l.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#ef4444', padding:2 }}><Trash2 size={12}/></button>
-              </div>
-            ))}
-          </div>
-          {/* Agregar nueva etiqueta */}
-          <div style={{ padding:'12px 14px', borderTop:`1px solid ${LINE}` }}>
-            <div style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:MUTED, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.05em' }}>Nueva etiqueta</div>
-            <input value={newLabelText} onChange={e => setNewLabelText(e.target.value)} placeholder="Nombre de la etiqueta"
-              onKeyDown={e => e.key === 'Enter' && addLabel()}
-              style={{ width:'100%', padding:'8px 10px', borderRadius:9, border:`1px solid ${LINE}`, fontFamily:FONT, fontSize:13, outline:'none', color:INK, marginBottom:8, boxSizing:'border-box' }}
-            />
-            <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' }}>
-              {LABEL_COLORS.map(c => (
-                <div key={c} onClick={() => setNewLabelColor(c)}
-                  style={{ width:20, height:20, borderRadius:'50%', background:c, cursor:'pointer', border: newLabelColor === c ? `2px solid ${INK}` : '2px solid transparent' }}/>
-              ))}
+              {!c.leida && (
+                <button onClick={async () => { await marcarConsultaLeida(c.id); cargar(); }} style={{
+                  background: 'none', border: `1px solid ${LINE}`, borderRadius: 9, padding: '6px 11px',
+                  fontFamily: FONT, fontSize: 11.5, fontWeight: 600, color: INK2, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>Marcar leída</button>
+              )}
             </div>
-            <button onClick={addLabel} style={{ width:'100%', padding:'8px', borderRadius:9, background:P, border:'none', color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-              <Plus size={14}/> Agregar
-            </button>
-          </div>
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -742,6 +630,7 @@ function dbRowToItem(p) {
     formatos:  [...(p.offer_type === 'Flash' ? ['flash'] : []), ...(p.is_group ? ['grupal'] : [])],
     ahorro:    p.ahorro_estimado ?? '',
     precio:    p.precio_manual != null ? String(p.precio_manual) : (p.ahorro_estimado ? String(calcularPrecioCupon(Number(p.ahorro_estimado))) : ''),
+    requiereFecha: p.requiere_fecha === true,
     premiumIlimitado: p.premium_ilimitado,                       // null = todavía no eligió
     cupoPremium: p.cupo_mensual_premium != null ? String(p.cupo_mensual_premium) : '',
     flashFechaFin: p.fecha_fin_flash ? new Date(p.fecha_fin_flash) : null,
@@ -1322,6 +1211,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
       // Capa premium: sólo tiene sentido con ahorro > $15.000. Se guarda tal
       // cual eligió el socio; `null` significa que todavía no eligió y la base
       // no deja publicar así.
+      requiere_fecha:        !!editForm.requiereFecha,
       premium_ilimitado:     editForm.premiumIlimitado ?? null,
       cupo_mensual_premium:  editForm.premiumIlimitado === false && editForm.cupoPremium
                                ? Number(editForm.cupoPremium) : null,
@@ -2171,6 +2061,27 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
                     Elegí una de las dos para poder publicar.
                   </div>
                 )}
+
+                {/* Confirmación de fecha. Un spa, una excursión o una noche no
+                    se pueden usar cayendo de sorpresa: el turista pide día y
+                    cantidad de personas, y el socio contesta sí / no / otra
+                    fecha. No se gatea por plan: es atributo de la oferta. */}
+                <label style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 16, paddingTop: 14,
+                  borderTop: `1px solid ${P}22`, cursor: 'pointer',
+                }}>
+                  <input type="checkbox" checked={!!editForm.requiereFecha} style={{ marginTop: 3 }}
+                    onChange={e => { setEditForm(f => ({ ...f, requiereFecha: e.target.checked })); setIsDirty(true); }} />
+                  <span>
+                    <span style={{ display: 'block', fontFamily: FONT, fontSize: 12.5, fontWeight: 700, color: INK }}>
+                      Requiere confirmación de fecha
+                    </span>
+                    <span style={{ display: 'block', fontFamily: FONT, fontSize: 11.5, color: INK2, marginTop: 2, lineHeight: 1.45 }}>
+                      El turista te pide día y cantidad de personas, y vos confirmás desde tu bandeja.
+                      Marcalo si necesitás organizarte con anticipación.
+                    </span>
+                  </span>
+                </label>
               </div>
             )}
           </div>
@@ -2642,7 +2553,7 @@ function PackFicha({ badge, off, cred, popular, darkIdx = 0 }) {
             <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED, whiteSpace:'nowrap' }}>Lo activás con</span>
             <span style={{ display:'inline-flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
               <CreditCoin size={15}/><span style={{ fontSize:13, fontWeight:800, color:INK }}>{cred} créditos</span>
-              <span style={{ fontSize:10, fontWeight:600, color:MUTED }}>(AR${(cred * 2420).toLocaleString('es-AR')})</span>
+              <span style={{ fontSize:10, fontWeight:600, color:MUTED }}>(${(cred * 2420).toLocaleString('es-AR')})</span>
             </span>
           </div>
         </div>
@@ -3658,7 +3569,7 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
         {tab === 'solicitudes' && <TabVentas negocioId={perfil?.negocio_id} showToast={showToast}/>}
         {tab === 'empresa' && <TabEmpresa negocio={negocio} showToast={showToast}/>}
         {tab === 'galeria' && <TabGaleria negocio={negocio} showToast={showToast}/>}
-        {tab === 'inbox'       && <TabInbox/>}
+        {tab === 'inbox'       && <TabInbox negocio={negocio} showToast={showToast}/>}
         {tab === 'addons'      && <TabAddons addonTotal={addonTotal} setAddonTotal={setAddonTotal} showToast={showToast}/>}
       </main>
 

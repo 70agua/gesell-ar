@@ -4,11 +4,13 @@
 //  Marketplace (grid y lista), y las minifichas de HomeView.
 //  Estructura: header (avatar+nombre+localidad) → imagen con badge
 //  + heart → franja "Ahorrás/Ganás" → precio → botón "Ver oferta"
-//  → sello "Incluido en GESELL PaSS".
+//  → sello del Pase: "Incluido en el GESELL PaSS" si es base,
+//    "Elegilo con el GESELL PaSS" si es premium.
 // ============================================================
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import PaSSMark from './PaSSMark';
+import { usePasePropio } from '../lib/pasePropio';
 import { secondsUntil } from '../lib/ofertas';
 import { precioActivacionARS, creditosActivacion, esCuponDeEntrada, gananciaNeta } from '../lib/cobros';
 import HeartButton from './HeartButton';
@@ -31,9 +33,8 @@ const A = {
   font:    "'Inter', system-ui, sans-serif",
 };
 
-const fmtPesos = n => 'AR$' + Math.round(n).toLocaleString('es-AR');
+const fmtPesos = n => '$' + Math.round(n).toLocaleString('es-AR');
 // Puntos mostrados en la franja de ahorro: ahorroEstimado / 4
-const calcPts = ahorro => Math.round((ahorro || 0) / 4);
 
 // Leyenda del ahorro. Los alojamientos SIEMPRE la muestran (evita confusión
 // sobre a qué corresponde el ahorro); default seguro = "en toda la estadía".
@@ -162,15 +163,18 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, gr
   );
 }
 
-// ─── Franja "Ahorrás $X aprox. · Ganás X pts." ────────────────
+// ─── Franja "Ahorrás $X aprox." ───────────────────────────────
 //  Fila principal en una sola línea (se achica si no entra). Si hay
 //  leyenda (alojamientos) va en un renglón aparte, agrandando el recuadro.
+//
+//  Los PUNTOS salieron de acá: en la mini-ficha competían con el ahorro, que
+//  es el número que decide. Quedan en el detalle de la oferta, donde el
+//  turista ya está evaluando la compra.
 // En los cupones de entrada (ahorro < $10.000) el ahorro bruto se lee mal:
 // con ratio 2x, "ahorrás $5.000" al lado de "pagás $2.500" invita a hacer la
 // resta. Ahí se muestra la GANANCIA NETA, que es lo que el turista se lleva
 // de verdad.
 function FranjaAhorro({ ahorroEstimado, legend }) {
-  const pts = calcPts(ahorroEstimado);
   const entrada = esCuponDeEntrada(ahorroEstimado);
   const monto   = entrada ? gananciaNeta(ahorroEstimado) : ahorroEstimado;
   const outerRef = useRef(null);
@@ -189,7 +193,7 @@ function FranjaAhorro({ ahorroEstimado, legend }) {
     const ro = new ResizeObserver(fit);
     if (outerRef.current) ro.observe(outerRef.current);
     return () => ro.disconnect();
-  }, [ahorroEstimado, pts]);
+  }, [ahorroEstimado, monto]);
 
   if (!(ahorroEstimado > 0)) return null;
 
@@ -202,9 +206,7 @@ function FranjaAhorro({ ahorroEstimado, legend }) {
             <span style={{ fontSize: 13, fontWeight: 800 }}>{fmtPesos(monto)} </span>
             <span style={{ fontSize: 11, fontWeight: 700 }}>{entrada ? 'netos' : 'aprox.'}</span>
           </span>
-          {pts > 0 && (
-            <span style={{ fontSize: 11, fontStyle: 'italic', fontWeight: 600, color: A.green }}>Ganás {pts.toLocaleString('es-AR')} pts.</span>
-          )}
+
         </div>
       </div>
       {legend && (
@@ -214,7 +216,10 @@ function FranjaAhorro({ ahorroEstimado, legend }) {
   );
 }
 
-// ─── Texto "Activá este cupón por…" (reutilizable) ────────────
+// ─── Precio del cupón suelto (micro-fichas de la home) ────────
+// Mismo criterio que la mini-ficha: el suelto es la opción cara y se enuncia
+// como tal ("suelto por $X"), no como la acción principal. Acá no va el sello
+// del Pase porque son piezas chicas de la home, sin lugar para dos elementos.
 export function PrecioCupon({ tokens_costo, ahorro = 0, color = A.ink, mutedColor = A.muted }) {
   const mostrarCreditos = useMostrarCreditos();
   const tc = tokens_costo;
@@ -232,14 +237,14 @@ export function PrecioCupon({ tokens_costo, ahorro = 0, color = A.ink, mutedColo
     <div style={{ textAlign: 'center', fontSize: 12, color, lineHeight: 1.4 }}>
       {mostrarCreditos ? (
         <>
-          Activá este cupón por{' '}
+          Suelto por{' '}
           <CoinSVG size={13} />{' '}
           <span style={{ fontWeight: 800 }}>{creds} crédito{creds !== 1 ? 's' : ''}</span>
           <CreditTooltip />
           <span style={{ display: 'block', fontSize: 11, color: mutedColor, marginTop: 2 }}>({pesos})</span>
         </>
       ) : (
-        <>Activá este cupón suelto por <span style={{ fontWeight: 800 }}>{pesos}</span></>
+        <>Suelto por <span style={{ fontWeight: 800 }}>{pesos}</span></>
       )}
     </div>
   );
@@ -264,39 +269,71 @@ function StockStrip({ tieneStock, stockRestante }) {
   );
 }
 
-// ─── Sello del pase: las dos caras de la regla ─────────────────
-// La oferta no "se agrega a un Cupopack": pertenece (o no) al PaSS. Las dos
-// situaciones salen de nivelEnPase() — única fuente de la regla:
-//   estadía/incluida → entra siempre
-//   premium          → gasta una de las elecciones PLUS del pase
+// ─── Sello del Pase: es un CTA, no una etiqueta ────────────────
+// Cuatro textos, y la diferencia importa:
 //
-// La ficha dice sólo eso y nada más. Antes agregaba "o sumalo al 50%: $X", que
-// es cierto pero contesta una pregunta que el turista todavía no se hizo: acá
-// está mirando si le sirve la oferta, no negociando cómo pagarla, y leer un
-// precio abajo de un sello de pertenencia lo deja sin saber si lo tiene o no.
-// El precio del PLUS extra corresponde donde hay contexto para entenderlo:
-// en el panel del que ya compró, contra sus elecciones disponibles.
+//               │ sin Pase                    │ con Pase activo
+//   ────────────┼─────────────────────────────┼──────────────────
+//   base        │ Incluido en el GESELL PaSS  │ Ya lo tenés
+//   premium     │ Elegilo con el GESELL PaSS  │ Elegilo con el GESELL PaSS
+//
+// "Ya lo tenés" SÓLO si el turista tiene un Pase activo — si no, es una
+// promesa falsa. Y una premium nunca dice "incluido": consume uno de los
+// pocos slots del Pase, no es ilimitada.
+//
+// Al que todavía no lo tiene, el sello lo lleva a comprarlo: es el lugar
+// donde la oferta que está mirando se vuelve el motivo para comprar el Pase.
 function SelloPase({ promo }) {
-  const nivel = nivelEnPase(promo);
-  const esPremium = nivel === 'premium';
+  const { activo, comprarPase } = usePasePropio();
+  const esPremium = nivelEnPase(promo) === 'premium';
+
+  // Una PREMIUM nunca dice "incluido": consume uno de los N slots del turista,
+  // y "incluido" promete acceso ilimitado a algo que es limitado.
+  // "Ya lo tenés" va solo: nombrar la marca ahí sobra, ya es suyo.
+  const texto    = esPremium ? 'Elegilo con el' : (activo ? 'Ya lo tenés' : 'Incluido en el');
+  const conMarca = esPremium || !activo;
+
+  // Al que ya lo tiene no se le vende de nuevo: el sello deja de ser CTA.
+  const clickable = !activo && typeof comprarPase === 'function';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, textAlign: 'center', fontFamily: A.font }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: A.muted, fontSize: 12, fontWeight: 500 }}>
-        {esPremium ? 'Elegilo con tu' : 'Incluido en'} <PaSSMark size={10} conGesell />
-      </span>
-    </div>
+    <button
+      type="button"
+      onClick={clickable ? (e => { e.stopPropagation(); comprarPase(); }) : undefined}
+      style={{
+        alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 7,
+        background: A.primarySoft, border: `1px solid ${A.primary}22`, borderRadius: 999,
+        padding: '6px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 700,
+        color: A.primary, cursor: clickable ? 'pointer' : 'default', lineHeight: 1,
+      }}
+    >
+      <span>{texto}</span>
+      {conMarca && <PaSSMark size={10} conGesell />}
+    </button>
   );
 }
 
 // ─── Precio + CTAs ─────────────────────────────────────────────
+// El Pase manda y el cupón suelto va detrás, en la misma línea y en menor
+// jerarquía: leído así se entiende solo que el suelto es la opción cara.
+// Antes el precio suelto iba centrado y protagónico arriba del botón, que es
+// exactamente al revés de lo que conviene mostrar.
 function PrecioYAcciones({ promo, onOpen, hideActions = false, hidePrecio = false, hideAgregar = false }) {
+  const suelto = precioSuelto(promo);
+
   return (
     <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {!hidePrecio && <PrecioCupon tokens_costo={promo.tokens_costo} ahorro={promo.ahorroEstimado} />}
-
       {!hideActions && (
         <>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {!hideAgregar && <SelloPase promo={promo} />}
+            {!hidePrecio && suelto && (
+              <span style={{ fontFamily: A.font, fontSize: 11.5, color: A.muted, whiteSpace: 'nowrap' }}>
+                · o suelto por <span style={{ fontWeight: 700, color: A.ink2 }}>{suelto}</span>
+              </span>
+            )}
+          </div>
+
           <button
             onClick={e => { e.stopPropagation(); onOpen && onOpen(promo); }}
             style={{ alignSelf: 'center', background: '#fff', border: '1.5px solid #E8E9EE', borderRadius: 14, padding: '9px 40px', fontSize: 14.5, fontWeight: 800, color: A.ink, cursor: 'pointer', transition: 'border-color .15s, color .15s' }}
@@ -305,12 +342,20 @@ function PrecioYAcciones({ promo, onOpen, hideActions = false, hidePrecio = fals
           >
             Ver oferta
           </button>
-
-          {!hideAgregar && <SelloPase promo={promo} />}
         </>
       )}
     </div>
   );
+}
+
+// El precio del cupón suelto, ya formateado. `null` cuando no corresponde
+// mostrarlo (regalo o sin dato).
+function precioSuelto(promo) {
+  const tc = promo.tokens_costo;
+  if (tc === 0) return null;                       // cupón de regalo
+  if (tc == null && !(promo.ahorroEstimado > 0)) return null;
+  const pesos = precioActivacionARS({ ahorro: promo.ahorroEstimado, tokensCosto: tc });
+  return pesos > 0 ? fmtPesos(pesos) : null;
 }
 
 // ═══════════════════════════════════════════════════════════

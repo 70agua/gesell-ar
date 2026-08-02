@@ -2,6 +2,11 @@
 //  src/hooks/usePaseStats.js
 //  Datos vivos del catálogo del Pase para el hero de la home.
 //
+//    · cupones  = ofertas vigentes del catálogo del Pase, SIN deduplicar
+//                 por negocio. Es el número que el turista va a recorrer
+//                 —y el que se muestra en el hero—: hoy son 133 contra
+//                 64 socios. No es el mismo dato que `lugares` ni lo
+//                 reemplaza; `lugares` sigue siendo la base del ahorro.
 //    · lugares  = negocios activos con al menos una oferta vigente
 //                 incluida en el Pase (todo el catálogo).
 //    · ahorro   = suma del ahorro declarado contando 1 oferta por
@@ -23,7 +28,7 @@ import { esCategoriaPase, esOfertaEstadia } from '../lib/pases';
 const fmt = (n) => Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
 export default function usePaseStats() {
-  const [stats, setStats] = useState({ ok: false, loading: true, lugares: 0, ahorro: 0 });
+  const [stats, setStats] = useState({ ok: false, loading: true, cupones: 0, lugares: 0, ahorro: 0 });
 
   useEffect(() => {
     let vivo = true;
@@ -36,16 +41,18 @@ export default function usePaseStats() {
         .eq('aprobada', true);
 
       if (!vivo) return;
-      if (error) { setStats({ ok: false, loading: false, lugares: 0, ahorro: 0 }); return; }
+      if (error) { setStats({ ok: false, loading: false, cupones: 0, lugares: 0, ahorro: 0 }); return; }
 
       // 1 oferta por negocio: la de mayor ahorro declarado.
       const mejorPorNegocio = new Map();
       const estadias = [];
+      let cupones = 0;
       (data || [])
         .filter(p => p.negocios?.activo !== false)
         .map(normalizePromo)
         .filter(esCategoriaPase)
         .forEach(p => {
+          cupones += 1;
           if (!p.negocioId) return;
           const previo = mejorPorNegocio.get(p.negocioId) || 0;
           if (p.ahorroEstimado > previo) mejorPorNegocio.set(p.negocioId, p.ahorroEstimado);
@@ -62,7 +69,7 @@ export default function usePaseStats() {
         .reduce((max, id) => Math.max(max, mejorPorNegocio.get(id) || 0), 0);
       const ahorro = ahorroLibre + mejorEstadia;
 
-      setStats({ ok: lugares > 0, loading: false, lugares, ahorro });
+      setStats({ ok: lugares > 0, loading: false, cupones, lugares, ahorro });
     })();
 
     return () => { vivo = false; };
@@ -70,6 +77,7 @@ export default function usePaseStats() {
 
   return {
     ...stats,
+    cuponesFmt: fmt(stats.cupones),
     lugaresFmt: fmt(stats.lugares),
     ahorroFmt:  fmt(stats.ahorro),
   };

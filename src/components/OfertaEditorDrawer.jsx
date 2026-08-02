@@ -287,7 +287,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
                     {esAlojamiento && form.ahorro_modalidad ? ` (${MODALIDADES_AHORRO.find(m => m.value === form.ahorro_modalidad)?.label})` : ''}
                   </span>
                   <span className="text-[11px] font-medium text-emerald-600">
-                    Precio de cupón sugerido: {Math.max(1, Math.round(calcularPrecioCupon(Number(form.ahorro_estimado)) / CREDITO_TOTAL))} crédito(s) · AR${(Math.max(1, Math.round(calcularPrecioCupon(Number(form.ahorro_estimado)) / CREDITO_TOTAL)) * CREDITO_TOTAL).toLocaleString('es-AR')} (IVA incl.)
+                    Precio de cupón sugerido: {Math.max(1, Math.round(calcularPrecioCupon(Number(form.ahorro_estimado)) / CREDITO_TOTAL))} crédito(s) · ${(Math.max(1, Math.round(calcularPrecioCupon(Number(form.ahorro_estimado)) / CREDITO_TOTAL)) * CREDITO_TOTAL).toLocaleString('es-AR')} (IVA incl.)
                   </span>
                 </div>
               ) : (

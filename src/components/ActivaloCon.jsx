@@ -2,8 +2,8 @@
 //  src/components/ActivaloCon.jsx
 //  Bloque "Activalo con …" que muestra el precio de una oferta.
 //
-//  - Socio Plus / superadmin → precio en créditos + (AR$ con IVA) entre líneas.
-//  - Todos los demás (anónimo, turista, socio Gratis) → sólo AR$ (con IVA),
+//  - Socio Plus / superadmin → precio en créditos + ($ con IVA) entre líneas.
+//  - Todos los demás (anónimo, turista, socio Gratis) → sólo $ (con IVA),
 //    sin ninguna mención a créditos.
 //
 //  El precio ya incluye el 21% de IVA — 1 crédito = CREDITO_TOTAL ($2.420).
@@ -25,7 +25,7 @@ export default function ActivaloCon({
 }) {
   const mostrarCreditos = useMostrarCreditos();
   const n = Number(creditos) || 0;
-  const pesos = `AR$${(n * CREDITO_TOTAL).toLocaleString('es-AR')}`;
+  const pesos = `$${(n * CREDITO_TOTAL).toLocaleString('es-AR')}`;
 
   const label = (
     <span style={{ fontSize: labelSize, fontWeight: 700, color: muted, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: '18px' }}>

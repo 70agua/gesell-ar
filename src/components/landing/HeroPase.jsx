@@ -2,11 +2,12 @@
 //  src/components/landing/HeroPase.jsx
 //  Hero de la home, a DOS columnas:
 //   · Izquierda: el ticket como marca del producto, el título (Viví cuponeando
-//     / en Villa Gesell), un párrafo de apoyo, los dos pases con su precio
-//     adentro, una línea de letra chica y —abajo de todo, separado por una
-//     línea fina— el carril de hotelería.
+//     / en Villa Gesell), un párrafo de apoyo, un pretítulo con los dos pases
+//     con su precio adentro, una línea de letra chica y —abajo de todo,
+//     separado por una línea fina— el carril de hotelería.
 //   · Derecha: galería masonry (tipo Pinterest) inclinada 10°, con parallax al
-//     scrollear; fotos random del pool src/assets/grilla por carga.
+//     scrollear; fotos random del pool src/assets/grilla por carga. Encima,
+//     al ras del borde derecho, la ficha con el contador de cupones.
 //
 //  Las reglas de jerarquía que sostienen este orden, para no romperlas sin
 //  querer al agregar cosas:
@@ -20,6 +21,8 @@
 //      todo lo demás.
 //   5. El ticket es la marca del producto, no un adorno al costado: por eso va
 //      arriba del título y se inclina en el mismo sentido que la galería.
+//   6. Los datos vivos del catálogo son vidriera, no argumento: van sobre la
+//      galería, no en el renglón del claim, donde le comían el espacio.
 //
 //  Estilos responsive inyectados inline (<style> local, clases .pv3-*).
 // ============================================================
@@ -206,54 +209,92 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
                  El casing de las palabras en NauryzRedkeds va tal cual —
                  mayúscula y minúscula son glifos distintos. */}
           <h1 className="pv3-title">
-            <span className="pv3-t-it">Viví <span className="pv3-nauryz">CUPONEaNdO</span></span>
-            <span className="pv3-t-it">en <span className="pv3-nauryz">vILLa GESELL</span></span>
-            <span className="pv3-t-bold">a precio de local y sin gastar de más</span>
+            <span className="pv3-t-it">Viajá <span className="pv3-nauryz">CUPONEaNdO</span></span>
+            <span className="pv3-t-bold">un pase, todos los descuentos</span>
           </h1>
 
           {/* 3 · Un único párrafo de apoyo: qué es y qué entra. Redonda (no
                  itálica) y en ink2, para que se lea como nivel 2 y no como un
-                 segundo titular. El link de explorar va acá, al final de la
-                 frase: es el camino del que todavía no compra. */}
+                 segundo titular. Alojamiento va ÚLTIMO en la lista: el pretítulo
+                 de abajo lo levanta justo antes de los botones, y arrancar la
+                 frase con la misma palabra hacía que el remate sonara a repetido
+                 en vez de a énfasis. */}
           <p className="pv3-sub">
-            Un pase y listo: descuentos en alojamiento, restaurantes, salidas y compras de toda la ciudad.
-            {/* Datos vivos del catálogo, nunca hardcodeados: si la consulta
-                falla o el catálogo está vacío, la línea no aparece. */}
-            {stats.ok && (
-              <> Ya son <b>{stats.lugares} lugares</b> y hasta <b>${stats.ahorro}</b> de ahorro.</>
-            )}{' '}
-            <button className="pv3-link" onClick={() => onVerDescuentos?.()}>Mirá todo lo que entra</button>
+            Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas: todos los descuentos en excursiones, salidas, compras y alojamiento.
           </p>
 
-          {/* 4 · Zona de decisión. Dos hermanos idénticos salvo el dato que los
-                 diferencia (días y precio), los dos dentro del botón. */}
+          {/* 4 · Contador, sobre la galería. Está acá y no dentro del párrafo
+                 de apoyo por dos motivos: en el renglón le competía el espacio
+                 al claim, y el dato es vidriera —cuánto hay para recorrer—, no
+                 argumento de venta.
+
+                 Cuenta CUPONES y no socios: es lo que el turista va a mirar uno
+                 por uno, y son más del doble (133 contra 64).
+
+                 El número desaparece si la consulta falla o el catálogo está
+                 vacío —nunca un número inventado— pero el botón queda igual: es
+                 el único camino a explorar el catálogo desde el hero.
+
+                 Vive DENTRO de .pv3-left, no como hermano suelto, aunque en
+                 desktop se posicione absoluto contra .pv3-inner (que es el
+                 relative más cercano: .pv3-left no está posicionado). Es para
+                 el caso angosto: ahí vuelve al flujo, y tiene que caer entre el
+                 claim y la decisión —no después del carril de hotelería, que
+                 invertiría el orden de públicos. */}
+          {/* El nombre accesible va explícito: los tres spans son hijos de un
+              flex, así que el texto se concatena sin los espacios que sí se ven
+              en pantalla ("133cupones cargadosMirá…"). */}
+          <button className="pv3-contador" onClick={() => onVerDescuentos?.()}
+            aria-label={stats.ok
+              ? `Conocé los ${stats.cupones} cupones que te esperan`
+              : 'Conocé los cupones que te esperan'}>
+            {stats.ok && (
+              <>
+                <span className="pv3-contador-num">{stats.cuponesFmt}</span>
+                <span className="pv3-contador-label"><span>cupones</span><span>te esperan</span></span>
+              </>
+            )}
+            <span className="pv3-contador-link">Conocelos <span aria-hidden="true">→</span></span>
+          </button>
+
+          {/* 5 · Pretítulo de los pases. No es un segundo párrafo de apoyo: es
+                 la etiqueta de los dos botones, y por eso va pegado a ellos
+                 (12px) y separado del sub (30px). La pregunta es literalmente
+                 el dato que diferencia a los dos botones —3 días o 7—, así que
+                 los convierte en respuesta en vez de en dos productos sueltos.
+                 El alojamiento se nombra acá y no en el sub porque es lo que
+                 empuja al pase largo: quien se queda una semana lo elige por
+                 la estadía, no por los cafés. */}
+          <p className="pv3-pretitulo">
+            <b>¿Cuánto dura tu viaje?</b> Todo empieza acá:
+          </p>
+
+          {/* 6 · Zona de decisión. Dos hermanos idénticos salvo el dato que los
+                 diferencia (días y precio), los dos dentro del botón, más una
+                 tercera opción en texto plano —sin chapa de botón— para quien
+                 necesita más días de los que ofrecen los dos pases fijos. */}
           <div className="pv3-opciones">
             {PASES.map(pase => (
               <button key={pase.id} className="pv3-btn-pase"
                 onClick={() => onComprarPase?.(pase.dias)}
                 aria-label={`Comprar pase turista de ${pase.dias} días por ${pase.precio}`}>
-                <b>{pase.label}</b>
+                <b>Pase {pase.label}</b>
                 <span className="pv3-btn-sep" aria-hidden="true" />
                 <span className="pv3-btn-precio">{pase.precio}</span>
               </button>
             ))}
+            <button className="pv3-mas-dias" onClick={() => onComprarPase?.('custom')}>
+              ¿Más días?
+            </button>
           </div>
 
-          {/* 5 · Una sola línea de letra chica, que junta lo que en A eran dos
-                 "por única vez" repetidos y la pastilla "+" (que no decía qué
-                 hacía hasta que le pasabas el mouse por encima). */}
-          <p className="pv3-micro">
-            Pago único, sin suscripción.{' '}
-            ¿Más días?<button className="pv3-link" onClick={() => onComprarPase?.('custom')}>Armá tu pase</button>
-          </p>
-
-          {/* 6 · Carril de hotelería: otro público, otro nivel. Separado por una
+          {/* 7 · Carril de hotelería: otro público, otro nivel. Separado por una
                  línea fina y con peso de link, no de botón: sigue estando a un
                  clic sin pelearle el protagonismo al pase. */}
           <div className="pv3-b2b">
-            <span className="pv3-b2b-txt">¿Tenés un alojamiento ó agencia de turismo?</span>
+            <span className="pv3-b2b-txt"><b>¿Tenés un alojamiento ó agencia de turismo?</b></span>
             <button className="pv3-b2b-cta" onClick={suscribir}>
-              Regalá pases  <span aria-hidden="true">→</span>
+              Suscribite y regalá pases  <span aria-hidden="true">→</span>
             </button>
           </div>
         </div>
@@ -285,11 +326,11 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
            renglones corten solos, sin recortes por derecha. */
         .pv3-left { max-width: 640px; margin-left: 30px; }
 
-        /* 1 · Ticket-marca. -14°: sigue yendo en el mismo sentido que la galería
+        /* 1 · Ticket-marca. -18°: sigue yendo en el mismo sentido que la galería
            (-10°) en vez de cruzarla, pero con bastante más gesto. Al rotar, el
-           alto visual pasa de 74 a ~104px y se come 15px por arriba y por abajo:
-           de ahí el margin inferior de 26px, para que no lama el título. */
-        .pv3-ticket { width: 132px; height: auto; display: block; margin: 0 0 26px; transform: rotate(-14deg); }
+           alto visual pasa de 85 a ~128px y se come 21px por arriba y por abajo:
+           de ahí el margin inferior de 32px, para que no lama el título. */
+        .pv3-ticket { width: 172px; height: auto; display: block; margin: 0 0 32px; transform: rotate(-18deg); }
 
         /* 2 · Título */
         .pv3-title { position: relative; margin: 0; line-height: 1.12; letter-spacing: 0; }
@@ -308,18 +349,31 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           line-height: 1.55;
           color: ${A.ink2};
         }
-        /* Links de texto: subrayados. Sin subrayado, el color era la única
-           marca de que se podía clickear (y el color solo no alcanza). */
-        .pv3-link {
-          padding: 0; border: none; background: none; font: inherit; cursor: pointer;
-          color: ${A.primary}; font-weight: 600;
+        /* 5 · Pretítulo de los pases. Rankea por debajo del sub (15.5 contra
+           16-19) y sólo la pregunta va en ink+700: si los dos bloques tuvieran
+           el mismo peso competirían en vez de encadenarse. El aire está
+           repartido a propósito —30px arriba, 12px abajo— para que se lea
+           colgado de los botones y no del párrafo. */
+        /* Sin max-width propio: hereda los 640px de .pv3-left y entra en un
+           renglón. Con el tope de 30em (465px) cortaba justo antes de "entran"
+           y dejaba una línea huérfana de una palabra. */
+        .pv3-pretitulo { margin: 30px 0 0; font-size: 15.5px; line-height: 1.5; color: ${A.ink2}; }
+        .pv3-pretitulo b { color: ${A.ink}; font-weight: 700; }
+
+        /* 6 · Botones de pase: un solo peso de acción en todo el hero */
+        .pv3-opciones { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 12px; }
+        /* Tercera opción: mismo nivel que los links del resto del hero (no el
+           de los botones), y centrada contra el alto de 56px de sus hermanos
+           por el align-items del contenedor. */
+        .pv3-mas-dias {
+          padding: 0; border: none; background: none; cursor: pointer;
+          font-family: inherit; font-size: 15.5px; font-weight: 600; color: ${A.primary};
+          white-space: nowrap;
           text-decoration: underline; text-underline-offset: 3px;
           text-decoration-thickness: 1.5px;
+          transition: color .15s;
         }
-        .pv3-link:hover { color: ${A.primaryDark}; }
-
-        /* 4 · Botones de pase: un solo peso de acción en todo el hero */
-        .pv3-opciones { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
+        .pv3-mas-dias:hover { color: ${A.primaryDark}; }
         .pv3-btn-pase {
           display: inline-flex; align-items: center; gap: 12px;
           min-height: 56px; padding: 0 26px;
@@ -339,29 +393,81 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           .pv3-btn-pase:hover { transform: none; }
         }
 
-        /* 5 · Letra chica: una línea, no dos columnas de leyendas */
-        .pv3-micro { margin: 14px 0 0; font-size: 13.5px; line-height: 1.5; color: ${A.ink2}; }
-        .pv3-micro .pv3-link { font-weight: 500; }
-
-        /* 6 · Carril hotelería */
+        /* 7 · Carril hotelería. margin-top a 10px (era 40): con la letra chica
+           de arriba eliminada, el carril se acerca 30px más al bloque de pases
+           que separaban por el bloque intermedio ya nada. */
         .pv3-b2b {
           display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
-          margin-top: 40px; padding-top: 22px;
+          margin-top: 40px; padding-top: 20px;
           border-top: 1px solid ${A.line};
-          max-width: 30em;
+          /* Igual que el pretítulo: sin tope propio, la pregunta y el link
+             entran en un renglón y la línea divisoria cruza los 640px enteros
+             en vez de cortarse a media columna. */
           font-size: 15.5px; line-height: 1.5;
         }
         .pv3-b2b-txt { color: ${A.ink2}; }
         /* Alto de toque cómodo sin cambiar de nivel visual: el área crece por
            padding, no por fondo ni por borde. */
         .pv3-b2b-cta {
-          padding: 10px 0; border: none; background: none; cursor: pointer;
-          font-family: inherit; font-size: 15.5px; font-weight: 700; color: ${A.ink};
+          padding: 0px 0; border: none; background: none; cursor: pointer;
+          font-family: inherit; font-size: 15.5px; font-weight: 700; color: ${A.primary};
           text-decoration: underline; text-underline-offset: 3px;
           text-decoration-thickness: 1.5px; text-decoration-color: ${A.line};
           transition: color .15s, text-decoration-color .15s;
         }
         .pv3-b2b-cta:hover { color: ${A.primary}; text-decoration-color: ${A.primary}; }
+
+        /* 4 · Contador sobre la galería.
+           Ficha blanca al ras del borde derecho de la ventana, sin rotar. La
+           galería está inclinada y en movimiento; una tarjeta con TEXTO que
+           además girara competía con ella en vez de apoyarse, y a -10° el
+           número se leía torcido sin ganar nada.
+
+           Se sale de la caja del contenido a propósito: el "right" es negativo
+           por la mitad de lo que le sobra al viewport respecto de .pv3-inner,
+           así queda pegada al borde de la ventana y no al de la columna. La
+           esquina derecha se pierde fuera de pantalla —de ahí el radio sólo
+           del lado izquierdo—: media ficha asomando dice "hay más para este
+           lado" mejor que una tarjeta entera flotando en el aire.
+
+           (100vw incluye la barra de scroll, así que se corre ~8px de más;
+           como el borde derecho ya está fuera de cuadro, no se nota.) */
+        .pv3-contador {
+          position: absolute;
+          right: calc((100% - 100vw) / 2);
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 2;
+          display: flex; flex-direction: column; align-items: flex-start;
+          min-width: 190px;
+          padding: 22px 30px 20px 26px;
+          border: none;
+          border-radius: 26px 0 0 26px;
+          background: #fff;
+          box-shadow: 0 22px 50px -28px rgba(11,16,32,0.45);
+          font-family: inherit; text-align: left; cursor: pointer;
+          transition: box-shadow .18s;
+        }
+        .pv3-contador:hover { box-shadow: 0 28px 60px -26px rgba(11,16,32,0.55); }
+        .pv3-contador-num {
+          font-size: 38px; font-weight: 700; line-height: 1.05;
+          color: ${A.primary}; font-variant-numeric: tabular-nums;
+        }
+        /* Dos spans y no un <br>: en angosto la ficha se desarma en una línea
+           y el corte tiene que poder deshacerse desde el CSS. */
+        .pv3-contador-label {
+          display: flex; flex-direction: column;
+          font-size: 16px; font-weight: 400; line-height: 1.3; color: ${A.ink};
+        }
+        .pv3-contador-link {
+          margin-top: 16px;
+          font-size: 15px; font-weight: 700; color: ${A.ink};
+          transition: color .15s;
+        }
+        /* Sin número, el link queda solo en la ficha y no hay nada de lo que
+           separarse. */
+        .pv3-contador-link:first-child { margin-top: 0; }
+        .pv3-contador:hover .pv3-contador-link { color: ${A.primary}; }
 
         /* ─── Galería ─────────────────────────────────────────
            La ventana es MÁS ANCHA que el bloque de fotos a propósito: el
@@ -418,9 +524,27 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           }
           .pv3-left { display: flex; flex-direction: column; align-items: center; max-width: 620px; margin-left: 0; }
           .pv3-ticket { margin: 0 0 24px; }
-          .pv3-sub, .pv3-b2b { text-align: center; }
+          .pv3-sub, .pv3-pretitulo, .pv3-b2b { text-align: center; }
           .pv3-opciones, .pv3-b2b { justify-content: center; }
           .pv3-galwin { opacity: 0.5; --colw: clamp(150px, 20vw, 220px); }
+
+          /* Acá el layout es de una sola columna centrada: no hay "derecha" de
+             la que colgarse. Una ficha blanca al ras del borde quedaría pisando
+             el contenido centrado —y desde 760px, apoyada sobre una galería que
+             ya ni existe—. Vuelve al flujo y se desarma: sin fondo, sin sombra
+             y en una línea queda como un renglón más del bloque, que es lo que
+             es cuando no tiene fotos detrás. */
+          .pv3-contador {
+            position: static; transform: none;
+            flex-direction: row; align-items: baseline; gap: 7px;
+            min-width: 0; margin: 18px 0 0; padding: 0;
+            background: none; box-shadow: none; border-radius: 0;
+          }
+          .pv3-contador:hover { box-shadow: none; }
+          .pv3-contador-num   { font-size: 24px; }
+          .pv3-contador-label { flex-direction: row; gap: 5px; font-size: 15px; }
+          .pv3-contador-link  { margin-top: 0; font-size: 15px; }
+          .pv3-contador-label::after { content: '·'; margin-left: 2px; color: ${A.line}; }
         }
         @media (max-width: 760px) {
           .pv3-galwin { display: none; }
@@ -428,9 +552,19 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         }
         @media (max-width: 560px) {
           /* Los dos pases pasan a ocupar el ancho: en mobile la comparación se
-             hace en vertical, uno debajo del otro. */
-          .pv3-opciones { flex-direction: column; align-self: stretch; gap: 12px; }
+             hace en vertical, uno debajo del otro. Pisa el align-items:center
+             de la regla base (ahí es para centrar "¿Más días?" contra el alto
+             de los botones en la fila de escritorio; acá no hay fila). */
+          .pv3-opciones { flex-direction: column; align-items: stretch; gap: 12px; }
           .pv3-btn-pase { justify-content: center; }
+          .pv3-mas-dias { padding-top: 2px; text-align: center; }
+
+          /* Las cuatro piezas en un renglón suman ~293px: entran justo en un
+             teléfono de 360 y no en uno de 320. Se permite el corte, pero por
+             la junta que corresponde —el link cae entero a la segunda línea—
+             en lugar de partir "te esperan" al medio. */
+          .pv3-contador { flex-wrap: wrap; justify-content: center; }
+          .pv3-contador-label::after { content: none; }
         }
       `}</style>
     </section>

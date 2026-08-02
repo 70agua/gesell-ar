@@ -6,11 +6,14 @@
 //  Cinco situaciones, según la regla de lib/pases.js (nivelEnPase) y el pase
 //  del que mira (useMiPase):
 //
-//    SIN PASE   · incluida → "con el PaSS esto venía incluido"
-//               · premium  → "con el PaSS lo elegís, o sale la mitad"
-//    CON PASE   · incluida → ya lo tenés, sumalo sin costo
-//               · premium con elecciones → usás una de las N que te quedan
+//    SIN PASE   · incluida → "Incluido en el GESELL PaSS"
+//               · premium  → "Elegilo con el GESELL PaSS", o sale la mitad
+//    CON PASE   · incluida → "Ya lo tenés", sin gastar elección
+//               · premium con elecciones → elegilo, usando una de las N
 //               · premium sin elecciones → lo sumás a mitad de precio
+//
+//  ⚠️ Una PREMIUM nunca se anuncia como "incluida": consume uno de los pocos
+//  slots del turista, y "incluido" promete acceso ilimitado a algo limitado.
 //
 //  El botón siempre hace algo: sumar el cupón al carrito (onSumar) o
 //  gastar una elección premium (onElegir). El upsell nunca bloquea.
@@ -85,12 +88,12 @@ export default function CtaPase({
         <Nota>
           {premium ? (
             <span>
-              De los grandes: con tu <PaSSMark size={11} conGesell /> lo elegís sin costo
-              {mitad > 0 && <> — o lo sumás por <b>{fmt(mitad)}</b> en vez de {fmt(precioLista)}</>}.
+              Elegilo con el <PaSSMark size={11} conGesell />
+              {mitad > 0 && <> — o sumalo suelto por <b>{fmt(mitad)}</b> en vez de {fmt(precioLista)}</>}.
             </span>
           ) : (
             <span>
-              Con tu <PaSSMark size={11} conGesell /> este cupón ya venía incluido.
+              Incluido en el <PaSSMark size={11} conGesell />.
             </span>
           )}
         </Nota>
@@ -128,7 +131,7 @@ export default function CtaPase({
     return (
       <>
         <Nota tono="ok">
-          <span>Incluido en tu pase: no gastás ninguna elección.</span>
+          <span>Ya lo tenés: entra en tu Pase sin gastar ninguna elección.</span>
         </Nota>
         {boton('Sumarlo a mi carrito', { accion: onSumar })}
       </>
@@ -141,8 +144,8 @@ export default function CtaPase({
       <>
         <Nota>
           <span>
-            Este es de los grandes. Te {restantes === 1 ? 'queda' : 'quedan'} <b>{restantes}</b>{' '}
-            {restantes === 1 ? 'elección' : 'elecciones'} de {miPase.total}.
+            Elegilo con el <PaSSMark size={11} conGesell />. Te {restantes === 1 ? 'queda' : 'quedan'}{' '}
+            <b>{restantes}</b> {restantes === 1 ? 'elección' : 'elecciones'} de {miPase.total}.
           </span>
         </Nota>
         {boton('Usar una de mis elecciones', { accion: onElegir })}

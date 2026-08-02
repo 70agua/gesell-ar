@@ -38,6 +38,7 @@ import { getSession, getPerfil }           from './lib/auth';
 import { supabase }                        from './lib/supabase';
 import { LoadingProvider, useLoading }     from './lib/loading';
 import { CarritoProvider }               from './lib/carrito';
+import { PasePropioProvider }            from './lib/pasePropio';
 import CarritoDrawer                     from './components/CarritoDrawer';
 import { FavoritosProvider }             from './lib/favoritos';
 import { SesionProvider }                from './lib/sesion';
@@ -277,6 +278,7 @@ function AppContent() {
     <SesionProvider perfil={perfil}>
     <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
     <CarritoProvider session={session} onLoginRequired={() => { setCuponLoginPending(true); setLoginInitialTab('registrarse'); setView('login'); window.scrollTo(0, 0); }} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
+    <PasePropioProvider session={session} onComprarPase={() => { setPaseDias(7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}>
       {/* Loading global — se activa con showLoading() desde cualquier vista */}
       {isLoading && <LoadingScreen />}
 
@@ -755,6 +757,7 @@ function AppContent() {
           @keyframes wizard-in { from { opacity: 0; transform: translateY(-12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         `}} />
       </div>
+    </PasePropioProvider>
     </CarritoProvider>
     </FavoritosProvider>
     </SesionProvider>

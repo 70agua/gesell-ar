@@ -6,7 +6,7 @@
 import React from 'react';
 
 const C = { ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE', green: '#10A36B' };
-const fmt = n => 'AR$' + Math.round(Number(n) || 0).toLocaleString('es-AR');
+const fmt = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-AR');
 
 export default function GroupPriceBreakdown({ pricing }) {
   if (!pricing) return null;

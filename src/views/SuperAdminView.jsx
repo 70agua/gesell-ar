@@ -2855,16 +2855,77 @@ function TabAjusteImagenes({ showToast }) {
   );
 }
 
+// ─── Parámetros globales del Pase ─────────────────────────────
+// El tope de pases regalo es GLOBAL y no un atributo del plan: se calibra con
+// datos reales de temporada sin tocar código ni deployar. Antes el plan pago
+// daba regalos ilimitados y eso socavaba el precio de las tandas del
+// distribuidor — cualquiera tomaba el plan y repartía gratis.
+function AjustesPase({ showToast }) {
+  const [tope, setTope]       = useState('');
+  const [original, setOriginal] = useState('');
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    supabase.from('configuracion').select('valor').eq('clave', 'pases_regalo_tope_mensual').maybeSingle()
+      .then(({ data }) => {
+        if (!vivo) return;
+        const v = data?.valor ?? '150';
+        setTope(v); setOriginal(v); setCargando(false);
+      });
+    return () => { vivo = false; };
+  }, []);
+
+  async function guardar() {
+    const n = Number(tope);
+    if (!(n >= 1)) return showToast('El tope tiene que ser al menos 1', 'error');
+    setGuardando(true);
+    const { error } = await supabase.from('configuracion')
+      .upsert({ clave: 'pases_regalo_tope_mensual', valor: String(n) }, { onConflict: 'clave' });
+    setGuardando(false);
+    if (error) return showToast('No se pudo guardar', 'error');
+    setOriginal(String(n));
+    showToast(`Tope actualizado: ${n} pases regalo por socio por mes`);
+  }
+
+  if (cargando) return <MiniLoader />;
+
+  return (
+    <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:16, padding:22, maxWidth:560 }}>
+      <div style={{ fontFamily:A.font, fontSize:15, fontWeight:700, color:A.ink, marginBottom:4 }}>
+        Tope mensual de pases regalo
+      </div>
+      <div style={{ fontFamily:A.font, fontSize:12.5, color:A.ink2, lineHeight:1.55, marginBottom:16 }}>
+        Cuántos pases puede regalar cada socio por mes. Es el mismo para todos: no depende del
+        plan. Un alojamiento real ronda los 60-100/mes, así que el tope no debería tocarlo —
+        existe para que el plan no reemplace a las tandas del distribuidor.
+      </div>
+      <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+        <input value={tope} inputMode="numeric"
+          onChange={e => setTope(e.target.value.replace(/\D/g, '').slice(0, 5))}
+          style={{ width:110, padding:'11px 14px', borderRadius:10, border:`1px solid ${A.line}`, fontFamily:A.font, fontSize:15, fontWeight:700, outline:'none' }} />
+        <span style={{ fontFamily:A.font, fontSize:13, color:A.muted }}>pases por socio por mes</span>
+        <ABtn variant="primary" onClick={guardar}
+          style={{ opacity: guardando || tope === original ? 0.5 : 1 }}>
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </ABtn>
+      </div>
+    </div>
+  );
+}
+
 function TabAjusteContenidos({ showToast }) {
   const [sub, setSub] = useState('planes');
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       <PillTabs
-        tabs={[{ id:'planes', label:'Planes' }, { id:'portadas', label:'Portadas' }]}
+        tabs={[{ id:'planes', label:'Planes' }, { id:'pase', label:'Pase' }, { id:'portadas', label:'Portadas' }]}
         value={sub}
         onChange={setSub}
       />
       {sub === 'planes'   && <ContenidosPlanes showToast={showToast} />}
+      {sub === 'pase'     && <AjustesPase showToast={showToast} />}
       {sub === 'portadas' && <TabPortadas showToast={showToast} />}
     </div>
   );

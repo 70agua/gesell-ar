@@ -64,9 +64,9 @@ function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
   const titulo = promo.title || promo.titulo;
   const creds  = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
   const precioCreditos = promo.tokens_precio != null
-    ? `AR$${Math.round(promo.tokens_precio * 1.21).toLocaleString('es-AR')}`
+    ? `$${Math.round(promo.tokens_precio * 1.21).toLocaleString('es-AR')}`
     : (promo.ahorroEstimado > 0 || promo.tokens_costo != null)
-    ? `AR$${precioActivacionARS({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }).toLocaleString('es-AR')}`
+    ? `$${precioActivacionARS({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }).toLocaleString('es-AR')}`
     : null;
 
   return (

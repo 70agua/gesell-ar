@@ -11,7 +11,7 @@ import {
   comprarPase, activarPase, upgradePaseB2C,
   activarRegalo, elegirPremium, getElecciones,
   canjearPase, getCanjes, getAhorroPase, getMisPases,
-  getCupoRegaloMes, getSaldoPacks, comprarUpgradePack, asignarUpgradePack,
+  getBloquePase, comprarUpgradePack, asignarUpgradePack,
 } from '../lib/pases';
 
 const box   = { border: '1px solid #E4DACA', borderRadius: 12, padding: 16, marginBottom: 16, background: '#fff' };
@@ -140,11 +140,10 @@ export default function PaseDebugView({ session, perfil, onBack }) {
         <h3 style={h3s}>4 · Panel del socio (negocio)</h3>
         <input style={inp} placeholder="negocio_id" value={negocioId} onChange={e => setNegocioId(e.target.value)} size={38} />
         <div style={{ marginTop: 8 }}>
-          <button style={btn2} disabled={!negocioId} onClick={run('getCupoRegaloMes', () => getCupoRegaloMes(negocioId))}>cupo regalo mes</button>
-          <button style={btn2} disabled={!negocioId} onClick={run('getSaldoPacks', () => getSaldoPacks(negocioId))}>saldo packs</button>
+          <button style={btn2} disabled={!negocioId} onClick={run('getBloquePase', () => getBloquePase(negocioId))}>bloque pase (alias/cupo/packs)</button>
           <input style={{ ...inp, width: 60, marginLeft: 8 }} type="number" value={cantPack} onChange={e => setCantPack(Number(e.target.value))} />
           <button style={btn} disabled={!negocioId} onClick={run('comprarUpgradePack', () => comprarUpgradePack({ negocioId, cantidad: cantPack, pagoRef: nuevoRef('pack') }))}>comprar pack (≥10)</button>
-          <button style={btn2} disabled={!negocioId || !paseSel} onClick={run('asignarUpgradePack', () => asignarUpgradePack({ usuarioPaseId: paseSel, negocioId }).then(r => (cargarMisPases(), r)))}>asignar upgrade al pase</button>
+          <button style={btn2} disabled={!negocioId || !paseSel} onClick={run('asignarUpgradePack', () => asignarUpgradePack(paseSel).then(r => (cargarMisPases(), r)))}>asignar upgrade al pase</button>
         </div>
       </div>
 
