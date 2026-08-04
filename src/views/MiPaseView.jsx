@@ -24,7 +24,7 @@ import CupopacksParaPase from '../components/CupopacksParaPase';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE',
-  primary: '#2545E6', primarySoft: '#EEF1FF', bg: '#F7F7F8',
+  primary: '#475BE1', primarySoft: '#EEF0FD', bg: '#F7F7F8',
   green: '#10A36B', greenSoft: '#ECFDF5', yellow: '#FFC93C',
   font: "'Inter', system-ui, sans-serif",
 };
@@ -137,7 +137,7 @@ function PaseSinActivar({ pase, onActivado, onError }) {
 }
 
 // ─── Elección de premium ──────────────────────────────────────
-function Premium({ pase, elegidas, restantes, total, canjeadas, pedidas = [], onCambio, onError, onPedirFecha }) {
+function Premium({ pase, elegidas, restantes, total, premiumIlimitado = false, canjeadas, pedidas = [], onCambio, onError, onPedirFecha }) {
   const [ofertas, setOfertas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [enCurso, setEnCurso] = useState(null);
@@ -166,9 +166,9 @@ function Premium({ pase, elegidas, restantes, total, canjeadas, pedidas = [], on
   return (
     <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 16, padding: 20 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Tus beneficios premium</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: restantes > 0 ? A.green : A.muted }}>
-          {restantes} de {total} disponibles
+        <div style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>Tus beneficios PREMIUM</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: (premiumIlimitado || restantes > 0) ? A.green : A.muted }}>
+          {premiumIlimitado ? 'Sin tope: todo el catálogo disponible' : `${restantes} de ${total} disponibles`}
         </div>
       </div>
       <div style={{ fontSize: 12.5, color: A.ink2, lineHeight: 1.5, marginBottom: 16 }}>
@@ -179,7 +179,7 @@ function Premium({ pase, elegidas, restantes, total, canjeadas, pedidas = [], on
         <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 13, color: A.muted }}>Cargando…</div>
       ) : ofertas.length === 0 ? (
         <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 13, color: A.muted }}>
-          No hay beneficios premium disponibles en este momento.
+          No hay beneficios PREMIUM disponibles en este momento.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -414,9 +414,16 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
 
   // ─── Activo: billetera ──────────────────────────────────────
   const dias      = diasRestantes(pase.vence_el);
-  const total     = pase.elecciones_premium ?? pase.dias ?? pase.pases?.elecciones_premium ?? 0;
+  // Congelado en la compra (DIAS_PREMIUM_ILIMITADO en lib/pases.js): desde 10
+  // días no hay tope. `total`/`restantes` pasan a Infinity —mismo criterio
+  // que lib/pasePropio.jsx §infinito— para que la resta y el `encajeEnPase`
+  // de los Cupopacks sigan andando solos; los textos de abajo SÍ tienen que
+  // mirar `premiumIlimitado` antes de imprimir el número.
+  const premiumIlimitado = pase.premium_ilimitado === true;
+  const totalNum  = pase.elecciones_premium ?? pase.dias ?? pase.pases?.elecciones_premium ?? 0;
   const usadas    = elecciones.length;
-  const restantes = Math.max(0, total - usadas);
+  const total     = premiumIlimitado ? Infinity : totalNum;
+  const restantes = premiumIlimitado ? Infinity : Math.max(0, totalNum - usadas);
   const estadia   = estadoEstadia(pase);
   const canjeadas = canjes.map(c => c.promocion_id);
   // Una oferta con solicitud viva no se puede volver a pedir.
@@ -429,7 +436,7 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
           sub={pase.vence_el ? `hasta el ${fmtFecha(pase.vence_el)}` : null}
           acento={dias != null && dias <= 1 ? '#DC2626' : A.ink} />
         <Dato label="Ahorro del viaje" valor={fmt(ahorro)} sub={`${canjes.length} canje${canjes.length !== 1 ? 's' : ''}`} acento={A.green} />
-        <Dato label="Premium" valor={`${restantes}/${total}`} sub="disponibles" acento={A.primary} />
+        <Dato label="Premium" valor={premiumIlimitado ? 'Sin tope' : `${restantes}/${total}`} sub="disponibles" acento={A.primary} />
       </div>
 
       <Estadia estado={estadia} />
@@ -446,11 +453,12 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
           que le armemos la selección llega tarde. Se esconde solo cuando no
           queda ningún Cupopack que entre. */}
       <CupopacksParaPase
-        paseId={pase.id} libres={restantes} total={total}
+        paseId={pase.id} libres={restantes} total={total} premiumIlimitado={premiumIlimitado}
         elegidasIds={elecciones.map(e => e.promocion_id)}
         onCambio={async () => { setError(null); await cargar(); }} />
 
       <Premium pase={pase} elegidas={elecciones} restantes={restantes} total={total}
+        premiumIlimitado={premiumIlimitado}
         canjeadas={canjeadas} pedidas={pedidas} onError={setError}
         onPedirFecha={o => setPidiendo({ oferta: o, origenId: null, fechaSugerida: '' })}
         onCambio={() => { setError(null); cargar(); }} />

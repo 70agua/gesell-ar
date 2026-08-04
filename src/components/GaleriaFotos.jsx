@@ -8,7 +8,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload, Image as ImageIcon, Trash2, AlertCircle } from 'lucide-react';
 
-const P = '#2545E6';
+const P = '#475BE1';
 const INK = '#0B1020';
 const MUTED = '#6B7280';
 const LINE = '#E7E9EE';

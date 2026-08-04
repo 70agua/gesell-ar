@@ -94,9 +94,9 @@ export function encajeEnPase(cupones, libres) {
 const ERRORES = {
   no_auth:             'Iniciá sesión para usar tu Pase.',
   pase_no_encontrado:  'No encontramos tu Pase.',
-  pase_no_activo:      'Activá tu Pase para elegir beneficios premium.',
-  sin_premium:         'Tu Pase de regalo no incluye beneficios premium.',
-  max_elecciones:      'Ya no te quedan beneficios premium disponibles.',
+  pase_no_activo:      'Activá tu Pase para elegir beneficios PREMIUM.',
+  sin_premium:         'Tu Pase de regalo no incluye beneficios PREMIUM.',
+  max_elecciones:      'Ya no te quedan beneficios PREMIUM disponibles.',
   promo_no_disponible: 'Esta oferta dejó de estar disponible.',
   no_es_premium:       'Esta oferta ya viene incluida: no gasta elección.',
   sin_cupo:            'El comercio no tiene lugar este mes.',
@@ -155,3 +155,32 @@ export function cupopackAplicado(cupones, elegidasIds = [], libres = Infinity) {
   const elegidas = new Set(elegidasIds);
   return entran.every(c => elegidas.has(c.id));
 }
+
+// Los premium del Cupopack que NO entran en los slots libres. §3 del doc: con
+// Pase y slots insuficientes, el turista paga sólo estos, a precio individual
+// y sin beneficio adicional ni descuento — el beneficio compensa pagar el pack
+// completo, y acá no lo está pagando.
+export function sobrantesDeCupopack(cupones, libres) {
+  return premiumDeCupopack(cupones).slice(Math.max(0, libres));
+}
+
+// Precio de los sobrantes: la suma de sus precios individuales. Sin pasar por
+// `aplicarBeneficioCupopack` a propósito — esa función existe para el pack
+// completo y aplicarla acá metería el descuento del beneficio adicional, que
+// justamente no corresponde.
+export const precioSobrantes = (sobrantes = []) =>
+  sobrantes.reduce((s, c) => s + (Number(c.precio_activacion) || 0), 0);
+
+// Un cupón del Cupopack traducido a lo que espera el carrito. Hace falta porque
+// los cupones del pack se normalizan distinto (`ahorro_estimado` en snake) y
+// `ofertaToCupon` lee `ahorroEstimado`: pasarlos crudos daba ahorro 0 y, con
+// eso, precio 0.
+export const cuponAOferta = (c) => ({
+  id: c.id,
+  title: c.titulo,
+  badge: c.badge,
+  ahorroEstimado: Number(c.ahorro_estimado) || 0,
+  proveedorNombre: c.socio,
+  categoria: c.categoria,
+  image: c.imagen,
+});

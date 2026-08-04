@@ -12,6 +12,12 @@ import { useCarrito } from '../lib/carrito';
 import { trackVistaOferta } from '../lib/tracking';
 import CtaPase from '../components/CtaPase';
 import useMiPase from '../hooks/useMiPase';
+import EscanerCanje from '../components/EscanerCanje';
+import LimitePase from '../components/LimitePase';
+import { cuponPropioDe } from '../lib/compras';
+import { quitarPremium } from '../lib/pases';
+import SolicitarFecha from '../components/SolicitarFecha';
+import { activarPaseAhora } from '../lib/pases';
 import { elegirPremium } from '../lib/pases';
 import InfoTooltip from '../components/InfoTooltip';
 import HeartButton from '../components/HeartButton';
@@ -27,9 +33,9 @@ import GroupPriceBreakdown from '../components/GroupPriceBreakdown';
 
 // ─── Design tokens ───────────────────────────────────────────
 const C = {
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
-  primaryDark: '#1731B8',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
+  primaryDark: '#3347C8',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -42,7 +48,7 @@ const C = {
 
 // ─── Pasos de "Cómo se usa" ──────────────────────────────────
 const PASOS = [
-  { num: 1, title: 'Sumás el cupón a tu carrito',    desc: 'Con el Gesell PaSS la mayoría ya vienen incluidos; los descuentos PLUS los elegís (uno por día de pase) y el resto los sumás a mitad de precio. Sin pase, lo comprás suelto.' },
+  { num: 1, title: 'Sumás el cupón a tu carrito',    desc: 'Con el Gesell PaSS la mayoría ya vienen incluidos; los descuentos PREMIUM los elegís (uno por día de pase) y el resto los sumás a mitad de precio. Sin pase, lo comprás suelto.' },
   { num: 2, title: '¡Tu cupón ya está listo! Te lo enviamos por mail, pero también podés descargarlo.',  desc: ' ahora. Al momento de tu visita, solo tenés que mostrar el código QR desde el celular. Si surge algún inconveniente, el comercio puede validar tu reserva con un código de 6 dígitos. Por seguridad, no compartas este código con nadie.' },
   { num: 3, title: 'Disfrutás el beneficio',  desc: 'El socio escanea y confirma. ¡Listo! El descuento se aplica en el momento.' },
 ];
@@ -275,6 +281,48 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
   // detrás de una condición.
   const miPase = useMiPase(session);
   const [avisoPase, setAvisoPase] = useState('');
+  // Un cupón ya comprado cambia todo el pie: no hay nada que vender, sólo que
+  // canjear. Se consulta acá y no en la mini-ficha porque es una consulta por
+  // oferta y en una grilla serían veinte.
+  const [cuponPropio, setCuponPropio] = useState(null);
+  const [escaneando, setEscaneando] = useState(false);
+  const [pidiendo, setPidiendo]     = useState(false);
+  // Confirmación de arranque del pase: sin vuelta atrás, así que se avisa antes
+  // y con la fecha real de vencimiento, no con "N días".
+  // Guarda la fecha YA calculada, no un booleano: `Date.now()` en el cuerpo del
+  // render es impuro y el compilador de React lo rechaza. El instante que
+  // importa es cuando el turista abre el aviso, no cuando React repinta.
+  const [confirmarActivar, setConfirmarActivar] = useState(null);
+  const [activando, setActivando] = useState(false);
+
+  // El pase arranca AHORA y recién después se abre la cámara. Al revés, el
+  // turista podría canjear con un pase que todavía no corre y la RPC lo
+  // rechazaría en el mostrador, que es el peor lugar para enterarse.
+  useEffect(() => {
+    let vivo = true;
+    // Sin sesión no se toca el estado: un setState sincrónico en el cuerpo del
+    // efecto dispara un re-render en cascada. Arranca en null, que ya es el
+    // valor correcto, y el render de abajo lo vuelve a anular si se deslogueó.
+    if (!session?.user?.id || !oferta?.id) return;
+    cuponPropioDe(oferta.id).then(c => { if (vivo) setCuponPropio(c); });
+    return () => { vivo = false; };
+  }, [session, oferta?.id]);
+
+  const soltarPremium = async () => {
+    if (!miPase?.pase) return;
+    const r = await quitarPremium(miPase.pase.id, oferta.id);
+    setAvisoPase(r?.ok ? 'Listo, la soltaste. El beneficio volvió a tu Pase.' : 'No pudimos soltarla.');
+  };
+
+  const activarYCanjear = async () => {
+    if (!miPase?.pase || activando) return;
+    setActivando(true);
+    const r = await activarPaseAhora(miPase.pase.id);
+    setActivando(false);
+    setConfirmarActivar(null);
+    if (!r?.ok) { setAvisoPase('No pudimos activar tu Pase. Probá de nuevo.'); return; }
+    setEscaneando(true);
+  };
   useEffect(() => { if (oferta?.id) trackVistaOferta(oferta.id); }, [oferta?.id]);
 
   if (!oferta) return null;
@@ -343,14 +391,12 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
     .filter(p => p.id !== oferta.id && (oferta.negocioId ? p.negocioId === oferta.negocioId : true))
     .slice(0, 3);
 
-  // Stock: real promo puede no tener los campos → fallback a mock por título
-  const mockRef       = allPromos.find(p =>
-    (p.title || p.titulo) === (oferta.title || oferta.titulo)
-  );
-  const stockTotal    = oferta.stock      ?? mockRef?.stock      ?? 28;
-  const stockUsado    = oferta.stockUsado ?? mockRef?.stockUsado ?? 11;
-  const stockRestante = stockTotal - stockUsado;
-  const stockPct      = Math.round((stockUsado / stockTotal) * 100);
+  // Stock REAL o nada. Antes esto buscaba la oferta en el mock por título y, si
+  // tampoco estaba, inventaba 28 totales con 11 usados: el aviso de "quedan
+  // pocos" salía en ofertas que no llevan stock, y con números fabricados.
+  // El socio decide si su oferta lleva stock (`tiene_stock`); si no, no hay
+  // escasez que mostrar.
+  const stockRestante = oferta.tieneStock ? oferta.stockRestante : null;
 
   // Precio del cupón: SIEMPRE desde la tabla escalonada (calcularPrecioCupon)
   // aplicada sobre el ahorro declarado. Fuente única en src/lib/cobros.js.
@@ -493,11 +539,16 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
               </div>
             </div>
 
-            {/* 5 — Descripción */}
-            <p className="text-[15px] mt-6 mb-8" style={{ color: C.ink2, lineHeight: 1.7 }}>
-              {oferta.description || oferta.desc ||
-                'Aprovechá esta oferta exclusiva de uno de nuestros socios verificados. Guardala en tu carrito y canjeala cuando quieras durante tu estadía en Villa Gesell.'}
-            </p>
+            {/* 5 — Descripción. Sin relleno: si el socio no la escribió, no se
+                muestra. Acá había un párrafo genérico —"oferta exclusiva de uno
+                de nuestros socios verificados…"— que se hacía pasar por texto
+                del socio en las 33 ofertas que no la tienen. Un hueco es
+                información; un texto inventado, no. */}
+            {(oferta.description || oferta.desc) && (
+              <p className="text-[15px] mt-6 mb-8" style={{ color: C.ink2, lineHeight: 1.7 }}>
+                {oferta.description || oferta.desc}
+              </p>
+            )}
 
             {/* Cómo se usa */}
             <div className="mb-10">
@@ -629,6 +680,10 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                 </div>
               )}
 
+              {/* El límite, antes del CTA. Es lo que el sello de la mini-ficha
+                  ya no dice: ahí no entra la explicación, acá sí. */}
+              <LimitePase promo={oferta} onSoltar={soltarPremium} />
+
               {/* CTA principal — según lo que el pase haga con esta oferta */}
               <div>
                 <CtaPase
@@ -639,6 +694,10 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                   onSumar={handleAgregar}
                   onElegir={handleElegirPremium}
                   onComprarPase={() => onComprarPase?.(7)}
+                  cuponPropio={session?.user?.id ? cuponPropio : null}
+                  onCanjear={() => setEscaneando(true)}
+                  onActivarPase={() => setConfirmarActivar(vencimientoDelPase(miPase?.pase))}
+                  onSolicitarReserva={() => setPidiendo(true)}
                 />
                 {avisoPase && (
                   <div style={{ marginTop: 8, fontSize: 12.5, color: C.muted, textAlign: 'center' }}>{avisoPase}</div>
@@ -709,6 +768,95 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
           onClose={() => setConsultarOpen(false)}
         />
       )}
+
+      {/* Arrancar el Pase no tiene vuelta atrás, así que se pregunta antes y
+          con la FECHA real de vencimiento. "Te quedan 7 días" obliga a hacer la
+          cuenta parado en el mostrador; una fecha con hora no. */}
+      {confirmarActivar && (
+        <AvisoActivar
+          hasta={confirmarActivar}
+          ocupado={activando}
+          onCancelar={() => setConfirmarActivar(null)}
+          onConfirmar={activarYCanjear}
+        />
+      )}
+
+      {escaneando && (
+        <EscanerCanje
+          onCerrar={() => setEscaneando(false)}
+          onNegocio={(negocioId) => { setEscaneando(false); window.location.search = `?canjear=${negocioId}`; }}
+        />
+      )}
+
+      {pidiendo && (
+        <SolicitarFecha
+          oferta={oferta}
+          onCerrar={() => setPidiendo(false)}
+          onEnviada={() => { setPidiendo(false); setAvisoPase('Pedido enviado. El comercio tiene 72 horas para responder.'); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Hasta cuándo va a durar el pase si se activa AHORA. Se calcula al abrir el
+// aviso y no dentro del render: el pase todavía no arrancó, así que `vence_el`
+// está en null y hay que proyectarlo. Mismo cálculo que `activar_pase` en SQL.
+function vencimientoDelPase(pase) {
+  const dias = pase?.dias ?? pase?.pases?.duracion_dias ?? 0;
+  const h = new Date(Date.now() + dias * 86400000);
+  // Si el turista había programado el arranque para más adelante, activar ahora
+  // PISA esa programación y le come los días que faltaban. No se puede resolver
+  // solo: se avisa y se pide una confirmación aparte.
+  const prog = pase?.activacion_programada ? new Date(pase.activacion_programada) : null;
+  const pisaProgramacion = prog && prog.getTime() > Date.now();
+  return {
+    fecha: h.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }),
+    hora:  h.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+    programadaPara: pisaProgramacion
+      ? prog.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+      : null,
+  };
+}
+
+// ─── Aviso previo a arrancar el Pase ──────────────────────────
+function AvisoActivar({ hasta, ocupado, onCancelar, onConfirmar }) {
+  // Con programación pisada, el "entiendo" es obligatorio: son dos pérdidas
+  // distintas —los días que faltaban y la fecha elegida— y un solo botón las
+  // mete a las dos en un tap.
+  const [entendido, setEntendido] = useState(false);
+  const trabado = !!hasta.programadaPara && !entendido;
+
+  return (
+    <div onClick={onCancelar} style={{ position: 'fixed', inset: 0, zIndex: 9400, background: 'rgba(5,10,25,0.6)', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true" style={{ width: '100%', maxWidth: 400, background: '#fff', borderRadius: 20, padding: '26px 24px 20px', fontFamily: C.font, boxShadow: '0 30px 70px -20px rgba(5,10,25,0.6)' }}>
+        <div style={{ fontSize: 19, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', marginBottom: 10 }}>
+          Tu Pase arranca ahora
+        </div>
+        <p style={{ fontSize: 14.5, color: C.ink2, lineHeight: 1.55, margin: '0 0 6px' }}>
+          Vas a poder usarlo hasta el <strong style={{ color: C.ink }}>{hasta.fecha}</strong> a las <strong style={{ color: C.ink }}>{hasta.hora}</strong>.
+        </p>
+        <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, margin: '0 0 16px' }}>
+          Una vez que arranca no se puede pausar ni volver atrás.
+        </p>
+
+        {hasta.programadaPara && (
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', marginBottom: 18, borderRadius: 12, background: '#FFF7ED', border: '1px solid #FED7AA', cursor: 'pointer' }}>
+            <input type="checkbox" checked={entendido} onChange={e => setEntendido(e.target.checked)} style={{ marginTop: 2, accentColor: C.primary }} />
+            <span style={{ fontSize: 12.5, color: '#9A3412', lineHeight: 1.5 }}>
+              Tenías el arranque programado para el <strong>{hasta.programadaPara}</strong>. Si activás ahora, esa programación se cancela y los días corren desde hoy.
+            </span>
+          </label>
+        )}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancelar} disabled={ocupado} style={{ flex: 1, padding: '13px 16px', borderRadius: 12, border: `1px solid ${C.line}`, background: '#fff', color: C.ink2, fontFamily: C.font, fontSize: 14.5, fontWeight: 700, cursor: 'pointer' }}>
+            Todavía no
+          </button>
+          <button onClick={onConfirmar} disabled={ocupado || trabado} style={{ flex: 1, padding: '13px 16px', borderRadius: 12, border: 'none', background: C.primary, color: '#fff', fontFamily: C.font, fontSize: 14.5, fontWeight: 800, cursor: (ocupado || trabado) ? 'default' : 'pointer', opacity: (ocupado || trabado) ? 0.6 : 1 }}>
+            {ocupado ? 'Activando…' : 'Activar y canjear'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

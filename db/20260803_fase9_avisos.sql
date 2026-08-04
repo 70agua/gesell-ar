@@ -1,0 +1,55 @@
+-- ============================================================
+--  Fase 9 · Avisos — mail + in-app
+--
+--  Una tabla `avisos` con patrón OUTBOX. Cada evento escribe una fila y nada
+--  más: el in-app la lee al instante, el mail la drena aparte
+--  (supabase/functions/enviar-avisos). Así el envío puede fallar o llegar
+--  tarde sin que el usuario se quede sin enterarse, y el código que dispara el
+--  evento no sabe nada de proveedores.
+--
+--  `payload` congela lo necesario para redactar el texto. Si se leyera de las
+--  tablas al enviar, un aviso de "tu solicitud venció" mostraría el estado de
+--  HOY y no el del momento en que pasó.
+--
+--  El texto NO se guarda redactado: lo arma el cliente (src/lib/avisos.js) y la
+--  edge function. Cambiar un copy no obliga a migrar el histórico.
+--
+--  Los eventos van en TRIGGERS y no dentro de las RPCs: el estado 'vencida' de
+--  una solicitud lo pone un cron, y la moderación de ofertas es un update
+--  directo del superadmin. Enganchar por RPC dejaría esos casos sin aviso.
+--
+--  Aplicado vía MCP en 5 migraciones:
+--    fase9_avisos_outbox              — tabla, índices y RLS
+--    fase9_avisos_solicitudes_fecha   — crear_aviso, usuario_de_negocio, trigger
+--    fase9_cron_solicitudes_por_vencer— recordatorio a 24 h del vencimiento
+--    fase9_avisos_oferta_y_vencimientos — moderación + cron de vencimientos
+--    fase9_fix_vencimientos_cupones   — ver nota abajo
+--
+--  ⚠️ El fix existió porque escribí `cupones_usuario.estado = 'disponible'`
+--  (los válidos son activo/canjeado/vencido) y `user_id` (la columna es
+--  `usuario_id`). Ninguno rompía nada visible: el cron simplemente no
+--  encontraba cupones nunca. Es exactamente el modo de falla de la regla de
+--  los CHECK en CLAUDE.md — mirar la base antes de escribir, no después.
+--
+--  RLS: el usuario LEE los suyos y sólo puede marcarlos leídos. Nadie inserta
+--  desde el cliente; los avisos los crea el servidor.
+--
+--  Crons:
+--    avisar-solicitudes-por-vencer   0 * * * *   (cada hora)
+--    avisar-vencimientos-proximos   30 9 * * *   (una vez por día)
+--
+--  Pendiente: desplegar la edge function requiere el secret RESEND_API_KEY.
+--  Sin él devuelve 503 explícito en vez de fallar en silencio.
+
+-- ── Addendum 2026-08-03 · requiere_fecha exige dueño ─────────
+--  Migración `requiere_fecha_exige_dueno`.
+--
+--  18 de las 22 ofertas con `requiere_fecha` estaban en negocios SIN usuario
+--  detrás. Ahí la oferta es una trampa: el turista pide fecha, le ocupa un slot
+--  del Pase, nadie contesta porque no hay a quién avisarle, y vence a las 72 h.
+--  Peor que una oferta que no aparece — aparece, se elige, y falla tarde.
+--
+--  Se les sacó el flag (quedan 4, todas premium y con socio) y un trigger
+--  impide publicar en ese estado. Va en trigger y no en CHECK porque la
+--  condición mira otra tabla. El mensaje sale tal cual en el toast del editor,
+--  que muestra `err.message`.

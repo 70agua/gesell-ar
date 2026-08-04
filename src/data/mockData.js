@@ -866,7 +866,7 @@ export const ALL_PROMOS = [
     id: 9, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: '2x1 en la mítica tarde de churros.',
     subtitle: 'Churros El Topo · Villa Gesell',
-    badge: '2x1', tokens_costo: 1, ahorroEstimado: 4000,
+    badge: '2x1', tokens_costo: 1, ahorroEstimado: 5000,
     image: 'https://images.unsplash.com/photo-1624353365286-3f8d62daad51?auto=format&fit=crop&w=600&q=80',
     proveedorNombre: 'Churros El Topo', negocioLocalidad: 'Villa Gesell',
     proveedorImage: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=100&q=80',
@@ -922,7 +922,7 @@ export const ALL_PROMOS = [
     id: 14, negocioId: null, offerType: 'Normal', categoria: 'salidas',
     title: 'Merienda frente al mar: 2x1 en tortas.',
     subtitle: 'La Holandesa · Villa Gesell',
-    badge: '2x1', tokens_costo: 1, ahorroEstimado: 4500,
+    badge: '2x1', tokens_costo: 1, ahorroEstimado: 5000,
     image: 'https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=600&q=80',
     proveedorNombre: 'La Holandesa', negocioLocalidad: 'Villa Gesell',
     // Mujer pastelera sonriente

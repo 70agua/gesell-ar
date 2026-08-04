@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gesell Pass — Modelo de producto · Cuponear</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --arena:#FAF5EB; --mar:#123B47; --verde:#0E8C7F; --sol:#F2B233; --coral:#E2654A;
+  --tinta:#1C2B30; --linea:#E4DACA;
+}
+*{margin:0;box-sizing:border-box}
+body{background:var(--arena);color:var(--tinta);font:16px/1.55 "Archivo",sans-serif;padding:0 20px 80px}
+main{max-width:880px;margin:0 auto}
+h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;line-height:1.1}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--verde);font-weight:600;margin-bottom:8px}
+section{margin-top:56px}
+h2{font-size:26px;font-weight:800;color:var(--mar);margin-bottom:18px}
+p.intro{max-width:640px;margin-bottom:18px}
+strong{color:var(--mar)}
+
+/* HERO */
+header{padding:64px 0 8px;display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:center}
+header h1{font-size:52px;font-weight:800;color:var(--mar)}
+header h1 em{font-style:normal;color:var(--verde)}
+.lema{font-family:"Bricolage Grotesque",sans-serif;font-size:22px;font-weight:700;margin:14px 0 10px}
+.para{font-size:14px;color:#5A6B70}
+
+/* Ticket signature */
+.ticket{background:var(--mar);color:var(--arena);border-radius:16px;padding:22px 24px;position:relative;box-shadow:0 14px 30px rgba(18,59,71,.25)}
+.ticket:before,.ticket:after{content:"";position:absolute;width:22px;height:22px;background:var(--arena);border-radius:50%;top:calc(62% - 11px)}
+.ticket:before{left:-11px}.ticket:after{right:-11px}
+.ticket .tk-top{border-bottom:2px dashed rgba(250,245,235,.35);padding-bottom:16px;margin-bottom:14px}
+.ticket .tk-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sol)}
+.ticket .tk-precio{font-family:"Bricolage Grotesque",sans-serif;font-size:40px;font-weight:800}
+.ticket .tk-ahorro{font-size:14px}
+.ticket .tk-ahorro b{color:var(--sol)}
+.ticket .tk-meta{font-size:12px;display:flex;justify-content:space-between;opacity:.85}
+
+/* Bloques esquema */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:20px}
+.card h3{font-size:17px;color:var(--mar);margin-bottom:8px}
+.card p{font-size:14.5px}
+.tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:99px;margin-bottom:10px}
+.tag.v{background:#E2F2EF;color:var(--verde)}
+.tag.s{background:#FBEDCE;color:#9A6B0B}
+.tag.c{background:#FBE3DC;color:var(--coral)}
+
+/* Momentos de pago */
+.momentos{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.momentos .card{border-top:4px solid var(--verde)}
+.momentos .card.m2{border-top-color:var(--sol)}
+.momentos .quien{font-size:12px;margin-top:10px;color:#5A6B70}
+
+/* Cuenta */
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--linea);border-radius:14px;overflow:hidden;font-size:14.5px}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--linea)}
+th{background:var(--mar);color:var(--arena);font-family:"Bricolage Grotesque",sans-serif;font-size:13px;letter-spacing:.05em}
+tr:last-child td{border:none}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.resultado{display:flex;gap:16px;margin-top:16px;flex-wrap:wrap}
+.resultado .card{flex:1;min-width:200px;text-align:center}
+.resultado .big{font-family:"Bricolage Grotesque",sans-serif;font-size:30px;font-weight:800;color:var(--verde)}
+.resultado .big.sol{color:#C98A12}
+.nota{font-size:13px;color:#5A6B70;margin-top:12px}
+
+/* Capas */
+.capas .card{margin-bottom:14px}
+ul{padding-left:18px;font-size:14.5px}
+li{margin:4px 0}
+
+/* Mensajes Maury */
+.frases{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.frase{background:var(--mar);color:var(--arena);border-radius:12px;padding:16px 18px;font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:17px}
+.frase span{display:block;font-family:"Archivo";font-weight:400;font-size:13px;opacity:.8;margin-top:6px}
+
+/* No es */
+.noes{border-left:4px solid var(--coral)}
+
+footer{margin-top:64px;font-size:13px;color:#5A6B70;border-top:1px solid var(--linea);padding-top:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid3 .card{border-top:4px solid var(--verde)}
+.grid3 .card.dur{border-top-color:var(--sol)}
+.grid3 .card.desp{border-top-color:var(--coral)}
+.anexo-titulo{margin-top:72px;padding-top:32px;border-top:3px solid var(--mar)}
+@media(max-width:720px){header{grid-template-columns:1fr;padding-top:40px}header h1{font-size:38px}.grid2,.momentos,.frases,.grid3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div>
+    <div class="eyebrow">Cuponear · Documento interno para Maury</div>
+    <h1>El producto es <em>uno solo</em>: el Gesell Pass</h1>
+    <p class="lema">“Viví Gesell a precio de local.”</p>
+    <p class="para">El turista paga de más en todo; el local sabe dónde y cuánto. Cuponear vende el acceso a precios de local. Esa frase explica el producto en cualquier destino turístico del mundo.</p>
+  </div>
+  <div class="ticket">
+    <div class="tk-top">
+      <div class="tk-label">Gesell Pass · 7 días</div>
+      <div class="tk-precio">$18.000</div>
+      <div class="tk-ahorro">Ahorrás hasta <b>$150.000</b> en 25 lugares</div>
+    </div>
+    <div class="tk-meta"><span>Pago único por viaje</span><span>No es suscripción</span></div>
+  </div>
+</header>
+
+<section>
+  <h2>El giro</h2>
+  <p class="intro">Hoy vendemos dos cosas con dos lógicas distintas (Cupones + Gesell Pass) y la Home intenta explicar ambas. Se simplifica invirtiendo la jerarquía:</p>
+  <div class="grid2">
+    <div class="card"><span class="tag v">Producto hero</span><h3>Gesell Pass</h3><p>Compra única por estadía, estilo city pass (Go City). Es la evolución del Cupopack pre-armado que ya definimos, elevado a producto principal. <strong>Todo vive dentro del Gesell Pass.</strong></p></div>
+    <div class="card"><span class="tag s">Puerta de entrada</span><h3>Cupones</h3><p>Un cupón individual. Sirve para probar, con garantía: si no lo canjeás, se devuelve. La app siempre recuerda: “esto lo tenías incluido en el Gesell Pass” → upsell natural.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Cómo funciona para el turista: 2 momentos de pago</h2>
+  <div class="momentos">
+    <div class="card"><span class="tag v">Momento 1 · una sola vez</span><h3>Compra el Gesell Pass</h3><p>Antes del viaje o al llegar. $18.000 final por MercadoPago (leyenda: $14.876 + IVA). Se desbloquean los cupones. <strong>Es el único pago que Cuponear le cobra en todo el viaje.</strong></p><p class="quien">Le paga a: Cuponear</p></div>
+    <div class="card m2"><span class="tag s">Momento 2 · toda la semana</span><h3>Usa y ahorra</h3><p>Muestra el QR en cada lugar y paga <strong>al comercio</strong> el precio con descuento — plata que iba a gastar igual, pero menos. Cada canje: +100 puntos y sube el contador: <strong>“Ahorraste $87.000 este viaje”.</strong></p><p class="quien">Le paga a: el comercio directo (Cuponear no interviene)</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Cómo se entera la gente: 2 puertas</h2>
+  <div class="grid2">
+    <div class="card"><span class="tag v">Canal principal (adquisición)</span><h3>Se lo regala el hotel</h3><p>El alojamiento con Suscripción PRO, vía RUMRAK, regala el pase base al confirmar la reserva (WhatsApp/email, activación en un tap). El turista conoce Cuponear sin buscarla. Resuelve el arranque en frío.</p></div>
+    <div class="card"><span class="tag s">Canal directo (monetización)</span><h3>Lo compra</h3><p>Ads + gesell.ar (“qué hacer en Villa Gesell”), QR en mesas de comercios socios (“este descuento lo tenés con el Gesell Pass”) y referidos con puntos.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Por qué $18.000 cierra la cuenta</h2>
+  <p class="intro">Dos claves: <strong>(1)</strong> el descuento lo financia el comercio, como hoy — el pase solo reemplaza nuestra comisión de activación. <strong>(2)</strong> Nadie canjea los 25: se precia sobre el uso esperado (~8 canjes en 7 días), no sobre el catálogo. El catálogo grande es marketing.</p>
+  <table>
+    <tr><th>Catálogo tipo (25 ofertas)</th><th>Comisión c/u (vendida suelta)</th><th style="text-align:right">Uso esperado</th></tr>
+    <tr><td>15 bajas (churros, tragos, salidas chicas)</td><td>~$1.200</td><td class="n">5</td></tr>
+    <tr><td>7 medias (cenas, actividades)</td><td>~$2.900</td><td class="n">2,5</td></tr>
+    <tr><td>3 altas (masajes, excursiones)</td><td>~$5.500</td><td class="n">0,7</td></tr>
+  </table>
+  <div class="resultado">
+    <div class="card"><div class="big sol">~$55.000</div><p>facturación si comprara todo suelto (techo teórico)</p></div>
+    <div class="card"><div class="big">~$17.000</div><p>comisión equivalente del uso real esperado</p></div>
+    <div class="card"><div class="big">$18.000</div><p>precio del Gesell Pass: misma facturación esperada, cobrada por adelantado</p></div>
+  </div>
+  <p class="nota">Quien usa menos de 8 deja margen puro. Quien usa más genera el caso de éxito que vende el próximo pase. El comercio sigue sin pagar nada por publicar ni por canjear.</p>
+</section>
+
+<section class="capas">
+  <h2>Estructura del Gesell Pass (y cómo evita abusos)</h2>
+  <div class="card"><span class="tag v">Capa base</span><h3>Incluida completa</h3>
+    <ul><li>Todas las ofertas de comisión 25% y 20% (ahorros chicos y medios: gastronomía, salidas).</li><li>1 canje por comercio por pase.</li></ul></div>
+  <div class="card"><span class="tag s">Capa premium</span><h3>2 elecciones</h3>
+    <ul><li>El turista elige 2 entre las ofertas caras (15% / 10% / 7%: masajes, excursiones, estadías premium con fecha a solicitar).</li><li>Protege a los socios de alto ticket; cupo mensual lo define cada socio.</li><li>Fase 2: Gesell Pass Full ~$32.000 (5 premium, 14 días). No para el lanzamiento.</li></ul></div>
+  <div class="card"><span class="tag c">Gesell Pass regalo (hoteles)</span><h3>Solo capa base, sin puntos</h3>
+    <ul><li>El regalo es adquisición; adentro de la app: “Sumá 2 experiencias premium pasando al Gesell Pass completo”.</li><li>Vigencia: 7 días desde la activación (no desde la compra).</li></ul></div>
+</section>
+
+<section>
+  <h2>Mensajes para comunicar</h2>
+  <div class="frases">
+    <div class="frase">“Viví Gesell a precio de local.”<span>La frase madre. Replicable: “Viví [destino] a precio de local”.</span></div>
+    <div class="frase">“Pagás $18.000, ahorrás hasta $150.000.”<span>El pase se vende por su ahorro agregado, no por sus cupones.</span></div>
+    <div class="frase">“Ahorraste $87.000 este viaje.”<span>El contador de ahorro es el final feliz y la pieza de share.</span></div>
+    <div class="frase">Para socios: “Nunca tocamos tu caja.”<span>No pagás por publicar ni por canjear. Somos lo opuesto a Groupon.</span></div>
+    <div class="frase">“Tus descuentos no se toman vacaciones.”<span>El hueco: los beneficios de banco/club no existen en la costa. Nosotros sí.</span></div>
+    <div class="frase">“Tu club de beneficios en Gesell.”<span>Explicación funcional con un modelo mental que ya conocen. No decir “city pass”.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Target, framing y calendario</h2>
+  <div class="grid2">
+    <div class="card"><span class="tag v">Framing</span><h3>Club de beneficios, no city pass</h3><p>El pase no vende itinerario (la playa es gratis): vende <strong>escudo contra el precio de temporada</strong> — el tema de todos los eneros. La mecánica “club de descuentos” ya la conocen por los bancos; no hay que educarla. Nombre definitivo: <strong>Gesell Pass</strong>.</p></div>
+    <div class="card"><span class="tag s">Target primario</span><h3>El organizador del gasto familiar</h3><p>35–55, familia, 7–14 días, arma el presupuesto semanas antes y decide dónde se come. Una compra arrastra 3–4 consumidores. Se le vende <strong>previsibilidad</strong> (“sabé cuánto ahorrás antes de salir”) y amortización (“se paga con una cena”). El grupo joven: secundario, no se persigue en el lanzamiento.</p></div>
+    <div class="card"><span class="tag v">Estrategia temporada 1</span><h3>Regalo primero, upgrade como venta</h3><p>~80% de los pases entran <strong>regalados por el alojamiento</strong>: el turista lo activa gratis sin tener que creer en nada. La venta B2C real de la temporada es el <strong>upgrade de $12.000</strong> de quien ya usó la base y vio el contador subir. El pase full B2C queda en soft launch: se mide, y se empuja con ads en temporada 2 con casos reales.</p></div>
+    <div class="card"><span class="tag s">Calendario</span><h3>Nov → Mar</h3><p><strong>Nov–Dic:</strong> contenido presupuesto (“cuánto sale una semana en Gesell 2027”) apuntado al organizador. <strong>Ene–Feb:</strong> trabajan el regalo del hotel, el QR en mesa (“este precio lo tenés con el Gesell Pass”) y el contador compartido. <strong>Mar:</strong> cierre con puntos → cupón de alojamiento del próximo viaje.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Qué NO es</h2>
+  <div class="card noes"><ul>
+    <li><strong>No es suscripción:</strong> compra única por viaje, como una entrada. Muere cuando te vas.</li>
+    <li><strong>No es Groupon:</strong> no prepagás la experiencia. El pase vende acceso; el consumo se paga en el lugar, más barato.</li>
+    <li><strong>No es una app de reservas:</strong> vendemos ahorro, no bookings — incluso las ofertas premium de alojamiento dentro del Gesell Pass son cupones de descuento con solicitud de fecha, no una reserva gestionada por Cuponear. El alojamiento sigue siendo además canal de distribución masiva del Gesell Pass.</li>
+  </ul></div>
+</section>
+
+<section class="anexo-titulo">
+  <div class="eyebrow">Anexo</div>
+  <h2>Modelo hotelero: el Gesell Pass como beneficio de la Suscripción PRO</h2>
+  <p class="intro">Principio: <strong>el precio tiene que empujar el regalo, no gravarlo.</strong> Si el hotel paga por huésped, raciona (se lo da solo al que pregunta). Con tarifa plana, maximiza su ROI regalándoselo a todos — y cada pase regalado es un usuario nuevo para Cuponear y tráfico para los socios. No hay plan nuevo: se mantienen los dos tiers existentes.</p>
+  <table>
+    <tr><th></th><th>Free</th><th>Suscripción PRO ($20.000 + IVA/mes)</th></tr>
+    <tr><td><strong>Pases regalo (capa base)</strong></td><td class="n">10 / mes</td><td class="n">Ilimitados</td></tr>
+    <tr><td>Canal de entrega</td><td>Link / QR</td><td>Link / QR + automático vía RUMRAK por reserva confirmada</td></tr>
+    <tr><td>Upgrades premium para huéspedes</td><td class="n">—</td><td class="n">Packs mayoristas al 50%</td></tr>
+  </table>
+  <p class="nota">Los 10 pases del Free son la degustación: en enero se acaban y el upgrade se vende solo. Costo de la capa base regalada ≈ cero: los descuentos los financia el comercio, que quiere ese tráfico. 30 hoteles con Suscripción PRO = $600.000 + IVA/mes recurrentes — la diaria, antes de que un turista compre nada.</p>
+
+  <div class="grid2" style="margin-top:16px">
+    <div class="card"><span class="tag v">Diaria 1 · recurrente</span><h3>Suscripción PRO hotelera</h3><p>La licencia de regalo ilimitado le da a la Suscripción PRO de Alojamientos su razón de existir: <strong>“Por $20.000 fijos, cada huésped tuyo recibe un pase con 22 descuentos. Tu competencia no lo tiene.”</strong></p></div>
+    <div class="card"><span class="tag s">Diaria 2 · transaccional</span><h3>Packs de upgrades (venta mayorista)</h3><p>El upgrade base→completo (2 premium) vale $12.000 B2C. El hotel con Suscripción PRO compra packs al 50%: <strong>$6.000 c/u, mínimo 10.</strong> Caso estrella anti-OTA: “Reservá directo y te regalamos el Gesell Pass completo” — $6.000 para ahorrarse la comisión de Booking en una estadía de $300.000.</p></div>
+  </div>
+  <p class="nota">La capa premium nunca es ilimitada, para nadie: protege a los socios de alto ticket y no canibaliza el upsell B2C.</p>
+</section>
+
+<section>
+  <h2>Dónde vive cada categoría: un negocio, tres momentos</h2>
+  <p class="intro"><strong>Actualizado ago 2026 — revierte la exclusión de jul 2026:</strong> el alojamiento SÍ puede estar dentro del Gesell Pass, como oferta premium (alto monto), con posibilidad de solicitar disponibilidad de fecha específica incluso sin activar el pase todavía. Cuponear vende cupones de descuento, no reservas — no gestiona la reserva en sí, solo el beneficio. Nota: los motivos de marketing que sostenían la exclusión anterior (posible "peso muerto" con alojamiento ya reservado, conflicto de canal entre hoteles) siguen siendo una discusión válida y separada — esta actualización corrige la regla, no resuelve esa discusión.</p>
+  <div class="grid3">
+    <div class="card"><span class="tag v">Antes del viaje</span><h3>Alojamientos (Cupones)</h3><p>Para quien todavía no tiene el Gesell Pass: cupón individual, como hoy. Adquisición en etapa de planificación.</p></div>
+    <div class="card dur"><span class="tag s">Durante la estadía</span><h3>Gesell Pass</h3><p>Salidas + Aventura &amp; Relax + alojamiento premium (con solicitud de fecha específica). El consumo del viaje, a precio de local.</p></div>
+    <div class="card desp"><span class="tag c">Después del viaje</span><h3>Puntos → próximo viaje</h3><p>Los puntos ganados se canjean por un cupón de alojamiento del próximo viaje. Retención anual y destino natural antes de que expiren.</p></div>
+  </div>
+</section>
+
+<footer>Cuponear · Julio 2026, revisado agosto 2026 (nombre de marca Gesell Pass, Suscripción PRO, y regla de alojamiento dentro del Pase) · Precios finales con IVA incluido; leyenda con precio sin IVA siempre visible. Cifras del catálogo tipo: ilustrativas, según tabla de comisiones vigente.</footer>
+
+</main>
+</body>
+</html>

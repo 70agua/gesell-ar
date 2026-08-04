@@ -16,11 +16,11 @@ import { encajeEnPase, cupopackAplicado, aplicarCupopack, deshacerCupopack } fro
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',
-  line: '#E7E9EE', primary: '#2545E6', primarySoft: '#EEF1FF',
+  line: '#E7E9EE', primary: '#475BE1', primarySoft: '#EEF0FD',
   yellow: '#FFC93C', font: "'Inter', system-ui, sans-serif",
 };
 
-function Ficha({ cupopack, paseId, libres, total, elegidasIds, onCambio }) {
+function Ficha({ cupopack, paseId, libres, total, premiumIlimitado = false, elegidasIds, onCambio }) {
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso]     = useState(null);
 
@@ -52,8 +52,10 @@ function Ficha({ cupopack, paseId, libres, total, elegidasIds, onCambio }) {
         <div style={{ fontSize: 14.5, fontWeight: 800, color: A.ink, letterSpacing: '-0.01em' }}>{cupopack.title}</div>
         <div style={{ fontSize: 12.5, color: A.ink2, marginTop: 2, lineHeight: 1.4 }}>
           {puesto
-            ? `Ocupa ${mios.length} de tus ${total} beneficios premium.`
-            : `${entran.length} beneficios premium elegidos por nosotros.${sobran > 0 ? ` (${sobran} no entran)` : ''}`}
+            ? (premiumIlimitado
+                ? `Puesto: sin tope de beneficios PREMIUM en tu Pase.`
+                : `Ocupa ${mios.length} de tus ${total} beneficios PREMIUM.`)
+            : `${entran.length} beneficios PREMIUM elegidos por nosotros.${sobran > 0 ? ` (${sobran} no entran)` : ''}`}
         </div>
         {aviso && <div style={{ fontSize: 12, color: '#B5852A', marginTop: 4, lineHeight: 1.4 }}>{aviso}</div>}
       </div>
@@ -70,7 +72,7 @@ function Ficha({ cupopack, paseId, libres, total, elegidasIds, onCambio }) {
   );
 }
 
-export default function CupopacksParaPase({ paseId, libres, total, elegidasIds = [], onCambio }) {
+export default function CupopacksParaPase({ paseId, libres, total, premiumIlimitado = false, elegidasIds = [], onCambio }) {
   const [packs, setPacks] = useState(null);
 
   useEffect(() => {
@@ -98,11 +100,11 @@ export default function CupopacksParaPase({ paseId, libres, total, elegidasIds =
     <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 18, padding: 16, fontFamily: A.font }}>
       <div style={{ fontSize: 15, fontWeight: 700, color: A.ink }}>¿Te armamos la selección?</div>
       <div style={{ fontSize: 13, color: A.muted, margin: '4px 0 14px', lineHeight: 1.5 }}>
-        Cupopacks que elegimos nosotros entre los premium. Los ponés de un toque y los cambiás cuando quieras.
+        Cupopacks que elegimos nosotros entre los PREMIUM. Los ponés de un toque y los cambiás cuando quieras.
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {utiles.map(p => (
-          <Ficha key={p.id} cupopack={p} paseId={paseId} libres={libres} total={total}
+          <Ficha key={p.id} cupopack={p} paseId={paseId} libres={libres} total={total} premiumIlimitado={premiumIlimitado}
             elegidasIds={elegidasIds} onCambio={onCambio} />
         ))}
       </div>

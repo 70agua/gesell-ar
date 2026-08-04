@@ -41,8 +41,8 @@ const TIPOS_RUBRO = [
 
 // ─── Aire tokens ─────────────────────────────────────────────
 const A = {
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -1385,7 +1385,7 @@ function TabMarketplace({ ofertas, setOfertas, showToast, negocioEditando, setNe
       {/* Tabs de la sección Marketplace */}
       <div style={{ display:'flex', borderBottom:`1px solid ${A.line}` }}>
         {tabBtn('cupones', 'Cupones')}
-        {tabBtn('cuponeras', `Cuponeras${sets.length ? ` (${sets.length})` : ''}`)}
+        {tabBtn('cuponeras', `Cupopacks${sets.length ? ` (${sets.length})` : ''}`)}
         {tabBtn('nueva', 'Nuevo Cupopack')}
       </div>
 
@@ -2041,7 +2041,7 @@ function TabPortadas({ showToast }) {
                 style={{
                   flex:'0 0 auto', width:96, borderRadius:10, cursor: subiendo ? 'default' : 'pointer',
                   border: drag ? `2px dashed ${A.primary}` : `1px dashed ${A.line}`,
-                  background: drag ? 'rgba(37,69,230,0.08)' : A.bg,
+                  background: drag ? 'rgba(71,91,225,0.08)' : A.bg,
                   display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4,
                   color: A.muted, fontFamily:A.font, fontSize:10, fontWeight:700, textAlign:'center', padding:6,
                 }}
@@ -2620,7 +2620,7 @@ function ImgThumb({ src, portada = false, busy = false, canDelete = true, onFile
         : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C0C4CE', fontSize: 11, textAlign: 'center', padding: 8, fontFamily: A.font }}>{portada ? 'Sin portada' : 'Arrastrá o subí'}</div>}
 
       {drag && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(37,69,230,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.primary, fontWeight: 700, fontSize: 12, fontFamily: A.font, pointerEvents: 'none' }}>Soltá para subir</div>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(71,91,225,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.primary, fontWeight: 700, fontSize: 12, fontFamily: A.font, pointerEvents: 'none' }}>Soltá para subir</div>
       )}
       {busy && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.primary, fontWeight: 700, fontSize: 11, fontFamily: A.font }}>Guardando…</div>

@@ -15,8 +15,8 @@ import { FAMILIAS_PACK, MAS_PACKS, familiaLabel } from '../lib/familiasPack';
 import Icono from '../components/Icono';
 
 const C = {
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',

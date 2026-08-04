@@ -10,9 +10,9 @@ const A = {
   ink2:        '#3D4255',
   muted:       '#6B7280',
   line:        '#E7E9EE',
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
-  primaryDark: '#1731B8',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
+  primaryDark: '#3347C8',
   bg:          '#F7F7F8',
   yellow:      '#FFC93C',
   green:       '#10A36B',
@@ -330,7 +330,7 @@ export default function CarritoDrawer() {
               fontWeight: 600, fontSize: 15.5, letterSpacing: '-0.01em',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9,
               cursor: empty ? 'not-allowed' : 'pointer',
-              boxShadow: empty ? 'none' : '0 14px 30px -12px rgba(37,69,230,0.6)',
+              boxShadow: empty ? 'none' : '0 14px 30px -12px rgba(71,91,225,0.6)',
               transition: 'background 0.18s',
             }}
             onMouseEnter={e => { if (!empty) e.currentTarget.style.background = A.primaryDark; }}

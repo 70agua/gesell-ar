@@ -2,7 +2,7 @@
 //  src/components/Navbar.jsx
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
-import { locations } from '../data/mockData';
+import AvisosBell from './AvisosBell';
 import { FAMILIAS_PACK, MAS_PACKS } from '../lib/familiasPack';
 import { useCarrito } from '../lib/carrito';
 import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
@@ -13,8 +13,8 @@ const A = {
   ink2:        '#3D4255',
   muted:       '#6B7280',
   line:        '#E7E9EE',
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
   bg:          '#F7F7F8',
   green:       '#10A36B',
   greenSoft:   '#E7F9F0',
@@ -579,7 +579,11 @@ const PLANES_OPCIONES = [
     titulo: 'Pase diario ó semanal',
     bajada: 'Comprá tu pase y aprovechá los descuentos que se ofrecen en la zona.',
     vista: 'checkout-pase',
-    opts: { preguntarPerfil: true },
+    // Sin preguntarPerfil: este ítem YA es la elección de "soy turista" — el
+    // alojamiento tiene su propia entrada al lado ('hoteleria', abajo). El
+    // rótulo genérico "Planes y suscripción" (el botón que abre este
+    // desplegable) sigue preguntando, porque ESE click no eligió nada todavía.
+    opts: {},
     // El mismo sello del hero, con la misma inclinación.
     icono: '/gesell-pass-03.svg',
     girado: true,
@@ -967,6 +971,14 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                   onMouseLeave={hoverLeave}
                 >
                   <div style={{ position: 'relative' }}>
+                    {/* Este click SÍ es ambiguo: es el rótulo genérico, no una
+                        elección puntual. En hover se abre el desplegable con
+                        las tres intenciones (pase / hotelería / regalo), pero
+                        el click en sí —para quien no llega a hacer hover, o en
+                        touch— dispara directo sin haber elegido nada todavía.
+                        Ahí sigue haciendo falta preguntar. Los ítems concretos
+                        del desplegable (abajo, "Pase diario ó semanal") NO
+                        preguntan: ya declaran la intención en el texto. */}
                     <button onClick={() => nav('checkout-pase', { preguntarPerfil: true })} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
                       Planes y suscripción <ChevD />
                     </button>
@@ -989,13 +1001,18 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <button
                 onClick={() => { onPublicarOferta && onPublicarOferta(); closeAll(); }}
                 className="navbar-publicar-btn"
-                style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 999, padding: condensed ? '7px 16px' : '9px 20px', fontWeight: 700, fontSize: condensed ? 12.5 : 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: A.font, boxShadow: '0 2px 10px rgba(37,69,230,0.28)', transition: `background .15s, padding .38s ${NAV_EASE}` }}
+                style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 999, padding: condensed ? '7px 16px' : '9px 20px', fontWeight: 700, fontSize: condensed ? 12.5 : 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: A.font, boxShadow: '0 2px 10px rgba(71,91,225,0.28)', transition: `background .15s, padding .38s ${NAV_EASE}` }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#1a35cc'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = A.primary; }}
               >
                 Publicar oferta
               </button>
             )}
+
+            {/* Campanita: sólo con sesión, y antes del avatar. Los avisos son
+                del usuario, así que viven junto a su identidad y no en la
+                navegación del catálogo. */}
+            {session && <AvisosBell session={session} onIr={destino => onNavbarNav?.(destino)} />}
 
             {session ? (
               <div style={{ position: 'relative' }} ref={userRef}>
@@ -1076,10 +1093,10 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'Alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
               { label: 'Salidas',          action: () => nav('salidas') },
               { label: 'Aventura & Relax', action: () => nav('ofertas', { ofertasCategoria: 'aventura_relax' }) },
-              { label: 'Cuponeras',        action: () => nav('packs') },
+              { label: 'Cupopacks',        action: () => nav('packs') },
               // En mobile no hay hover: el desplegable se abre en entradas planas.
               ...(session ? [] : [
-                { label: 'Pase turista',               action: () => nav('checkout-pase', { preguntarPerfil: true }) },
+                { label: 'Pase turista',               action: () => nav('checkout-pase', {}) },
                 { label: 'Me regalaron un Pase',  action: () => nav('canjear-regalo') },
                 { label: 'Suscripción para hotelería', action: () => nav('checkout-hotelero') },
               ]),
@@ -1155,7 +1172,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
 const menuItemSt = (primary = false, muted = false) => ({
   width: '100%', textAlign: 'left', background: 'none', border: 'none',
   padding: '10px 18px', fontSize: 14, fontWeight: primary ? 600 : 500,
-  color: primary ? '#2545E6' : muted ? '#6B7280' : '#0B1020',
+  color: primary ? '#475BE1' : muted ? '#6B7280' : '#0B1020',
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
   fontFamily: "'Inter', system-ui, sans-serif",
 });

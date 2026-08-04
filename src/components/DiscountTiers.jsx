@@ -7,7 +7,7 @@ import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import { resolveTier, siguienteTramo } from '../lib/grupos';
 
-const C = { ink: '#0B1020', muted: '#6B7280', line: '#E7E9EE', primary: '#2545E6', green: '#10A36B' };
+const C = { ink: '#0B1020', muted: '#6B7280', line: '#E7E9EE', primary: '#475BE1', green: '#10A36B' };
 
 export default function DiscountTiers({ tramos = [], n }) {
   if (!Array.isArray(tramos) || tramos.length === 0) return null;

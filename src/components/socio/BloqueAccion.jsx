@@ -25,12 +25,12 @@
 import { useEffect, useState } from 'react';
 import PaSSMark from '../PaSSMark';
 import { usePasePropio } from '../../lib/pasePropio';
-import { activarPaseAhora, elegirPremium, nivelEnPase, precioSueltoConPase } from '../../lib/pases';
+import { activarPaseAhora, elegirPremium, getPasesDestino, nivelEnPase, precioSueltoConPase } from '../../lib/pases';
 import { cuponPropioDe } from '../../lib/compras';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',
-  line: '#E7E9EE', primary: '#2545E6', primaryDark: '#1731B8',
+  line: '#E7E9EE', primary: '#475BE1', primaryDark: '#3347C8',
   green: '#10A36B', font: "'Inter', system-ui, sans-serif",
 };
 
@@ -64,6 +64,63 @@ function Nota({ children, tono = 'info' }) {
       margin: '0 0 10px', fontFamily: A.font, fontSize: 13, lineHeight: 1.5,
       color: tono === 'ok' ? A.green : A.ink2,
     }}>{children}</p>
+  );
+}
+
+// ─── Selector del Pase — días y precio en una sola fila ────────
+// Vive acá y no en el hero de la home (HeroPase.jsx): ahí el precio es
+// "vidriera" (texto fijo, de marketing), pero acá es una decisión de compra
+// al lado de un cupón con precio real — tiene que salir de la tabla `pases`,
+// nunca de un número escrito a mano.
+function SelectorPaseInline({ onComprarPase }) {
+  const [pases, setPases]     = useState(null);
+  const [elegido, setElegido] = useState('');
+
+  useEffect(() => {
+    let vivo = true;
+    getPasesDestino().then(data => {
+      if (!vivo) return;
+      setPases(data);
+      if (data[0]) setElegido(String(data[0].duracion_dias));
+    });
+    return () => { vivo = false; };
+  }, []);
+
+  // Mientras carga no hay nada que mostrar: ni un selector vacío ni un precio
+  // inventado (regla de datos faltantes en CLAUDE.md).
+  if (!pases?.length) return null;
+
+  return (
+    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+      <select
+        value={elegido}
+        onChange={e => setElegido(e.target.value)}
+        aria-label="Duración del Pase"
+        style={{
+          flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 12,
+          border: `1px solid ${A.line}`, background: '#fff', color: A.ink,
+          fontFamily: A.font, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        {pases.map(p => (
+          <option key={p.id ?? p.duracion_dias} value={p.duracion_dias}>
+            {p.duracion_dias} días · {fmt(p.precio_final)}
+          </option>
+        ))}
+        <option value="custom">Más días (a medida)</option>
+      </select>
+      <button
+        type="button"
+        onClick={() => onComprarPase?.(elegido === 'custom' ? 'custom' : Number(elegido))}
+        style={{
+          flexShrink: 0, padding: '10px 18px', borderRadius: 12, border: 'none',
+          background: A.primary, color: '#fff', fontFamily: A.font,
+          fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+        }}
+      >
+        Lo quiero
+      </button>
+    </div>
   );
 }
 
@@ -190,15 +247,24 @@ export default function BloqueAccion({
   }
 
   // ─── A · no tiene Pase ──────────────────────────────────────
+  // El cupón suelto va primero: sigue siendo la puerta de entrada. El Pase
+  // deja de ser un botón azul y pasa a título — no compite con el cupón por
+  // el mismo lenguaje visual — y el selector de abajo lo convierte en una
+  // decisión de un solo tap, sin pasar primero por la home.
   if (!conPase) {
     return (
       <div>
-        <Primario onClick={() => onComprarPase?.(7)}>
-          Adquirir el <PaSSMark size={13} conGesell />
-        </Primario>
         <Secundario onClick={() => onSumarCupon?.(promo)}>
-          Obtener descuento{precio > 0 ? ` · ${fmt(precio)}` : ''}
+          Comprar cupón{precio > 0 ? ` · ${fmt(precio)}` : ''}
         </Secundario>
+
+        <div style={{
+          marginTop: 18, fontSize: 15, fontWeight: 800, color: A.primary,
+          letterSpacing: '-0.01em', lineHeight: 1.35, fontFamily: A.font,
+        }}>
+          Conseguí este y muchos más con tu <PaSSMark size={13} conGesell />
+        </div>
+        <SelectorPaseInline onComprarPase={onComprarPase} />
         {error}
       </div>
     );

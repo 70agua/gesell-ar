@@ -33,7 +33,7 @@ function tomarPendiente() {
 }
 
 const ACCENT_BY_CAT = {
-  alojamiento:   '#2545E6',
+  alojamiento:   '#475BE1',
   salidas:       '#0B1020',
   aventura_relax:'#10A36B',
   experiencia:   '#10A36B',
@@ -71,7 +71,7 @@ function ofertaToCupon(oferta) {
     price:  precio,
     ahorro,
     exp,
-    accent: ACCENT_BY_CAT[oferta.categoria] || '#2545E6',
+    accent: ACCENT_BY_CAT[oferta.categoria] || '#475BE1',
     categoria: oferta.categoria || 'alojamiento',
     grupal, // { declared_pax, applied_discount_pct, total_paid, qr_token }
     _oferta: oferta,

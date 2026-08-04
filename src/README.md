@@ -1,7 +1,36 @@
 # Cuponear — Guía de estructura del proyecto
 
-Este documento explica **para qué sirve cada archivo** y **cómo editarlos**
-sin ser programador.
+Dónde vive cada cosa y dónde tocar para cambiarla.
+
+> Para las **reglas de negocio** —planes, precios, puntos, Pase, Cupopacks,
+> vocabulario— la fuente es `CLAUDE.md` en la raíz. Este archivo es sólo el mapa
+> de archivos.
+
+---
+
+## De dónde salen los datos
+
+**De Supabase, siempre.** No hay datos de prueba en la app: todo lo que ve el
+turista sale de la base.
+
+```
+Supabase ──► src/lib/datos.js ──► funciones normalize ──► vistas y componentes
+```
+
+`src/lib/datos.js` es el **único** archivo que consulta el catálogo. Expone
+funciones async (`getAlojamientos`, `getGastronomia`, `getAventura`,
+`getPromos`, `getCupopacks`…) que devuelven objetos ya normalizados.
+`normalizeNegocio` y `normalizePromo` definen la forma que espera todo el resto
+de la app: si traés filas crudas de la base, pasalas por ahí.
+
+Los otros módulos de `src/lib/` consultan lo suyo: `pases.js` el Pase,
+`compras.js` la compra del turista, `canjes.js` el canje, `cobros.js` los
+créditos del socio, `solicitudes.js` las solicitudes de fecha.
+
+> ⚠️ `src/data/mockData.js` sigue en disco pero **está huérfano**: ningún
+> archivo lo importa. Quedó como referencia histórica. No lo uses como respaldo
+> cuando una consulta devuelve poco — ver la regla "un dato que falta no se
+> rellena" en `CLAUDE.md`.
 
 ---
 
@@ -9,75 +38,50 @@ sin ser programador.
 
 ```
 src/
-│
-├── App.jsx                     ← El "director de orquesta" de la app
-│
-├── data/
-│   └── mockData.js             ← TODOS los datos: alojamientos, packs, restaurantes
-│
-├── components/
-│   ├── Navbar.jsx              ← La barra de navegación (menú superior)
-│   ├── Footer.jsx              ← El pie de página
-│   └── AccommodationCard.jsx  ← Tarjeta individual de alojamiento
-│
-└── views/
-    ├── HomeView.jsx            ← La pantalla principal (hero + grillas)
-    └── DetailView.jsx          ← El detalle al hacer clic en una tarjeta
+├── App.jsx              ← Director de orquesta: sesión, providers y el string
+│                          `view` que hace de router
+├── lib/                 ← Lógica de negocio y acceso a datos
+│   ├── supabase.js      ← Cliente único (nunca crear un segundo)
+│   ├── datos.js         ← Catálogo: negocios y ofertas
+│   ├── pases.js         ← Pase: niveles, slots premium, estadía
+│   ├── cupopacks.js     ← Cupopacks: catálogo y llenado de slots
+│   ├── cobros.js        ← Precio del cupón y créditos del socio
+│   ├── gamificacion.js  ← Puntos del turista (5% de lo pagado)
+│   └── condiciones.js   ← Catálogo de condiciones de canje
+├── components/          ← Piezas reutilizables (OfertaCard, CtaPase, modales)
+├── views/               ← Una pantalla por archivo
+│   └── socio/           ← Pestañas del panel del socio
+└── data/mockData.js     ← Huérfano (ver arriba)
+
+db/                      ← Migraciones SQL, una por cambio
+docs/                    ← Documentos de producto
 ```
 
 ---
 
-## ¿Qué editar para cada tarea?
+## Cómo se navega
 
-### ✅ Agregar un nuevo alojamiento
-Abrí `src/data/mockData.js` y agregá un nuevo objeto al array
-`mockAccommodations`. Copiá uno existente y cambiá sus valores:
+No hay librería de router. `App.jsx` guarda un string `view` en su estado y cada
+pantalla se muestra con `{view === 'nombre' && <LaVista />}`.
 
-```js
-{
-  id: 9,                          // número único, diferente a los demás
-  name: "Mi Nuevo Hotel",
-  type: "Hotel",                  // Hotel | Cabaña | Departamento
-  price: 70000,
-  rating: 4.6,
-  image: "https://...",           // URL de imagen de Unsplash
-  location: "Las Gaviotas",
-  tags: ["Pileta"],
-  description: "Descripción breve del lugar.",
-}
-```
-
-### ✅ Agregar un restaurante
-Mismo archivo, array `mockDining`. Los valores de `iconName` disponibles son:
-`Utensils`, `Cookie`, `Beer`, `Waves`, `Wine`, `Coffee`.
-
-### ✅ Cambiar el texto del pie de página
-Abrí `src/components/Footer.jsx` y editá el texto directamente.
-
-### ✅ Cambiar el texto del hero (pantalla principal)
-Abrí `src/views/HomeView.jsx`, buscá `<h1>` y `<p>` dentro del bloque `HERO`.
-
-### ✅ Agregar una nueva zona al menú
-Abrí `src/data/mockData.js` y agregá el nombre al array `locations`:
-```js
-export const locations = ["Villa Gesell", "Mar de las Pampas", "Las Gaviotas", "Mar Azul", "Nueva Zona"];
-```
+**Agregar una pantalla** = (1) crear `src/views/NuevaView.jsx`, (2) importarla en
+`App.jsx` y renderizarla detrás de su `view === 'nueva'`, (3) si es pública,
+sumar el nombre al array `PUBLIC_VIEWS`.
 
 ---
 
-## Flujo de la aplicación (simplificado)
+## ¿Qué edito para cada tarea?
 
-```
-App.jsx
-  ├── Navbar    (siempre visible)
-  ├── HomeView  (si view === 'home')
-  │     ├── Hero con buscador
-  │     ├── AccommodationCard × 8
-  │     ├── PacksSection
-  │     └── GastronomySection
-  ├── DetailView (si view === 'detail')
-  └── Footer    (siempre visible)
-```
+| Quiero… | Dónde |
+|---|---|
+| Cambiar una oferta o un negocio | En la app: panel del socio o SuperAdmin. **No en código** |
+| Cambiar el precio de un cupón | `src/lib/cobros.js` — la escalera de comisiones |
+| Cambiar cuántos puntos da una compra | `src/lib/gamificacion.js` (`CASHBACK_PCT`) |
+| Cambiar el hero de la home | `src/components/landing/HeroPase.jsx` |
+| Cambiar el pie de página | `src/components/Footer.jsx` |
+| Sumar una localidad | `src/lib/localidades.js` |
+| Sumar una condición de canje frecuente | `src/lib/condiciones.js` |
+| Cambiar precios o textos de los planes | En la app: SuperAdmin → General (viven en la tabla `planes`) |
 
 ---
 
@@ -85,16 +89,18 @@ App.jsx
 
 | Prefijo / sufijo | Significado |
 |---|---|
-| `View.jsx` | Pantalla completa |
-| `Card.jsx` | Componente de tarjeta reutilizable |
-| `Section` (interno) | Sección de una vista, no es un archivo separado |
-| `mockData.js` | Datos de prueba — se reemplazarán por una API real |
+| `View.jsx` | Pantalla completa, en `views/` |
+| `Card.jsx` | Tarjeta reutilizable |
+| `Drawer.jsx` / `Modal.jsx` | Panel lateral / ventana superpuesta |
+| `Tab*.jsx` | Pestaña de un panel (socio o superadmin) |
+| `use*.js` | Hook de React |
+| `Section` (interno) | Sección dentro de una vista, no es un archivo aparte |
 
 ---
 
-## Próximos pasos sugeridos
+## Antes de tocar la base
 
-1. **Conectar una base de datos real** → reemplazar `mockData.js` por llamadas a una API.
-2. **Agregar página de resultados de búsqueda** → nuevo archivo `src/views/SearchView.jsx`.
-3. **Agregar formulario de contacto** → nuevo componente `src/components/ContactForm.jsx`.
-4. **Agregar mapa interactivo** → integrar Leaflet o Google Maps en `DetailView.jsx`.
+Las restricciones `CHECK` y las definiciones de funciones **en los archivos de
+`db/` pueden estar desactualizadas** respecto de lo que corre. Consultá siempre
+la base antes de agregar un valor nuevo o modificar una RPC. El detalle y las
+consultas están en `CLAUDE.md`.

@@ -1,0 +1,66 @@
+/*
+ * Design tokens — consolidados a partir de la paleta que YA existe en el
+ * código (objeto `const A = {...}` / `const C = {...}` repetido en ~44
+ * archivos: OfertaCard, SuperAdminView, Navbar, CarritoDrawer, etc.).
+ * No son colores nuevos. Ver docs/design-tokens-audit-brief.md para la
+ * auditoría completa.
+ *
+ * 2026-08-04: brand-600 pasó de #2545E6 a #475BE1 — decisión de Mariano
+ * (el tono viejo "parecía casi azul", #475BE1 es más de marca). Ese era
+ * el primary de un segundo sistema de color que ya vivía en ~10 archivos
+ * chicos (Footer, LoginView, TabCanjes, PerfilNegocioForm...); ahora es
+ * el único. El resto de la paleta (ink/muted/line/bg) NO se tocó — sigue
+ * siendo el set de #0B1020, no el #0f172a de esos mismos 10 archivos.
+ * brand-700 (#3347C8) ya existía sin usar en AdminNegocioView.jsx como
+ * `PD = '#3347c8' // primary dark` — se adoptó tal cual, no se inventó.
+ */
+
+@theme {
+  /* Primitivos — valores reales ya en uso, agrupados por familia */
+  --color-brand-600: #475BE1;
+  --color-brand-700: #3347C8;
+  --color-brand-100: #EEF0FD;
+
+  --color-ink-900: #0B1020;
+  --color-ink-700: #3D4255;
+  --color-ink-500: #6B7280;
+
+  --color-line-200: #E7E9EE;
+  --color-surface-50: #F7F7F8;
+
+  --color-success-600: #10A36B;
+  --color-success-100: #E8F5EC;
+
+  --color-warning-700: #8A6412;
+  --color-warning-100: #FFF7E5;
+
+  --color-error-700: #B91C1C;
+  --color-error-600: #EF4444;
+  --color-error-100: #FEF2F2;
+
+  --color-accent-600: #7C3AED;
+  --color-accent-100: #EDE9FE;
+
+  /* Semánticos — alias por propósito, usar estos en código nuevo */
+  --color-primary: var(--color-brand-600);
+  --color-primary-hover: var(--color-brand-700);
+  --color-primary-soft: var(--color-brand-100);
+
+  --color-text: var(--color-ink-900);
+  --color-text-muted: var(--color-ink-500);
+  --color-border: var(--color-line-200);
+  --color-bg: var(--color-surface-50);
+
+  --color-success: var(--color-success-600);
+  --color-success-bg: var(--color-success-100);
+
+  --color-warning: var(--color-warning-700);
+  --color-warning-bg: var(--color-warning-100);
+
+  --color-error: var(--color-error-700);
+  --color-error-icon: var(--color-error-600);
+  --color-error-bg: var(--color-error-100);
+
+  --color-accent: var(--color-accent-600);
+  --color-accent-bg: var(--color-accent-100);
+}

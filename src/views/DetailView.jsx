@@ -33,9 +33,9 @@ const cuponARS = p => precioActivacionARS({ ahorro: p?.ahorroEstimado ?? p?.ahor
 
 // ─── Design tokens (para inline styles puntuales) ───────────
 const C = {
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
-  primaryDark: '#1731B8',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
+  primaryDark: '#3347C8',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',

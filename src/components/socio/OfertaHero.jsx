@@ -10,14 +10,33 @@
 //  así que el sujeto de la foto tiene que subir para no quedar tapado.
 // ============================================================
 import HeartButton from '../HeartButton';
+import { nivelEnPase } from '../../lib/pases';
 
 const A = {
   ink: '#0B1020',
   font: "'Inter', system-ui, sans-serif",
 };
 
+// Misma píldora que la minificha (OfertaCard.jsx): mismo fondo translúcido que
+// el corazón, para que se lean como una sola familia visual y no dos estilos
+// de badge conviviendo en la misma imagen.
+function PremiumBadge({ top }) {
+  return (
+    <div style={{
+      position: 'absolute', top, left: 10, zIndex: 3,
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      background: 'rgba(0,0,0,0.30)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+      borderRadius: 999, padding: '6px 13px 6px 10px',
+    }}>
+      <img src="/iconos/premium-01.svg" alt="" width={14} height={11} style={{ display: 'block', flexShrink: 0 }} />
+      <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', letterSpacing: '0.09em' }}>PREMIUM</span>
+    </div>
+  );
+}
+
 export default function OfertaHero({ promo, onOpenOferta }) {
   const esFlash = promo.offerType === 'Flash';
+  const esPremium = nivelEnPase(promo) === 'premium';
 
   return (
     <div
@@ -50,6 +69,9 @@ export default function OfertaHero({ promo, onOpenOferta }) {
           <span style={{ fontSize: 10, fontWeight: 900, color: '#e02020', fontStyle: 'italic' }}>FLASH</span>
         </div>
       )}
+
+      {/* Debajo del FLASH cuando conviven — mismo criterio que la minificha. */}
+      {esPremium && <PremiumBadge top={esFlash ? 40 : 10} />}
 
       <div style={{ position: 'absolute', top: 10, right: 10 }} onClick={e => e.stopPropagation()}>
         {/* El círculo translúcido lo trae el propio HeartButton en su variante

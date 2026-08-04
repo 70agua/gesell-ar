@@ -84,7 +84,7 @@ function FavoritosTip({ onRegistrar, onCerrar }) {
         </button>
         <button
           onClick={onRegistrar}
-          style={{ flex: 2, padding: '8px 0', borderRadius: 10, border: 'none', background: '#2545E6', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+          style={{ flex: 2, padding: '8px 0', borderRadius: 10, border: 'none', background: '#475BE1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
         >
           Registrarme gratis →
         </button>

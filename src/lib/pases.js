@@ -8,8 +8,8 @@
 //
 //  Capas (derivadas en vivo del ahorro declarado — no hay columna
 //  de "tramo", la comisión se calcula en cobros.js):
-//    · base    = comisión 25% / 20%  → ahorro declarado <= $15.000
-//    · premium = comisión 15/10/7    → ahorro declarado >  $15.000
+//    · base    = comisión 25% / 20%  → ahorro declarado <= $40.000
+//    · premium = comisión 15/10/7    → ahorro declarado >  $40.000
 //  Ambas: Salidas + Aventura & Relax, uso libre durante los N días.
 //
 //  Aparte va el DESCUENTO DE ESTADÍA (alojamiento): un uso por pase, y
@@ -27,7 +27,7 @@ import { acreditarPuntos } from './gamificacion';
 
 // ─── Parámetros de negocio ────────────────────────────────────
 export const DESTINO_DEFAULT       = 'gesell';
-export const AHORRO_BASE_MAX       = 15000;   // frontera base/premium
+export const AHORRO_BASE_MAX       = 40000;   // frontera base/premium
 // El tope de pases regalo dejó de ser una constante de código y un atributo
 // del plan: es GLOBAL y vive en `configuracion.pases_regalo_tope_mensual`
 // (arranca en 150/mes), para poder calibrarlo en temporada sin deploy.
@@ -70,12 +70,12 @@ const esPremium     = (promo) => (promo.ahorroEstimado || 0) >  AHORRO_BASE_MAX;
 // DOS situaciones, y sólo dos. Es la regla que tiene que contar TODA la
 // comunicación del sitio, así que vive acá y nadie la reescribe por su cuenta:
 //
-//   'incluida' → ahorro <= $15.000. Entra siempre, uso libre (1 por comercio).
-//   'premium'  → ahorro > $15.000. Entran ELECCIONES_PREMIUM por pase; a partir
+//   'incluida' → ahorro <= $40.000. Entra siempre, uso libre (1 por comercio).
+//   'premium'  → ahorro > $40.000. Entran ELECCIONES_PREMIUM por pase; a partir
 //                de la siguiente, se compra suelta pero a mitad de precio.
 //
 // El alojamiento NO tiene régimen propio: como casi siempre ahorra más de
-// $15.000, cae en premium y consume una elección. Eso hace innecesario un cupo
+// $40.000, cae en premium y consume una elección. Eso hace innecesario un cupo
 // aparte de "N alojamientos por pase" — el turista reparte sus 3 como quiera.
 // Lo único que el alojamiento conserva es su reloj: se puede usar con el pase
 // todavía sin activar (ver esOfertaEstadia), porque se reserva antes de viajar.
@@ -84,6 +84,21 @@ const esPremium     = (promo) => (promo.ahorroEstimado || 0) >  AHORRO_BASE_MAX;
 // ($40.000) daban el doble de premium que uno de 7 ($35.000) y nadie compraría
 // el largo. Atado a los días, el pase más largo siempre rinde mejor por premium.
 export const eleccionesPremium = (dias) => Math.max(1, Number(dias) || 0);
+
+// A partir de esta duración, el pase deja de tener tope de premium: entra TODO
+// el catálogo, sin elección. Por debajo, una por día sigue siendo lo que evita
+// el arbitraje de arriba; por encima, seguir contando "una por día" sería
+// aritmética sin sentido — nadie necesita 30 elecciones si el catálogo entero
+// tiene 33. Se frena directamente en "sin límite".
+//
+// Se congela en `usuario_pases.premium_ilimitado` al momento de la compra
+// (ver vincularComprasPase) y las RPCs `elegir_premium_pase` /
+// `enviar_solicitud_fecha` lo leen desde ahí — NO recalculan esto por su
+// cuenta, para que un pase ya vendido no cambie de régimen si este número se
+// mueve más adelante.
+export const DIAS_PREMIUM_ILIMITADO = 10;
+export const esPremiumIlimitado = (dias) => Number(dias) >= DIAS_PREMIUM_ILIMITADO;
+
 export const DESCUENTO_SUELTO_CON_PASE = 0.5;
 
 export function nivelEnPase(promo) {
@@ -178,6 +193,10 @@ export async function vincularComprasPase(userId, email) {
         // compra no los trae: ahí mandan los del catálogo.
         dias:               compra.dias || null,
         elecciones_premium: compra.dias ? eleccionesPremium(compra.dias) : null,
+        // Congelado acá y no recalculado después: si el pase se activa meses
+        // después de comprado y este umbral cambió mientras tanto, el turista
+        // se queda con lo que compró, no con la regla del día de hoy.
+        premium_ilimitado:  compra.dias ? esPremiumIlimitado(compra.dias) : false,
       })
       .select()
       .single();
@@ -213,11 +232,11 @@ export async function getOfertasBase() {
 
 // Cuántos descuentos hay hoy en el catálogo del pase, abiertos en sus dos
 // capas. NO depende de la duración: lo incluido entra entero en cualquier
-// pase, sin cupo ni elecciones — lo que crece con los días son los PLUS.
+// pase, sin cupo ni elecciones — lo que crece con los días son los premium.
 //
 // Cuenta OFERTAS, no comercios, y NO deja afuera al alojamiento: la frontera
 // es exactamente la de nivelEnPase (ahorro <= AHORRO_BASE_MAX → incluida, por
-// encima → PLUS), sea del rubro que sea. Como esCategoriaPase() es true para
+// encima → premium), sea del rubro que sea. Como esCategoriaPase() es true para
 // todo, `total` es el catálogo entero: es el número que puede prometer la home.
 //
 // Vive del lado del server y sin `limit`: cualquier conteo que traiga N filas y

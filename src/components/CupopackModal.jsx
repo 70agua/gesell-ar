@@ -19,7 +19,9 @@ import { createPortal } from 'react-dom';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
 import { aplicarBeneficioCupopack, tipoBeneficio } from '../lib/beneficiosCupopack';
 import { usePasePropio } from '../lib/pasePropio';
-import { encajeEnPase, cupopackAplicado, aplicarCupopack, deshacerCupopack } from '../lib/cupopacks';
+import { encajeEnPase, cupopackAplicado, aplicarCupopack, deshacerCupopack, sobrantesDeCupopack, precioSobrantes, cuponAOferta } from '../lib/cupopacks';
+import { useCarrito } from '../lib/carrito';
+import { puntosDeCompra } from '../lib/gamificacion';
 import PaSSMark from './PaSSMark';
 
 const C = {
@@ -27,9 +29,9 @@ const C = {
   ink2:     '#3D4255',
   muted:    '#6B7280',
   line:     '#E7E9EE',
-  primary:  '#2545E6',
+  primary:  '#475BE1',
   primaryDeep: '#1b265d',
-  primarySoft: '#EEF1FF',
+  primarySoft: '#EEF0FD',
   green:    '#10A36B',
   bg:       '#F7F7F8',
   yellow:   '#FFC93C',
@@ -51,9 +53,6 @@ const Share = ({ size = 18 }) => <svg width={size} height={size} viewBox="0 0 24
 const Heart = ({ size = 18 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
-// Puntos que gana el turista (misma fórmula que OfertaCard: ahorro / 4).
-const calcPts = ahorro => Math.round((Number(ahorro) || 0) / 4);
 
 // ─── Cover lateral (el "lomo" de las fichas vecinas) ─────────
 function SideCover({ cupon, side, onClick }) {
@@ -105,7 +104,7 @@ function PuntoMapa({ lat, lng, label }) {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '&copy; <a href="https://carto.com/">CARTO</a>' }).addTo(map);
     const icon = L.divIcon({
       className: '',
-      html: `<div style="background:#2545E6;border:3px solid #fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,69,230,0.45)">
+      html: `<div style="background:#475BE1;border:3px solid #fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(71,91,225,0.45)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
       </div>`,
       iconSize: [40, 40], iconAnchor: [20, 20],
@@ -353,11 +352,19 @@ function CuponPila({ cupon, i, esRegalo, onOpen }) {
 // Reversible en un tap, como manda §5 de 3-cupopacks.md: un pack cerrado que no
 // se puede deshacer genera rechazo, y la elección se libera hasta el canje.
 function PieConPase({ cupones, onVerPase }) {
-  const { pase, libres, total, elegidasIds, refrescar } = usePasePropio();
+  const fmt = n => `$${Math.round(n).toLocaleString('es-AR')}`;
+  const { pase, libres, total, premiumIlimitado, elegidasIds, refrescar } = usePasePropio();
+  const { addCupon } = useCarrito();
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState(null);
 
   const { premium, entran, sobran } = encajeEnPase(cupones, libres);
+  // §3, tercer caso: los premium que no entran se pagan sueltos, a precio
+  // individual y sin beneficio adicional ni descuento. Una sola vía —el mismo
+  // botón llena los slots y manda el resto al carrito—: ofrecerle además el
+  // pack completo sería venderle de nuevo lo que ya pagó con el Pase.
+  const sobrantes = sobrantesDeCupopack(cupones, libres);
+  const aPagar    = precioSobrantes(sobrantes);
   const puesto    = cupopackAplicado(cupones, elegidasIds, libres || premium.length);
   const regulares = cupones.length - premium.length;
 
@@ -379,8 +386,11 @@ function PieConPase({ cupones, onVerPase }) {
       // que congela la elección. Se dice, no se esconde.
       if (r.fallidos.length) setAviso(`${r.quitados.length} liberados. ${r.fallidos.length} ya los canjeaste y quedan en tu Pase.`);
       else setAviso(null);
-    } else if (r.fallidos.length) {
-      setAviso(r.fallidos[0].texto);
+    } else {
+      if (r.fallidos.length) setAviso(r.fallidos[0].texto);
+      // Los sobrantes van al carrito recién después de ocupar los slots: si el
+      // llenado falla, no queremos haberle cobrado la parte de arriba.
+      sobrantes.forEach(c => addCupon(cuponAOferta(c)));
     }
   };
 
@@ -398,17 +408,33 @@ function PieConPase({ cupones, onVerPase }) {
           <>{regulares} {regulares === 1 ? 'cupón ya viene' : 'cupones ya vienen'} con tu Pase. </>
         )}
         {premium.length > 0
-          ? <>Los {premium.length === 1 ? 'otro' : `otros ${premium.length}`} son beneficios premium <strong>elegidos por nosotros</strong>.</>
+          ? <>Los {premium.length === 1 ? 'otro' : `otros ${premium.length}`} son beneficios PREMIUM <strong>elegidos por nosotros</strong>.</>
           : <>No hay nada más que elegir.</>}
       </p>
 
       {premium.length > 0 && (
         <p className="cp-puntos" style={{ textAlign: 'left', fontStyle: 'normal' }}>
           {puesto
-            ? `Ocupan ${aDeshacer.length} de tus ${total}. Podés sacarlos o cambiar cualquiera cuando quieras.`
+            ? (premiumIlimitado
+                ? `Puestos: sin tope de beneficios PREMIUM en tu Pase. Podés sacarlos cuando quieras.`
+                : `Ocupan ${aDeshacer.length} de tus ${total}. Podés sacarlos o cambiar cualquiera cuando quieras.`)
             : sinLugar
-              ? 'No te quedan beneficios premium disponibles.'
-              : `Ocupan ${entran.length} de los ${libres} que te quedan.${sobran > 0 ? ` ${sobran} no entran.` : ''}`}
+              ? 'No te quedan beneficios PREMIUM disponibles.'
+              : sobran > 0
+                ? `${entran.length} ocupan los ${libres} que te quedan. ${sobran === 1 ? 'El otro no entra y va suelto' : `Los otros ${sobran} no entran y van sueltos`}, a precio individual.`
+                : premiumIlimitado
+                  ? `Los ${entran.length} entran sin tope: tu Pase no tiene límite de premium.`
+                  : `Ocupan ${entran.length} de los ${libres} que te quedan.`}
+        </p>
+      )}
+
+      {/* El precio del tercer caso va acá y no en el botón: el botón hace dos
+          cosas —ocupar slots y sumar al carrito— y meterle la cifra adentro
+          haría parecer que se paga todo. */}
+      {!puesto && !sinLugar && aPagar > 0 && (
+        <p className="cp-pase-pagar">
+          A pagar por {sobran === 1 ? 'ese cupón' : `esos ${sobran} cupones`}: <strong>{fmt(aPagar)}</strong>
+          <span> · te deja {puntosDeCompra(aPagar).toLocaleString('es-AR')} puntos</span>
         </p>
       )}
 
@@ -419,13 +445,15 @@ function PieConPase({ cupones, onVerPase }) {
           ? <button className="cp-cta cp-cta-hueco" onClick={onVerPase}>Ver mi Pase</button>
           : (
             <button className={`cp-cta${puesto ? ' cp-cta-hueco' : ''}`} onClick={accionar} disabled={ocupado}>
-              {ocupado ? 'Un segundo…' : puesto ? 'Sacarlos de mi Pase' : 'Elegirlos con mi Pase'}
+              {ocupado ? 'Un segundo…'
+                : puesto ? 'Sacarlos de mi Pase'
+                : sobran > 0 ? 'Elegirlos y sumar el resto' : 'Elegirlos con mi Pase'}
             </button>
           )
       )}
 
       <p className="cp-legal">
-        Elegir un beneficio premium no lo reserva ni lo confirma: lo guarda para que lo canjees
+        Elegir un beneficio PREMIUM no lo reserva ni lo confirma: lo guarda para que lo canjees
         en el comercio. Cada uno tiene sus propios términos, que podés ver en su detalle.
       </p>
     </section>
@@ -486,7 +514,7 @@ function CheckoutResumen({ cupopack, totalAhorro, totalPuntos, puntosTachado, pr
           acción de abajo. Y si hay descuento, el precio viejo se tacha acá
           mismo —al lado del que se paga—, que es donde la comparación sirve. */}
       <button className="cp-cta" style={{ marginTop: 22 }}>
-        <span>Comprar cuponera</span>
+        <span>Comprar Cupopack</span>
         <span className="cp-cta-sep" aria-hidden="true" />
         <span className="cp-cta-precio">
           {precioTachado != null && <s>{fmt(precioTachado)}</s>}
@@ -529,11 +557,13 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose, onVer
   }, 0);
   const totalAhorro = cupones.reduce((sum, c) => sum + (Number(c.ahorro_estimado) || 0), 0);
 
+  // Los puntos salen de acá y no se calculan en esta pantalla: son el 5% de lo
+  // que se paga, igual que en cualquier compra. Ver la advertencia en
+  // lib/beneficiosCupopack.js sobre por qué no se derivan del ahorro.
   const { puntos: totalPuntos, precio: precioFinal, puntosTachado, precioTachado } =
     aplicarBeneficioCupopack({
-      tipo: cupopack?.beneficioTipo,
+      tipo:  cupopack?.beneficioTipo,
       valor: cupopack?.beneficioValor,
-      puntosBase: calcPts(totalAhorro),
       precioBase: totalPrecio,
     });
 
@@ -677,13 +707,13 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose, onVer
               <button onClick={onClose} aria-label="Cerrar" className="cp-ico"><IcoClose /></button>
             </div>
 
-            {/* Salir de la cuponera al detalle de un cupón es un cambio de
+            {/* Salir del Cupopack al detalle de un cupón es un cambio de
                 contexto completo —se pierde la pila y el precio de vista—, así
                 que se avisa antes en vez de después. */}
             {aConfirmar != null && (
               <div className="cp-confirm" onClick={() => setAConfirmar(null)}>
                 <div className="cp-confirm-caja" onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true">
-                  <div className="cp-confirm-tit">Vas a salir de la cuponera</div>
+                  <div className="cp-confirm-tit">Vas a salir del Cupopack</div>
                   <p className="cp-confirm-txt">
                     Se abre el detalle de <strong>{cupones[aConfirmar]?.titulo}</strong>. Vas a poder volver al Cupopack desde ahí.
                   </p>
@@ -913,7 +943,7 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose, onVer
           color: #fff;
         }
         .cp-hero-bg   { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
-        .cp-hero-velo { position: absolute; inset: 0; background: linear-gradient(120deg, rgba(11,16,32,0.9) 0%, rgba(27,38,93,0.62) 58%, rgba(37,69,230,0.42) 100%); }
+        .cp-hero-velo { position: absolute; inset: 0; background: linear-gradient(120deg, rgba(11,16,32,0.9) 0%, rgba(27,38,93,0.62) 58%, rgba(71,91,225,0.42) 100%); }
         .cp-hero-in   { position: relative; }
 
         /* El logo colapsa desde una caja y no por su propio max-height: sobre
@@ -1103,6 +1133,10 @@ export default function CupopackModal({ cupopack, startIndex = 0, onClose, onVer
           margin: 0 0 12px; font-size: 12.5px; font-weight: 700;
           color: rgba(255,255,255,0.6);
         }
+        .cp-pase-pagar {
+          margin: 12px 0 0; font-size: 13.5px; line-height: 1.45; color: rgba(255,255,255,0.72);
+        }
+        .cp-pase-pagar strong { color: ${C.yellow}; font-weight: 800; font-size: 15px; }
         .cp-pase-aviso {
           margin: 14px 0 0; padding: 10px 13px; border-radius: 10px;
           background: rgba(255,201,60,0.14); border: 1px solid rgba(255,201,60,0.35);

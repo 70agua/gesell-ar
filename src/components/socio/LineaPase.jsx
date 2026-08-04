@@ -5,43 +5,30 @@
 //  Reemplaza al sticker rotado del Pase, que ocupaba el mejor píxel del panel
 //  sin convertir.
 //
-//  ⚠️ Un solo string no sirve: "ya lo tenés incluido" es FALSO en una oferta
-//  premium, donde el turista elige un puñado. El copy cambia según la capa, que
-//  se deriva del ahorro declarado (nivelEnPase) — no de una columna.
+//  ⚠️ La capa premium se lee al revés de la base:
 //
-//  ⚠️ Sólo se muestra SIN Pase. Con Pase, el bloque de acción ya dice el estado
-//  real de esta oferta ("te quedan N elecciones", "entra en tu Pase"), y repetirlo
-//  acá abajo sería el mismo dato dos veces con distinta redacción — la forma más
-//  rápida de que las dos se desincronicen.
+//   - Premium: sólo tiene sentido para quien YA tiene un Pase contratado
+//     (activo o todavía dormido — `pase` alcanza, no hace falta `activo`).
+//     Sin Pase, la invitación a comprarlo ya la hace el título del bloque de
+//     acción ("Conseguí este y muchos más con tu Gesell PaSS"); repetirla acá
+//     sería la misma oferta empujada dos veces.
+//   - Base/estadía: al revés — se muestran SIN Pase, como dato informativo de
+//     que la oferta ya entra en la capa incluida. Con Pase, el bloque de
+//     acción ya cubre ese caso ("Entra en tu Pase..."), así que repetirlo acá
+//     sería el mismo dato dos veces con distinta redacción.
+//
+//  `pase` truthy ya implica turista logueado — usePasePropio() sólo llena el
+//  pase cuando hay userId — así que no hace falta chequear sesión aparte.
 // ============================================================
 import PaSSMark from '../PaSSMark';
 import { usePasePropio } from '../../lib/pasePropio';
 import { nivelEnPase, esOfertaEstadia } from '../../lib/pases';
 
 const A = {
-  ink2: '#3D4255', primary: '#2545E6', font: "'Inter', system-ui, sans-serif",
+  ink2: '#3D4255', primary: '#475BE1', font: "'Inter', system-ui, sans-serif",
 };
 
-export default function LineaPase({ promo, onVerPase }) {
-  const { pase } = usePasePropio();
-  if (pase) return null;
-
-  const premium = nivelEnPase(promo) === 'premium';
-  // Alojamiento por debajo del umbral premium: no ocupa elección, pero el Pase
-  // trae UNA sola estadía. Decirle "incluido" prometería ilimitado.
-  const estadia = !premium && esOfertaEstadia(promo);
-
-  let texto;
-  if (premium) {
-    // Sin Pase no se puede prometer un número: las elecciones son una por día y
-    // todavía no eligió cuántos días compra.
-    texto = <>Entra como una de tus experiencias PREMIUM del <PaSSMark size={11} conGesell /></>;
-  } else if (estadia) {
-    texto = <>Tu estadía con el <PaSSMark size={11} conGesell />: el Pase trae una</>;
-  } else {
-    texto = <>Incluido en el <PaSSMark size={11} conGesell /></>;
-  }
-
+function Linea({ children, onVerPase }) {
   return (
     <button
       type="button"
@@ -53,8 +40,35 @@ export default function LineaPase({ promo, onVerPase }) {
         fontFamily: A.font, fontSize: 12.5, fontWeight: 500, color: A.ink2, lineHeight: 1.4,
       }}
     >
-      {texto}
+      {children}
       {onVerPase && <span aria-hidden="true" style={{ color: A.primary, fontWeight: 700 }}>→</span>}
     </button>
+  );
+}
+
+export default function LineaPase({ promo, onVerPase }) {
+  const { pase } = usePasePropio();
+  const premium = nivelEnPase(promo) === 'premium';
+
+  if (premium) {
+    if (!pase) return null;
+    return (
+      <Linea onVerPase={onVerPase}>
+        Entra como una de tus experiencias PREMIUM del <PaSSMark size={11} conGesell />
+      </Linea>
+    );
+  }
+
+  if (pase) return null;
+
+  // Alojamiento por debajo del umbral premium: no ocupa elección, pero el Pase
+  // trae UNA sola estadía. Decirle "incluido" prometería ilimitado.
+  const estadia = esOfertaEstadia(promo);
+  return (
+    <Linea onVerPase={onVerPase}>
+      {estadia
+        ? <>Tu estadía con el <PaSSMark size={11} conGesell />: el Pase trae una</>
+        : <>Incluido en el <PaSSMark size={11} conGesell /></>}
+    </Linea>
   );
 }

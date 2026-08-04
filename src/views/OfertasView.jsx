@@ -4,7 +4,6 @@
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getPromos, getAlojamientos, categoriaDeNegocio, EXPERIENCIAS_SALIDAS } from '../lib/datos';
-import { ALL_PROMOS }   from '../data/mockData';
 import OfertaCard from '../components/OfertaCard';
 import HeartButton from '../components/HeartButton';
 import { getPortadas, elegirPortada } from '../lib/portadas';
@@ -12,9 +11,9 @@ import BuscarDestinoModal from '../components/BuscarDestinoModal';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const A = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -338,15 +337,12 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
         // Ocultar ofertas de regalo (tokens_costo = 0) de las vistas regulares
         .filter(p => p.tokens_costo !== 0);
 
-      const { PROMO_META } = await import('../data/mockData');
-      const idsReales = new Set(reales.map(p => String(p.id)));
-      const mockExtra = ALL_PROMOS
-        .filter(p => !idsReales.has(String(p.id)))
-        .filter(p => p.offerType !== 'Flash' || (p.fechaFinFlash && new Date(p.fechaFinFlash) > new Date()))
-        .filter(p => p.tokens_costo !== 0)
-        .map(p => ({ ...p, ...(PROMO_META[p.id] || {}) }));
-
-      setPromos([...reales, ...mockExtra]);
+      // Sólo lo real. Antes acá se concatenaban las ofertas de mockData que no
+      // colisionaran por id, así que el listado mostraba un catálogo mezclado:
+      // el turista veía ofertas que no existen, sin socio, sin cupo premium y
+      // fuera de la escalera de comisiones. Si con datos reales el listado
+      // queda corto, queda corto — es la información verdadera.
+      setPromos(reales);
       setLoading(false);
     }
     cargar();

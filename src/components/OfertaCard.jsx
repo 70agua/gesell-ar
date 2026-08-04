@@ -4,8 +4,8 @@
 //  Marketplace (grid y lista), y las minifichas de HomeView.
 //  Estructura: header (avatar+nombre+localidad) → imagen con badge
 //  + heart → franja "Ahorrás" con "Ver oferta" a la derecha → sello del
-//  Pase, que es el CTA grande ("Incluido en el GESELL PaSS" si es base,
-//  "Elegilo con el GESELL PaSS" si es premium) → al pie, en texto suelto,
+//  Pase ("Obtené tu GESELL PaSS", o "Incluido en tu" si hay turista logueado)
+//  → al pie, debajo del CTA de compra, en texto suelto,
 //  "ó compralo suelto por $X".
 //
 //  El orden es una jerarquía: mirar la oferta cuesta menos que comprarla, así
@@ -18,6 +18,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import PaSSMark from './PaSSMark';
 import { usePasePropio } from '../lib/pasePropio';
+import { useCarrito } from '../lib/carrito';
 import { secondsUntil } from '../lib/ofertas';
 import { precioActivacionARS, creditosActivacion, esCuponDeEntrada, gananciaNeta } from '../lib/cobros';
 import HeartButton from './HeartButton';
@@ -25,11 +26,11 @@ import { CreditTooltip } from './InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
 import GroupBadge from './GroupBadge';
 import { descuentoMaximo } from '../lib/grupos';
-import { nivelEnPase } from '../lib/pases';
+import { nivelEnPase, esOfertaEstadia } from '../lib/pases';
 
 const A = {
-  primary: '#2545E6',
-  primarySoft: '#EEF1FF',
+  primary: '#475BE1',
+  primarySoft: '#EEF0FD',
   ink:     '#0B1020',
   ink2:    '#3D4255',
   muted:   '#6B7280',
@@ -37,12 +38,15 @@ const A = {
   bg:      '#F7F7F8',
   yellow:  '#FFC93C',
   green:   '#10A36B',
+  primaryDark: '#3347C8',
   greenSoft: '#EDFAF4',
+  // Fondo de la franja de ahorro. Celeste y no verde: el verde lo carga el
+  // monto, y repetirlo en el fondo hacía que la franja gritara más que el CTA.
+  ahorroBg:  '#ECFAFF',
   font:    "'Inter', system-ui, sans-serif",
 };
 
 const fmtPesos = n => '$' + Math.round(n).toLocaleString('es-AR');
-// Puntos mostrados en la franja de ahorro: ahorroEstimado / 4
 
 // Segunda línea del ahorro. Nunca falta: el número solo no dice sobre qué se
 // ahorra, y esa pregunta la contesta o la modalidad (alojamientos, donde
@@ -132,6 +136,26 @@ function ProveedorHeader({ promo, size = 44 }) {
 // `grow`: cuando la ficha se estira para igualar a la más alta de su fila, el
 // sobrante lo absorbe la foto (que recorta con object-fit) en vez de aparecer
 // como un blanco entre el contenido y la franja de ahorro.
+// ─── Corona PREMIUM: mismo fondo translúcido que el corazón ──
+// `rgba(0,0,0,0.30)` + blur es el fondo del HeartButton sobre foto (ver
+// HeartButton.jsx) — se repite acá para que las dos píldoras que flotan sobre
+// la imagen se lean como una sola familia visual, no como dos estilos.
+function PremiumBadge({ top = 10 }) {
+  return (
+    <div style={{
+      position: 'absolute', top, left: 10, zIndex: 3,
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      background: 'rgba(0,0,0,0.30)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+      borderRadius: 999, padding: '6px 13px 6px 10px',
+    }}>
+      <img src="/iconos/premium-01.svg" alt="" width={14} height={11} style={{ display: 'block', flexShrink: 0 }} />
+      {/* "Finito": peso 500 y no 700+ como el resto de los badges — éste
+          acompaña, no compite con el % de descuento que va abajo. */}
+      <span style={{ fontSize: 11, fontWeight: 500, color: '#fff', letterSpacing: '0.09em' }}>PREMIUM</span>
+    </div>
+  );
+}
+
 function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, grow = false }) {
   const esFlash = promo.offerType === 'Flash';
   return (
@@ -140,6 +164,8 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, gr
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,16,32,0.75) 0%, rgba(11,16,32,0.15) 55%, transparent 100%)' }} />
 
       {esFlash && <FlashPill fechaFinFlash={promo.fechaFinFlash} />}
+
+      {nivelEnPase(promo) === 'premium' && <PremiumBadge top={esFlash ? 44 : 10} />}
 
       {promo.exclusivoHuespedes && (
         <>
@@ -220,7 +246,7 @@ function FranjaAhorro({ ahorroEstimado, legend, accion = null }) {
   if (!hayAhorro && !accion) return null;
 
   return (
-    <div style={{ background: A.greenSoft, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div style={{ background: A.ahorroBg, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         {hayAhorro && (
           <>
@@ -244,14 +270,20 @@ function FranjaAhorro({ ahorroEstimado, legend, accion = null }) {
   );
 }
 
-// ─── "Ver oferta" — enlace, no botón ──────────────────────────
+// ─── "Ampliar info" — enlace, no botón ────────────────────────
 // Sólo texto: sin borde ni fondo. Es lo que menos compromete de la ficha y no
-// tiene que verse como el CTA — ese lugar es del Pase.
+// tiene que verse como el CTA.
+//
+// Abre el detalle del CUPÓN y no la ficha del socio, que es a donde lleva
+// clickear la tarjeta. Son dos preguntas distintas: la tarjeta pregunta "quién
+// es este comercio", el enlace pregunta "qué dice la letra chica de este
+// descuento" — y la letra chica (precio suelto, condiciones, stock) vive en el
+// detalle del cupón.
 function VerOfertaLink({ promo, onOpen }) {
   return (
     <button
       type="button"
-      onClick={e => { e.stopPropagation(); onOpen && onOpen(promo); }}
+      onClick={e => { e.stopPropagation(); onOpen && onOpen(promo, { detalle: true }); }}
       style={{
         flexShrink: 0, background: 'none', border: 'none', padding: 0,
         fontFamily: A.font, fontSize: 12.5, fontWeight: 800, color: A.green,
@@ -259,7 +291,7 @@ function VerOfertaLink({ promo, onOpen }) {
         lineHeight: 1.2, whiteSpace: 'nowrap', cursor: 'pointer',
       }}
     >
-      Ver oferta
+      Ampliar info
     </button>
   );
 }
@@ -317,31 +349,30 @@ function StockStrip({ tieneStock, stockRestante }) {
   );
 }
 
-// ─── Sello del Pase: es un CTA, no una etiqueta ────────────────
-// Cuatro textos, y la diferencia importa:
+// ─── Sello del Pase ───────────────────────────────────────────
+// DOS textos, y sólo dos:
 //
-//               │ sin Pase                    │ con Pase activo
-//   ────────────┼─────────────────────────────┼──────────────────
-//   base        │ Incluido en el GESELL PaSS  │ Ya lo tenés
-//   premium     │ Elegilo con el GESELL PaSS  │ Elegilo con el GESELL PaSS
+//   con Pase ACTIVO  →  "Usá tu GESELL PaSS"
+//   sin Pase activo  →  "Obtené tu GESELL PaSS"
 //
-// "Ya lo tenés" SÓLO si el turista tiene un Pase activo — si no, es una
-// promesa falsa. Y una premium nunca dice "incluido": consume uno de los
-// pocos slots del Pase, no es ilimitada.
+// Igual para base, premium y estadía: el sello dice a qué producto pertenece la
+// oferta, no cómo se consume. El límite —cuántos premium trae el Pase, cuántos
+// quedan, que la estadía es una sola— se explica en el detalle, en la caja
+// lateral, donde hay lugar para decirlo entero.
 //
-// Al que todavía no lo tiene, el sello lo lleva a comprarlo: es el lugar
-// donde la oferta que está mirando se vuelve el motivo para comprar el Pase.
-function SelloPase({ promo }) {
+// NUNCA "incluido": una premium consume uno de los pocos slots y la estadía es
+// una por pase. "Incluido" promete acceso ilimitado a algo limitado.
+//
+// El estado depende de TENER PASE ACTIVO, no de estar logueado. Un turista
+// logueado sin Pase no tiene nada que usar.
+//
+// No es un botón: la forma llena y redondeada es del CTA de compra. Dos pesos
+// de acción y no dos botones — azul lleno = la acción; texto = todo lo demás.
+function SelloPase() {
   const { activo, comprarPase } = usePasePropio();
-  const esPremium = nivelEnPase(promo) === 'premium';
+  const texto = activo ? 'Usá tu' : 'Obtené tu';
 
-  // Una PREMIUM nunca dice "incluido": consume uno de los N slots del turista,
-  // y "incluido" promete acceso ilimitado a algo que es limitado.
-  // "Ya lo tenés" va solo: nombrar la marca ahí sobra, ya es suyo.
-  const texto    = esPremium ? 'Elegilo con el' : (activo ? 'Ya lo tenés' : 'Incluido en el');
-  const conMarca = esPremium || !activo;
-
-  // Al que ya lo tiene no se le vende de nuevo: el sello deja de ser CTA.
+  // Al que ya lo tiene no se le vende de nuevo.
   const clickable = !activo && typeof comprarPase === 'function';
 
   return (
@@ -349,66 +380,93 @@ function SelloPase({ promo }) {
       type="button"
       onClick={clickable ? (e => { e.stopPropagation(); comprarPase(); }) : undefined}
       style={{
-        alignSelf: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        // Alto clavado al del botón "Ver oferta" que había antes acá: el CTA de
-        // la ficha cambió de texto, no de peso.
-        minHeight: 38, boxSizing: 'border-box', padding: '0 22px',
-        background: A.primarySoft, border: `1px solid ${A.primary}22`, borderRadius: 999,
-        fontFamily: A.font, fontSize: 13.5, fontWeight: 800,
+        alignSelf: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        background: 'none', border: 'none', padding: 0, textDecoration: 'none',
+        fontFamily: A.font, fontSize: 13.5, fontWeight: 600,
         color: A.primary, cursor: clickable ? 'pointer' : 'default', lineHeight: 1,
       }}
     >
-      <span>{texto}</span>
-      {conMarca && <PaSSMark size={11} conGesell />}
+      {/* La NauryzRedkeds del lockup se apoya más abajo que la Inter dentro de
+          la misma caja. Los 2px alinean las dos ópticamente; `alignItems:
+          center` sólo iguala las cajas, no los trazos. */}
+      <span style={{ position: 'relative', top: -2 }}>{texto}</span>
+      <PaSSMark size={11} conGesell />
     </button>
   );
 }
 
-// ─── Pie: el Pase y, debajo, el cupón suelto ───────────────────
-// El Pase se queda con la única forma de botón de la ficha. El suelto es la
-// opción cara: va abajo, en texto, sin recuadro y sin hover — clickearlo abre
-// el detalle, igual que el resto de la ficha, pero nada en su aspecto lo
-// empuja. "Ver oferta" ya no vive acá: se mudó a la franja de ahorro.
-function PrecioYAcciones({ promo, onOpen, hideActions = false, hidePrecio = false, hideAgregar = false }) {
-  const suelto = precioSuelto(promo);
+// ¿El Pase ya cubre esta oferta? Sólo con Pase ACTIVO, y sólo cuando usarla no
+// consume nada: una base es ilimitada y la estadía sin usar ya está paga.
+//
+// Una premium NO cuenta: ocupa uno de los pocos slots, así que comprarla suelta
+// sigue siendo una decisión real y el botón tiene que estar.
+function cubiertoPorPase(promo, { activo, estadia }) {
+  if (!activo) return false;
+  if (nivelEnPase(promo) === 'premium') return false;
+  if (esOfertaEstadia(promo)) return !!estadia?.disponible;
+  return true;
+}
+
+// ─── Pie: el CTA de compra arriba, el sello del Pase abajo ─────
+//
+// El PRECIO no está acá. Un número en la mini-ficha invita a comparar antes de
+// saber qué se compra, y la ficha no tiene lugar para explicarlo; vive en el
+// detalle ampliado, que es donde el turista ya está evaluando.
+//
+// El botón va PRIMERO: es la acción, y el sello es la nota al pie que explica
+// la otra forma de conseguirlo. Leído en ese orden, el sello no interrumpe la
+// decisión — la complementa.
+//
+// Y no aparece si el Pase ya cubre la oferta: al que pagó el Pase no se le
+// vuelve a vender lo que ya es suyo.
+function PrecioYAcciones({ promo, onOpen, hideActions = false, hideAgregar = false }) {
+  const { addCupon } = useCarrito();
+  const { activo, estadia } = usePasePropio();
+  const [hover, setHover] = useState(false);
+
+  if (hideActions) return <div style={{ padding: '15px 16px 17px' }} />;
+
+  const cubierto = cubiertoPorPase(promo, { activo, estadia });
+  const gratis   = promo.tokens_costo === 0;
+
+  // Con el Pase corriendo y la oferta cubierta, no hay nada que comprar: lo que
+  // sigue es usarla. El botón deja de agregar al carrito y lleva al detalle,
+  // que es donde vive el canje —cámara, código manual, confirmación—. Meter
+  // todo eso en la mini-ficha sería resolver en la vidriera algo que pasa
+  // parado en el mostrador.
+  const usar = cubierto;
 
   return (
-    <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {!hideActions && (
-        <>
-          {!hideAgregar && <SelloPase promo={promo} />}
+    <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+      <button
+          type="button"
+          onClick={e => { e.stopPropagation(); usar ? onOpen?.(promo, { detalle: true }) : addCupon(promo); }}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            // 70% del ancho y centrado: el botón no tiene que empujar contra los
+            // bordes de la ficha para pesar — el color ya lo hace, y el aire a
+            // los costados lo separa de la franja de ahorro de arriba.
+            width: '70%', alignSelf: 'center',
+            minHeight: 48, padding: '0 20px', border: 'none',
+            // Totalmente redondeado: es la única pieza de la ficha con forma de
+            // botón, así que no necesita competir por atención con un radio.
+            borderRadius: 999,
+            background: hover ? A.primaryDark : A.primary, color: '#fff',
+            fontFamily: A.font, fontSize: 15, fontWeight: 800, cursor: 'pointer',
+            transition: 'background .15s',
+          }}
+        >
+          {usar ? 'Canjear ahora' : gratis ? 'Lo quiero, es gratis' : 'Quiero el cupón'}
+        </button>
 
-          {!hidePrecio && suelto && (
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onOpen && onOpen(promo); }}
-              style={{
-                alignSelf: 'center', background: 'none', border: 'none', padding: 0,
-                fontFamily: A.font, fontSize: 12, color: A.muted, lineHeight: 1.3,
-                cursor: 'pointer',
-              }}
-            >
-              ó compralo suelto por <span style={{ fontWeight: 700, color: A.ink2 }}>{suelto}</span>
-            </button>
-          )}
-        </>
-      )}
+      {!hideAgregar && <SelloPase />}
     </div>
   );
 }
 
-// El precio del cupón suelto, ya formateado. `null` cuando no corresponde
-// mostrarlo (regalo o sin dato).
-function precioSuelto(promo) {
-  const tc = promo.tokens_costo;
-  if (tc === 0) return null;                       // cupón de regalo
-  if (tc == null && !(promo.ahorroEstimado > 0)) return null;
-  const pesos = precioActivacionARS({ ahorro: promo.ahorroEstimado, tokensCosto: tc });
-  return pesos > 0 ? fmtPesos(pesos) : null;
-}
-
 // ═══════════════════════════════════════════════════════════
-export default function OfertaCard({ promo, onOpen, onClick, variant = 'grid', inMarketplace = false, reviewSlot = null, fixedHeight = null, hideActions = false, hidePrecio = false, hideAgregar = false, hideHeart = false }) {
+export default function OfertaCard({ promo, onOpen, onClick, variant = 'grid', inMarketplace = false, reviewSlot = null, fixedHeight = null, hideActions = false, hideAgregar = false, hideHeart = false }) {
   const abrir = onOpen || onClick;
 
   if (variant === 'list') {
@@ -428,7 +486,7 @@ export default function OfertaCard({ promo, onOpen, onClick, variant = 'grid', i
           <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)}
             accion={<VerOfertaLink promo={promo} onOpen={abrir} />} />
           <StockStrip tieneStock={promo.tieneStock} stockRestante={promo.stockRestante} />
-          <PrecioYAcciones promo={promo} onOpen={abrir} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
+          <PrecioYAcciones promo={promo} onOpen={abrir} hideAgregar={hideAgregar} />
         </div>
       </div>
     );
@@ -450,7 +508,7 @@ export default function OfertaCard({ promo, onOpen, onClick, variant = 'grid', i
         : reviewSlot}
       <FranjaAhorro ahorroEstimado={promo.ahorroEstimado} legend={ahorroLegend(promo)}
         accion={hideActions ? null : <VerOfertaLink promo={promo} onOpen={abrir} />} />
-      <PrecioYAcciones promo={promo} onOpen={abrir} hideActions={hideActions} hidePrecio={hidePrecio} hideAgregar={hideAgregar} />
+      <PrecioYAcciones promo={promo} onOpen={abrir} hideActions={hideActions} hideAgregar={hideAgregar} />
     </div>
   );
 

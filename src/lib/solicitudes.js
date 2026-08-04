@@ -24,15 +24,16 @@ export const ESTADOS = {
   enviada:         { label: 'Esperando respuesta', color: '#B45309', bg: '#FFF7E5' },
   aceptada:        { label: 'Confirmada',          color: '#10A36B', bg: '#ECFDF5' },
   rechazada:       { label: 'No pudo ser',         color: '#DC2626', bg: '#FEF2F2' },
-  contrapropuesta: { label: 'Te proponen otra fecha', color: '#2545E6', bg: '#EEF1FF' },
+  contrapropuesta: { label: 'Te proponen otra fecha', color: '#475BE1', bg: '#EEF0FD' },
   cancelada:       { label: 'Cancelada',           color: '#64748B', bg: '#F1F5F9' },
   vencida:         { label: 'Sin respuesta a tiempo', color: '#64748B', bg: '#F1F5F9' },
 };
 
 const ERRORES = {
+  falta_horario:        'Elegí un horario.',
   no_auth:                  'Iniciá sesión para pedir una fecha.',
   sin_pase:                 'Necesitás un Pase para pedir fechas.',
-  sin_slots:                'No te quedan beneficios premium disponibles.',
+  sin_slots:                'No te quedan beneficios PREMIUM disponibles.',
   ya_tenes_una_pendiente:   'Ya pediste fecha para este beneficio y estás esperando respuesta.',
   fecha_pasada:             'Elegí una fecha de hoy en adelante.',
   fecha_fuera_de_vigencia:  'Esa fecha queda fuera de los días de tu Pase.',
@@ -48,13 +49,20 @@ const ERRORES = {
 export const textoError = e => ERRORES[e] || 'No pudimos completar la acción. Probá de nuevo.';
 
 // ─── Turista ──────────────────────────────────────────────────
-export async function enviarSolicitud({ promocionId, fecha, personas, origenId = null }) {
+// Cada campo va en null cuando la oferta no lo pregunta: el formulario muestra
+// sólo lo que el socio necesita saber, y lo que no se preguntó no se inventa.
+//
+// El TOTAL de personas no se manda: lo calcula la RPC desde el desglose. Si
+// viniera del cliente, un formulario desactualizado podría mandar un total que
+// no coincide con lo que el socio ve.
+export async function enviarSolicitud({ promocionId, fecha, origenId = null, hora = null, adultos = null, ninos = null, bebes = null, mascotas = null }) {
   const { data, error } = await supabase.rpc('enviar_solicitud_fecha', {
-    p_promocion_id: promocionId, p_fecha: fecha, p_personas: personas, p_origen_id: origenId,
+    p_promocion_id: promocionId, p_fecha: fecha, p_origen_id: origenId,
+    p_hora: hora || null, p_adultos: adultos, p_ninos: ninos, p_bebes: bebes, p_mascotas: mascotas,
   });
   if (error) return { ok: false, error: error.message };
   if (!data?.ok) return { ok: false, error: data?.error, total: data?.total, venceEl: data?.vence_el };
-  return { ok: true, solicitudId: data.solicitud_id, expiraAt: data.expira_at, slotsRestantes: data.slots_restantes };
+  return { ok: true, solicitudId: data.solicitud_id, expiraAt: data.expira_at, premium: data.premium, personas: data.personas };
 }
 
 export async function cancelarSolicitud(solicitudId) {

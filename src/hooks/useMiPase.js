@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-const VACIO = { cargando: false, pase: null, usadas: 0, total: 0, restantes: 0, activo: false, pendiente: false };
+const VACIO = { cargando: false, pase: null, usadas: 0, total: 0, restantes: 0, activo: false, pendiente: false, premiumIlimitado: false };
 
 export default function useMiPase(session) {
   const userId = session?.user?.id || null;
@@ -51,15 +51,24 @@ export default function useMiPase(session) {
         .select('id', { count: 'exact', head: true })
         .eq('usuario_pase_id', pase.id);
 
-      const total = pase.elecciones_premium ?? pase.dias
+      const totalNum = pase.elecciones_premium ?? pase.dias
         ?? pase.pases?.elecciones_premium ?? pase.pases?.duracion_dias ?? 0;
       const usadas = count || 0;
+      // Congelado en la compra (ver DIAS_PREMIUM_ILIMITADO en lib/pases.js): a
+      // partir de 10 días no hay tope de premium. `select('*')` ya trae la
+      // columna; sólo hace falta nombrarla acá.
+      const premiumIlimitado = pase.premium_ilimitado === true;
 
       if (vivo) setEstado({
-        cargando: false, pase, usadas, total,
-        restantes: Math.max(0, total - usadas),
+        cargando: false, pase, usadas,
+        // Infinity y no un número grande: mismo criterio que lib/pasePropio.jsx
+        // (§infinito) — la resta/comparación numérica sigue andando sola, y el
+        // texto tiene que mirar `premiumIlimitado` antes de imprimir esto.
+        total:     premiumIlimitado ? Infinity : totalNum,
+        restantes: premiumIlimitado ? Infinity : Math.max(0, totalNum - usadas),
         activo:    pase.estado === 'activo',
         pendiente: pase.estado === 'pendiente',
+        premiumIlimitado,
       });
     })();
 

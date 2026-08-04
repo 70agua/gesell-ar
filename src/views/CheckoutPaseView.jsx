@@ -7,7 +7,7 @@
 // ============================================================
 import { useEffect, useRef, useState } from 'react';
 import { Check, CreditCard, Loader2, Minus, Plus } from 'lucide-react';
-import { getPasesDestino, comprarPaseAnonimo, vincularComprasPase, eleccionesPremium, contarIncluidasEnPase } from '../lib/pases';
+import { getPasesDestino, comprarPaseAnonimo, vincularComprasPase, eleccionesPremium, esPremiumIlimitado, contarIncluidasEnPase } from '../lib/pases';
 import { usePasePropio } from '../lib/pasePropio';
 import CupopacksParaPase from '../components/CupopacksParaPase';
 import PaSSMark from '../components/PaSSMark';
@@ -19,9 +19,9 @@ import { loginConIdentificador, pareceEmail, registrarTurista, recuperarPassword
 // que se desprenden de ahí. Sin amarillo ni navy — el checkout es la pantalla
 // de plata y tiene que leerse sobria.
 const C = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -34,6 +34,12 @@ const C = {
 // proporcional a ese pase (mismo precio por día), sin recargo ni descuento.
 const DIAS_CUSTOM_MIN = 8;
 const DIAS_CUSTOM_MAX = 30;
+// El selector arranca posicionado en 10 y no en el mínimo: es la cantidad de
+// días que el negocio quiere mostrar primero (aunque el turista pueda igual
+// bajarlo a 9 u 8 con el paso a paso). Un default != mínimo es una decisión de
+// producto, no un olvido — por eso queda como constante nombrada y no un
+// número suelto en el useState.
+const DIAS_CUSTOM_INICIAL = 10;
 const DIAS_BASE_PRORRATEO = 7;
 
 const fmt = n => `$${Math.round(Number(n) || 0).toLocaleString('es-AR')}`;
@@ -58,8 +64,8 @@ function StepBtn({ children, label, disabled, onClick }) {
       onClick={e => { e.stopPropagation(); onClick(); }}
       style={{
         display: 'grid', placeItems: 'center', width: 26, height: 26, flexShrink: 0,
-        borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff',
-        color: disabled ? C.line : C.ink2, cursor: disabled ? 'not-allowed' : 'pointer',
+        borderRadius: 8, border: `1px solid ${C.line}`, background: '#475BE1',
+        color: disabled ? '#5f76ea' : C.line, cursor: disabled ? 'not-allowed' : 'pointer',
         padding: 0, fontFamily: C.font,
       }}
     >
@@ -70,9 +76,9 @@ function StepBtn({ children, label, disabled, onClick }) {
 
 // ─── Ícono de la aclaración de reserva previa ────────────────
 // Uno solo, el del calendario: lo que hay que entender acá es "con fecha por
-// adelantado", no el catálogo de rubros. Es Lottie, así que se anima al pasarle
-// el mouse por encima y el canvas cuadrado necesita ancho explícito.
-const ICONO_RESERVA = { src: '/iconos/fecha.json', label: 'Reserva previa', lado: 54 };
+// adelantado", no el catálogo de rubros. Es Lottie con animar (loop permanente,
+// no espera hover) y el canvas cuadrado necesita ancho explícito.
+const ICONO_RESERVA = { src: '/iconos/fecha.json', label: 'Fecha coordinada', lado: 54 };
 
 // ─── Tilde de selección, arriba a la derecha de cada tarjeta ─
 // El borde y el fondo azul ya marcan cuál está elegido, pero de reojo se
@@ -97,22 +103,33 @@ function TildePase({ activo }) {
 // ─── Qué trae cada pase, al pie de su tarjeta ────────────────
 // Dos renglones, en el orden en que se entiende la oferta: primero el catálogo
 // que entra entero (igual para todos los pases, sale del catálogo vivo) y
-// después las elecciones PLUS, que sí crecen con los días.
+// después las elecciones premium, que sí crecen con los días.
 // Si el conteo de incluidas todavía no llegó (o dio 0), esa línea no se pinta.
+//
+// Desde DIAS_PREMIUM_ILIMITADO (10 días) las dos líneas se reemplazan por una
+// sola: a esa duración no hay "N descuentos premium" que contar, porque no hay
+// tope — reportar un número ahí sería inventarle un límite que no tiene.
 function Incluye({ incluidas, dias }) {
+  if (esPremiumIlimitado(dias)) {
+    return (
+      <div style={{ fontSize: 11.5, color: C.primary, fontWeight: 700, lineHeight: 1.35, marginTop: 6 }}>
+        Todo el catálogo disponible
+      </div>
+    );
+  }
   return (
     <div style={{ fontSize: 11.5, fontWeight: 500, color: C.muted, marginTop: 6 }}>
       {incluidas > 0 && <div>{incluidas} descuentos incluidos</div>}
-      <div style={{ fontSize: 11.5, color: C.primary, fontWeight: 700, lineHeight: 1.35 }}>+ {eleccionesPremium(dias)} descuentos PLUS</div>
+      <div style={{ fontSize: 11.5, color: C.primary, fontWeight: 700, lineHeight: 1.35 }}>+ {eleccionesPremium(dias)} descuentos PREMIUM</div>
     </div>
   );
 }
 
 // ─── Cómo funciona: los tres pasos, antes de elegir nada ─────
 const PASOS = [
-  { t: 'Pagás',              d: 'Dejás tu mail, pagás online y el pase queda a tu nombre.' },
-  { t: 'Activás el Pase', d: 'Cuando llegás a destino, ó elegís una fecha y se activa sola.' },
-  { t: 'Explorás las ofertas y armás tu selección', d: 'La mayoría de los descuentos vienen incluidos. De los PLUS elegís uno por día de pase, y si querés más los sumás a mitad de precio.' },
+  { t: 'Elegí un pase',              d: '¿Cuántos días te quedás? Pagás online, completás tus datos y el pase queda a tu nombre.' },
+  { t: 'Activá el pase o programá su activación', d: '¿Cuando llegás a destino? Elegís una fecha y se activa sola.' },
+  { t: '¡Explorás las ofertas!', d: 'Mostrá el pase en el local y el descuento se aplica al toque, las veces que quieras mientras esté activo.' },
 ];
 
 function ComoFunciona() {
@@ -136,11 +153,14 @@ function ComoFunciona() {
       </ol>
       {/* Reserva previa: el ícono hace de ilustración de a qué se refiere */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '18px 0 0', padding: '14px 16px', background: C.bg, borderRadius: 12 }}>
-        <Icono src={ICONO_RESERVA.src} label={ICONO_RESERVA.label}
+        <Icono src={ICONO_RESERVA.src} label={ICONO_RESERVA.label} animar
           style={{ height: ICONO_RESERVA.lado, width: ICONO_RESERVA.lado, display: 'block', flexShrink: 0 }} />
-        <p style={{ margin: 0, fontSize: 13, color: C.ink2, lineHeight: 1.5 }}>
-          Vas a poder reservar anticipadamente los descuentos en servicios que requieran reserva previa.
-        </p>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>Canjeá con tiempo las ofertas que requieran fecha y hora.</div>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: C.ink2, lineHeight: 1.5 }}>
+            Desde la ficha del cupón podés asegurarte por anticipado que los servicios que requieran confirmación estarán disponibles en la fecha que desées (alojamientos, masajes, una cabalgata, etc). Deberás esperar la respuesta del comercio.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -223,16 +243,18 @@ function PasoPerfil({ onElegir }) {
 // El provider ya estaba montado cuando la compra ni existía, así que su lectura
 // es vieja: hay que pedirle que vuelva a mirar una vez, al aterrizar acá.
 function OfertaPostCompra() {
-  const { pase, libres, total, elegidasIds, refrescar } = usePasePropio();
+  const { pase, libres, total, premiumIlimitado, elegidasIds, refrescar } = usePasePropio();
   const [listo, setListo] = useState(false);
 
   useEffect(() => { refrescar().then(() => setListo(true)); }, [refrescar]);
 
+  // `libres <= 0` sigue funcionando con libres=Infinity (§infinito en
+  // lib/pasePropio.jsx): la comparación numérica no necesita casos especiales.
   if (!listo || !pase || libres <= 0) return null;
   return (
     <div style={{ marginTop: 16 }}>
       <CupopacksParaPase
-        paseId={pase.id} libres={libres} total={total}
+        paseId={pase.id} libres={libres} total={total} premiumIlimitado={premiumIlimitado}
         elegidasIds={elegidasIds} onCambio={refrescar} />
     </div>
   );
@@ -244,7 +266,7 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
   const [perfil, setPerfil] = useState(preguntarPerfil ? null : 'turista');
   const [pases, setPases]     = useState(null);
   const [elegido, setElegido] = useState(paseDias); // nº de días, o 'custom'
-  const [diasCustom, setDiasCustom] = useState(DIAS_CUSTOM_MIN);
+  const [diasCustom, setDiasCustom] = useState(DIAS_CUSTOM_INICIAL);
   const [esNuevo, setEsNuevo] = useState(true); // pestaña nuevo / ya registrado
   const [nombreUsuario, setNombreUsuario] = useState('');
   const [apellido, setApellido] = useState('');
@@ -519,7 +541,7 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
                     label="Un día menos"
                     disabled={diasCustom <= DIAS_CUSTOM_MIN}
                     onClick={() => { setElegido('custom'); setDiasCustom(d => Math.max(DIAS_CUSTOM_MIN, d - 1)); }}
-                  ><Minus size={13} /></StepBtn>
+                  ><Minus size={18} /></StepBtn>
                   <span style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 800, color: esCustom ? C.primary : C.ink, whiteSpace: 'nowrap' }}>
                     {diasCustom} días
                   </span>
@@ -527,7 +549,7 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
                     label="Un día más"
                     disabled={diasCustom >= DIAS_CUSTOM_MAX}
                     onClick={() => { setElegido('custom'); setDiasCustom(d => Math.min(DIAS_CUSTOM_MAX, d + 1)); }}
-                  ><Plus size={13} /></StepBtn>
+                  ><Plus size={18} /></StepBtn>
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', marginTop: 4 }}>
                   {fmt(precioCustom)}
@@ -538,25 +560,22 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
             </div>
           )}
 
-          {/* Salida para el otro lado del mostrador: el hotelero no compra un
-              pase, se suscribe para regalárselos a sus turistas. */}
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <button
-              type="button" onClick={onSoyHotelero}
-              style={{ background: 'none', border: 'none', padding: 0, color: C.primary, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: C.font }}
-            >
-              ¿Sos hotelero? <b style={{ fontWeight: 800 }}>Seguí este enlace</b>
-            </button>
-          </div>
         </div>
 
         {/* Contacto */}
         <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
-          {/* El "CUPONEAR" del rótulo va con la marca en vez de escrito: es el
-              único lugar del checkout donde aparece el nombre de la empresa. */}
-          <div style={{ ...labelSt, display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
-            INGRESÁ A
-            <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 32, width: 'auto', display: 'block' }} />
+          {/* Mismo tratamiento que "¿Cómo funciona?": itálica, centrado y en
+              primary. Los dos son títulos de sección del checkout y antes
+              tenían pesos distintos —uno de rótulo, otro de titular—, así que
+              se leían como si uno mandara sobre el otro.
+
+              El nombre va con la marca y no escrito: es el único lugar del
+              checkout donde aparece el nombre de la empresa. */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, margin: '20px 0 40px' }}>
+            <span style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: C.primary, letterSpacing: '-0.01em' }}>
+              Ingresá a
+            </span>
+            <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 44, width: 'auto', display: 'block' }} />
           </div>
 
           {/* Nuevo vs. ya registrado: al que ya tiene cuenta no le pedimos

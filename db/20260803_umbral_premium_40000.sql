@@ -1,0 +1,28 @@
+-- ============================================================
+--  Frontera base/premium: $15.000 → $40.000
+--  Aplicado vía MCP (migración umbral_premium_40000).
+--
+--  El umbral estaba duplicado en 4 RPCs + 1 CHECK, porque cada una decide
+--  "¿esto es premium?" en su propio momento (elegir, canjear, pedir fecha,
+--  listar beneficios, validar al publicar) y ninguna llama a otra para no
+--  acoplarlas. Se movió el número a mano en las cinco:
+--
+--    beneficios_en_negocio    · label 'premium'/'incluida' + filtro de listado
+--    canjear_beneficio        · exige elección previa si es premium
+--    elegir_premium_pase      · rechaza con 'no_es_premium' si no supera el piso
+--    enviar_solicitud_fecha   · v_premium define si la solicitud consume slot
+--    promociones_premium_definido (CHECK) · exige cupo/ilimitado si es premium
+--
+--  El espejo en JS es AHORRO_BASE_MAX en src/lib/pases.js, de donde cuelga
+--  nivelEnPase() — así que OfertaCard, CtaPase, LimitePase, CupopackModal y
+--  el editor del socio heredan el cambio sin tocarlos.
+--
+--  El CHECK se vuelve MÁS PERMISIVO al subir el número (menos ofertas caen en
+--  "premium", así que menos exigen cupo_mensual_premium), así que no hay
+--  riesgo de romper filas existentes — se verificó con un conteo antes de
+--  aplicar: 0 filas violarían el constraint nuevo.
+--
+--  ⚠️ NO se tocó `precio_cupon()` / `calcularPrecioCupon()` (cobros.js): esos
+--  15000/40000 son los bordes de la escalera de COMISIÓN MARGINAL, un
+--  concepto distinto que comparte número por coincidencia, no por relación.
+-- ============================================================

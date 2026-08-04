@@ -9,6 +9,7 @@ import 'leaflet/dist/leaflet.css';
 import { supabase } from '../lib/supabase';
 import { login } from '../lib/auth';
 import { CATS_RUBRO as CATS } from '../lib/datos';
+import CondicionesPicker from '../components/CondicionesPicker';
 
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -24,8 +25,8 @@ const A = {
   ink2:        '#3D4255',
   muted:       '#6B7280',
   line:        '#E7E9EE',
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
   bg:          '#F7F7F8',
   green:       '#116b3c',
   greenBg:     '#eaf4ee',
@@ -36,23 +37,6 @@ const A = {
 
 // ─── Datos estáticos ────────────────────────────────────────
 const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul'];
-
-const CONDICIONES_BASE = [
-  { id: 'tarifa', label: 'Aplicable solo a tarifa estándar', sub: 'No válido para feriados ni tarifas especiales' },
-  { id: 'disponibilidad', label: 'Sujeto a disponibilidad', sub: 'Puede no estar disponible en fechas de alta demanda' },
-  { id: 'anticipada', label: 'Válido con reserva anticipada', sub: 'Requiere reservar con al menos 48 hs de anticipación' },
-  { id: 'acumulable', label: 'No acumulable con otras promociones', sub: 'No se puede combinar con otros descuentos activos' },
-];
-
-const CONDICIONES_SALIDAS = [
-  { id: 'menu', label: 'Aplica solo al menú regular', sub: 'No válido para menús especiales ni fechas festivas' },
-  { id: 'preventa', label: 'Con reserva previa obligatoria', sub: 'Debe reservarse mesa con al menos 2 hs de anticipación' },
-];
-
-const CONDICIONES_AVENTURA = [
-  { id: 'clima', label: 'Sujeto a condiciones climáticas', sub: 'Puede reprogramarse por mal tiempo' },
-  { id: 'grupo', label: 'Mínimo de participantes requerido', sub: 'La actividad requiere un mínimo de personas para realizarse' },
-];
 
 // ─── Centro de Villa Gesell ─────────────────────────────────
 const MAP_CENTER = [-37.2637, -56.9738];
@@ -313,8 +297,9 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
   const [titulo, setTitulo]             = useState('');
   const [tituloError, setTituloError]   = useState(false);
   const [descripcion, setDescripcion]   = useState('');
-  const [condiciones, setCondiciones]   = useState({});
-  const [condCustom, setCondCustom]     = useState('');
+  // Texto ya serializado (un renglón por condición). El picker se encarga del
+  // formato; acá sólo se guarda y se valida que no esté vacío.
+  const [condicionesTexto, setCondicionesTexto] = useState('');
   const [ahorroModo, setAhorroModo]     = useState('exacto');
   const [ahorroVal, setAhorroVal]       = useState('');
   const [ahorroDesde, setAhorroDesde]   = useState('');
@@ -349,11 +334,6 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
     : ahorroDesde ? `Desde ${ahorroDesde}`
     : ahorroHasta ? `Hasta ${ahorroHasta}` : '';
 
-  const condicionesActivas = tipo === 'salidas'
-    ? [...CONDICIONES_BASE, ...CONDICIONES_SALIDAS]
-    : tipo === 'aventura_relax'
-    ? [...CONDICIONES_BASE, ...CONDICIONES_AVENTURA]
-    : CONDICIONES_BASE;
 
   function handleTituloChange(v) {
     setTitulo(v);
@@ -448,11 +428,6 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
       });
 
       // 4. Guardar oferta como pendiente
-      const condicionesTexto = [
-        ...condicionesActivas.filter(c => condiciones[c.id]).map(c => c.label),
-        condCustom,
-      ].filter(Boolean).join(' · ');
-
       const ofertaPayload = {
         negocio_id:  negocio.id,
         titulo,
@@ -596,28 +571,17 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
                   <CharCount value={descripcion} max={400} />
                 </FieldWrap>
 
-                {/* Condiciones */}
-                <FieldWrap label="Condiciones" optional>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-                    {CONDICIONES_BASE.map(c => (
-                      <label
-                        key={c.id}
-                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', border: `1px solid ${condiciones[c.id] ? A.primary : A.line}`, borderRadius: 8, cursor: 'pointer', background: condiciones[c.id] ? A.primarySoft : '#fff', transition: 'all 0.15s' }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!!condiciones[c.id]}
-                          onChange={e => setCondiciones(prev => ({ ...prev, [c.id]: e.target.checked }))}
-                          style={{ marginTop: 2, flexShrink: 0, accentColor: A.primary }}
-                        />
-                        <div>
-                          <div style={{ fontSize: 13, color: A.ink }}>{c.label}</div>
-                          <div style={{ fontSize: 11, color: A.muted, marginTop: 2 }}>{c.sub}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  <Input placeholder="Otra condición personalizada..." value={condCustom} onChange={e => setCondCustom(e.target.value)} />
+                {/* Condiciones. Obligatorias para publicar: en el canje el
+                    comercio es pasivo, así que esto es lo único que fija la
+                    expectativa antes de que el turista llegue al mostrador. */}
+                <FieldWrap label="Condiciones de canje">
+                  <CondicionesPicker
+                    valor={condicionesTexto}
+                    categoria={tipo}
+                    onChange={setCondicionesTexto}
+                    acento={A.primary}
+                    linea={A.line}
+                  />
                 </FieldWrap>
 
                 {/* Ahorro */}

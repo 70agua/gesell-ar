@@ -68,6 +68,22 @@ Copy, precios y bonos viven en la tabla `planes` (editables desde SuperAdmin →
 
 **Ser hotelero no es condición para suscribirse; tener cuenta sí** (2026-08-02). `CheckoutHoteleroView` dejó de abrir con un formulario "TU ALOJAMIENTO": ahora abre con el ingreso a Cuponear, y al que es nuevo se le piden **dos** datos del negocio —tipo de empresa (Alojamiento / Agencia de turismo / Inmobiliaria / Revendedor / Otros) y nombre—, nada más. Localidad, descripción y fotos se piden después del pago, desde el panel. El que ya tiene cuenta **y** negocio no crea otro: se le contrata el plan al que ya está (`crearSuscripcionPro`). Los tres tipos nuevos se sumaron al CHECK de `negocios.tipo` (`db/20260802_tipos_empresa_socio.sql`) y a los sets de `categoriaDeNegocio`: Inmobiliaria → alojamiento, Agencia de turismo → aventura_relax, Revendedor → salidas por descarte.
 
+### ⚠️ Un dato que falta no se rellena
+
+Van **tres** casos en los que la app tapó un hueco con contenido fabricado, y los tres pasaron desapercibidos porque *se veían bien*:
+
+| dónde | qué inventaba |
+|---|---|
+| `OfertaDetailView` (stock) | buscaba la oferta en el mock por título y si no estaba usaba `28` totales / `11` usados — el aviso "¡Últimos cupones!" salía con números falsos en ofertas sin stock |
+| `OfertaDetailView` (descripción) | un párrafo genérico *"Aprovechá esta oferta exclusiva de uno de nuestros socios verificados…"* que se hacía pasar por texto del socio en las 33 ofertas sin descripción |
+| `OfertasView` / `OfertasRegaloView` | concatenaban o caían a `mockData`, así que el catálogo visible mezclaba ofertas que no existen |
+
+**Regla: cuando falta un dato, se muestra vacío o no se muestra.** Aplica a stock, descripciones, métricas y catálogos. Nunca un default inventado, nunca un respaldo al mock, nunca un promedio de relleno.
+
+Un hueco visible es información —dice que falta cargar algo— y alguien lo va a corregir. Un relleno inventado es una mentira que nadie audita: se ve completo, nadie lo reporta, y el turista toma decisiones con datos falsos. Si una pantalla queda pobre con datos reales, eso *es* el estado real del catálogo.
+
+Corolario para las métricas: `stats_negocio` no rellena períodos sin historial, avisa que faltan datos (ver §Tracking).
+
 ### ⚠️ Los CHECK constraints se desactualizan y no fallan hasta que corren
 
 Van **tres** casos en los que un `CHECK` viejo bloqueó vocabulario nuevo, y los tres se descubrieron recién al ejecutar:
@@ -215,10 +231,16 @@ Only two: `Flash` (has countdown, `fecha_fin_flash`) and `Normal`. Config and co
 
 ### Styling conventions
 
-- Tailwind CSS v4 (PostCSS plugin, no `tailwind.config.js` theme extensions in use).
+- Tailwind CSS v4 (PostCSS plugin, no `tailwind.config.js`). Theme extensions viven en `src/styles/tokens.css` vía `@theme` — ver abajo.
 - Default font: `Inter` (self-hosted variable font in `public/fonts/`). Display font: `NauryzRedkeds`.
 - Responsive breakpoints follow Tailwind defaults; hero layout uses custom `.hero-content` / `.hero-grid` classes in `src/index.css`.
 - Inline styles are common for one-off animations and wizard overlays — that's intentional.
+
+**Antes de un cambio visual (componente nuevo, rediseño, layout, spacing, color, tipografía) — coherencia es criterio de aceptación, no un paso opcional para ahorrar lectura:**
+- Mirá 2-3 componentes existentes de la misma familia (si tocás una Card, mirá las otras Cards) antes de definir spacing, color o tipografía nueva. No inventes un patrón si ya hay uno establecido.
+- Reusá las clases/tokens que ya aparecen en componentes vecinos en vez de valores sueltos por criterio propio (si el resto usa `px-3`, no metas `px-3.5` porque "se ve mejor" sin comparar).
+- **Fuente de verdad de tokens:** `src/styles/tokens.css` (auditoría en `docs/design-tokens-audit-brief.md`). Semánticos disponibles: `--color-primary`/`-hover`/`-soft`, `--color-text`/`-muted`, `--color-border`, `--color-bg`, `--color-success`/`-bg`, `--color-warning`/`-bg`, `--color-error`/`-icon`/`-bg`, `--color-accent`/`-bg` (usar en componentes nuevos vía clases Tailwind, ej. `text-primary`, `bg-error-bg`). El código existente sigue con sus hex sueltos — migración es incremental, no se tocó de una. Cualquier color/spacing que no tenga token todavía se valida contra lo ya usado en componentes vecinos — nunca un hex o un valor de spacing inventado sobre la marcha.
+- Antes de dar la tarea por terminada: comparar el resultado contra 1-2 pantallas vecinas ya shippeadas. Si el spacing, la paleta o la tipografía no coinciden con el resto de la sección, ajustar antes de avisar que terminó.
 
 ### Key icons & assets
 

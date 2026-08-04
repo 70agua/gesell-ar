@@ -19,9 +19,9 @@ L.Icon.Default.mergeOptions({
 });
 
 const A = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',

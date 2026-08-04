@@ -132,3 +132,18 @@ export async function anularVentaPendiente(ventaId) {
   if (!data?.ok) return { ok: false, error: data?.error || 'error_desconocido' };
   return { ok: true };
 }
+
+// ¿El turista ya compró un cupón de esta oferta y sigue sin canjear? Es lo que
+// convierte el CTA del detalle en "Canjear ahora": ya lo pagó, no hay nada más
+// que venderle. Devuelve el cupón (con su código) o null.
+export async function cuponPropioDe(promocionId) {
+  if (!promocionId) return null;
+  const { data } = await supabase
+    .from('cupones_usuario')
+    .select('id, codigo, estado, vence_el')
+    .eq('promocion_id', promocionId)
+    .eq('estado', 'activo')
+    .limit(1)
+    .maybeSingle();
+  return data || null;
+}

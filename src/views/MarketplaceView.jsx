@@ -8,9 +8,9 @@ import { getAlojamientos, getPromos } from '../lib/datos';
 import { LOCALIDADES, ZONAS, getVecinas } from '../lib/localidades';
 
 const A = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -197,10 +197,10 @@ function MarketplaceMapView({ items, onBoundsChange }) {
       const icon = L.divIcon({
         className: '',
         html: `<div style="
-          background:#2545E6; color:#fff; border:2.5px solid #fff;
+          background:#475BE1; color:#fff; border:2.5px solid #fff;
           border-radius:20px; padding:5px 9px;
           font-size:12px; font-weight:700; white-space:nowrap;
-          box-shadow:0 2px 10px rgba(37,69,230,0.38);
+          box-shadow:0 2px 10px rgba(71,91,225,0.38);
           font-family:-apple-system,sans-serif; cursor:pointer;
           line-height:1;
         ">${precioLabel}</div>`,

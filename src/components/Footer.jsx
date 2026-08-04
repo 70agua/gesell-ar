@@ -130,7 +130,7 @@ export default function Footer({ onNavigate }) {
           >
             <LogIn size={14} /> Acceso a usuarios
           </button>
-          <span style={{ fontSize: 12, color: 'rgb(148, 163, 184)' }}>Hecho con <span style={{ color: 'rgb(37, 69, 230)' }}>♥</span> en Argentina</span>
+          <span style={{ fontSize: 12, color: 'rgb(148, 163, 184)' }}>Hecho con <span style={{ color: 'rgb(71, 91, 225)' }}>♥</span> en Argentina</span>
         </div>
       </div>
 

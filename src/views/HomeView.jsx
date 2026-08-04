@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard, { PrecioCupon } from '../components/OfertaCard';
-import { ALL_PROMOS } from '../data/mockData';
 import CupopackModal from '../components/CupopackModal';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
 import { aplicarBeneficioCupopack } from '../lib/beneficiosCupopack';
@@ -18,9 +17,9 @@ import Icono           from '../components/Icono';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -93,7 +92,7 @@ const SECONDARY_FILTERS = [
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onOpenPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria, onVerPase }) {
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria, onVerPase }) {
   const [activeTypes,    setActiveTypes]    = useState(new Set());
   const [activeSecondary, setActiveSecondary] = useState([]);
   const [tabAloj,        setTabAloj]        = useState('Todos'); // eslint-disable-line
@@ -152,7 +151,7 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
       ))}
 
       {/* ── Cupopacks ─────────────────────────────────────────── */}
-      <CupopacksSection onOpenPack={onOpenPack} onVerPacks={onVerPacks} onVerPase={onVerPase} />
+      <CupopacksSection onVerPacks={onVerPacks} onVerPase={onVerPase} />
     </div>
   );
 }
@@ -207,7 +206,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
         import('../lib/pases'),
       ]);
       // El total sale contado contra la base, no sobre la página que trajo
-      // getPromos: incluye las dos capas del pase, las incluidas y las PLUS.
+      // getPromos: incluye las dos capas del pase, las incluidas y las premium.
       const [promos, conteo] = await Promise.all([getPromos(300), contarDescuentosDelPase()]);
       if (!vivo) return;
       setAhorros(ahorroMaxPorBucket(promos));
@@ -283,7 +282,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
             <Icono src="/iconos/spa.json" style={{ height: 67, width: 67, display: 'block', position: 'relative', top: 2 }} />
           </div>
           <div style={{ fontSize: 15, color: A.ink }}>
-            <strong style={{ fontWeight: 700, color: A.primary }}>Los cupones que requieran reserva previa los usás anticipadamente.</strong>
+            <strong style={{ fontWeight: 700, color: A.primary }}>Los cupones que necesitan coordinar fecha los pedís por anticipado.</strong>
             <br></br>El resto de los cupones, en las fechas que elijas.
           </div>
 
@@ -384,7 +383,7 @@ const MOCK_VIDEOS = [
 ];
 
 const MOCK_POSTS = [
-  { type: 'post', id: 'p1', negocio: 'Spa Costas del Mar', localidad: 'Las Gaviotas', avatar: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=80&fit=crop&q=80', image: 'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=600&fit=crop&q=80', texto: '💆 Martes de relax total. Turnos disponibles este finde. ¡Reservá con tu cupón y regalate un momento!', tiempoAgo: 'hace 2 horas', creditos: 2 },
+  { type: 'post', id: 'p1', negocio: 'Spa Costas del Mar', localidad: 'Las Gaviotas', avatar: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=80&fit=crop&q=80', image: 'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=600&fit=crop&q=80', texto: '💆 Martes de relax total. Turnos disponibles este finde. ¡Pedí tu turno con el cupón y regalate un momento!', tiempoAgo: 'hace 2 horas', creditos: 2 },
   { type: 'post', id: 'p2', negocio: 'Parador Windy', localidad: 'Villa Gesell', avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=80&fit=crop&q=80', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&fit=crop&q=80', texto: '☀️ Domingo de playa con vista al mar. Mesa disponible. 20% off en tu primera visita con tu cupón.', tiempoAgo: 'hace 5 horas', creditos: 1 },
   { type: 'post', id: 'p3', negocio: 'Cabañas del Pinar', localidad: 'Mar de las Pampas', avatar: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=80&fit=crop&q=80', image: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=600&fit=crop&q=80', texto: 'Bienvenida Martina y Diego 🌲 Ya disfrutando del fogón. Esto es Villa Gesell en invierno.', tiempoAgo: 'ayer', creditos: 2 },
 ];
@@ -751,7 +750,7 @@ function CupopackCard({ cupopack, onVerCupopack }) {
   );
 }
 
-function CupopacksSection({ onOpenPack, onVerPacks, onVerPase }) {
+function CupopacksSection({ onVerPacks, onVerPase }) {
   const [modal, setModal] = useState(null); // { cupopack, startIndex }
   const [cupopacks, setCupopacks] = useState(null); // null = cargando
 

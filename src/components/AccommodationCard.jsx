@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import HeartButton from './HeartButton';
 
-const A = { ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE', primary: '#2545E6', bg: '#F7F7F8', font: "'Inter', system-ui, sans-serif" };
+const A = { ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE', primary: '#475BE1', bg: '#F7F7F8', font: "'Inter', system-ui, sans-serif" };
 
 export default function AccommodationCard({ item, onClick, discountTags = {} }) {
   const [hovered, setHovered] = useState(false);
@@ -62,7 +62,7 @@ export default function AccommodationCard({ item, onClick, discountTags = {} }) 
 
         {/* Etiqueta descuentos de socios — sin indentación, antes del precio */}
         {tagLabel && (
-          <div style={{ marginBottom: 6, display: 'inline-block', padding: '3px 10px', background: '#EEF1FF', color: A.primary, borderRadius: 999, fontSize: 10, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          <div style={{ marginBottom: 6, display: 'inline-block', padding: '3px 10px', background: '#EEF0FD', color: A.primary, borderRadius: 999, fontSize: 10, fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
             {tagLabel}
           </div>
         )}

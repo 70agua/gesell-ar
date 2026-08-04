@@ -20,7 +20,7 @@ import { precioActivacionARS } from '../../lib/cobros';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',
-  line: '#E7E9EE', primary: '#2545E6',
+  line: '#E7E9EE', primary: '#475BE1',
   font: "'Inter', system-ui, sans-serif",
 };
 
@@ -62,7 +62,11 @@ export default function PanelOfertasSocio({
   const unaSola      = promos.length === 1;
 
   const expandido = (
-    <div style={{ padding: '12px 14px 16px' }}>
+    // Lados: 14px los pone la fila colapsada (OfertaFila) + 15px más acá (29px
+    // en total). Arriba/abajo: mismos 15px sumados al padding de base
+    // (12→27, 16→31), para que el blanco alrededor separe el bloque expandido
+    // de la fila que sigue tanto en horizontal como en vertical.
+    <div style={{ padding: '27px 29px 31px' }}>
       <OfertaHero promo={abierta} onOpenOferta={onOpenOferta} />
       <div style={{ marginTop: 14 }}>
         <BloqueAccion

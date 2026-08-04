@@ -12,8 +12,8 @@ import { buscarDestinosAr } from '../lib/geoAr';
 import { registrarDemandaDestino, completarEmailDemanda } from '../lib/demanda';
 
 const A = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',

@@ -21,9 +21,9 @@ import { loginConIdentificador, pareceEmail, getPerfil } from '../lib/auth';
 
 // Misma paleta acotada que el checkout del pase.
 const C = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -175,7 +175,7 @@ function TramoPago({ p, mensual, activo, onSelect }) {
 
 // ─── Cómo funciona, contado desde el mostrador del hotel ─────
 const PASOS = [
-  { t: 'Elegís un plan de suscripción',      d: 'Y completás el formulario con los datos de tu empresa' },
+  { t: 'Elegís un plan',      d: 'Y completás el formulario con los datos de tu empresa' },
   { t: 'Tu cliente lée el QR de tu empresa, o carga el código de 6 dígitos.', d: 'El pase se le activará cuando lo apruebes.' },
   { t: '¡Listos para ahorrar!', d: 'Descuentos en los comercios adheridos durante toda la estadía.' },
 ];
@@ -187,7 +187,7 @@ function ComoFunciona() {
   return (
     <div style={{ padding: '22px 22px 30px' }}>
       <div style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: C.primary, letterSpacing: '-0.01em', textAlign: 'center', margin: '2px 0 20px' }}>
-        ¿Cómo funciona?
+        ¿Cómo funciona la suscripción?
       </div>
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {PASOS.map((p, i) => (

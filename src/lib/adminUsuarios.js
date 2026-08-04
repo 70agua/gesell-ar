@@ -13,7 +13,7 @@ export const CAPACIDADES = [
   { id: 'socios',       label: 'Gestionar socios comerciales' },
   { id: 'turistas',     label: 'Gestionar turistas' },
   { id: 'cupones',      label: 'Gestionar cupones' },
-  { id: 'cuponeras',    label: 'Gestionar cuponeras locales' },
+  { id: 'cuponeras',    label: 'Gestionar Cupopacks' },
   { id: 'estadisticas', label: 'Ver estadísticas y ventas' },
   { id: 'consultas',    label: 'Ver consultas' },
   { id: 'ajustes',      label: 'Administrar ajustes (usuarios y perfiles)' },

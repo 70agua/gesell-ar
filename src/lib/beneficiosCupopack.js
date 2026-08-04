@@ -5,6 +5,8 @@
 //  recalcular y qué tachar.
 // ============================================================
 
+import { puntosDeCompra } from './gamificacion';
+
 // Tipos elegibles en el panel. `afecta` indica qué columna del
 // footer se recalcula (y se tacha el valor original).
 export const BENEFICIO_TIPOS = [
@@ -19,22 +21,37 @@ export function tipoBeneficio(id) {
   return BENEFICIO_TIPOS.find(t => t.id === (id || '')) || BENEFICIO_TIPOS[0];
 }
 
-// Aplica el beneficio sobre los totales base. Devuelve el valor final
-// y —si corresponde— el valor original a tachar (`*Tachado`).
-export function aplicarBeneficioCupopack({ tipo, valor, puntosBase, precioBase }) {
+// Aplica el beneficio sobre el precio base. Devuelve el precio final, los
+// puntos que deja y —si corresponde— el valor original a tachar (`*Tachado`).
+//
+// ⚠️ Los puntos NO son un parámetro: se derivan acá del precio FINAL, que es
+// lo único que el turista paga de verdad. Antes entraban como `puntosBase` y
+// el modal los calculaba con su propia fórmula sobre el AHORRO DECLARADO
+// (ahorro/4 = 25%), lo que daba 79.506 puntos por una compra de $21.900 — y
+// como 1 punto = $1 y se pueden usar hasta cubrir el 100% de la compra
+// siguiente, eso es regalar varias veces el valor de la venta.
+//
+// Derivarlos adentro cierra la puerta: ningún llamador puede pasar otra base.
+// El orden importa: primero el descuento sobre el precio, después el 5% sobre
+// lo que quedó, y recién ahí el multiplicador.
+export function aplicarBeneficioCupopack({ tipo, valor, precioBase }) {
   const v = Number(valor) || 0;
-  let puntos = puntosBase, precio = precioBase;
-  let puntosTachado = null, precioTachado = null;
+  let precio = Number(precioBase) || 0;
+  let precioTachado = null;
 
-  if (tipo === 'puntos_mult' && v > 1) {
-    puntos = Math.round(puntosBase * v);
-    puntosTachado = puntosBase;
-  } else if (tipo === 'precio_pct' && v > 0) {
-    precio = Math.max(0, Math.round(precioBase * (1 - v / 100)));
+  if (tipo === 'precio_pct' && v > 0) {
+    precio = Math.max(0, Math.round(precio * (1 - v / 100)));
     precioTachado = precioBase;
   } else if (tipo === 'precio_fijo' && v > 0) {
-    precio = Math.max(0, precioBase - v);
+    precio = Math.max(0, precio - v);
     precioTachado = precioBase;
+  }
+
+  const base = puntosDeCompra(precio);
+  let puntos = base, puntosTachado = null;
+  if (tipo === 'puntos_mult' && v > 1) {
+    puntos = Math.round(base * v);
+    puntosTachado = base;
   }
   return { puntos, precio, puntosTachado, precioTachado };
 }

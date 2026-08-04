@@ -1,0 +1,51 @@
+-- ============================================================
+--  Canje desde la app + coordinar fecha
+--  Aplicado vía MCP. Migraciones, en orden:
+--    canje_codigo_corto_y_reserva_previa
+--    codigo_comercio_8_caracteres
+--    solicitud_reserva_previa
+--    coordinar_fecha_campos_configurables
+--    enviar_solicitud_con_composicion
+--
+--  ─── 1) Código del comercio ────────────────────────────────
+--  `negocios.codigo_canje`, 8 caracteres, MISMO alfabeto que el código de
+--  cupón ('23456789BCDFGHJKMNPQRSTVWXYZ': sin 0/O, 1/I/L, ni A/E). Es el QR
+--  del socio en formato humano — el QR codifica su UUID, que nadie puede
+--  cantar en un mostrador.
+--
+--  No se reusó `socio_alias`: esa tabla es el alias del pase-regalo, se genera
+--  sólo al contratar un plan PRO, y el canje tiene que andar para los 78
+--  negocios. Tampoco se dejó en 6 dígitos: "6 dígitos" ya significa otra cosa
+--  en el producto y dos códigos cortos con distinto significado se confunden.
+--
+--  ─── 2) La solicitud sirve para DOS cosas ──────────────────
+--   · requiere_fecha  → premium que necesita confirmación. OCUPA un slot.
+--   · requiere_reserva→ el servicio necesita coordinar día. NO ocupa slot si
+--                       la oferta es base: una base es ilimitada con el Pase, y
+--                       descontarle un premium por coordinar sería cobrar dos
+--                       veces.
+--  Antes la RPC rechazaba todo lo que no fuera `requiere_fecha` y descontaba
+--  slot siempre.
+--
+--  ─── 3) Qué pregunta cada oferta ───────────────────────────
+--  `promociones.pide_adultos|pide_ninos|pide_bebes|pide_mascotas|pide_horario`
+--  + `personas_fijas` (null = no es de cantidad fija).
+--
+--  COLUMNAS y no jsonb: el socio filtra y ordena su bandeja por esto, el set
+--  es cerrado, y los CHECK/NOT NULL sólo existen en columnas — en jsonb un 3
+--  y un "tres" entran igual.
+--
+--  Nacieron como `reserva_pide_*` y se renombraron el mismo día: "reserva" está
+--  retirada del vocabulario (Ley 18.829) y renombrar sale gratis antes de que
+--  algo dependa de ellas.
+--
+--  `solicitudes_fecha.personas` SE QUEDA como TOTAL calculado por la RPC —lo
+--  leen el aviso de la Fase 9 y la bandeja del socio— y el desglose
+--  (adultos/ninos/bebes/mascotas/hora_pedida) vive al lado. El total NO viene
+--  del cliente: un formulario desactualizado podría mandar uno que no coincide
+--  con lo que el socio ve desglosado.
+--
+--  ⚠️ Del backfill: el rubro del NEGOCIO manda sobre el título. Un alojamiento
+--  cuyo socio se llama "Hotel Spa Las Olas" quedó primero como turno de a uno
+--  —sin preguntar cuántos son y pidiendo hora— porque la regla de spa matcheaba
+--  el nombre. La regla de alojamiento se corre última para que gane.

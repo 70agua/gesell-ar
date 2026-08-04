@@ -12,7 +12,7 @@ import { getMisCupones, getComprasPendientes } from '../lib/compras';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE',
-  primary: '#2545E6', primarySoft: '#EEF1FF', bg: '#F7F7F8',
+  primary: '#475BE1', primarySoft: '#EEF0FD', bg: '#F7F7F8',
   green: '#10A36B', greenSoft: '#ECFDF5',
   font: "'Inter', system-ui, sans-serif",
 };

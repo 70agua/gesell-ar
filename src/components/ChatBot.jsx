@@ -7,13 +7,24 @@ import { X, Send, ChevronRight } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import { supabase } from '../lib/supabase';
 
+// ⚠️ VOCABULARIO — las respuestas de acá son texto FIJO (no se genera nada:
+// `matchFaqs` elige por puntaje de palabras clave). Eso las pone bajo el mismo
+// control que cualquier otro copy, y bajo las mismas reglas:
+//
+//   Ley 18.829 — NUNCA "reservá", "reserva", "disponibilidad" ni "tarifa".
+//   Cuponear TRANSMITE un pedido de fecha; confirma el comercio.
+//   Se dice: "coordinar fecha", "el comercio te va a responder".
+//
+// Al agregar una FAQ nueva, revisar eso. Es la única superficie donde el copy
+// se escribe suelto y no dentro de un componente.
+
 // ─── EmailJS config ────────────────────────────────────────
 const EJ_SERVICE_ID  = 'service_qeuvztw';
 const EJ_TEMPLATE_ID = 'template_hclzgwc';
 const EJ_PUBLIC_KEY  = 'Y25bM1g5vQF9_cMi2L_k9';
 
 const C = {
-  primary:  '#2545E6',
+  primary:  '#475BE1',
   ink:      '#0B1020',
   ink2:     '#3D4255',
   muted:    '#6B7280',
@@ -25,15 +36,15 @@ const C = {
 const TOP_FAQS = [1, 2, 14];
 
 const FAQS = [
-  { id: 1,  cat: 'Pase',      q: '¿Qué es el Pase?',                            keywords: ['pase','carrito','qué es','para qué','cómo funciona'],                       a: 'El Pase te da acceso por N días a los descuentos del destino: los regulares vienen todos incluidos y los premium los elegís vos. También podés comprar cupones sueltos y guardarlos en tu carrito.' },
-  { id: 4,  cat: 'Pase',      q: '¿Cómo sumo una oferta a mi carrito?',            keywords: ['agregar','añadir','sumar oferta','añadir oferta','carrito'],          a: 'Con el Gesell PaSS ya las tenés: la mayoría de los descuentos vienen incluidos. Los PLUS (más de $15.000 de ahorro) los elegís vos: entra uno por cada día de pase, y si querés más, los sumás sueltos a mitad de precio.' },
-  { id: 10, cat: 'Pase',      q: '¿Puedo usar los cupones en cualquier momento?',   keywords: ['usar','cuándo','momento','activar','canjear','disponible'],            a: 'Los que necesitan reserva previa (alojamiento, spa, excursiones) los usás anticipadamente. El resto, en las fechas que elijas, mientras dure tu pase.' },
+  { id: 1,  cat: 'Pase',      q: '¿Qué es el Pase?',                            keywords: ['pase','carrito','qué es','para qué','cómo funciona'],                       a: 'El Pase te da acceso por N días a los descuentos del destino: los regulares vienen todos incluidos y los PREMIUM los elegís vos. También podés comprar cupones sueltos y guardarlos en tu carrito.' },
+  { id: 4,  cat: 'Pase',      q: '¿Cómo sumo una oferta a mi carrito?',            keywords: ['agregar','añadir','sumar oferta','añadir oferta','carrito'],          a: 'Con el Gesell PaSS ya las tenés: la mayoría de los descuentos vienen incluidos. Los PREMIUM (más de $40.000 de ahorro) los elegís vos: entra uno por cada día de pase, y si querés más, los sumás sueltos a mitad de precio.' },
+  { id: 10, cat: 'Pase',      q: '¿Puedo usar los cupones en cualquier momento?',   keywords: ['usar','cuándo','momento','activar','canjear','disponible'],            a: 'Los que necesitan coordinar fecha (alojamiento, spa, excursiones) los pedís con anticipación y el comercio te responde. El resto, en las fechas que elijas, mientras dure tu pase.' },
   { id: 2,  cat: 'Puntos',        q: '¿Qué son los puntos?',                            keywords: ['punto','puntos','premio','cashback','beneficio','acumular'],           a: 'Son tu cashback: sumás puntos al registrarte y cada vez que comprás. Los usás como parte de pago en tu próxima compra — y valen en todos los destinos de Cuponear, no sólo en Villa Gesell.' },
   { id: 3,  cat: 'Puntos',        q: '¿Cómo sumo puntos?',                              keywords: ['sumar','conseguir','ganar','acumular','cómo'],                        a: 'Los primeros te los damos al crear tu cuenta. Después sumás con cada cupón que comprás y con tu pase.' },
   { id: 5,  cat: 'Puntos',        q: '¿Los puntos vencen o se pierden?',                keywords: ['vencen','vencimiento','pierden','caducan','expiran'],                 a: 'No se pierden al terminar tu viaje: quedan en tu cuenta para tu próxima compra, en este destino o en cualquier otro de la red.' },
   { id: 8,  cat: 'Ofertas',       q: '¿Las ofertas tienen fecha de vencimiento?',        keywords: ['vencimiento','vence','vigencia','expira','caducidad'],               a: 'Sí. Cada oferta tiene su período de validez indicado en la ficha. Las flash expiran en horas.' },
   { id: 9,  cat: 'Ofertas',       q: '¿Qué es una oferta Flash?',                       keywords: ['flash','oferta flash','countdown','timer','tiempo limitado'],         a: 'Son descuentos con tiempo muy limitado — horas o minutos — con beneficios superiores a los habituales.' },
-  { id: 6,  cat: 'Alojamientos',  q: '¿Cómo reservo un alojamiento?',                   keywords: ['reservar','reserva','alojamiento','hotel','cabaña','cómo reservo'],  a: 'Cuponear no gestiona reservas directamente. Desde la ficha del alojamiento podés consultar por fechas y presupuesto.' },
+  { id: 6,  cat: 'Alojamientos',  q: '¿Cómo coordino la fecha de un alojamiento?',      keywords: ['reservar','reserva','alojamiento','hotel','cabaña','fecha','coordinar'], a: 'Desde el detalle del cupón pedís el día y el comercio te responde: puede confirmarlo o proponerte otro. Cuponear transmite el pedido, no confirma la fecha.' },
   { id: 7,  cat: 'Alojamientos',  q: '¿Qué zonas de Villa Gesell cubre la plataforma?', keywords: ['zona','zonas','cobertura','dónde','sector','barrio','mapa'],          a: 'Cubrimos Villa Gesell, Mar Azul, Mar de las Pampas, Las Gaviotas y alrededores.' },
   { id: 11, cat: 'Mi cuenta',     q: '¿Cómo me registro?',                              keywords: ['registr','crear cuenta','alta','signup','nuevo usuario'],             a: 'Hacé click en "Registrarse gratis" en el menú. Solo necesitás email y contraseña.' },
   { id: 14, cat: 'Mi cuenta',     q: '¿Es gratis usar Cuponear?',                      keywords: ['gratis','gratuito','costo','cobran','pago','sin cargo'],              a: 'Registrarte y explorar los descuentos es gratis. Para usarlos comprás el Gesell PaSS (una vez, desde $20.000) o cupones sueltos.' },
@@ -563,7 +574,7 @@ function MinimizedDot({ onClick }) {
         position: 'fixed', bottom: 20, right: 20, zIndex: 9001,
         width: 46, height: 46, borderRadius: '50%', border: 'none',
         background: C.primary, cursor: 'pointer',
-        boxShadow: '0 4px 18px rgba(37,69,230,0.38)',
+        boxShadow: '0 4px 18px rgba(71,91,225,0.38)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'bubbleIn .3s cubic-bezier(.34,1.56,.64,1) both',
         overflow: 'hidden', padding: 0,
@@ -719,10 +730,10 @@ function MiniBubble({ titulo, sub, onSaberMas, onClose, closing, duracion = MINI
 // "home" no tiene entrada acá — ahí ya cubre el mensaje de bienvenida "Tsss! sigo por acá!"
 // del primer minimizado, y no queremos que los dos globitos se pisen.
 const MENSAJES_VIEW = {
-  marketplace:          { titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Con el pase, la mayoría ya los tenés incluidos; los de más de $15.000 de ahorro los elegís (uno por día de pase) o los sumás sueltos a mitad de precio. Después los activás cuando estés en el local. ¿Te cuento cómo funciona el pase?' },
-  'marketplace-ofertas':{ titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Con el pase, la mayoría ya los tenés incluidos; los PLUS los elegís o los sumás a mitad de precio. Después los activás cuando estés en el local. ¿Te cuento cómo funciona el pase?' },
-  ofertas:              { titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'Cada tarjeta es un cupón de un socio. Con el pase la mayoría ya los tenés incluidos; los PLUS los elegís o los sumás a mitad de precio. Después los activás en el local. ¿Te cuento cómo funciona el pase?' },
-  salidas:              { titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'Cada tarjeta es un cupón de un socio de Salidas. Con el pase la mayoría ya los tenés incluidos; los PLUS los elegís o los sumás a mitad de precio. Después los activás en el local. ¿Te cuento cómo funciona el pase?' },
+  marketplace:          { titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Con el pase, la mayoría ya los tenés incluidos; los de más de $40.000 de ahorro los elegís (uno por día de pase) o los sumás sueltos a mitad de precio. Después los activás cuando estés en el local. ¿Te cuento cómo funciona el pase?' },
+  'marketplace-ofertas':{ titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'En el listado, cada tarjeta es un cupón de un socio. Con el pase, la mayoría ya los tenés incluidos; los PREMIUM los elegís o los sumás a mitad de precio. Después los activás cuando estés en el local. ¿Te cuento cómo funciona el pase?' },
+  ofertas:              { titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'Cada tarjeta es un cupón de un socio. Con el pase la mayoría ya los tenés incluidos; los PREMIUM los elegís o los sumás a mitad de precio. Después los activás en el local. ¿Te cuento cómo funciona el pase?' },
+  salidas:              { titulo: 'Tocá cualquier cupón para ver el detalle.', sub: 'La mayoría vienen incluidos en el Gesell PaSS.', extendido: 'Cada tarjeta es un cupón de un socio de Salidas. Con el pase la mayoría ya los tenés incluidos; los PREMIUM los elegís o los sumás a mitad de precio. Después los activás en el local. ¿Te cuento cómo funciona el pase?' },
   'oferta-detail':      { titulo: 'Activá este cupón y mostralo en el local.', sub: 'Con el Gesell PaSS ya lo tenés — o lo sumás suelto.', extendido: 'Cuando estés en el local tocá "Activar" y mostrale la pantalla al comercio. La activación tiene su vigencia, así que activalo recién cuando vayas a consumir. ¿Alguna duda con el pase?' },
   detail:               { titulo: 'Este socio tiene cupones activos.', sub: 'Activalos ahora y usalos en tu visita.', extendido: 'En la ficha del socio vas a ver sus cupones disponibles. Sumá los que te interesen a tu carrito y activalos cuando estés en el lugar. Si es un alojamiento PRO, además puede regalarte el Pase al hospedarte. ¿Te muestro cómo funciona?' },
   socios:               { titulo: 'Este socio tiene cupones activos.', sub: 'Activalos ahora y usalos en tu visita.', extendido: 'En la ficha del socio vas a ver sus cupones disponibles. Sumá los que te interesen a tu carrito y activalos cuando estés en el lugar. ¿Te muestro cómo funciona?' },

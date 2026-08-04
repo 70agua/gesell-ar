@@ -26,9 +26,9 @@ function getSiteName() {
 const UNIDADES_DEFAULT = 20;
 
 const A = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
+  primarySoft: '#EEF0FD',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   muted:       '#6B7280',
@@ -126,7 +126,7 @@ function Terminos({ checked, onChange }) {
 function BtnSubmit({ loading, label, loadingLabel }) {
   return (
     <button type="submit" disabled={loading}
-      style={{ width: '100%', padding: '14px 0', background: loading ? A.muted : A.primary, color: '#fff', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: A.font, boxShadow: '0 4px 16px rgba(37,69,230,0.28)', transition: 'background .15s', marginTop: 2 }}
+      style={{ width: '100%', padding: '14px 0', background: loading ? A.muted : A.primary, color: '#fff', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: A.font, boxShadow: '0 4px 16px rgba(71,91,225,0.28)', transition: 'background .15s', marginTop: 2 }}
       onMouseEnter={e => !loading && (e.currentTarget.style.background = A.primaryDark)}
       onMouseLeave={e => !loading && (e.currentTarget.style.background = A.primary)}
     >

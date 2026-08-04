@@ -20,16 +20,31 @@
 // ============================================================
 import { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { estadoEstadia } from './pases';
 
 const VACIO = {
   activo: false, pendiente: false, cargando: true,
   pase: null, total: 0, usadas: 0, libres: 0, elegidasIds: [],
+  // La estadía es la OTRA mitad del Pase y tiene su propio reloj: un uso por
+  // pase, no ilimitada como los regulares. Sin este dato la ficha de un
+  // alojamiento no puede decir la verdad.
+  estadia: { disponible: false, motivo: 'sin_pase' },
+  // Desde 10 días, el pase no tiene tope de premium (ver DIAS_PREMIUM_ILIMITADO
+  // en lib/pases.js). Es un flag aparte y no "libres muy alto": los textos que
+  // muestran "te quedan X de Y" tienen que poder distinguir "sin límite" de un
+  // número, así que quien consuma esto SIEMPRE tiene que mirar este flag antes
+  // de imprimir `libres`/`total` — ver §infinito más abajo.
+  premiumIlimitado: false,
 };
 
-const PaseCtx = createContext({ ...VACIO, comprarPase: null, refrescar: () => {} });
+const PaseCtx = createContext({ ...VACIO, esTurista: false, comprarPase: null, refrescar: () => {} });
 
-export function PasePropioProvider({ session, onComprarPase, children }) {
+export function PasePropioProvider({ session, perfil, onComprarPase, children }) {
   const userId = session?.user?.id || null;
+  // Turista = sesión iniciada que NO es socio ni superadmin. El sello del Pase
+  // se dirige a él y sólo a él: al socio mirando su propio catálogo no tiene
+  // sentido ofrecerle un Pase de turista.
+  const esTurista = !!userId && !perfil?.negocio_id && !perfil?.es_superadmin;
   const [estado, setEstado] = useState({ ...VACIO, cargando: !!userId });
 
   // Expuesto como `refrescar`: después de aplicar o deshacer un Cupopack los
@@ -39,7 +54,7 @@ export function PasePropioProvider({ session, onComprarPase, children }) {
 
     const { data } = await supabase
       .from('usuario_pases')
-      .select('id, estado, vence_el, dias, elecciones_premium, tipo, upgrade_aplicado, pases(elecciones_premium, duracion_dias)')
+      .select('id, estado, vence_el, dias, elecciones_premium, premium_ilimitado, tipo, upgrade_aplicado, incluye_estadia, estadia_usada_el, pases(elecciones_premium, duracion_dias)')
       .eq('user_id', userId)
       .in('estado', ['activo', 'pendiente']);
 
@@ -72,21 +87,30 @@ export function PasePropioProvider({ session, onComprarPase, children }) {
 
     const elegidasIds = (elec || []).map(e => e.promocion_id);
     const usadas = elegidasIds.length + (sols || []).length;
+    const premiumIlimitado = pase.premium_ilimitado === true;
     // `activo` sigue significando lo de siempre —el Pase está CORRIENDO— porque
     // de eso depende el "Ya lo tenés" de la mini-ficha, que sobre un pase
     // dormido sería una promesa falsa. Los slots, en cambio, ya se pueden usar.
     setEstado({
       activo: !!vivo, pendiente: !vivo, cargando: false,
-      pase, total, usadas,
-      libres: Math.max(0, total - usadas),
-      elegidasIds,
+      pase, usadas, elegidasIds,
+      // §infinito: con premiumIlimitado, `total`/`libres` pasan a Infinity y NO
+      // a un número grande. Es a propósito: cualquier consumidor NUMÉRICO (el
+      // slice de encajeEnPase en lib/cupopacks.js) sigue funcionando solo —
+      // `.slice(0, Infinity)` devuelve el array entero—, y cualquier
+      // consumidor de TEXTO queda obligado a mirar `premiumIlimitado` antes de
+      // imprimir el número, porque nadie quiere ver "te quedan Infinity".
+      total:  premiumIlimitado ? Infinity : total,
+      libres: premiumIlimitado ? Infinity : Math.max(0, total - usadas),
+      premiumIlimitado,
+      estadia: estadoEstadia(pase),
     });
   }, [userId]);
 
   useEffect(() => { leer(); }, [leer]);
 
   return (
-    <PaseCtx.Provider value={{ ...estado, comprarPase: onComprarPase, refrescar: leer }}>
+    <PaseCtx.Provider value={{ ...estado, esTurista, comprarPase: onComprarPase, refrescar: leer }}>
       {children}
     </PaseCtx.Provider>
   );

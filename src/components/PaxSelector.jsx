@@ -5,7 +5,7 @@
 import React from 'react';
 import { Users } from 'lucide-react';
 
-const C = { ink: '#0B1020', muted: '#6B7280', line: '#E7E9EE', primary: '#2545E6' };
+const C = { ink: '#0B1020', muted: '#6B7280', line: '#E7E9EE', primary: '#475BE1' };
 
 export default function PaxSelector({ minPax, maxPax, value, onChange }) {
   const min = Math.max(1, Number(minPax) || 1);

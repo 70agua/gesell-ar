@@ -23,6 +23,22 @@ export function urlQrSocio(negocioId) {
 // Devuelve { ok, negocio, items[] } donde cada item es
 // { tipo: 'cupon'|'pase', ref, titulo, ahorro, ... }. El front no distingue
 // caminos: los pinta iguales.
+// El comercio por su código de 6. Es el mismo destino que el QR —que codifica
+// el UUID— pero en un formato que se puede cantar en un mostrador. Sin esto el
+// turista sin cámara (permiso denegado, lente roto, mostrador oscuro) se queda
+// sin canjear.
+export async function buscarNegocioPorCodigo(codigo) {
+  // Mismo alfabeto que el código de cupón: sin 0/O, 1/I/L ni A/E. Se normaliza
+  // a mayúsculas porque nadie tipea en mayúscula si no se lo obligan.
+  const limpio = String(codigo || '').toUpperCase().replace(/[^23456789BCDFGHJKMNPQRSTVWXYZ]/g, '');
+  if (limpio.length !== 8) return { ok: false, error: 'codigo_invalido' };
+  const { data } = await supabase
+    .from('negocios').select('id, nombre, localidad')
+    .eq('codigo_canje', limpio).maybeSingle();
+  if (!data) return { ok: false, error: 'negocio_no_encontrado' };
+  return { ok: true, negocio: data };
+}
+
 export async function beneficiosEnNegocio(negocioId) {
   const { data, error } = await supabase.rpc('beneficios_en_negocio', { p_negocio_id: negocioId });
   if (error)     return { ok: false, error: error.message };
@@ -65,6 +81,8 @@ export async function buscarCuponPorCodigo(codigo) {
 
 // ─── Mensajes de error, en criollo ────────────────────────────
 export const ERRORES_CANJE = {
+  codigo_invalido:      'El código del comercio son 8 caracteres.',
+  negocio_no_encontrado:'No encontramos ese comercio. Revisá el código.',
   no_auth:                     'Iniciá sesión para usar tus cupones.',
   negocio_no_encontrado:       'No encontramos ese comercio.',
   cupon_no_encontrado:         'Ese cupón no es tuyo o no existe.',
@@ -73,7 +91,7 @@ export const ERRORES_CANJE = {
   cupon_ya_canjeado:           'Ese cupón ya fue usado.',
   promo_no_disponible:         'Esa oferta ya no está disponible.',
   sin_pase_activo:             'No tenés un Pase activo.',
-  premium_no_elegida:          'Todavía no elegiste este beneficio premium en tu Pase.',
+  premium_no_elegida:          'Todavía no elegiste este beneficio PREMIUM en tu Pase.',
   estadia_no_incluida:         'Tu Pase no incluye descuento de alojamiento.',
   estadia_ya_usada:            'Ya usaste el descuento de alojamiento de este Pase.',
   ya_canjeado_en_este_comercio:'Ya usaste tu Pase en este comercio.',

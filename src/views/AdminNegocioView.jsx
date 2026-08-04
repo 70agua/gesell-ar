@@ -18,6 +18,7 @@ import { categoriaDeNegocio } from '../lib/datos';
 import { getSaldo, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra, AHORRO_MIN, PRECIO_MIN, gananciaNeta, esCuponDeEntrada } from '../lib/cobros';
 import { getPuntos } from '../lib/gamificacion';
 import TabCanjes from './socio/TabCanjes';
+import CondicionesPicker from '../components/CondicionesPicker';
 import { FOTOS_GALERIA_MAX, getPlanesPro } from '../lib/planes';
 import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
 import { AHORRO_BASE_MAX } from '../lib/pases';
@@ -630,6 +631,13 @@ function dbRowToItem(p) {
     formatos:  [...(p.offer_type === 'Flash' ? ['flash'] : []), ...(p.is_group ? ['grupal'] : [])],
     ahorro:    p.ahorro_estimado ?? '',
     precio:    p.precio_manual != null ? String(p.precio_manual) : (p.ahorro_estimado ? String(calcularPrecioCupon(Number(p.ahorro_estimado))) : ''),
+    condiciones: p.condiciones || '',
+    pideAdultos:   p.pide_adultos !== false,
+    pideNinos:     p.pide_ninos === true,
+    pideBebes:     p.pide_bebes === true,
+    pideMascotas:  p.pide_mascotas === true,
+    pideHorario:   p.pide_horario === true,
+    personasFijas: p.personas_fijas != null ? Number(p.personas_fijas) : null,
     requiereFecha: p.requiere_fecha === true,
     premiumIlimitado: p.premium_ilimitado,                       // null = todavía no eligió
     cupoPremium: p.cupo_mensual_premium != null ? String(p.cupo_mensual_premium) : '',
@@ -932,8 +940,13 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
     // Período activo: modo 'hoy'/'manual' (default) o 'especifica' (habilita el datetime).
     desdeModo: 'hoy', hastaModo: 'manual',
     activa: true, imagenes: [], fechaDesde: null, fechaHasta: null,
-    // ¿El servicio requiere reserva previa? Habilita el form de disponibilidad en el detalle.
+    // ¿El servicio necesita coordinar fecha? Habilita el form de disponibilidad en el detalle.
     requiereReserva: esAlojamientoNegocio,
+    // Condiciones de canje, ya serializadas (un renglón por condición).
+    condiciones: '',
+    // Qué pregunta el formulario de coordinar fecha (ver preTildado).
+    pideAdultos: true, pideNinos: false, pideBebes: false, pideMascotas: false,
+    pideHorario: false, personasFijas: null,
   };
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [isDirty, setIsDirty]   = useState(false);
@@ -957,6 +970,17 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
     setSaveDelayMs(3000);
   }
   // Selects y toggles on/off: se guardan al instante, sin el debounce de 3s de los campos de texto.
+  // Qué se pre-tilda al activar "necesita coordinar fecha", según el rubro.
+  // Un alojamiento necesita saber quiénes van y si traen mascota, pero no a qué
+  // hora; un restaurante al revés. Se muestran tildados ANTES de guardar: el
+  // socio los ve y destilda, que es distinto de un default que decide solo.
+  function preTildado(tipo) {
+    const cat = categoriaDeNegocio(tipo);
+    if (cat === 'alojamiento') return { pideAdultos: true, pideNinos: true, pideBebes: true, pideMascotas: true, pideHorario: false };
+    if (cat === 'salidas')     return { pideAdultos: true, pideNinos: false, pideBebes: false, pideMascotas: false, pideHorario: true };
+    return { pideAdultos: true, pideNinos: false, pideBebes: false, pideMascotas: false, pideHorario: true };
+  }
+
   function setFInstante(updater) {
     setEditForm(updater);
     setIsDirty(true);
@@ -1208,9 +1232,16 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
       // override EXCLUSIVO del superadmin. Cuando edita el socio el campo ni
       // se incluye en el payload: si hubiera un override puesto, no se pisa.
       ...(modoAdmin ? { precio_manual: editForm.precio ? Number(editForm.precio) : null } : {}),
-      // Capa premium: sólo tiene sentido con ahorro > $15.000. Se guarda tal
+      // Capa premium: sólo tiene sentido con ahorro > $40.000. Se guarda tal
       // cual eligió el socio; `null` significa que todavía no eligió y la base
       // no deja publicar así.
+      condiciones:           (editForm.condiciones || '').trim() || null,
+      pide_adultos:          !!editForm.pideAdultos,
+      pide_ninos:            !!editForm.pideNinos,
+      pide_bebes:            !!editForm.pideBebes,
+      pide_mascotas:         !!editForm.pideMascotas,
+      pide_horario:          !!editForm.pideHorario,
+      personas_fijas:        editForm.personasFijas != null ? Number(editForm.personasFijas) : null,
       requiere_fecha:        !!editForm.requiereFecha,
       premium_ilimitado:     editForm.premiumIlimitado ?? null,
       cupo_mensual_premium:  editForm.premiumIlimitado === false && editForm.cupoPremium
@@ -1352,14 +1383,22 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
       return false;
     }
 
+    // Condiciones: sin ellas no se publica. En el canje el comercio es pasivo
+    // —recibe el comprobante y nada más—, así que esto es lo único que fija la
+    // expectativa antes del mostrador. La base tiene el mismo check.
+    if (!(editForm.condiciones || '').trim()) {
+      showToast('Marcá al menos una condición de canje: es lo que el turista lee antes de comprar', 'err');
+      return false;
+    }
+
     // Premium: elección explícita, sin default. Si no elige, no se publica.
     if (ahorroNum > AHORRO_BASE_MAX) {
       if (editForm.premiumIlimitado == null) {
-        showToast('Elegí cuántos canjes premium por mes aceptás (o marcá ilimitado)', 'err');
+        showToast('Elegí cuántos canjes PREMIUM por mes aceptás (o marcá ilimitado)', 'err');
         return false;
       }
       if (editForm.premiumIlimitado === false && !(Number(editForm.cupoPremium) >= 1)) {
-        showToast('Poné al menos 1 canje premium por mes, o marcá ilimitado', 'err');
+        showToast('Poné al menos 1 canje PREMIUM por mes, o marcá ilimitado', 'err');
         return false;
       }
     }
@@ -2014,8 +2053,31 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
               );
             })()}
 
+            {/* ── Condiciones de canje ──
+                Obligatorias para publicar. El comercio es pasivo en el canje
+                —recibe el comprobante y nada más—, así que esto es lo único
+                que fija la expectativa antes de que el turista llegue al
+                mostrador. El catálogo se ajusta a la categoría del negocio
+                para que el socio tilde en vez de tipear. */}
+            <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, border: `1px solid ${LINE}`, background: '#fff' }}>
+              <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK, marginBottom: 3 }}>
+                Condiciones de canje
+              </div>
+              <div style={{ fontFamily: FONT, fontSize: 11.5, color: INK2, lineHeight: 1.5, marginBottom: 12 }}>
+                Es lo que el turista lee antes de comprar. Cuanto más claro, menos discusiones en el mostrador.
+              </div>
+              <CondicionesPicker
+                key={editingOferta}
+                valor={editForm.condiciones}
+                categoria={categoriaDeNegocio(negocioTipo)}
+                onChange={txt => { setEditForm(f => ({ ...f, condiciones: txt })); setIsDirty(true); }}
+                acento={P}
+                linea={LINE}
+              />
+            </div>
+
             {/* ── Capa premium del Pase ──
-                Arriba de $15.000 la oferta entra como PREMIUM: el turista la
+                Arriba de $40.000 la oferta entra como PREMIUM: el turista la
                 usa gastando uno de los pocos slots de su Pase, así que llegan
                 menos pero valen más. El socio tiene que decidir explícitamente
                 cuántos acepta por mes — sin default, porque un default
@@ -2023,10 +2085,10 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
             {Number(editForm.ahorro) > AHORRO_BASE_MAX && (
               <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 12, background: PS, border: `1px solid ${P}33` }}>
                 <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: INK, marginBottom: 3 }}>
-                  ¿Cuántos canjes premium aceptás por mes?
+                  ¿Cuántos canjes PREMIUM aceptás por mes?
                 </div>
                 <div style={{ fontFamily: FONT, fontSize: 11.5, color: INK2, lineHeight: 1.5, marginBottom: 12 }}>
-                  Por el ahorro que ofrecés, esta oferta entra en la capa premium del Pase.
+                  Por el ahorro que ofrecés, esta oferta entra en la capa PREMIUM del Pase.
                   Poné un tope si tenés capacidad limitada, o dejala sin tope.
                 </div>
 
@@ -2256,21 +2318,68 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
             )}
           </div>
 
-          {/* ── Reserva previa: habilita el form de disponibilidad en el detalle del cupón ── */}
+          {/* ── Coordinar fecha: habilita el formulario en el detalle del cupón ── */}
           <div>
             <FieldLabel label="Disponibilidad"/>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 2px' }}>
               <CalendarDays size={18} color={editForm.requiereReserva ? P : INK2} style={{ flexShrink: 0 }}/>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK }}>El servicio requiere reserva previa</div>
+                <div style={{ fontFamily: FONT, fontSize: 13, fontWeight: 600, color: INK }}>El servicio necesita coordinar fecha</div>
                 <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 1, lineHeight: 1.4 }}>
-                  Si lo activás, el turista pide disponibilidad (fecha/personas) desde el detalle y vos confirmás. Si no, el cupón se agrega directo al carrito.
+                  Si lo activás, el turista te pide día y vos confirmás. Si no, el cupón se agrega directo al carrito.
                 </div>
               </div>
               <div style={{ flexShrink: 0 }}>
-                <Toggle on={!!editForm.requiereReserva} onChange={() => setFInstante(f => ({ ...f, requiereReserva: !f.requiereReserva }))}/>
+                <Toggle on={!!editForm.requiereReserva}
+                  onChange={() => setFInstante(f => ({ ...f, requiereReserva: !f.requiereReserva, ...(f.requiereReserva ? {} : preTildado(negocioTipo)) }))}/>
               </div>
             </div>
+
+            {/* Qué necesita saber el socio para poder contestar. Se pre-tilda
+                según su rubro al activar el toggle — pre-tildado NO es default
+                escondido: los ve marcados antes de guardar y destilda lo que no
+                aplica. Preguntarle todo a todos hace que nadie complete nada. */}
+            {editForm.requiereReserva && (
+              <div style={{ marginTop: 4, padding: '14px 16px', borderRadius: 12, border: `1px solid ${LINE}`, background: '#fff' }}>
+                <div style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 700, color: INK, marginBottom: 10 }}>
+                  ¿Qué necesitás saber para coordinar?
+                </div>
+
+                <div style={{ opacity: editForm.personasFijas ? 0.45 : 1, pointerEvents: editForm.personasFijas ? 'none' : 'auto' }}>
+                  {[
+                    ['pideAdultos',  'Cantidad de adultos'],
+                    ['pideNinos',    'Niños'],
+                    ['pideBebes',    'Bebés'],
+                    ['pideMascotas', 'Mascotas'],
+                  ].map(([k, label]) => (
+                    <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 0', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={!!editForm[k]} style={{ accentColor: P }}
+                        onChange={() => setFInstante(f => ({ ...f, [k]: !f[k] }))}/>
+                      <span style={{ fontFamily: FONT, fontSize: 13, color: INK }}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 0', cursor: 'pointer', borderTop: `1px solid ${LINE}`, marginTop: 8, paddingTop: 12 }}>
+                  <input type="checkbox" checked={!!editForm.pideHorario} style={{ accentColor: P }}
+                    onChange={() => setFInstante(f => ({ ...f, pideHorario: !f.pideHorario }))}/>
+                  <span style={{ fontFamily: FONT, fontSize: 13, color: INK }}>Horario</span>
+                </label>
+
+                {/* Cantidad fija apaga todo el bloque del grupo: si el beneficio
+                    es para uno, preguntar cuántos son invita a contestar mal. */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 0 0', cursor: 'pointer', borderTop: `1px solid ${LINE}`, marginTop: 8 }}>
+                  <input type="checkbox" checked={editForm.personasFijas != null} style={{ accentColor: P }}
+                    onChange={e => setFInstante(f => ({ ...f, personasFijas: e.target.checked ? 1 : null }))}/>
+                  <span style={{ fontFamily: FONT, fontSize: 13, color: INK }}>Es para una cantidad fija de personas</span>
+                </label>
+                {editForm.personasFijas != null && (
+                  <input type="number" min={1} max={50} value={editForm.personasFijas}
+                    onChange={e => setFInstante(f => ({ ...f, personasFijas: Math.max(1, Number(e.target.value) || 1) }))}
+                    style={{ width: 90, marginTop: 8, padding: '9px 12px', borderRadius: 10, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 14 }}/>
+                )}
+              </div>
+            )}
           </div>
           </>
           )}

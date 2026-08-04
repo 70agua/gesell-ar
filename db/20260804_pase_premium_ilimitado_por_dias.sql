@@ -1,0 +1,43 @@
+-- ============================================================
+--  Pase sin tope premium a partir de cierta duración
+--
+--  Regla de producto: desde DIAS_PREMIUM_ILIMITADO días (10, ver
+--  src/lib/pases.js) el pase deja de tener tope de elecciones premium — entra
+--  todo el catálogo, sin elección numérica. Por debajo de eso, sigue "una
+--  elección por día" (lo que evita el arbitraje entre pases cortos y largos).
+--
+--  Se congela en `usuario_pases.premium_ilimitado` al momento de la compra
+--  (vincularComprasPase en src/lib/pases.js), NO se recalcula al usar: si el
+--  umbral de 10 días cambia más adelante, un pase ya vendido conserva el
+--  régimen con el que se compró.
+--
+--  Dos RPCs dejan de exigir el tope cuando el flag está en true:
+--    elegir_premium_pase    · salta el chequeo "max_elecciones"
+--    enviar_solicitud_fecha · salta el chequeo "sin_slots"
+--  (slots_premium_ocupados() no cambia — sigue contando elecciones +
+--  solicitudes enviadas; sólo cambia el techo contra el que se compara.)
+--
+--  Verificado con dos pases de prueba en la misma sesión (borrados después):
+--  uno de 12 días con el flag aceptó 15 elecciones sobre 15 intentos; uno de
+--  control de 3 días sin el flag se frenó en 3 de 15, como corresponde.
+--
+--  Client-side: el mismo flag se expone en dos lugares que ya eran fuentes
+--  paralelas de "cuánto premium tiene este pase" — lib/pasePropio.jsx (el
+--  contexto que usa la mini-ficha, LimitePase, CtaPase, los Cupopacks) y
+--  hooks/useMiPase.js (el que usa CtaPase vía OfertaDetailView/DetailView).
+--  En los dos, cuando premium_ilimitado es true, `total`/`libres`/`restantes`
+--  pasan a ser `Infinity` y NO un número grande — así el slicing numérico
+--  (encajeEnPase en lib/cupopacks.js) sigue andando solo, y cualquier texto
+--  que antes imprimía esos números tuvo que revisarse a mano para no mostrar
+--  literalmente "Infinity" (LimitePase, CtaPase, MiPaseView, CupopacksParaPase,
+--  CupopackModal, CheckoutPaseView).
+--
+--  Un efecto colateral encontrado al cablear esto: CtaPase.jsx usaba un
+--  heurístico (`restantes < total`) para adivinar "¿ya elegí ESTA oferta
+--  premium?", porque `useMiPase` nunca trajo `elegidasIds`. Con `total` y
+--  `restantes` volviéndose los dos `Infinity` en un pase ilimitado, ese
+--  heurístico deja de poder distinguir nada (Infinity < Infinity es siempre
+--  falso). Se reemplazó por el dato real: CtaPase ahora también consume
+--  `usePasePropio()` para leer `elegidasIds` y preguntar directamente si esta
+--  oferta ya fue elegida, en vez de adivinar por el conteo agregado.
+-- ============================================================

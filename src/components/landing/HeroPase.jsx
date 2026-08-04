@@ -32,8 +32,8 @@ import usePaseStats from '../../hooks/usePaseStats';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
-  primary:     '#2545E6',
-  primaryDark: '#1731B8',
+  primary:     '#475BE1',
+  primaryDark: '#3347C8',
   ink:         '#0B1020',
   ink2:        '#3D4255',
   line:        '#E6E3DC',
@@ -220,7 +220,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
                  frase con la misma palabra hacía que el remate sonara a repetido
                  en vez de a énfasis. */}
           <p className="pv3-sub">
-            Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas: todos los descuentos en excursiones, salidas, compras y alojamiento.
+            En Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas. Descuentos en excursiones, salidas, compras y alojamiento.
           </p>
 
           {/* 4 · Contador, sobre la galería. Está acá y no dentro del párrafo
@@ -330,7 +330,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
            (-10°) en vez de cruzarla, pero con bastante más gesto. Al rotar, el
            alto visual pasa de 85 a ~128px y se come 21px por arriba y por abajo:
            de ahí el margin inferior de 32px, para que no lama el título. */
-        .pv3-ticket { width: 172px; height: auto; display: block; margin: 0 0 32px; transform: rotate(-18deg); }
+        .pv3-ticket { width: 172px; height: auto; display: block; margin: 0 0 32px; transform: rotate(-25deg); }
 
         /* 2 · Título */
         .pv3-title { position: relative; margin: 0; line-height: 1.12; letter-spacing: 0; }
@@ -405,7 +405,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
              en vez de cortarse a media columna. */
           font-size: 15.5px; line-height: 1.5;
         }
-        .pv3-b2b-txt { color: ${A.ink2}; }
+        .pv3-b2b-txt { color: ${A.ink}; }
         /* Alto de toque cómodo sin cambiar de nivel visual: el área crece por
            padding, no por fondo ni por borde. */
         .pv3-b2b-cta {

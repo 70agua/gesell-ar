@@ -249,10 +249,10 @@ function BloquePase({ negocio, showToast }) {
       {/* Upgrade packs */}
       <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: 22 }}>
         <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: INK, marginBottom: 4 }}>
-          Beneficios premium extra
+          Beneficios PREMIUM extra
         </div>
         <div style={{ fontFamily: FONT, fontSize: 12.5, color: INK2, lineHeight: 1.55, marginBottom: 14 }}>
-          El Pase que regalás trae <b>1 beneficio premium</b> — los de más de $15.000 de ahorro.
+          El Pase que regalás trae <b>1 beneficio PREMIUM</b> — los de más de $40.000 de ahorro.
           Cada upgrade que compres le suma <b>uno más</b> al turista que vos elijas.
         </div>
 

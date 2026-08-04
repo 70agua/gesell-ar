@@ -229,13 +229,57 @@ Recién acá. Depende de que existan los slots premium y el canje.
 
 ---
 
-## Fase 9 — Avisos por mail
+## Fase 9 — Avisos ✅
 
-Hoy no se envía ninguno propio (solo el de Supabase Auth).
+**Dos canales: mail + in-app.** Construida 2026-08-03.
 
-- [ ] Oferta aprobada / rechazada
-- [ ] Un huésped activó tu pase-regalo
-- [ ] Vencimiento próximo del pase del turista
+### Cómo está hecho
+
+Una tabla `avisos` con **patrón outbox**: cada evento escribe una fila y nada
+más. El in-app la lee al instante; el mail la drena aparte. Así el envío puede
+fallar, reintentarse o llegar tarde sin que el usuario se quede sin enterarse, y
+el código que dispara el evento no sabe nada de proveedores.
+
+- `payload` **congela** lo necesario para redactar el texto. Si se leyera de las
+  tablas al enviar, un aviso de "tu solicitud venció" mostraría el estado de HOY
+  y no el del momento en que pasó.
+- El texto **no se guarda redactado**: lo arma el cliente (`src/lib/avisos.js`) y
+  la edge function. Cambiar un copy no obliga a migrar el histórico.
+- Los eventos van en **triggers, no en las RPCs**. El estado `vencida` de una
+  solicitud lo pone un cron y la moderación de ofertas es un update directo del
+  superadmin: enganchar por RPC dejaba sin aviso justo esos casos.
+- RLS: el usuario lee los suyos y sólo puede marcarlos leídos. Nadie inserta
+  desde el cliente.
+
+### Las tres tandas
+
+| # | Evento | Para | Disparador |
+|---|---|---|---|
+| 1 | Solicitud recibida | socio | trigger `INSERT` |
+| 1 | Solicitud por vencer (24 h) | socio | cron horario |
+| 1 | Aceptada / rechazada / contrapropuesta / vencida | turista | trigger `UPDATE OF estado` |
+| 2 | Oferta aprobada / rechazada | socio | trigger `UPDATE OF aprobada` |
+| 3 | Pase por vencer (3 días) | turista | cron diario |
+| 3 | Cupón por vencer (7 días) | turista | cron diario |
+
+Las solicitudes van primero porque son lo único con ventana de 72 h: sin aviso,
+la Fase 5b depende de que la gente entre a mirar.
+
+### Estado
+
+- ✅ Canal in-app completo: tabla, triggers, crons, `src/lib/avisos.js` y la
+  campanita en la Navbar.
+- ⏳ Canal mail: `supabase/functions/enviar-avisos` **escrita, sin desplegar**.
+  Necesita el secret `RESEND_API_KEY` y `pg_net` para que el cron la invoque.
+
+### Lo que salió a la luz construyéndola
+
+- **37 de 64 negocios no tienen usuario detrás** (cargados por el superadmin sin
+  dueño). No pueden recibir avisos ni responder solicitudes. Por eso una oferta
+  con `requiere_fecha` ahora **exige** un usuario asociado: sin él la solicitud
+  ocupa un slot del turista, nadie contesta y vence a las 72 h.
+- Los avisos de vencimiento (tanda 3) todavía **no tienen datos que los
+  ejerciten**: cero pases activos y cero cupones vivos.
 
 ---
 

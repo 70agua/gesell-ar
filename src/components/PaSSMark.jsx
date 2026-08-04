@@ -4,7 +4,7 @@
 //  sobre una pastilla primary. Vive acá porque ya lo pintan la home, el
 //  checkout del pase y las minifichas de oferta — una sola versión para todos.
 // ============================================================
-const PRIMARY = '#2545E6';
+const PRIMARY = '#475BE1';
 const NAURYZ  = "'NauryzRedkeds', sans-serif";
 
 // `size` es el cuerpo de la tipografía; los corrimientos de la pastilla están

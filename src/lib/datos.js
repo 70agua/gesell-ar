@@ -4,6 +4,7 @@
 
 import { supabase } from './supabase';
 import { calcularPrecioCupon } from './cobros';
+import { parsearCondiciones } from './condiciones';
 
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80';
 
@@ -197,6 +198,16 @@ export function normalizePromo(p) {
     // ¿El servicio requiere reserva previa? Habilita el form de solicitud de disponibilidad
     // en el detalle. Legacy (null) → según categoría (alojamiento pide fecha; el resto no).
     requiereReserva:  p.requiere_reserva != null ? p.requiere_reserva : (categoria === 'alojamiento'),
+    // Qué le pregunta el formulario de coordinar fecha. No es una lista fija:
+    // un restaurante pide horario y un alojamiento no; un alojamiento pide
+    // niños, bebés y mascotas y una sesión de masaje no pregunta nada porque
+    // es de a uno (`personasFijas`).
+    pideHorario:   p.pide_horario  === true,
+    pideAdultos:   p.pide_adultos  !== false,
+    pideNinos:     p.pide_ninos    === true,
+    pideBebes:     p.pide_bebes    === true,
+    pideMascotas:  p.pide_mascotas === true,
+    personasFijas: p.personas_fijas != null ? Number(p.personas_fijas) : null,
     categoria,
     subcategorias:    p.negocios?.categoria ? p.negocios.categoria.split(' / ').map(s => s.trim()).filter(Boolean) : [],
     subcategoria:     p.negocios?.categoria ? p.negocios.categoria.split(' / ')[0].trim() : '',
@@ -355,8 +366,7 @@ function normalizeCuponDeCupopack(p) {
   const precio = p.precio_manual != null
     ? Number(p.precio_manual)
     : calcularPrecioCupon(Number(p.ahorro_estimado) || 0);
-  const terminos = (p.condiciones || '')
-    .split(/\n|(?<=\.)\s+/).map(s => s.trim()).filter(Boolean);
+  const terminos = parsearCondiciones(p.condiciones);
   const galeria = Array.isArray(n.galeria) && n.galeria.length
     ? n.galeria
     : [p.imagen_url].filter(Boolean);

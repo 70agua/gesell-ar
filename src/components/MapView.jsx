@@ -8,7 +8,7 @@ import HeartButton from './HeartButton';
 import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 
 const C = {
-  primary:  '#2545E6',
+  primary:  '#475BE1',
   green:    '#10A36B',
   ink:      '#0B1020',
   ink2:     '#3D4255',
@@ -28,7 +28,7 @@ function makeMarkerHtml(promo, active) {
   const border = active ? C.primary : C.line;
   const scale  = active ? 'scale(1.12)' : 'scale(1)';
   const shadow = active
-    ? '0 4px 16px rgba(37,69,230,0.45)'
+    ? '0 4px 16px rgba(71,91,225,0.45)'
     : '0 2px 8px rgba(11,16,32,0.18)';
 
   const iconFill  = active ? '#fff' : C.primary;
@@ -76,7 +76,7 @@ function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
       style={{
         borderRadius: 14, cursor: 'pointer', background: '#fff',
         border: `2px solid ${active ? C.primary : C.line}`,
-        boxShadow: active ? '0 4px 16px rgba(37,69,230,0.14)' : 'none',
+        boxShadow: active ? '0 4px 16px rgba(71,91,225,0.14)' : 'none',
         transition: 'border-color .2s, box-shadow .2s',
         flexShrink: 0, width: 260,
         display: 'flex', flexDirection: 'column',
@@ -198,10 +198,10 @@ export default function MapView({ promos = [], center, hotelName = '', onAddCupo
     const hotelIcon = L.divIcon({
       className: '',
       html: `<div style="
-        background:#2545E6; border:3px solid #fff;
+        background:#475BE1; border:3px solid #fff;
         border-radius:50%; width:44px; height:44px;
         display:flex; align-items:center; justify-content:center;
-        box-shadow:0 4px 16px rgba(37,69,230,0.45);
+        box-shadow:0 4px 16px rgba(71,91,225,0.45);
       ">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5Z"/>

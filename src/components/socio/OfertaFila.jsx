@@ -16,7 +16,7 @@ import { esCuponDeEntrada, gananciaNeta } from '../../lib/cobros';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',
-  line: '#E7E9EE', primary: '#2545E6',
+  line: '#E7E9EE', primary: '#475BE1',
   font: "'Inter', system-ui, sans-serif",
 };
 
@@ -56,24 +56,27 @@ export default function OfertaFila({ promo, activa, onClick, filaRef }) {
     >
       {/* 88×50 es 16:9 — el mismo asset y el mismo crop que el hero y la
           minificha. Una segunda proporción obligaría a un segundo recorte en
-          el uploader del socio. */}
+          el uploader del socio.
+
+          El badge NO va encima: a 88px de ancho, sobre una foto cualquiera, no
+          se lee. Va arriba del título, donde tiene contraste garantizado. */}
       <div style={{
-        position: 'relative', width: 88, height: 50, borderRadius: 6,
+        width: 88, height: 50, borderRadius: 6,
         overflow: 'hidden', flexShrink: 0, background: '#1a2a35',
       }}>
         {promo.image && (
           <img src={promo.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         )}
-        {promo.badge && (
-          <span style={{
-            position: 'absolute', left: 4, bottom: 3,
-            fontSize: 12, fontWeight: 900, color: '#fff', lineHeight: 1,
-            letterSpacing: '-0.02em', textShadow: '0 1px 4px rgba(0,0,0,0.6)',
-          }}>{promo.badge}</span>
-        )}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
+        {promo.badge && (
+          <div style={{
+            fontSize: 15, fontWeight: 900, color: A.ink, lineHeight: 1.15,
+            letterSpacing: '-0.03em', marginBottom: 1,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{promo.badge}</div>
+        )}
         <div style={{
           fontSize: 14, fontWeight: 500, color: A.ink, lineHeight: 1.3,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

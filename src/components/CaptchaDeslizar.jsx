@@ -11,8 +11,8 @@ import { useRef, useState } from 'react';
 import { Check, ChevronsRight } from 'lucide-react';
 
 const C = {
-  primary:     '#2545E6',
-  primarySoft: '#EEF1FF',
+  primary:     '#475BE1',
+  primarySoft: '#EEF0FD',
   ink2:        '#3D4255',
   muted:       '#6B7280',
   line:        '#E7E9EE',
