@@ -29,7 +29,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import usePaseStats from '../../hooks/usePaseStats';
-import HeroSideCards from './HeroSideCards';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -129,8 +128,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
 
   // Antes: las columnas corrían solas (CSS animation, linear infinite) y por
   // encima se sumaba un parallax atado al scroll. Resultado: ruido — la
-  // galería se movía todo el tiempo, incluso quieto el usuario, compitiendo
-  // con las ScrollCards de arriba.
+  // galería se movía todo el tiempo, incluso quieto el usuario.
   //
   // Ahora todo el movimiento sale de una sola fuente: window.scrollY. Sin
   // scroll, cero transform, cero movimiento. Cada columna recorre su lista
@@ -251,6 +249,40 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
             En Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas. Descuentos en excursiones, salidas, compras y alojamiento.
           </p>
 
+          {/* 4 · Contador, sobre la galería. Está acá y no dentro del párrafo
+                 de apoyo por dos motivos: en el renglón le competía el espacio
+                 al claim, y el dato es vidriera —cuánto hay para recorrer—, no
+                 argumento de venta.
+
+                 Cuenta CUPONES y no socios: es lo que el turista va a mirar uno
+                 por uno, y son más del doble (133 contra 64).
+
+                 El número desaparece si la consulta falla o el catálogo está
+                 vacío —nunca un número inventado— pero el botón queda igual: es
+                 el único camino a explorar el catálogo desde el hero.
+
+                 Vive DENTRO de .pv3-left, no como hermano suelto, aunque en
+                 desktop se posicione absoluto contra .pv3-inner (que es el
+                 relative más cercano: .pv3-left no está posicionado). Es para
+                 el caso angosto: ahí vuelve al flujo, y tiene que caer entre el
+                 claim y la decisión —no después del carril de hotelería, que
+                 invertiría el orden de públicos. */}
+          {/* El nombre accesible va explícito: los tres spans son hijos de un
+              flex, así que el texto se concatena sin los espacios que sí se ven
+              en pantalla ("133cupones cargadosMirá…"). */}
+          <button className="pv3-contador" onClick={() => onVerDescuentos?.()}
+            aria-label={stats.ok
+              ? `Conocé los ${stats.cupones} cupones que te esperan`
+              : 'Conocé los cupones que te esperan'}>
+            {stats.ok && (
+              <>
+                <span className="pv3-contador-num">{stats.cuponesFmt}</span>
+                <span className="pv3-contador-label"><span>cupones</span><span>te esperan</span></span>
+              </>
+            )}
+            <span className="pv3-contador-link">Conocelos <span aria-hidden="true">→</span></span>
+          </button>
+
           {/* 5 · Pretítulo de los pases. No es un segundo párrafo de apoyo: es
                  la etiqueta de los dos botones, y por eso va pegado a ellos
                  (12px) y separado del sub (30px). La pregunta es literalmente
@@ -292,26 +324,6 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
             </button>
           </div>
         </div>
-
-        {/* 4 · Cards laterales, sobre la galería. Reemplazan al viejo contador
-               único: mismo lugar (colgadas del borde derecho de .pv3-inner,
-               igual que antes hacía .pv3-contador), pero ahora son tres accesos
-               directos — Pases, Suscripción y Comunidad — en vez de un solo
-               dato. La de Comunidad usa el mismo campo que usaba el contador
-               (stats.cupones, vía usePaseStats): sin catálogo cargado, el valor
-               queda vacío en lugar de mostrar un número inventado. */}
-        <HeroSideCards
-          cards={[
-            { title: 'Pases', value: '3 o 7 días', icon: '🎟️' },
-            { title: 'Suscripción', value: 'Premium', icon: '✨' },
-            { title: 'Comunidad', value: stats.ok ? `${stats.cuponesFmt} cupones` : '', icon: '👥' },
-          ]}
-          onCardClick={(card) => {
-            if (card.title === 'Pases') onComprarPase?.();
-            if (card.title === 'Suscripción') suscribir();
-            if (card.title === 'Comunidad') onVerDescuentos?.();
-          }}
-        />
 
         <div className="pv3-mobile-deco" aria-hidden="true">
           {MOBILE_DECO.map(s => (
@@ -431,44 +443,57 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         }
         .pv3-b2b-cta:hover { color: ${A.primary}; text-decoration-color: ${A.primary}; }
 
-        /* 4 · Cards laterales sobre la galería (HeroSideCards).
-           Mismo anclaje que tenía el viejo contador: el "right" es negativo
+        /* 4 · Contador sobre la galería.
+           Ficha blanca al ras del borde derecho de la ventana, sin rotar. La
+           galería está inclinada y en movimiento; una tarjeta con TEXTO que
+           además girara competía con ella en vez de apoyarse, y a -10° el
+           número se leía torcido sin ganar nada.
+
+           Se sale de la caja del contenido a propósito: el "right" es negativo
            por la mitad de lo que le sobra al viewport respecto de .pv3-inner,
-           así la columna de fichas queda pegada al borde de la ventana y no al
-           de la columna de texto. Ahora son tres, apiladas en columna en vez
-           de una sola ficha. */
-        .pv3-sidecards {
+           así queda pegada al borde de la ventana y no al de la columna. La
+           esquina derecha se pierde fuera de pantalla —de ahí el radio sólo
+           del lado izquierdo—: media ficha asomando dice "hay más para este
+           lado" mejor que una tarjeta entera flotando en el aire.
+
+           (100vw incluye la barra de scroll, así que se corre ~8px de más;
+           como el borde derecho ya está fuera de cuadro, no se nota.) */
+        .pv3-contador {
           position: absolute;
           right: calc((100% - 100vw) / 2);
           top: 50%;
           transform: translateY(-50%);
           z-index: 2;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .pv3-sidecard {
           display: flex; flex-direction: column; align-items: flex-start;
           min-width: 190px;
-          padding: 16px 30px 14px 26px;
+          padding: 22px 30px 20px 26px;
           border: none;
           border-radius: 26px 0 0 26px;
           background: #fff;
           box-shadow: 0 22px 50px -28px rgba(11,16,32,0.45);
           font-family: inherit; text-align: left; cursor: pointer;
-          transition: box-shadow .18s, opacity .5s ease, transform .5s ease;
+          transition: box-shadow .18s;
         }
-        .pv3-sidecard:hover { box-shadow: 0 28px 60px -26px rgba(11,16,32,0.55); }
-        .pv3-sidecard-icon { font-size: 20px; line-height: 1; }
-        .pv3-sidecard-title {
-          margin-top: 8px;
-          font-size: 13px; font-weight: 600; color: ${A.ink2};
-          text-transform: uppercase; letter-spacing: 0.4px;
+        .pv3-contador:hover { box-shadow: 0 28px 60px -26px rgba(11,16,32,0.55); }
+        .pv3-contador-num {
+          font-size: 38px; font-weight: 700; line-height: 1.05;
+          color: ${A.primary}; font-variant-numeric: tabular-nums;
         }
-        .pv3-sidecard-value {
-          margin-top: 3px;
-          font-size: 19px; font-weight: 700; line-height: 1.15; color: ${A.primary};
+        /* Dos spans y no un <br>: en angosto la ficha se desarma en una línea
+           y el corte tiene que poder deshacerse desde el CSS. */
+        .pv3-contador-label {
+          display: flex; flex-direction: column;
+          font-size: 16px; font-weight: 400; line-height: 1.3; color: ${A.ink};
         }
+        .pv3-contador-link {
+          margin-top: 16px;
+          font-size: 15px; font-weight: 700; color: ${A.ink};
+          transition: color .15s;
+        }
+        /* Sin número, el link queda solo en la ficha y no hay nada de lo que
+           separarse. */
+        .pv3-contador-link:first-child { margin-top: 0; }
+        .pv3-contador:hover .pv3-contador-link { color: ${A.primary}; }
 
         /* ─── Galería ─────────────────────────────────────────
            La ventana es MÁS ANCHA que el bloque de fotos a propósito: el
@@ -522,23 +547,22 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           .pv3-galwin { opacity: 0.5; --colw: clamp(150px, 20vw, 220px); }
 
           /* Acá el layout es de una sola columna centrada: no hay "derecha" de
-             la que colgarse. Tres fichas blancas al ras del borde quedarían
-             pisando el contenido centrado —y desde 760px, apoyadas sobre una
-             galería que ya ni existe—. Vuelven al flujo y se desarman: sin
-             fondo, sin sombra, en fila, y sólo icono + valor (el título en
-             mayúsculas sobra cuando ya no hay una ficha que lo enmarque). */
-          .pv3-sidecards {
+             la que colgarse. Una ficha blanca al ras del borde quedaría pisando
+             el contenido centrado —y desde 760px, apoyada sobre una galería que
+             ya ni existe—. Vuelve al flujo y se desarma: sin fondo, sin sombra
+             y en una línea queda como un renglón más del bloque, que es lo que
+             es cuando no tiene fotos detrás. */
+          .pv3-contador {
             position: static; transform: none;
-            flex-direction: row; flex-wrap: wrap; justify-content: center;
-            gap: 10px 20px; margin-top: 18px;
+            flex-direction: row; align-items: baseline; gap: 7px;
+            min-width: 0; margin: 18px 0 0; padding: 0;
+            background: none; box-shadow: none; border-radius: 0;
           }
-          .pv3-sidecard {
-            flex-direction: row; align-items: center; gap: 8px;
-            min-width: 0; padding: 0; background: none; box-shadow: none; border-radius: 0;
-          }
-          .pv3-sidecard:hover { box-shadow: none; }
-          .pv3-sidecard-title { display: none; }
-          .pv3-sidecard-value { margin-top: 0; font-size: 15px; }
+          .pv3-contador:hover { box-shadow: none; }
+          .pv3-contador-num   { font-size: 24px; }
+          .pv3-contador-label { flex-direction: row; gap: 5px; font-size: 15px; }
+          .pv3-contador-link  { margin-top: 0; font-size: 15px; }
+          .pv3-contador-label::after { content: '·'; margin-left: 2px; color: ${A.line}; }
         }
         @media (max-width: 760px) {
           .pv3-galwin { display: none; }
@@ -553,9 +577,12 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           .pv3-btn-pase { justify-content: center; }
           .pv3-mas-dias { padding-top: 2px; text-align: center; }
 
-          /* Mismo criterio que .pv3-opciones: en una columna angosta, las tres
-             cards en fila no entran sin cortar feo. Se apilan. */
-          .pv3-sidecards { flex-direction: column; align-items: center; gap: 8px; }
+          /* Las cuatro piezas en un renglón suman ~293px: entran justo en un
+             teléfono de 360 y no en uno de 320. Se permite el corte, pero por
+             la junta que corresponde —el link cae entero a la segunda línea—
+             en lugar de partir "te esperan" al medio. */
+          .pv3-contador { flex-wrap: wrap; justify-content: center; }
+          .pv3-contador-label::after { content: none; }
         }
       `}</style>
     </section>
