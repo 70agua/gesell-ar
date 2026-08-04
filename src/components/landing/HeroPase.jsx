@@ -29,6 +29,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import usePaseStats from '../../hooks/usePaseStats';
+import ScrollCards from './ScrollCards';
 
 // ─── Design tokens ───────────────────────────────────────────
 const A = {
@@ -71,8 +72,8 @@ const COL_ASPECT = [
   [1.50, 1.33, 1.50, 1.25],
 ];
 const COL_META = [
-  { f: 0.12, dur: 144, dir: 'up' },
-  { f: 0.19, dur: 180, dir: 'down' },
+  { speed: 0.55, dir: 'up' },
+  { speed: 0.8,  dir: 'down' },
 ];
 const NUM_COLS = COL_META.length;
 const BUFFER = 220;
@@ -123,40 +124,69 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
   const rafRef  = useRef(0);
   const heroRef = useRef(null);
   const colRefs = useRef([]);
+  const halfHeights = useRef([]);
   const visibleRef = useRef(true);
 
-  // El parallax NO pasa por el estado de React: un setState por frame de scroll
-  // obliga a re-renderizar toda la sección (34 celdas + el bloque <style>) 60
-  // veces por segundo. Acá el rAF escribe el transform directo en el DOM.
+  // Antes: las columnas corrían solas (CSS animation, linear infinite) y por
+  // encima se sumaba un parallax atado al scroll. Resultado: ruido — la
+  // galería se movía todo el tiempo, incluso quieto el usuario, compitiendo
+  // con las ScrollCards de arriba.
   //
-  // Y con el hero fuera del viewport se corta todo: se congela el marquee —y
-  // con él la recomposición de una capa grande, rotada y enmascarada— y ni se
-  // agendan los frames de scroll.
+  // Ahora todo el movimiento sale de una sola fuente: window.scrollY. Sin
+  // scroll, cero transform, cero movimiento. Cada columna recorre su lista
+  // duplicada de fotos (para loop sin costura) a una velocidad propia
+  // (COL_META.speed) y en su sentido (up/down), usando módulo sobre la mitad
+  // real de su alto para el wrap — así el salto de vuelta al principio cae
+  // justo donde la duplicación hace que sea invisible.
+  //
+  // Tampoco pasa por estado de React (mismo motivo de siempre: un setState
+  // por frame de scroll re-renderiza toda la sección). El rAF escribe el
+  // transform directo en el DOM, y con el hero fuera de vista se corta todo:
+  // ni se agendan los frames.
   useEffect(() => {
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    const medirAltos = () => {
+      colRefs.current.forEach((nodo, i) => {
+        if (nodo) halfHeights.current[i] = nodo.scrollHeight / 2;
+      });
+    };
+
     const pintar = () => {
       rafRef.current = 0;
+      if (reducedMotion) return;
       const y = window.scrollY || 0;
       colRefs.current.forEach((nodo, i) => {
-        if (nodo) nodo.style.transform = `translate3d(0, ${y * COL_META[i].f}px, 0)`;
+        const half = halfHeights.current[i];
+        if (!nodo || !half) return;
+        const { speed, dir } = COL_META[i];
+        const recorrido = (y * speed) % half;
+        const offset = dir === 'up' ? -recorrido : -(half - recorrido);
+        nodo.style.transform = `translate3d(0, ${offset}px, 0)`;
       });
     };
     const agendar = () => {
       if (rafRef.current || !visibleRef.current) return;
       rafRef.current = requestAnimationFrame(pintar);
     };
+
+    const onResize = () => { medirAltos(); agendar(); };
+
+    medirAltos();
     pintar();
     window.addEventListener('scroll', agendar, { passive: true });
+    window.addEventListener('resize', onResize);
 
     const hero = heroRef.current;
     const obs = hero && new IntersectionObserver(([e]) => {
       visibleRef.current = e.isIntersecting;
-      hero.classList.toggle('pv3-quieto', !e.isIntersecting);
       if (e.isIntersecting) agendar();
     }, { threshold: 0 });
     if (obs) obs.observe(hero);
 
     return () => {
       window.removeEventListener('scroll', agendar);
+      window.removeEventListener('resize', onResize);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (obs) obs.disconnect();
     };
@@ -167,6 +197,38 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
   return (
     <section ref={heroRef} className="pv3-hero" style={{ position: 'relative', zIndex: 0, fontFamily: A.font, background: 'linear-gradient(180deg, #FFF7EB 0%, #FFFFFF 60%)', overflowX: 'clip' }}>
 
+      {/* ─── SCROLL CARDS: Tarjetas animadas (MindMarket style)
+          Insertadas entre hero + galería. Para REVERTIR: eliminar esta línea.
+          ─────────────────────────────────────────────────────────────────── */}
+      <ScrollCards
+        cards={[
+          {
+            title: 'Pases',
+            value: '3 o 7 días',
+            description: 'Acceso ilimitado a descuentos en hoteles, gastronomía y actividades.',
+            icon: '🎟️',
+          },
+          {
+            title: 'Suscripción',
+            value: 'Premium',
+            description: 'Beneficios exclusivos, ofertas early-bird y acceso VIP a nuevas experiencias.',
+            icon: '✨',
+          },
+          {
+            title: 'Comunidad',
+            value: '1000+',
+            description: 'Viajeros y locales compartiendo las mejores recomendaciones de Gesell.',
+            icon: '👥',
+          },
+        ]}
+        onCardClick={(card) => {
+          if (card.title === 'Pases') onComprarPase?.();
+          if (card.title === 'Suscripción') onSuscribir?.('premium');
+          if (card.title === 'Comunidad') onVerDescuentos?.();
+        }}
+      />
+      {/* ───────────────────────────────────────────────────────────────── */}
+
       {/* ─── Galería derecha: capa detrás, de techo a piso, sin huecos ───
           `pv3-galwin` es la ventana que recorta (al corte). Dentro, una capa
           más alta (colchón arriba/abajo) permite el parallax sin descubrir
@@ -174,10 +236,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
       <div className="pv3-galwin" aria-hidden="true">
         <div className="pv3-gallery">
           {cols.map((items, ci) => (
-            <div key={ci} className="pv3-col" ref={n => { colRefs.current[ci] = n; }}
-              style={{ willChange: 'transform' }}>
-              <div className={`pv3-coldrift pv3-marquee-${COL_META[ci].dir}`}
-                style={{ animationDuration: `${COL_META[ci].dur}s` }}>
+            <div key={ci} className="pv3-col">
+              <div className="pv3-coldrift" ref={n => { colRefs.current[ci] = n; }}>
                 {[...items, ...items].map((item, idx) => {
                   const capa = CAPAS[item.capa];
                   return (
@@ -503,14 +563,6 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         }
         .pv3-col  { flex: 1 1 0; }
         .pv3-coldrift { display: flex; flex-direction: column; will-change: transform; }
-        .pv3-marquee-up   { animation: pv3MarqueeUp   linear infinite; }
-        .pv3-marquee-down { animation: pv3MarqueeDown linear infinite; }
-        @keyframes pv3MarqueeUp   { from { transform: translateY(0); }    to { transform: translateY(-50%); } }
-        @keyframes pv3MarqueeDown { from { transform: translateY(-50%); } to { transform: translateY(0); } }
-        @media (prefers-reduced-motion: reduce) {
-          .pv3-marquee-up, .pv3-marquee-down { animation: none; }
-        }
-        .pv3-quieto .pv3-coldrift { animation-play-state: paused; }
         .pv3-cell { flex: 0 0 auto; margin-bottom: 16px; border-radius: 20px; overflow: hidden; }
         .pv3-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .pv3-mobile-deco { display: none; }
