@@ -30,6 +30,9 @@ import { socialProof } from '../lib/socialProof';
 import HeartButton from '../components/HeartButton';
 import { esSiguiendo, toggleSeguir } from '../lib/seguir';
 import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
+import PanelOfertasSocio from '../components/socio/PanelOfertasSocio';
+import EscanerCanje from '../components/EscanerCanje';
+import SolicitarFecha from '../components/SolicitarFecha';
 
 const toDateStr = d => d instanceof Date ? d.toISOString().split('T')[0] : '';
 
@@ -1257,7 +1260,7 @@ function ZonaDescuentosSection({ item, promosLocalidad = [], onAddCupon, onOpenO
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <img src="/ico-location.svg" alt="" style={{ width: 30, height: 30, filter: 'invert(36%) sepia(97%) saturate(600%) hue-rotate(205deg) brightness(90%)' }} />
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>Otros descuentos en la zona</h2>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>Ubicación y descuentos en la zona</h2>
           </div>
           {onOpenLocalidad && item.localidad && (
             <button
@@ -1322,6 +1325,52 @@ function MasCuponesSection({ alianzasNorm = [], promosLocalidad = [], onAddCupon
 // ═══════════════════════════════════════════════════════════
 //  AlojamientoDetail (main two-col + sections below)
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+//  PanelOfertas — el acordeón + los modales que puede abrir
+//
+//  Existe para que las dos fichas (alojamiento y gastro/experiencia) no
+//  repitan el cableado de la cámara y del pedido de fecha. El panel en sí no
+//  sabe nada de modales: recibe callbacks y listo.
+// ═══════════════════════════════════════════════════════════
+function PanelOfertas({ promos, session, ofertaId, onOpenOferta, onComprarPase }) {
+  const { addCupon } = useCarrito();
+  const [escaneando, setEscaneando] = useState(false);
+  const [pidiendoFecha, setPidiendoFecha] = useState(null);
+  const [aviso, setAviso] = useState('');
+
+  return (
+    <>
+      <PanelOfertasSocio
+        promos={promos}
+        session={session}
+        ofertaId={ofertaId}
+        onOpenOferta={onOpenOferta}
+        onComprarPase={onComprarPase}
+        onSumarCupon={p => addCupon(p)}
+        onCanjear={() => setEscaneando(true)}
+        onCoordinarFecha={p => setPidiendoFecha(p)}
+        onVerPase={() => onComprarPase?.(7)}
+      />
+      {aviso && (
+        <div style={{ fontSize: 12.5, color: C.ink2, textAlign: 'center', lineHeight: 1.5 }}>{aviso}</div>
+      )}
+      {escaneando && (
+        <EscanerCanje
+          onCerrar={() => setEscaneando(false)}
+          onNegocio={negocioId => { setEscaneando(false); window.location.search = `?canjear=${negocioId}`; }}
+        />
+      )}
+      {pidiendoFecha && (
+        <SolicitarFecha
+          oferta={pidiendoFecha}
+          onCerrar={() => setPidiendoFecha(null)}
+          onEnviada={() => { setPidiendoFecha(null); setAviso('Pedido enviado. El comercio tiene 72 horas para responder.'); }}
+        />
+      )}
+    </>
+  );
+}
+
 function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase }) {
   const plan = item.plan || 'PLUS';
   const cfg  = PLAN_CFG[plan];
@@ -1515,7 +1564,7 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
     { icon: <MapPin size={15} />, label: 'Zona', val: [item.zona, item.localidad].filter(Boolean).join(' · ') || 'Villa Gesell' },
     item.priceRange && { icon: <span className="font-bold text-sm">{item.priceRange}</span>, label: 'Rango de precio', val: priceLabel },
     item.capacidad && { icon: <Users size={15} />, label: 'Capacidad', val: `${item.capacidad} personas` },
-    isGastro && item.reservaObligatoria && { icon: <Clock size={15} />, label: 'Reservas', val: 'Requiere reserva previa' },
+    isGastro && item.reservaObligatoria && { icon: <Clock size={15} />, label: 'Fecha', val: 'Se coordina con el comercio' },
   ].filter(Boolean);
 
   return (
@@ -1626,14 +1675,12 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
           {/* RIGHT — sidebar sticky: promociones (siempre) + horario (si está cargado) */}
           <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {promosVisibles.length > 0 ? (
-              /* Misma tarjeta que alojamiento, pero sin la solicitud de fechas: se agrega directo al carrito */
-              <OfertasPropiasCard
+              <PanelOfertas
                 promos={promosVisibles}
-                item={item}
                 session={session}
+                ofertaId={item.ofertaId}
                 onOpenOferta={onOpenOferta}
                 onComprarPase={onComprarPase}
-                sinSolicitud
               />
             ) : (
               <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)', overflow: 'hidden' }}>
@@ -1697,7 +1744,7 @@ const CLASE_PLURAL = {
   'Camping': 'Campings', 'Glamping': 'Glamping',
 };
 
-export default function DetailView({ item, onBack, onOpenOferta, onOpenPack, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired, onComprarPase }) {
+export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired, onComprarPase }) {
   // El tracking va antes del return temprano: los hooks no pueden quedar
   // detrás de una condición. La visita se cuenta una vez por pestaña.
   useEffect(() => { if (item?.id) trackVistaFicha(item.id); }, [item?.id]);

@@ -17,7 +17,6 @@ import SociosView        from './views/SociosView';
 import GastronomyView    from './views/GastronomyView';
 import LoadingScreen     from './components/LoadingScreen';
 import OfertaDetailView   from './views/OfertaDetailView';
-import PackDetailView     from './views/PackDetailView';
 import PacksListView      from './views/PacksListView';
 import OfertasRegaloView  from './views/OfertasRegaloView';
 import PublicarOfertaView    from './views/PublicarOfertaView';
@@ -32,8 +31,7 @@ import CanjearRegaloView     from './views/CanjearRegaloView';
 import PaseDebugView         from './views/PaseDebugView'; // ⚠️ TEMPORAL (Brief 1) — entra por ?pase-debug=1
 import CanjearView           from './views/CanjearView';   // entra por ?canjear=<negocioId> (QR del socio)
 
-import { getAlojamientos, getGastronomia, getAventura, getNegocioById } from './lib/datos';
-import { ALL_PROMOS }                      from './data/mockData';
+import { getAlojamientos, getGastronomia, getAventura, getNegocioById, getPromos } from './lib/datos';
 import { getSession, getPerfil }           from './lib/auth';
 import { supabase }                        from './lib/supabase';
 import { LoadingProvider, useLoading }     from './lib/loading';
@@ -61,7 +59,6 @@ function AppContent() {
   );
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedOferta, setSelectedOferta]     = useState(null);
-  const [selectedPack, setSelectedPack]         = useState(null);
   const [marketplaceLocalidad, setMarketplaceLocalidad] = useState('');
   const [marketplaceTipo,     setMarketplaceTipo]     = useState('todos');
   const [packFamilia,         setPackFamilia]         = useState(null);
@@ -92,6 +89,11 @@ function AppContent() {
   const [alojamientos, setAlojamientos] = useState([]);
   const [salidas, setSalidas]   = useState([]);
   const [aventura, setAventura] = useState([]);
+  // Catálogo real de ofertas. Lo consumen el detalle de oferta (para "otras del
+  // mismo socio") y Favoritos (para resolver los corazones). Antes las dos
+  // recibían ALL_PROMOS del mock: los favoritos de un turista se buscaban
+  // contra un catálogo inventado y nunca podían coincidir con lo que compró.
+  const [promos, setPromos] = useState([]);
   const [loginInitialTab, setLoginInitialTab] = useState('ingresar');
   // 'comercial' entra directo al alta de negocio; null muestra el selector.
   const [loginModoRegistro, setLoginModoRegistro] = useState(null);
@@ -108,10 +110,11 @@ function AppContent() {
 
   useEffect(() => {
     async function cargarDatos() {
-      const [aloj, gastro, avent] = await Promise.all([getAlojamientos(), getGastronomia(), getAventura()]);
+      const [aloj, gastro, avent, ofertas] = await Promise.all([getAlojamientos(), getGastronomia(), getAventura(), getPromos(300)]);
       setAlojamientos(aloj);
       setSalidas(gastro);
       setAventura(avent);
+      setPromos(ofertas || []);
     }
     cargarDatos();
   }, []);
@@ -144,29 +147,34 @@ function AppContent() {
     checkSession();
   }, []);
 
-  const handleOpenDetail = (item, type, initialTab) => {
-    setSelectedItem({ ...item, itemType: type, initialTab: initialTab || null });
+  // `ofertaId` es el deep-link: qué oferta del socio abrir expandida en el
+  // panel. Se llamaba `initialTab` y nadie lo leía — resto del sistema de tabs
+  // que el acordeón reemplazó.
+  const handleOpenDetail = (item, type, ofertaId) => {
+    setSelectedItem({ ...item, itemType: type, ofertaId: ofertaId || null });
     setView('detail');
     window.scrollTo(0, 0);
   };
 
-  const handleOpenOferta = async (oferta) => {
+  const handleOpenOferta = async (oferta, opts = {}) => {
     // Un cupón abre la ficha del socio (igual para todas las categorías, no sólo
     // alojamiento). Así gastronomía y aventura & relax muestran la misma vista de
     // socio/promociones que los alojamientos, en lugar de la vista de oferta suelta.
-    if (oferta?.negocioId) {
+    //
+    // `opts.detalle` saltea eso y va derecho al detalle del cupón. Lo usa
+    // "Ampliar info" de la mini-ficha: la tarjeta pregunta quién es el comercio,
+    // el enlace pregunta la letra chica del descuento. La bandera evita tener
+    // que enhebrar un segundo callback por las once superficies que pintan
+    // mini-fichas — la decisión de a dónde ir es de acá, no de cada vista.
+    if (!opts.detalle && oferta?.negocioId) {
       let neg = alojamientos.find(a => String(a.id) === String(oferta.negocioId));
       if (!neg) neg = await getNegocioById(oferta.negocioId);
-      if (neg) { handleOpenDetail(neg, oferta.categoria || undefined); return; }
+      // El tercer argumento es lo que hace que el panel abra ESTA oferta y no
+      // la primera del socio: el turista clickeó una minificha concreta.
+      if (neg) { handleOpenDetail(neg, oferta.categoria || undefined, oferta.id); return; }
     }
     setSelectedOferta(oferta);
     setView('oferta-detail');
-    window.scrollTo(0, 0);
-  };
-
-  const handleOpenPack = (pack) => {
-    setSelectedPack(pack);
-    setView('pack-detail');
     window.scrollTo(0, 0);
   };
 
@@ -272,13 +280,19 @@ function AppContent() {
   // Pantalla de carga inicial (auth check) o loading global
   if (authLoading) return <LoadingScreen />;
 
-  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','pack-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout','checkout-pase','checkout-hotelero','canjear-regalo'];
+  const PUBLIC_VIEWS = ['home','detail','ofertas','marketplace','marketplace-ofertas','socios','salidas','oferta-detail','packs','ofertas-regalo','publicar-oferta','beneficios-portal','favoritos','checkout','checkout-pase','checkout-hotelero','canjear-regalo'];
 
   return (
     <SesionProvider perfil={perfil}>
     <FavoritosProvider session={session} onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}>
-    <CarritoProvider session={session} onLoginRequired={() => { setCuponLoginPending(true); setLoginInitialTab('registrarse'); setView('login'); window.scrollTo(0, 0); }} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
-    <PasePropioProvider session={session} onComprarPase={() => { setPaseDias(7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}>
+    {/* Sin sesión, querer un cupón lleva al checkout del Pase y no al login
+        viejo —el de "Soy turista / Soy comercio"—: ese ya no describe al
+        producto, y el checkout del Pase trae su propio alta de cuenta.
+
+        El cupón no se pierde: `guardarPendiente` lo deja anotado y el carrito
+        lo reinyecta solo cuando aparece la sesión, salga de donde salga. */}
+    <CarritoProvider session={session} onLoginRequired={() => { setCuponLoginPending(true); setPaseDias(7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }} onCheckout={() => { setView('checkout'); window.scrollTo(0, 0); }}>
+    <PasePropioProvider session={session} perfil={perfil} onComprarPase={() => { setPaseDias(7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}>
       {/* Loading global — se activa con showLoading() desde cualquier vista */}
       {isLoading && <LoadingScreen />}
 
@@ -364,7 +378,6 @@ function AppContent() {
               onOpenDetail={handleOpenDetail}
               onVerTodas={(cat) => { if (cat === 'salidas') { setSalidasModoRanking(true); setGastroModoAventura(false); setGastroFoco(null); setGastroNavKey(k => k + 1); setView('salidas'); } else { setOfertasCategoria(cat || null); setOfertasTipoInicial(null); setView('ofertas'); } window.scrollTo(0, 0); }}
               onArmarPack={() => { setView('marketplace'); window.scrollTo(0, 0); }}
-              onOpenPack={handleOpenPack}
               onVerPacks={() => { setPackFamilia(null); setView('packs'); window.scrollTo(0, 0); }}
               onOpenOferta={handleOpenOferta}
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
@@ -436,7 +449,6 @@ function AppContent() {
               onLoginRequired={(tab) => { setLoginInitialTab(tab || 'registrarse'); setView('login'); }}
               onBack={() => setView('home')}
               onOpenOferta={handleOpenOferta}
-              onOpenPack={handleOpenPack}
               onOpenLocalidad={handleOpenLocalidad}
               onOpenSeccion={handleOpenSeccion}
               onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
@@ -451,7 +463,7 @@ function AppContent() {
           {view === 'oferta-detail' && (
             <OfertaDetailView
               oferta={selectedOferta}
-              allPromos={ALL_PROMOS}
+              allPromos={promos}
               onBack={() => { setView(selectedItem ? 'detail' : 'home'); window.scrollTo(0,0); }}
               onOpenOferta={handleOpenOferta}
               onOpenLocalidad={handleOpenLocalidad}
@@ -459,13 +471,6 @@ function AppContent() {
               onOpenSeccion={handleOpenSeccion}
               session={session}
               onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
-            />
-          )}
-          {view === 'pack-detail' && (
-            <PackDetailView
-              pack={selectedPack}
-              onBack={() => setView('packs')}
-              onOpenOferta={handleOpenOferta}
             />
           )}
           {view === 'packs' && (
@@ -522,7 +527,7 @@ function AppContent() {
             <FavoritosView
               accommodations={alojamientos}
               dining={salidas}
-              promos={ALL_PROMOS}
+              promos={promos}
               onOpenDetail={handleOpenDetail}
               onOpenOferta={handleOpenOferta}
               onBack={() => { setView('home'); window.scrollTo(0, 0); }}
