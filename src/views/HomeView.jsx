@@ -135,13 +135,11 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
           también la lluvia de cupones. */}
       <div data-navbar-shrink aria-hidden="true" />
 
-      {/* ── Slide 2 del hero — lluvia de cupones atada al scroll ──
-          Copy placeholder, a definir. */}
-      <HeroCoupons
-        eyebrow="Cuponear"
-        title="Más noches, menos precio"
-        body="Reservá directo con alojamientos y restaurantes de la costa."
-      />
+      {/* ── Slide 2 del hero — la propuesta para alojamientos y agencias,
+          con lluvia de cupones atada al scroll. Antes vivía como el
+          cross-fade `.pv3-left-var--socio` adentro de HeroPase; ahora es su
+          propia sección. Mismo handler que el CTA de suscripción de arriba. */}
+      <HeroCoupons onSuscribir={onSuscribirHoteleria} />
 
       {/* ── Cuponeá en cada momento de tu viaje ──────────────── */}
       <CuponearCategoriasSection onVerOfertasRegalo={onVerOfertasRegalo} onNavCuponear={onNavCuponear} />

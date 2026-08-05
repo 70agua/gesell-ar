@@ -35,12 +35,24 @@ export const FALL = {
   driftPx: 22, // deriva lateral maxima
   spinZ: 11, // grados extra de rotacion en el plano durante la caida
   spinY: 245, // grados de volteo horizontal durante la caida
-  riseVh: 26, // altura de partida, en % del alto del contenedor
+  riseVh: 52, // altura de partida, en % del alto del contenedor (2x, a pedido)
   easing: 'cubic-bezier(.18,.72,.35,1)',
 };
 
-/** Alto de la seccion. El excedente sobre 100vh es el recorrido de scroll. */
-export const SECTION_HEIGHT_VH = 240;
+/** Alto de la seccion. El excedente sobre 100vh es el recorrido de scroll.
+ *  240 (140vh de excedente) hacia sentir el arranque lento: aunque el primer
+ *  cupon de ambiente entra en progress=0 (ver COUPONS/enter), llegar a que se
+ *  note algo de movimiento significativo tomaba mucho scroll fisico. 170
+ *  (70vh de excedente) es el mismo recorrido extra que PIN_EXTRA_VH en
+ *  HeroPase, para que las dos secciones peineen parecido. */
+export const SECTION_HEIGHT_VH = 170;
+
+/** Cuanto (en vh) adelanta el arranque de la caida mientras la seccion
+ *  todavia esta entrando en pantalla, antes de anclarse arriba — ver
+ *  useScrollProgress. Sin esto, progress quedaba en 0 (nada se movia) hasta
+ *  que el borde entre HeroPase y HeroCoupons tocaba el techo del viewport, y
+ *  esa espera se sentia como una pausa en blanco. */
+export const PRE_ENTER_VH = 70;
 
 /** Ancho de referencia del cupon. Cada scale multiplica este valor. */
 export const COUPON_BASE_WIDTH = 'clamp(88px, 12vw, 190px)';

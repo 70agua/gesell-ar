@@ -589,7 +589,7 @@ const PLANES_OPCIONES = [
   },
   {
     id: 'hoteleria',
-    titulo: 'Suscripción para empresas',
+    titulo: 'Cuponear PRO',
     bajada: 'Regalá el Pase a tus clientes.',
     vista: 'checkout-hotelero',
     opts: {},
