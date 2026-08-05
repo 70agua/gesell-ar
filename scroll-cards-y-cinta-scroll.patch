@@ -1,0 +1,459 @@
+diff --git a/SCROLL_CARDS_FEATURE.md b/SCROLL_CARDS_FEATURE.md
+new file mode 100644
+index 0000000..2e82968
+--- /dev/null
++++ b/SCROLL_CARDS_FEATURE.md
+@@ -0,0 +1,66 @@
++# Feature: ScrollCards en Hero
++
++**Status**: Integrado  
++**Fecha**: Aug 4, 2026  
++**Autor**: Claude (Agent)
++
++## Cambios realizados
++
++### Archivos creados
++- `src/components/landing/ScrollCards.jsx` - Componente modular de tarjetas animadas
++
++### Archivos modificados
++- `src/components/landing/HeroPase.jsx`
++  - Import agregado: `import ScrollCards from './ScrollCards';`
++  - JSX insertado: Bloque `<ScrollCards ... />` entre hero content y galería
++
++## Cómo revertir (rollback)
++
++### Opción 1: Revert completo (Git)
++```bash
++git checkout HEAD -- src/components/landing/HeroPase.jsx
++rm src/components/landing/ScrollCards.jsx
++```
++
++### Opción 2: Manual (si no usas Git)
++1. En `HeroPase.jsx`, elimina la línea:
++   ```jsx
++   import ScrollCards from './ScrollCards';
++   ```
++
++2. En `HeroPase.jsx`, elimina este bloque (líneas ~170-196):
++   ```jsx
++   {/* ─── SCROLL CARDS: Tarjetas animadas (MindMarket style) ... ─── */}
++   <ScrollCards
++     cards={[...]}
++     onCardClick={...}
++   />
++   {/* ──────────────────────────────────────────────────────────── */}
++   ```
++
++3. Elimina el archivo:
++   ```bash
++   rm src/components/landing/ScrollCards.jsx
++   ```
++
++## Comportamiento
++
++- **3 tarjetas** con info de Pases, Suscripción y Comunidad
++- **Animación al scroll**: Tarjetas entran en cascada al enter en viewport
++- **Stagger**: 100ms entre cada tarjeta
++- **Hover**: Levantamiento + shadow aumentada
++- **Responsive**: Grid adapta automáticamente en mobile
++- **Clicks**: Cada tarjeta puede triggear una acción diferente
++
++## Personalización
++
++Edita en `ScrollCards.jsx`:
++- **Colores**: Objeto `A` al inicio
++- **Cards content**: Props `cards` cuando lo llamas en `HeroPase`
++- **Animación timing**: Ajusta `transitionDelay` o `animation: scrollCardsEntry`
++- **Tamaños**: CSS variables dentro del JSX
++
++## Next steps (opcional)
++- Agregar smooth scroll a nivel global (GSAP ScrollSmoother)
++- Submenu animations en navbar
++- Más refinamiento de estilos
+diff --git a/src/components/landing/HeroPase.jsx b/src/components/landing/HeroPase.jsx
+index 801a64a..783fa4a 100644
+--- a/src/components/landing/HeroPase.jsx
++++ b/src/components/landing/HeroPase.jsx
+@@ -29,6 +29,7 @@
+ 
+ import { useEffect, useRef, useState } from 'react';
+ import usePaseStats from '../../hooks/usePaseStats';
++import ScrollCards from './ScrollCards';
+ 
+ // ─── Design tokens ───────────────────────────────────────────
+ const A = {
+@@ -71,8 +72,8 @@ const COL_ASPECT = [
+   [1.50, 1.33, 1.50, 1.25],
+ ];
+ const COL_META = [
+-  { f: 0.12, dur: 144, dir: 'up' },
+-  { f: 0.19, dur: 180, dir: 'down' },
++  { speed: 0.55, dir: 'up' },
++  { speed: 0.8,  dir: 'down' },
+ ];
+ const NUM_COLS = COL_META.length;
+ const BUFFER = 220;
+@@ -123,40 +124,69 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
+   const rafRef  = useRef(0);
+   const heroRef = useRef(null);
+   const colRefs = useRef([]);
++  const halfHeights = useRef([]);
+   const visibleRef = useRef(true);
+ 
+-  // El parallax NO pasa por el estado de React: un setState por frame de scroll
+-  // obliga a re-renderizar toda la sección (34 celdas + el bloque <style>) 60
+-  // veces por segundo. Acá el rAF escribe el transform directo en el DOM.
++  // Antes: las columnas corrían solas (CSS animation, linear infinite) y por
++  // encima se sumaba un parallax atado al scroll. Resultado: ruido — la
++  // galería se movía todo el tiempo, incluso quieto el usuario, compitiendo
++  // con las ScrollCards de arriba.
+   //
+-  // Y con el hero fuera del viewport se corta todo: se congela el marquee —y
+-  // con él la recomposición de una capa grande, rotada y enmascarada— y ni se
+-  // agendan los frames de scroll.
++  // Ahora todo el movimiento sale de una sola fuente: window.scrollY. Sin
++  // scroll, cero transform, cero movimiento. Cada columna recorre su lista
++  // duplicada de fotos (para loop sin costura) a una velocidad propia
++  // (COL_META.speed) y en su sentido (up/down), usando módulo sobre la mitad
++  // real de su alto para el wrap — así el salto de vuelta al principio cae
++  // justo donde la duplicación hace que sea invisible.
++  //
++  // Tampoco pasa por estado de React (mismo motivo de siempre: un setState
++  // por frame de scroll re-renderiza toda la sección). El rAF escribe el
++  // transform directo en el DOM, y con el hero fuera de vista se corta todo:
++  // ni se agendan los frames.
+   useEffect(() => {
++    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
++
++    const medirAltos = () => {
++      colRefs.current.forEach((nodo, i) => {
++        if (nodo) halfHeights.current[i] = nodo.scrollHeight / 2;
++      });
++    };
++
+     const pintar = () => {
+       rafRef.current = 0;
++      if (reducedMotion) return;
+       const y = window.scrollY || 0;
+       colRefs.current.forEach((nodo, i) => {
+-        if (nodo) nodo.style.transform = `translate3d(0, ${y * COL_META[i].f}px, 0)`;
++        const half = halfHeights.current[i];
++        if (!nodo || !half) return;
++        const { speed, dir } = COL_META[i];
++        const recorrido = (y * speed) % half;
++        const offset = dir === 'up' ? -recorrido : -(half - recorrido);
++        nodo.style.transform = `translate3d(0, ${offset}px, 0)`;
+       });
+     };
+     const agendar = () => {
+       if (rafRef.current || !visibleRef.current) return;
+       rafRef.current = requestAnimationFrame(pintar);
+     };
++
++    const onResize = () => { medirAltos(); agendar(); };
++
++    medirAltos();
+     pintar();
+     window.addEventListener('scroll', agendar, { passive: true });
++    window.addEventListener('resize', onResize);
+ 
+     const hero = heroRef.current;
+     const obs = hero && new IntersectionObserver(([e]) => {
+       visibleRef.current = e.isIntersecting;
+-      hero.classList.toggle('pv3-quieto', !e.isIntersecting);
+       if (e.isIntersecting) agendar();
+     }, { threshold: 0 });
+     if (obs) obs.observe(hero);
+ 
+     return () => {
+       window.removeEventListener('scroll', agendar);
++      window.removeEventListener('resize', onResize);
+       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+       if (obs) obs.disconnect();
+     };
+@@ -167,6 +197,38 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
+   return (
+     <section ref={heroRef} className="pv3-hero" style={{ position: 'relative', zIndex: 0, fontFamily: A.font, background: 'linear-gradient(180deg, #FFF7EB 0%, #FFFFFF 60%)', overflowX: 'clip' }}>
+ 
++      {/* ─── SCROLL CARDS: Tarjetas animadas (MindMarket style)
++          Insertadas entre hero + galería. Para REVERTIR: eliminar esta línea.
++          ─────────────────────────────────────────────────────────────────── */}
++      <ScrollCards
++        cards={[
++          {
++            title: 'Pases',
++            value: '3 o 7 días',
++            description: 'Acceso ilimitado a descuentos en hoteles, gastronomía y actividades.',
++            icon: '🎟️',
++          },
++          {
++            title: 'Suscripción',
++            value: 'Premium',
++            description: 'Beneficios exclusivos, ofertas early-bird y acceso VIP a nuevas experiencias.',
++            icon: '✨',
++          },
++          {
++            title: 'Comunidad',
++            value: '1000+',
++            description: 'Viajeros y locales compartiendo las mejores recomendaciones de Gesell.',
++            icon: '👥',
++          },
++        ]}
++        onCardClick={(card) => {
++          if (card.title === 'Pases') onComprarPase?.();
++          if (card.title === 'Suscripción') onSuscribir?.('premium');
++          if (card.title === 'Comunidad') onVerDescuentos?.();
++        }}
++      />
++      {/* ───────────────────────────────────────────────────────────────── */}
++
+       {/* ─── Galería derecha: capa detrás, de techo a piso, sin huecos ───
+           `pv3-galwin` es la ventana que recorta (al corte). Dentro, una capa
+           más alta (colchón arriba/abajo) permite el parallax sin descubrir
+@@ -174,10 +236,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
+       <div className="pv3-galwin" aria-hidden="true">
+         <div className="pv3-gallery">
+           {cols.map((items, ci) => (
+-            <div key={ci} className="pv3-col" ref={n => { colRefs.current[ci] = n; }}
+-              style={{ willChange: 'transform' }}>
+-              <div className={`pv3-coldrift pv3-marquee-${COL_META[ci].dir}`}
+-                style={{ animationDuration: `${COL_META[ci].dur}s` }}>
++            <div key={ci} className="pv3-col">
++              <div className="pv3-coldrift" ref={n => { colRefs.current[ci] = n; }}>
+                 {[...items, ...items].map((item, idx) => {
+                   const capa = CAPAS[item.capa];
+                   return (
+@@ -503,14 +563,6 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
+         }
+         .pv3-col  { flex: 1 1 0; }
+         .pv3-coldrift { display: flex; flex-direction: column; will-change: transform; }
+-        .pv3-marquee-up   { animation: pv3MarqueeUp   linear infinite; }
+-        .pv3-marquee-down { animation: pv3MarqueeDown linear infinite; }
+-        @keyframes pv3MarqueeUp   { from { transform: translateY(0); }    to { transform: translateY(-50%); } }
+-        @keyframes pv3MarqueeDown { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+-        @media (prefers-reduced-motion: reduce) {
+-          .pv3-marquee-up, .pv3-marquee-down { animation: none; }
+-        }
+-        .pv3-quieto .pv3-coldrift { animation-play-state: paused; }
+         .pv3-cell { flex: 0 0 auto; margin-bottom: 16px; border-radius: 20px; overflow: hidden; }
+         .pv3-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+         .pv3-mobile-deco { display: none; }
+diff --git a/src/components/landing/ScrollCards.jsx b/src/components/landing/ScrollCards.jsx
+new file mode 100644
+index 0000000..5bbd3b0
+--- /dev/null
++++ b/src/components/landing/ScrollCards.jsx
+@@ -0,0 +1,213 @@
++import { useEffect, useRef, useState } from 'react';
++
++const A = {
++  primary:     '#475BE1',
++  primaryDark: '#3347C8',
++  ink:         '#0B1020',
++  ink2:        '#3D4255',
++  line:        '#E6E3DC',
++  font:        "'Inter', system-ui, sans-serif",
++};
++
++/**
++ * ScrollCards
++ * ─────────────────────────────────────────────────────────────
++ * Tres tarjetas que animan al entrar en viewport. Cada una
++ * se revela con un stagger de ~100ms entre ellas.
++ * 
++ * Props:
++ *   - cards: Array de { title, value, description, icon (opcional) }
++ *   - onCardClick: callback cuando clickean una tarjeta
++ */
++export default function ScrollCards({ cards = [], onCardClick }) {
++  const containerRef = useRef(null);
++  const cardRefs = useRef([]);
++  const [isVisible, setIsVisible] = useState(false);
++
++  useEffect(() => {
++    const container = containerRef.current;
++    if (!container) return;
++
++    const observer = new IntersectionObserver(
++      ([entry]) => {
++        if (entry.isIntersecting) {
++          setIsVisible(true);
++          observer.unobserve(container);
++        }
++      },
++      { threshold: 0.3 }
++    );
++
++    observer.observe(container);
++    return () => observer.disconnect();
++  }, []);
++
++  return (
++    <section 
++      ref={containerRef}
++      style={{
++        position: 'relative',
++        zIndex: 1,
++        padding: '80px 24px',
++        background: 'transparent',
++        fontFamily: A.font,
++      }}
++    >
++      <div
++        style={{
++          maxWidth: '1280px',
++          margin: '0 auto',
++          textAlign: 'center',
++          marginBottom: 60,
++        }}
++      >
++        <h2
++          style={{
++            fontSize: 'clamp(24px, 5vw, 36px)',
++            fontWeight: 700,
++            color: A.ink,
++            margin: 0,
++            lineHeight: 1.2,
++          }}
++        >
++          Todo lo que necesitás en Villa Gesell
++        </h2>
++        <p
++          style={{
++            fontSize: '18px',
++            color: A.ink2,
++            marginTop: 16,
++            lineHeight: 1.5,
++            maxWidth: '600px',
++            margin: '16px auto 0',
++          }}
++        >
++          Descubrí nuestros productos diseñados para disfrutar al máximo
++        </p>
++      </div>
++
++      <div
++        style={{
++          display: 'grid',
++          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
++          gap: 28,
++          maxWidth: '1280px',
++          margin: '0 auto',
++        }}
++      >
++        {cards.map((card, idx) => (
++          <div
++            key={idx}
++            ref={(el) => (cardRefs.current[idx] = el)}
++            onClick={() => onCardClick?.(card)}
++            style={{
++              padding: 32,
++              borderRadius: 24,
++              background: '#fff',
++              border: `1px solid ${A.line}`,
++              boxShadow: '0 8px 24px rgba(11,16,32,0.08)',
++              cursor: 'pointer',
++              textAlign: 'center',
++              transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
++              transform: isVisible
++                ? 'translateY(0) opacity(1)'
++                : 'translateY(40px) opacity(0)',
++              transitionDelay: isVisible ? `${idx * 100}ms` : '0ms',
++              animation: isVisible
++                ? `scrollCardsEntry 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) ${idx * 100}ms both`
++                : 'none',
++              ':hover': {
++                transform: 'translateY(-8px)',
++                boxShadow: '0 16px 40px rgba(11,16,32,0.16)',
++              },
++            }}
++            onMouseEnter={(e) => {
++              e.currentTarget.style.transform = 'translateY(-8px)';
++              e.currentTarget.style.boxShadow = '0 16px 40px rgba(11,16,32,0.16)';
++            }}
++            onMouseLeave={(e) => {
++              if (isVisible) {
++                e.currentTarget.style.transform = 'translateY(0)';
++                e.currentTarget.style.boxShadow = '0 8px 24px rgba(11,16,32,0.08)';
++              }
++            }}
++          >
++            {card.icon && (
++              <div
++                style={{
++                  fontSize: 48,
++                  marginBottom: 20,
++                  display: 'flex',
++                  justifyContent: 'center',
++                }}
++              >
++                {card.icon}
++              </div>
++            )}
++
++            <h3
++              style={{
++                fontSize: 16,
++                fontWeight: 600,
++                color: A.ink2,
++                textTransform: 'uppercase',
++                letterSpacing: 0.5,
++                margin: '0 0 12px',
++              }}
++            >
++              {card.title}
++            </h3>
++
++            <div
++              style={{
++                fontSize: 'clamp(28px, 6vw, 42px)',
++                fontWeight: 700,
++                color: A.primary,
++                margin: '12px 0 20px',
++                lineHeight: 1.1,
++              }}
++            >
++              {card.value}
++            </div>
++
++            <p
++              style={{
++                fontSize: 15,
++                color: A.ink2,
++                lineHeight: 1.6,
++                margin: 0,
++              }}
++            >
++              {card.description}
++            </p>
++          </div>
++        ))}
++      </div>
++
++      <style>{`
++        @keyframes scrollCardsEntry {
++          from {
++            transform: translateY(40px);
++            opacity: 0;
++          }
++          to {
++            transform: translateY(0);
++            opacity: 1;
++          }
++        }
++
++        @media (max-width: 760px) {
++          .scroll-cards-container {
++            padding: 60px 16px;
++          }
++        }
++
++        @media (prefers-reduced-motion: reduce) {
++          [style*="animation-name"] {
++            animation: none !important;
++          }
++        }
++      `}</style>
++    </section>
++  );
++}

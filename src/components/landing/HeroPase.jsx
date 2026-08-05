@@ -24,6 +24,11 @@
 //   6. Los datos vivos del catálogo son vidriera, no argumento: van sobre la
 //      galería, no en el renglón del claim, donde le comían el espacio.
 //
+//  PRUEBA (2026-08-04): el hero queda "pineado" un tramo extra de scroll —
+//  ver el comentario junto a PIN_EXTRA_VH más abajo para el cómo y el porqué.
+//  Sólo corre en desktop (>1180px); en mobile se desactiva por CSS y el hero
+//  se comporta exactamente como antes.
+//
 //  Estilos responsive inyectados inline (<style> local, clases .pv3-*).
 // ============================================================
 
@@ -51,6 +56,26 @@ const PASES = [
   { id: 'x3', dias: 3, label: '3 días', precio: '$20.000' },
   { id: 'x7', dias: 7, label: '7 días', precio: '$35.000' },
 ];
+
+// ─── PRUEBA: hero "pineado" con scroll-jack ──────────────────
+// Experimento (2026-08-04): mientras se scrollea DENTRO del hero, la sección
+// queda fija en pantalla (position: sticky) y el scroll real —que sigue
+// pasando, no se intercepta ningún evento de wheel/touch— se traduce en dos
+// cosas que van pasando en orden:
+//   1. La galería de fotos de la derecha empieza a moverse apenas se scrollea
+//      un poco (reusa el mismo drift de siempre, atado a window.scrollY).
+//   2. Pasado ~1/3 del recorrido pineado, el bloque de texto de la izquierda
+//      hace un cross-fade hacia un segundo copy (la propuesta para
+//      alojamientos/agencias), que termina de entrar antes de que se acabe
+//      el recorrido.
+// Recién cuando se completa el recorrido (PIN_EXTRA_VH de scroll extra) la
+// sección se despega y el resto de la página sigue bajando normalmente.
+//
+// Es sólo un experimento de escritorio: en el layout angosto (≤1180px, donde
+// el hero ya pasa a una sola columna centrada) el pin se desactiva entero por
+// CSS y se ve el copy original de siempre, sin sorpresas para mobile.
+const PIN_EXTRA_VH = 140;
+const clamp01 = (v) => Math.min(Math.max(v, 0), 1);
 
 // ─── Galería derecha: masonry tipo Pinterest ─────────────────
 // Pool = TODO lo que haya en src/assets/grilla-web, que son las versiones
@@ -122,6 +147,10 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
   const stats = usePaseStats();
   const rafRef  = useRef(0);
   const heroRef = useRef(null);
+  const stageRef = useRef(null);
+  const turistaRef = useRef(null);
+  const socioRef = useRef(null);
+  const pinActivoRef = useRef(null); // qué bloque está "activo" ahora mismo (evita tocar aria/pointer-events todos los frames)
   const colRefs = useRef([]);
   const halfHeights = useRef([]);
   const visibleRef = useRef(true);
@@ -143,6 +172,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
   // ni se agendan los frames.
   useEffect(() => {
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const pinQuery = window.matchMedia?.('(min-width: 1181px)');
 
     const medirAltos = () => {
       colRefs.current.forEach((nodo, i) => {
@@ -150,8 +180,53 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
       });
     };
 
+    // Progreso del "pin" (0 al llegar arriba del hero, 1 al agotar el
+    // recorrido extra de .pv3-stage). No hace falta interceptar wheel/touch
+    // para lograr el efecto de scroll-jack: con la sección en position:sticky
+    // dentro de un contenedor más alto, el scroll real del documento sigue
+    // ocurriendo tal cual, sólo que mientras el contenedor tiene recorrido de
+    // sobra la sección se ve "clavada" en pantalla. window.scrollY avanza
+    // todo el tiempo, así que la galería (que ya lee scrollY) se mueve desde
+    // el primer píxel — el cross-fade del texto es lo único nuevo que hay que
+    // calcular acá.
+    const pintarPin = () => {
+      const stage = stageRef.current;
+      const tur = turistaRef.current;
+      const soc = socioRef.current;
+      if (!stage || !tur || !soc || !pinQuery?.matches) {
+        if (tur) { tur.style.opacity = ''; tur.style.transform = ''; }
+        if (soc) { soc.style.opacity = ''; soc.style.transform = ''; }
+        return;
+      }
+      const rect = stage.getBoundingClientRect();
+      const extraPx = stage.offsetHeight - window.innerHeight;
+      const progreso = extraPx > 0 ? clamp01(-rect.top / extraPx) : 0;
+
+      const salida = reducedMotion ? (progreso > 0.5 ? 1 : 0) : clamp01((progreso - 0.30) / 0.30);
+      const entrada = reducedMotion ? (progreso > 0.5 ? 1 : 0) : clamp01((progreso - 0.45) / 0.35);
+
+      // Arrancan pegadas arriba (mismo punto que el ticket), no centradas: al
+      // centrar por altura, la variante socio —más corta que la turista, que
+      // define la altura del stage— quedaba flotando más abajo y quedaba un
+      // hueco entre el logo y el título, igual al margen que ya sacamos.
+      tur.style.opacity = String(1 - salida);
+      tur.style.transform = `translateY(${-30 * salida}px)`;
+      soc.style.opacity = String(entrada);
+      soc.style.transform = `translateY(${30 * (1 - entrada)}px)`;
+
+      const activo = progreso < 0.5 ? 'turista' : 'socio';
+      if (pinActivoRef.current !== activo) {
+        pinActivoRef.current = activo;
+        tur.style.pointerEvents = activo === 'turista' ? 'auto' : 'none';
+        tur.setAttribute('aria-hidden', activo === 'turista' ? 'false' : 'true');
+        soc.style.pointerEvents = activo === 'socio' ? 'auto' : 'none';
+        soc.setAttribute('aria-hidden', activo === 'socio' ? 'false' : 'true');
+      }
+    };
+
     const pintar = () => {
       rafRef.current = 0;
+      pintarPin();
       if (reducedMotion) return;
       const y = window.scrollY || 0;
       colRefs.current.forEach((nodo, i) => {
@@ -174,6 +249,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
     pintar();
     window.addEventListener('scroll', agendar, { passive: true });
     window.addEventListener('resize', onResize);
+    pinQuery?.addEventListener?.('change', agendar);
 
     const hero = heroRef.current;
     const obs = hero && new IntersectionObserver(([e]) => {
@@ -185,6 +261,7 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
     return () => {
       window.removeEventListener('scroll', agendar);
       window.removeEventListener('resize', onResize);
+      pinQuery?.removeEventListener?.('change', agendar);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (obs) obs.disconnect();
     };
@@ -193,7 +270,8 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
   const suscribir = () => (onSuscribir || onVerDescuentos)?.('premium');
 
   return (
-    <section ref={heroRef} className="pv3-hero" style={{ position: 'relative', zIndex: 0, fontFamily: A.font, background: 'linear-gradient(180deg, #FFF7EB 0%, #FFFFFF 60%)', overflowX: 'clip' }}>
+    <div ref={stageRef} className="pv3-stage">
+    <section ref={heroRef} className="pv3-hero" style={{ zIndex: 0, fontFamily: A.font, background: 'linear-gradient(180deg, #FFF7EB 0%, #FFFFFF 60%)' }}>
 
       {/* ─── Galería derecha: capa detrás, de techo a piso, sin huecos ───
           `pv3-galwin` es la ventana que recorta (al corte). Dentro, una capa
@@ -226,47 +304,20 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
       <div className="pv3-inner">
         <div className="pv3-left">
 
-          {/* 1 · Marca del producto. Reemplaza a la pastilla "PASE TURISTA":
-                 dice lo mismo y encima es la imagen que el turista va a
-                 reconocer después en su Pase. */}
-          <img className="pv3-ticket" src="/gesell-pass-03.svg" alt="Gesell Pass" />
-
-          {/* 2 · Título. Sin cambios de copy: es el activo de marca del hero.
-                 El casing de las palabras en NauryzRedkeds va tal cual —
-                 mayúscula y minúscula son glifos distintos. */}
-          <h1 className="pv3-title">
-            <span className="pv3-t-it">Viajá <span className="pv3-nauryz">CUPONEaNdO</span></span>
-            <span className="pv3-t-bold">un pase, todos los descuentos</span>
-          </h1>
-
-          {/* 3 · Un único párrafo de apoyo: qué es y qué entra. Redonda (no
-                 itálica) y en ink2, para que se lea como nivel 2 y no como un
-                 segundo titular. Alojamiento va ÚLTIMO en la lista: el pretítulo
-                 de abajo lo levanta justo antes de los botones, y arrancar la
-                 frase con la misma palabra hacía que el remate sonara a repetido
-                 en vez de a énfasis. */}
-          <p className="pv3-sub">
-            En Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas. Descuentos en excursiones, salidas, compras y alojamiento.
-          </p>
-
-          {/* 4 · Contador, sobre la galería. Está acá y no dentro del párrafo
-                 de apoyo por dos motivos: en el renglón le competía el espacio
-                 al claim, y el dato es vidriera —cuánto hay para recorrer—, no
-                 argumento de venta.
-
-                 Cuenta CUPONES y no socios: es lo que el turista va a mirar uno
-                 por uno, y son más del doble (133 contra 64).
-
-                 El número desaparece si la consulta falla o el catálogo está
-                 vacío —nunca un número inventado— pero el botón queda igual: es
-                 el único camino a explorar el catálogo desde el hero.
-
-                 Vive DENTRO de .pv3-left, no como hermano suelto, aunque en
-                 desktop se posicione absoluto contra .pv3-inner (que es el
-                 relative más cercano: .pv3-left no está posicionado). Es para
-                 el caso angosto: ahí vuelve al flujo, y tiene que caer entre el
-                 claim y la decisión —no después del carril de hotelería, que
-                 invertiría el orden de públicos. */}
+          {/* 4 · Contador, sobre la galería. Va antes de las dos variantes de
+                 copy (turista/socio) a propósito: es dato de vidriera —cuánto
+                 hay para recorrer—, no argumento de venta de una audiencia en
+                 particular, así que no tiene sentido que desaparezca cuando
+                 el copy cambia a la propuesta de alojamientos (a diferencia
+                 del logo de marca, que ahora sí cambia por variante — ver el
+                 <img> al inicio de cada .pv3-left-var más abajo). Por eso
+                 también se posiciona absoluto contra
+                 .pv3-inner (relative más cercano de acá para arriba) y no
+                 contra .pv3-left-var (que es absoluto y angosto: si colgara
+                 de ahí, el cálculo de "right" pegado al borde del viewport se
+                 rompe). En el caso angosto (mobile) vuelve al flujo, y va
+                 ANTES del bloque de texto —no después del carril de
+                 hotelería, que invertiría el orden de públicos. */}
           {/* El nombre accesible va explícito: los tres spans son hijos de un
               flex, así que el texto se concatena sin los espacios que sí se ven
               en pantalla ("133cupones cargadosMirá…"). */}
@@ -283,45 +334,111 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
             <span className="pv3-contador-link">Conocelos <span aria-hidden="true">→</span></span>
           </button>
 
-          {/* 5 · Pretítulo de los pases. No es un segundo párrafo de apoyo: es
-                 la etiqueta de los dos botones, y por eso va pegado a ellos
-                 (12px) y separado del sub (30px). La pregunta es literalmente
-                 el dato que diferencia a los dos botones —3 días o 7—, así que
-                 los convierte en respuesta en vez de en dos productos sueltos.
-                 El alojamiento se nombra acá y no en el sub porque es lo que
-                 empuja al pase largo: quien se queda una semana lo elige por
-                 la estadía, no por los cafés. */}
-          <p className="pv3-pretitulo">
-            <b>¿Cuánto dura tu viaje?</b> Todo empieza acá:
-          </p>
+          {/* PRUEBA: dos variantes de contenido (turista / socio-alojamiento)
+              apiladas en el mismo lugar. pintarPin() en el useEffect de arriba
+              las cruza en cross-fade a medida que avanza el scroll pineado —
+              ver PIN_EXTRA_VH. Sin JS o fuera de desktop, gana la variante
+              turista tal cual siempre estuvo (la de socio queda oculta por
+              CSS en mobile, ver @media 1180px). */}
+          <div className="pv3-left-stage">
+            <div ref={turistaRef} className="pv3-left-var">
+              {/* 1 · Marca del producto. Reemplaza a la pastilla "PASE TURISTA":
+                     dice lo mismo y encima es la imagen que el turista va a
+                     reconocer después en su Pase. Va DENTRO del cross-fade —a
+                     diferencia de antes— porque la variante socio usa un
+                     gráfico propio (el sello de rating), no el ticket. */}
+              <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
 
-          {/* 6 · Zona de decisión. Dos hermanos idénticos salvo el dato que los
-                 diferencia (días y precio), los dos dentro del botón, más una
-                 tercera opción en texto plano —sin chapa de botón— para quien
-                 necesita más días de los que ofrecen los dos pases fijos. */}
-          <div className="pv3-opciones">
-            {PASES.map(pase => (
-              <button key={pase.id} className="pv3-btn-pase"
-                onClick={() => onComprarPase?.(pase.dias)}
-                aria-label={`Comprar pase turista de ${pase.dias} días por ${pase.precio}`}>
-                <b>Pase {pase.label}</b>
-                <span className="pv3-btn-sep" aria-hidden="true" />
-                <span className="pv3-btn-precio">{pase.precio}</span>
-              </button>
-            ))}
-            <button className="pv3-mas-dias" onClick={() => onComprarPase?.('custom')}>
-              ¿Más días?
-            </button>
-          </div>
+              {/* 2 · Título. Sin cambios de copy: es el activo de marca del hero.
+                     El casing de las palabras en NauryzRedkeds va tal cual —
+                     mayúscula y minúscula son glifos distintos. */}
+              <h1 className="pv3-title">
+                <span className="pv3-t-it">Viajá <span className="pv3-nauryz">CUPONEaNdO</span></span>
+                <span className="pv3-t-bold">un pase, todos los descuentos</span>
+              </h1>
 
-          {/* 7 · Carril de hotelería: otro público, otro nivel. Separado por una
-                 línea fina y con peso de link, no de botón: sigue estando a un
-                 clic sin pelearle el protagonismo al pase. */}
-          <div className="pv3-b2b">
-            <span className="pv3-b2b-txt"><b>¿Tenés un alojamiento ó agencia de turismo?</b></span>
-            <button className="pv3-b2b-cta" onClick={suscribir}>
-              Suscribite y regalá pases  <span aria-hidden="true">→</span>
-            </button>
+              {/* 3 · Un único párrafo de apoyo: qué es y qué entra. Redonda (no
+                     itálica) y en ink2, para que se lea como nivel 2 y no como un
+                     segundo titular. Alojamiento va ÚLTIMO en la lista: el pretítulo
+                     de abajo lo levanta justo antes de los botones, y arrancar la
+                     frase con la misma palabra hacía que el remate sonara a repetido
+                     en vez de a énfasis. */}
+              <p className="pv3-sub">
+                En Villa Gesell, Mar de las Pampas, Mar Azul y Las Gaviotas. Descuentos en excursiones, salidas, compras y alojamiento.
+              </p>
+
+              {/* 5 · Pretítulo de los pases. No es un segundo párrafo de apoyo: es
+                     la etiqueta de los dos botones, y por eso va pegado a ellos
+                     (12px) y separado del sub (30px). La pregunta es literalmente
+                     el dato que diferencia a los dos botones —3 días o 7—, así que
+                     los convierte en respuesta en vez de en dos productos sueltos.
+                     El alojamiento se nombra acá y no en el sub porque es lo que
+                     empuja al pase largo: quien se queda una semana lo elige por
+                     la estadía, no por los cafés. */}
+              <p className="pv3-pretitulo">
+                <b>¿Cuánto dura tu viaje?</b> Todo empieza acá:
+              </p>
+
+              {/* 6 · Zona de decisión. Dos hermanos idénticos salvo el dato que los
+                     diferencia (días y precio), los dos dentro del botón, más una
+                     tercera opción en texto plano —sin chapa de botón— para quien
+                     necesita más días de los que ofrecen los dos pases fijos. */}
+              <div className="pv3-opciones">
+                {PASES.map(pase => (
+                  <button key={pase.id} className="pv3-btn-pase"
+                    onClick={() => onComprarPase?.(pase.dias)}
+                    aria-label={`Comprar pase turista de ${pase.dias} días por ${pase.precio}`}>
+                    <b>Pase {pase.label}</b>
+                    <span className="pv3-btn-sep" aria-hidden="true" />
+                    <span className="pv3-btn-precio">{pase.precio}</span>
+                  </button>
+                ))}
+                <button className="pv3-mas-dias" onClick={() => onComprarPase?.('custom')}>
+                  ¿Más días?
+                </button>
+              </div>
+
+              {/* 7 · Carril de hotelería: otro público, otro nivel. Separado por una
+                     línea fina y con peso de link, no de botón: sigue estando a un
+                     clic sin pelearle el protagonismo al pase. */}
+              <div className="pv3-b2b">
+                <span className="pv3-b2b-txt"><b>¿Tenés un alojamiento ó agencia de turismo?</b></span>
+                <button className="pv3-b2b-cta" onClick={suscribir}>
+                  Suscribite y regalá pases  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Variante socio: la propuesta de suscripción para quien tiene el
+                negocio, no quien viaja. Un solo botón (sin el link "¿Más
+                días?"/"Ver cómo funciona" del turista): acá no hay una
+                segunda opción real, así que un segundo peso de acción sólo
+                competiría con el primero. Precio de tramo no se inventa
+                acá —vive en la tabla `planes`, no en este copy de prueba—. */}
+            <div ref={socioRef} className="pv3-left-var pv3-left-var--socio"
+              style={{ opacity: 0, pointerEvents: 'none' }} aria-hidden="true">
+              {/* 1 · Sello de rating en vez del ticket: acá el argumento no es
+                     "mostrale la marca que va a reconocer", es prueba social
+                     ("mirá cómo lo valoran"). */}
+              <img className="pv3-ranking" src="/ranking-hero.svg" alt="Calificación 5 de 5 estrellas" />
+
+              <h1 className="pv3-title">
+                <span className="pv3-t-it">Regalá pases a tus clientes</span>
+                <span className="pv3-t-bold">un servicio que te destaca del resto</span>
+              </h1>
+              <p className="pv3-sub">
+                Gastronomía, masajes, excursiones, compras…<br />
+                ¡Miles de pesos en descuentos!
+              </p>
+              <p className="pv3-pretitulo">
+                <b>Ideal para hotelería, agencias de turismo ó inmobiliarias</b>
+              </p>
+              <div className="pv3-opciones">
+                <button className="pv3-btn-pase" onClick={suscribir}>
+                  <b>Suscripción mensual</b>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -334,9 +451,19 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         </div>
       </div>
 
-      <div aria-hidden="true" style={{ position: 'relative', zIndex: 3, height: 6, background: A.primary }} />
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 3, height: 6, background: A.primary }} />
 
       <style>{`
+        /* ─── PRUEBA: pin del hero ────────────────────────────
+           .pv3-stage reserva PIN_EXTRA_VH de scroll de más; .pv3-hero, adentro,
+           queda sticky mientras ese extra se consume. El scroll real del
+           documento nunca se frena —esto no es scroll-jacking por wheel/touch—,
+           sólo que visualmente el hero se ve "clavado" hasta agotar ese
+           recorrido. En mobile (@media 1180px, más abajo) se cancela entero:
+           .pv3-stage vuelve a altura automática y .pv3-hero a flujo normal. */
+        .pv3-stage { position: relative; height: calc(100vh + ${PIN_EXTRA_VH}vh); }
+        .pv3-hero { position: sticky; top: 0; min-height: 100vh; overflow-x: hidden; }
+
         .pv3-inner {
           position: relative;
           z-index: 2;
@@ -348,15 +475,36 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
           align-items: center;
         }
         /* Todo el contenido cuelga de la misma línea izquierda: no hay bloques
-           corridos 30px respecto de otros. Ancho acotado a 640px para que los
-           renglones corten solos, sin recortes por derecha. */
-        .pv3-left { max-width: 640px; margin-left: 30px; }
+           corridos 30px respecto de otros. Ancho fijo (no max-width) a
+           propósito: .pv3-left-stage cuelga dos variantes en position:absolute
+           (ver abajo), y un elemento fuera de flujo no aporta ancho al
+           shrink-to-fit del padre —con max-width solo, .pv3-left quedaba sin
+           nada en flujo que le diera ancho más que el ticket (172px) y
+           colapsaba a una columna angosta. */
+        .pv3-left { width: 640px; max-width: 100%; margin-left: 30px; }
 
-        /* 1 · Ticket-marca. -18°: sigue yendo en el mismo sentido que la galería
-           (-10°) en vez de cruzarla, pero con bastante más gesto. Al rotar, el
-           alto visual pasa de 85 a ~128px y se come 21px por arriba y por abajo:
-           de ahí el margin inferior de 32px, para que no lama el título. */
-        .pv3-ticket { width: 172px; height: auto; display: block; margin: 0 0 32px; transform: rotate(-25deg); }
+        /* Las dos variantes de copy (turista / socio) se apilan en el mismo
+           lugar: cada .pv3-left-var es absoluta y pegada arriba (top:0), no
+           centrada — si se centrara por altura, la socio (más corta que la
+           turista, que es la que define la altura del stage) quedaría
+           flotando más abajo, con un hueco entre el logo y el título. Por ser
+           absolutas necesitan que .pv3-left-stage tenga ancho explícito (no
+           lo heredan del contenido, ver nota de .pv3-left) y una altura que
+           cubra la variante más alta (turista, con pretítulo y carril de
+           hotelería) sin que ninguna de las dos quede recortada. */
+        .pv3-left-stage { position: relative; width: 100%; height: clamp(440px, 58vh, 540px); }
+        .pv3-left-var { position: absolute; left: 0; right: 0; top: 30px; }
+
+        /* 1 · Ticket-marca (turista) y sello de rating (socio): el logo de
+           cada variante, ahora DENTRO de .pv3-left-var (antes el ticket era
+           fijo y quedaba afuera del cross-fade). El ticket ya viene inclinado
+           de fábrica en el propio SVG, en el mismo sentido que la galería
+           (-10°) pero con bastante más gesto — no se rotula por CSS. El
+           margin-bottom es el que separa el logo del título; antes ese aire
+           lo ponía el top:30px de .pv3-left-var, pero ahora ese offset cae
+           ANTES del logo, no entre el logo y el título. */
+        .pv3-ticket { width: 172px; height: auto; display: block; margin-bottom: 28px; }
+        .pv3-ranking { width: 230px; height: auto; display: block; margin-bottom: 28px; }
 
         /* 2 · Título */
         .pv3-title { position: relative; margin: 0; line-height: 1.12; letter-spacing: 0; }
@@ -534,6 +682,16 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         .pv3-mobile-deco { display: none; }
 
         @media (max-width: 1180px) {
+          /* Layout angosto = una sola columna centrada, sin "derecha" de la
+             que colgarse: acá el pin no tiene sentido (no hay galería al lado
+             para justificar clavar el hero), así que se cancela entero y todo
+             vuelve a flujo normal, como si PRUEBA no existiera. */
+          .pv3-stage { height: auto; }
+          .pv3-hero { position: static; min-height: 0; overflow: visible; }
+          .pv3-left-stage { height: auto; }
+          .pv3-left-var { position: static; transform: none; opacity: 1; pointer-events: auto; }
+          .pv3-left-var--socio { display: none; }
+
           .pv3-inner {
             text-align: center;
             padding: 132px 24px 56px;
@@ -586,5 +744,6 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
         }
       `}</style>
     </section>
+    </div>
   );
 }

@@ -4,7 +4,7 @@
 //  Marketplace (grid y lista), y las minifichas de HomeView.
 //  Estructura: header (avatar+nombre+localidad) → imagen con badge
 //  + heart → franja "Ahorrás" con "Ver oferta" a la derecha → sello del
-//  Pase ("Obtené tu GESELL PaSS", o "Incluido en tu" si hay turista logueado)
+//  Pase ("Obtené tu Cupon PASS", o "Incluido en tu" si hay turista logueado)
 //  → al pie, debajo del CTA de compra, en texto suelto,
 //  "ó compralo suelto por $X".
 //
@@ -352,8 +352,8 @@ function StockStrip({ tieneStock, stockRestante }) {
 // ─── Sello del Pase ───────────────────────────────────────────
 // DOS textos, y sólo dos:
 //
-//   con Pase ACTIVO  →  "Usá tu GESELL PaSS"
-//   sin Pase activo  →  "Obtené tu GESELL PaSS"
+//   con Pase ACTIVO  →  "Usá tu Cupon PASS"
+//   sin Pase activo  →  "Obtené tu Cupon PASS"
 //
 // Igual para base, premium y estadía: el sello dice a qué producto pertenece la
 // oferta, no cómo se consume. El límite —cuántos premium trae el Pase, cuántos

@@ -3,7 +3,7 @@
 //  Cuánto se puede usar esta oferta con el Pase. Va en el detalle, antes del
 //  CTA, y es lo que REEMPLAZA al "incluido" que sacamos del sello.
 //
-//  El sello dice a qué producto pertenece la oferta ("Usá tu GESELL PaSS") y
+//  El sello dice a qué producto pertenece la oferta ("Usá tu Cupon PASS") y
 //  no cuánto rinde, porque en una mini-ficha no entra la explicación. Acá sí,
 //  y por eso acá va el número explícito: sin número, "premium" no significa
 //  nada y el turista descubre el límite recién cuando se le acaba.

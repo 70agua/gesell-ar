@@ -576,7 +576,7 @@ function SitiosDrop() {
 const PLANES_OPCIONES = [
   {
     id: 'contratar',
-    titulo: 'Pase diario ó semanal',
+    titulo: 'Cupon PASS',
     bajada: 'Comprá tu pase y aprovechá los descuentos que se ofrecen en la zona.',
     vista: 'checkout-pase',
     // Sin preguntarPerfil: este ítem YA es la elección de "soy turista" — el
@@ -584,9 +584,8 @@ const PLANES_OPCIONES = [
     // rótulo genérico "Planes y suscripción" (el botón que abre este
     // desplegable) sigue preguntando, porque ESE click no eligió nada todavía.
     opts: {},
-    // El mismo sello del hero, con la misma inclinación.
-    icono: '/gesell-pass-03.svg',
-    girado: true,
+    icono: '/iconos/cupon-line-05.svg',
+    lado: 40,
   },
   {
     id: 'hoteleria',
@@ -612,7 +611,7 @@ const PLANES_OPCIONES = [
 function PlanesDrop({ onNavigate }) {
   return (
     <div style={{ padding: 8, width: 340 }}>
-      {PLANES_OPCIONES.map(({ id, titulo, bajada, vista, opts, icono, girado, lado = 46 }) => (
+      {PLANES_OPCIONES.map(({ id, titulo, bajada, vista, opts, icono, lado = 46 }) => (
         <button
           key={id}
           onClick={() => onNavigate(vista, opts)}
@@ -625,16 +624,13 @@ function PlanesDrop({ onNavigate }) {
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         >
           {/* Sin pastilla de fondo: los dibujos traen color propio y sobre el
-              azul claro se ensuciaban. El sello del pase va girado como en el
-              hero; los Lottie corren solos (`animar`), sin esperar el hover.
-              `lado` afina cada dibujo por separado: vienen con distinto aire
-              interno y al mismo tamaño no pesan lo mismo. La casilla queda fija
-              en 46 para que los tres textos arranquen alineados. */}
+              azul claro se ensuciaban. Los Lottie corren solos (`animar`), sin
+              esperar el hover. `lado` afina cada dibujo por separado: vienen
+              con distinto aire interno y al mismo tamaño no pesan lo mismo.
+              La casilla queda fija en 46 para que los tres textos arranquen
+              alineados. */}
           <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 46, height: 46 }}>
-            <Icono src={icono} animar={!girado}
-              style={girado
-                ? { width: 55, height: 'auto', display: 'block', transform: 'rotate(-25deg)' }
-                : { width: lado, height: lado, display: 'block' }} />
+            <Icono src={icono} animar style={{ width: lado, height: lado, display: 'block' }} />
           </span>
           <span style={{ minWidth: 0 }}>
             <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{titulo}</span>
@@ -977,7 +973,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                         el click en sí —para quien no llega a hacer hover, o en
                         touch— dispara directo sin haber elegido nada todavía.
                         Ahí sigue haciendo falta preguntar. Los ítems concretos
-                        del desplegable (abajo, "Pase diario ó semanal") NO
+                        del desplegable (abajo, "Cupon PASS") NO
                         preguntan: ya declaran la intención en el texto. */}
                     <button onClick={() => nav('checkout-pase', { preguntarPerfil: true })} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
                       Planes y suscripción <ChevD />

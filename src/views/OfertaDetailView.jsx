@@ -48,7 +48,7 @@ const C = {
 
 // ─── Pasos de "Cómo se usa" ──────────────────────────────────
 const PASOS = [
-  { num: 1, title: 'Sumás el cupón a tu carrito',    desc: 'Con el Gesell PaSS la mayoría ya vienen incluidos; los descuentos PREMIUM los elegís (uno por día de pase) y el resto los sumás a mitad de precio. Sin pase, lo comprás suelto.' },
+  { num: 1, title: 'Sumás el cupón a tu carrito',    desc: 'Con el Cupon PASS la mayoría ya vienen incluidos; los descuentos PREMIUM los elegís (uno por día de pase) y el resto los sumás a mitad de precio. Sin pase, lo comprás suelto.' },
   { num: 2, title: '¡Tu cupón ya está listo! Te lo enviamos por mail, pero también podés descargarlo.',  desc: ' ahora. Al momento de tu visita, solo tenés que mostrar el código QR desde el celular. Si surge algún inconveniente, el comercio puede validar tu reserva con un código de 6 dígitos. Por seguridad, no compartas este código con nadie.' },
   { num: 3, title: 'Disfrutás el beneficio',  desc: 'El socio escanea y confirma. ¡Listo! El descuento se aplica en el momento.' },
 ];

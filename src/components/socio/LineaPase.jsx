@@ -10,7 +10,7 @@
 //   - Premium: sólo tiene sentido para quien YA tiene un Pase contratado
 //     (activo o todavía dormido — `pase` alcanza, no hace falta `activo`).
 //     Sin Pase, la invitación a comprarlo ya la hace el título del bloque de
-//     acción ("Conseguí este y muchos más con tu Gesell PaSS"); repetirla acá
+//     acción ("Conseguí este y muchos más con tu Cupon PASS"); repetirla acá
 //     sería la misma oferta empujada dos veces.
 //   - Base/estadía: al revés — se muestran SIN Pase, como dato informativo de
 //     que la oferta ya entra en la capa incluida. Con Pase, el bloque de

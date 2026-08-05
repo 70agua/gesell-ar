@@ -6,9 +6,9 @@
 //  Cinco situaciones, según la regla de lib/pases.js (nivelEnPase) y el pase
 //  del que mira (useMiPase):
 //
-//    SIN PASE   · incluida → "Incluido en el GESELL PaSS"
-//               · estadía  → "Tu estadía con el GESELL PaSS: el Pase trae una"
-//               · premium  → "Elegilo con el GESELL PaSS", o sale la mitad
+//    SIN PASE   · incluida → "Incluido en el Cupon PASS"
+//               · estadía  → "Tu estadía con el Cupon PASS: el Pase trae una"
+//               · premium  → "Elegilo con el Cupon PASS", o sale la mitad
 //    COMPRADO   · cupón suelto → "Canjear ahora" (no depende del Pase)
 //    CON PASE   · con fecha  → "Coordinar fecha" (no exige pase activo)
 //               · corriendo       → "Canjear ahora" (abre la cámara)
@@ -195,7 +195,7 @@ export default function CtaPase({
           onClick={onComprarPase}
           style={{ width: '100%', marginTop: 8, background: 'none', border: 'none', color: C.primary, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: C.font, padding: '4px 0' }}
         >
-          Ver el Gesell PaSS →
+          Ver el Cupon PASS →
         </button>
       </>
     );

@@ -1,6 +1,6 @@
 // ============================================================
 //  src/views/CheckoutPaseView.jsx
-//  Compra directa del Gesell PaSS, sin cuenta: elegís duración, dejás mail y
+//  Compra directa del Cupon PASS, sin cuenta: elegís duración, dejás mail y
 //  teléfono, pagás. El alta como turista viene después (paso 2), y ahí la
 //  compra se vincula al usuario recién creado.
 //  El pago es MOCK, igual que el resto de la app.
@@ -193,7 +193,7 @@ function PasoPerfil({ onElegir }) {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px 100px' }}>
 
         <div style={{ textAlign: 'center', margin: '18px 0 34px' }}>
-          <img src="/gesell-pass-03.svg" alt="Gesell PaSS" style={{ width: 210, maxWidth: '70%', height: 'auto', display: 'inline-block', transform: 'rotate(-25deg)' }} />
+          <img src="/cupon-pass.svg" alt="Cupon PASS" style={{ width: 210, maxWidth: '70%', height: 'auto', display: 'inline-block' }} />
         </div>
 
         <div style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: C.primary, letterSpacing: '-0.01em', textAlign: 'center', margin: '0 0 6px' }}>
@@ -473,7 +473,7 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
 
         {/* Título: el símbolo del hero, centrado, solo e inclinado igual que allá */}
         <div style={{ textAlign: 'center', margin: '18px 0 40px' }}>
-          <img src="/gesell-pass-03.svg" alt="Gesell PaSS" style={{ width: 210, maxWidth: '70%', height: 'auto', display: 'inline-block', transform: 'rotate(-25deg)' }} />
+          <img src="/cupon-pass.svg" alt="Cupon PASS" style={{ width: 210, maxWidth: '70%', height: 'auto', display: 'inline-block' }} />
         </div>
 
         {/* Cómo funciona — antes de elegir nada */}
