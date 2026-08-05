@@ -11,6 +11,7 @@ import { useCarrito }  from '../lib/carrito';
 import HeartButton      from '../components/HeartButton';
 import { socialProof } from '../lib/socialProof';
 import HeroPase from '../components/landing/HeroPase';
+import HeroCoupons from '../components/hero/HeroCoupons';
 import PortadaCupopack from '../components/PortadaCupopack';
 import PaSSMark        from '../components/PaSSMark';
 import Icono           from '../components/Icono';
@@ -128,8 +129,19 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
       />
 
       {/* Marca el fin del hero: cuando este punto pasa bajo la navbar,
-          la navbar se estrecha (ver Navbar.jsx → [data-navbar-shrink]). */}
+          la navbar se estrecha (ver Navbar.jsx → [data-navbar-shrink]). Queda
+          ANTES del slide 2 a propósito: la navbar ya se angosta apenas se
+          deja atrás el primer hero, no hace falta esperar a que termine
+          también la lluvia de cupones. */}
       <div data-navbar-shrink aria-hidden="true" />
+
+      {/* ── Slide 2 del hero — lluvia de cupones atada al scroll ──
+          Copy placeholder, a definir. */}
+      <HeroCoupons
+        eyebrow="Cuponear"
+        title="Más noches, menos precio"
+        body="Reservá directo con alojamientos y restaurantes de la costa."
+      />
 
       {/* ── Cuponeá en cada momento de tu viaje ──────────────── */}
       <CuponearCategoriasSection onVerOfertasRegalo={onVerOfertasRegalo} onNavCuponear={onNavCuponear} />
