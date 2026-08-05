@@ -74,7 +74,11 @@ const PASES = [
 // Es sólo un experimento de escritorio: en el layout angosto (≤1180px, donde
 // el hero ya pasa a una sola columna centrada) el pin se desactiva entero por
 // CSS y se ve el copy original de siempre, sin sorpresas para mobile.
-const PIN_EXTRA_VH = 140;
+// 140 (el valor original) quedó pensado para 3 variantes de copy; con sólo 2
+// (turista/socio) ese recorrido obligaba a scrollear de más para ver la
+// segunda. 70 alcanza para que las dos fracciones (salida 0.30-0.60, entrada
+// 0.45-0.80) completen el cross-fade sin la "zona muerta" de scroll extra.
+const PIN_EXTRA_VH = 70;
 const clamp01 = (v) => Math.min(Math.max(v, 0), 1);
 
 // ─── Galería derecha: masonry tipo Pinterest ─────────────────
@@ -209,10 +213,15 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
       // centrar por altura, la variante socio —más corta que la turista, que
       // define la altura del stage— quedaba flotando más abajo y quedaba un
       // hueco entre el logo y el título, igual al margen que ya sacamos.
+      //
+      // 50px (antes 30): no es sólo un fade, es la entrada/salida con gesto
+      // —sube desde abajo al aparecer, sigue subiendo un poco más al irse—
+      // y con 30 el movimiento se sentía casi como un fade solo.
+      const DESPLAZAMIENTO = 50;
       tur.style.opacity = String(1 - salida);
-      tur.style.transform = `translateY(${-30 * salida}px)`;
+      tur.style.transform = `translateY(${-DESPLAZAMIENTO * salida}px)`;
       soc.style.opacity = String(entrada);
-      soc.style.transform = `translateY(${30 * (1 - entrada)}px)`;
+      soc.style.transform = `translateY(${DESPLAZAMIENTO * (1 - entrada)}px)`;
 
       const activo = progreso < 0.5 ? 'turista' : 'socio';
       if (pinActivoRef.current !== activo) {
@@ -346,8 +355,16 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
                      dice lo mismo y encima es la imagen que el turista va a
                      reconocer después en su Pase. Va DENTRO del cross-fade —a
                      diferencia de antes— porque la variante socio usa un
-                     gráfico propio (el sello de rating), no el ticket. */}
-              <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
+                     gráfico propio (el sello de rating), no el ticket.
+                     El wrapper .pv3-logo-slot tiene alto fijo e hijo pegado
+                     abajo: el ticket (~127px) y el sello de rating (~82px)
+                     miden distinto, y sin este alto fijo el título de cada
+                     variante arrancaba en una fila distinta —un salto visible
+                     en el cross-fade—. Con el mismo alto de slot en las dos,
+                     el título siempre arranca en la misma línea. */}
+              <div className="pv3-logo-slot">
+                <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
+              </div>
 
               {/* 2 · Título. Sin cambios de copy: es el activo de marca del hero.
                      El casing de las palabras en NauryzRedkeds va tal cual —
@@ -419,23 +436,28 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
               style={{ opacity: 0, pointerEvents: 'none' }} aria-hidden="true">
               {/* 1 · Sello de rating en vez del ticket: acá el argumento no es
                      "mostrale la marca que va a reconocer", es prueba social
-                     ("mirá cómo lo valoran"). */}
-              <img className="pv3-ranking" src="/ranking-hero.svg" alt="Calificación 5 de 5 estrellas" />
+                     ("mirá cómo lo valoran"). Mismo slot de alto fijo que el
+                     ticket (ver comentario en la variante turista); el
+                     desplazamiento propio (left/top) es sólo para centrar el
+                     dibujo dentro de su viewBox, no cambia el alto reservado. */}
+              <div className="pv3-logo-slot">
+                <img className="pv3-ranking" src="/ranking-hero.svg" alt="Calificación 5 de 5 estrellas" />
+              </div>
 
               <h1 className="pv3-title">
                 <span className="pv3-t-it">Regalá pases a tus clientes</span>
                 <span className="pv3-t-bold">un servicio que te destaca del resto</span>
               </h1>
               <p className="pv3-sub">
-                Gastronomía, masajes, excursiones, compras…<br />
-                ¡Miles de pesos en descuentos!
+                ¡Miles de pesos de descuento para el viajero!<br />
+                Gastronomía, masajes, excursiones, compras. Experiencias inolvidables para el turista y más ventas para vos.
               </p>
               <p className="pv3-pretitulo">
-                <b>Ideal para hotelería, agencias de turismo ó inmobiliarias</b>
+                <b>Suscribite desde $30.000 por mes y ofrecé algo que buscan todos: ¡Gastar menos!</b>
               </p>
               <div className="pv3-opciones">
                 <button className="pv3-btn-pase" onClick={suscribir}>
-                  <b>Suscripción mensual</b>
+                  <b>Hotelería, agencias de turismo, etc</b>
                 </button>
               </div>
             </div>
@@ -491,20 +513,30 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
            absolutas necesitan que .pv3-left-stage tenga ancho explícito (no
            lo heredan del contenido, ver nota de .pv3-left) y una altura que
            cubra la variante más alta (turista, con pretítulo y carril de
-           hotelería) sin que ninguna de las dos quede recortada. */
-        .pv3-left-stage { position: relative; width: 100%; height: clamp(440px, 58vh, 540px); }
+           hotelería) sin que ninguna de las dos quede recortada.
+           +128px: el logo vivía en flujo normal arriba del stage (aportaba
+           ~128px al alto de .pv3-left) y ahora vive adentro, en position:
+           absolute, que no aporta alto al padre. Sin compensarlo, .pv3-left
+           se achica esos 128px y el align-items:center de .pv3-inner
+           recentra todo el bloque más abajo de lo que estaba. */
+        .pv3-left-stage { position: relative; width: 100%; height: clamp(568px, calc(58vh + 128px), 668px); }
         .pv3-left-var { position: absolute; left: 0; right: 0; top: 30px; }
 
         /* 1 · Ticket-marca (turista) y sello de rating (socio): el logo de
            cada variante, ahora DENTRO de .pv3-left-var (antes el ticket era
            fijo y quedaba afuera del cross-fade). El ticket ya viene inclinado
            de fábrica en el propio SVG, en el mismo sentido que la galería
-           (-10°) pero con bastante más gesto — no se rotula por CSS. El
-           margin-bottom es el que separa el logo del título; antes ese aire
-           lo ponía el top:30px de .pv3-left-var, pero ahora ese offset cae
-           ANTES del logo, no entre el logo y el título. */
-        .pv3-ticket { width: 172px; height: auto; display: block; margin-bottom: 28px; }
-        .pv3-ranking { width: 230px; height: auto; display: block; margin-bottom: 28px; }
+           (-10°) pero con bastante más gesto — no se rotula por CSS.
+           .pv3-logo-slot fija el alto reservado ANTES del título —ver el
+           comentario largo en el JSX— para que las dos variantes arranquen
+           el título en la misma línea aunque el ticket (~127px) y el sello
+           de rating (~82px con el ancho de acá) midan distinto. */
+        .pv3-logo-slot { height: 130px; display: flex; align-items: flex-end; margin-bottom: 28px; }
+        .pv3-ticket { width: 172px; height: auto; display: block; }
+        /* left/top: el dibujo no está centrado dentro de su propio viewBox
+           (le sobra aire a la derecha y arriba), así que se corrige a mano;
+           position:relative no mueve el slot, sólo el pixel pintado. */
+        .pv3-ranking { width: 270px; height: auto; display: block; position: relative; left: -20px; top: 15px; }
 
         /* 2 · Título */
         .pv3-title { position: relative; margin: 0; line-height: 1.12; letter-spacing: 0; }
@@ -649,10 +681,14 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
            así el borde visible es el del propio bloque —inclinado como todo lo
            demás— y no el corte vertical del contenedor. Ese sobrante además es
            la zona de solape: el texto (z-index 2) pasa por encima de fotos ya
-           casi transparentes. */
+           casi transparentes.
+           --colw al 75% del original (190/21vw/300 → 142/15.75vw/225): celdas
+           más chicas entran más por columna a la misma altura de viewport, así
+           que el mismo scroll muestra más fotos distintas en vez de menos
+           celdas más grandes repitiendo antes de completar el loop. */
         .pv3-galwin {
           --gap: 16px;
-          --colw: clamp(190px, 21vw, 300px);
+          --colw: clamp(142px, 15.75vw, 225px);
           --blockw: calc(${NUM_COLS} * var(--colw) + ${NUM_COLS - 1} * var(--gap));
           position: absolute;
           top: 0;
@@ -699,10 +735,10 @@ export default function HeroPase({ onVerDescuentos, onSuscribir, onComprarPase }
             justify-content: center;
           }
           .pv3-left { display: flex; flex-direction: column; align-items: center; max-width: 620px; margin-left: 0; }
-          .pv3-ticket { margin: 0 0 24px; }
+          .pv3-logo-slot { margin-bottom: 24px; }
           .pv3-sub, .pv3-pretitulo, .pv3-b2b { text-align: center; }
           .pv3-opciones, .pv3-b2b { justify-content: center; }
-          .pv3-galwin { opacity: 0.5; --colw: clamp(150px, 20vw, 220px); }
+          .pv3-galwin { opacity: 0.5; --colw: clamp(112px, 15vw, 165px); }
 
           /* Acá el layout es de una sola columna centrada: no hay "derecha" de
              la que colgarse. Una ficha blanca al ras del borde quedaría pisando
