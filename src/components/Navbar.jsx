@@ -2,6 +2,7 @@
 //  src/components/Navbar.jsx
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
+import { Menu, X } from 'lucide-react';
 import AvisosBell from './AvisosBell';
 import { FAMILIAS_PACK, MAS_PACKS } from '../lib/familiasPack';
 import { useCarrito } from '../lib/carrito';
@@ -673,9 +674,28 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const [openMenu,    setOpenMenu]    = useState(null);
   const [closingMenu, setClosingMenu] = useState(null);
   const animTimer = useRef(null);
-  const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [mobileOpen,    setMobileOpen]    = useState(false);
+  // Mismo criterio que closingMenu/dropFadeOut para los desplegables de
+  // escritorio: el menú mobile no se desmonta de golpe, se anima saliendo
+  // (mobileMenuOut) y recién al terminar se saca del DOM.
+  const [mobileClosing, setMobileClosing] = useState(false);
+  const mobileCloseTimer = useRef(null);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
   const [condensed,   setCondensed]   = useState(false);
+  // PRUEBA (2026-08-09): en 'home' la navbar arranca escondida —los primeros
+  // slides quedan despojados de menú a propósito, ver HeroPase/HeroCoupons—
+  // y aparece sola al cruzar [data-navbar-reveal] (la vista lo
+  // pone justo antes de "Cuponeá antes de pagar", donde están las pastillas
+  // de imágenes). Ancla DISTINTA de la de `condensed` a propósito: son dos
+  // preguntas que ya no coinciden en el mismo punto del scroll ("¿terminó el
+  // primer hero?" vs "¿ya hay que mostrar el menú?"). `manualReveal` es la
+  // salida manual: no hay ícono propio para eso —se sacó, ver más abajo—,
+  // la dispara clickear el ticket "Cupón PASS" de HeroPase (evento
+  // 'cuponear:navbar-reveal' en window, ver el listener más abajo). En
+  // cualquier otra vista, siempre visible desde el arranque.
+  const [scrollRevealed, setScrollRevealed] = useState(false);
+  const [manualReveal,   setManualReveal]   = useState(false);
+  const revealed = view !== 'home' || scrollRevealed || manualReveal;
   const { openDrawer } = useCarrito();
 
   const sitiosRef = useRef(null);
@@ -740,6 +760,36 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
     return () => obs.disconnect();
   }, [view]);
 
+  // ── Revelado al llegar a "Cuponeá antes de pagar" ──────────
+  // Mismo mecanismo que el de arriba, ancla distinta: HomeView pone
+  // <div data-navbar-reveal /> justo antes de esa sección. Sin ancla (todas
+  // las vistas menos 'home') no hace falta observar nada —`revealed` ya da
+  // true por `view !== 'home'`— así que el efecto no hace nada.
+  useEffect(() => {
+    const linea = NAV_TOP + NAV_H_MAX;
+    const anchor = document.querySelector('[data-navbar-reveal]');
+    if (!anchor) return;
+
+    const obs = new IntersectionObserver(
+      ([e]) => setScrollRevealed(e.boundingClientRect.top <= linea),
+      { rootMargin: `-${linea}px 0px 0px 0px`, threshold: 0 }
+    );
+    obs.observe(anchor);
+    return () => obs.disconnect();
+  }, [view]);
+
+  // ── Revelado manual (click en el ticket de HeroPase) ──────
+  // El disparador vive en un componente hermano (HeroPase, colgado de
+  // HomeView), no un hijo de Navbar, así que no hay prop que lo una sin
+  // subir manualReveal hasta App.jsx. Un evento propio en window es el
+  // atajo liviano: HeroPase lo dispara al clickear el ticket "Cupón PASS",
+  // acá sólo se escucha.
+  useEffect(() => {
+    const onReveal = () => setManualReveal(true);
+    window.addEventListener('cuponear:navbar-reveal', onReveal);
+    return () => window.removeEventListener('cuponear:navbar-reveal', onReveal);
+  }, []);
+
   // ── Subrayado según la sección que se está mirando ────────────
   // Las vistas marcan sus bloques con <section data-nav-section="aloj|gastro|
   // aventura|packs">. Se subraya el ítem del bloque que cruza la línea de
@@ -790,7 +840,18 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // Sólo hay un dropdown montado por vez, así que una sola ref alcanza para los cuatro.
   const dropRef = useDropCentrado(openMenu || closingMenu, navRef);
 
-  const closeAll = () => { clearTimeout(closeTimer.current); setOpenMenu(null); setMobileOpen(false); };
+  // Cierra el menú mobile con salida animada en vez de desmontarlo de golpe.
+  const cerrarMobile = () => {
+    setMobileClosing(true);
+    clearTimeout(mobileCloseTimer.current);
+    mobileCloseTimer.current = setTimeout(() => {
+      setMobileOpen(false);
+      setMobileClosing(false);
+    }, 200);
+  };
+  useEffect(() => () => clearTimeout(mobileCloseTimer.current), []);
+
+  const closeAll = () => { clearTimeout(closeTimer.current); setOpenMenu(null); if (mobileOpen) cerrarMobile(); };
 
   // nav: usa onNavbarNav si está disponible (con filtros), si no setView directo
   const nav = (v, opts = {}) => {
@@ -832,7 +893,7 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
 
   return (
     <>
-      <nav ref={navRef} className="navbar-flotante" style={{
+      <nav ref={navRef} className="navbar-flotante" aria-hidden={!revealed} style={{
         // Pastilla acotada y centrada: no se estira a todo el ancho.
         // Al pasar la primera sección (condensed) se estrecha y se achica.
         position: 'fixed', top: condensed ? NAV_TOP_MIN : NAV_TOP, left: 0, right: 0, zIndex: 1000,
@@ -845,7 +906,16 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         boxShadow: condensed
           ? '0 14px 34px -12px rgba(11,16,32,0.22)'
           : scrolled ? '0 10px 30px -10px rgba(11,16,32,0.18)' : '0 6px 22px -12px rgba(11,16,32,0.14)',
-        transition: `max-width .38s ${NAV_EASE}, top .38s ${NAV_EASE}, box-shadow .25s, background .25s`,
+        // Cross-fade con el ícono de esquina: cuando la navbar aparece (por
+        // scroll o por click), se desliza .38s de -14px a su lugar. No es un
+        // morph literal de las pastillas de imágenes en algo con forma de
+        // navbar (eso implicaría coordinar geometría entre dos componentes
+        // separados a ciegas, sin poder verlo andar); es un primer paso
+        // razonable —fade + slide— para iterar desde ahí con feedback visual.
+        opacity: revealed ? 1 : 0,
+        transform: revealed ? 'translateY(0)' : 'translateY(-14px)',
+        pointerEvents: revealed ? 'auto' : 'none',
+        transition: `max-width .38s ${NAV_EASE}, top .38s ${NAV_EASE}, box-shadow .25s, background .25s, opacity .38s ease, transform .38s ${NAV_EASE}`,
         fontFamily: A.font,
       }}>
         <div style={{
@@ -1068,22 +1138,30 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               </div>
             )}
 
-            <button className="navbar-hamburger" onClick={() => setMobileOpen(o => !o)}
+            {/* Hamburguesa/X de siempre (lucide). El cierre no desmonta el
+                panel de golpe: cerrarMobile() lo anima saliendo
+                (mobileMenuOut) y recién después lo saca del DOM. */}
+            <button className="navbar-hamburger" onClick={() => (mobileOpen ? cerrarMobile() : setMobileOpen(true))}
+              aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
               style={{ background: 'none', border: `1px solid ${A.line}`, borderRadius: 10, width: 38, height: 38, display: 'none', placeItems: 'center', cursor: 'pointer', color: A.ink, flexShrink: 0 }}
             >
-              {mobileOpen
-                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-              }
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
 
         </div>
       </nav>
 
-      {/* ── Mobile menu ── */}
-      {mobileOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 40, background: '#fff', paddingTop: 64, overflowY: 'auto', fontFamily: A.font }}>
+      {/* ── Mobile menu ──
+          Se mantiene montado durante mobileClosing para que llegue a correr
+          la animación de salida; mobileOpen/mobileClosing nunca están en
+          true al mismo tiempo, así que la animación de entrada y la de
+          salida no compiten. */}
+      {(mobileOpen || mobileClosing) && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 40, background: '#fff', paddingTop: 64, overflowY: 'auto', fontFamily: A.font,
+          animation: mobileClosing ? 'mobileMenuOut .2s ease-in forwards' : 'mobileMenuIn .22s ease-out',
+        }}>
           <div style={{ padding: '20px 24px 48px' }}>
             {[
               { label: 'Alojamientos',     action: () => nav('ofertas', { ofertasCategoria: 'alojamiento' }) },
@@ -1153,6 +1231,14 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         @keyframes dropFadeCenterOut {
           from { opacity: 1; transform: translateX(-50%) translateY(0); }
           to   { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+        }
+        @keyframes mobileMenuIn {
+          from { opacity: 0; transform: translateY(-12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes mobileMenuOut {
+          from { opacity: 1; transform: translateY(0); }
+          to   { opacity: 0; transform: translateY(-12px); }
         }
         @media (max-width: 900px) {
           .navbar-links       { display: none !important; }

@@ -42,10 +42,15 @@ import { FavoritosProvider }             from './lib/favoritos';
 import { SesionProvider }                from './lib/sesion';
 import ChatBot                           from './components/ChatBot';
 import BienvenidaTuristaWizard           from './components/BienvenidaTuristaWizard';
+import useLenisSmoothScroll              from './hooks/useLenisSmoothScroll';
 
 // ─── Contenido de la app (necesita el contexto de loading) ───
 function AppContent() {
   const { isLoading } = useLoading();
+  // Sensación de scroll suave (aceleración/frenado) con Lenis, igual que
+  // cheaf.com/ar — ver el archivo del hook para el porqué (tres intentos
+  // caseros antes de esto no funcionaron bien).
+  useLenisSmoothScroll();
 
   // El QR estático del socio apunta a ?canjear=<negocioId>: el turista cae
   // directo en la pantalla de canje con ese comercio ya resuelto.

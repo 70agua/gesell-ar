@@ -11,7 +11,6 @@ import { useCarrito }  from '../lib/carrito';
 import HeartButton      from '../components/HeartButton';
 import { socialProof } from '../lib/socialProof';
 import HeroPase from '../components/landing/HeroPase';
-import HeroCoupons from '../components/hero/HeroCoupons';
 import PortadaCupopack from '../components/PortadaCupopack';
 import PaSSMark        from '../components/PaSSMark';
 import Icono           from '../components/Icono';
@@ -93,7 +92,7 @@ const SECONDARY_FILTERS = [
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onVerTodas, onArmarPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria, onVerPase }) {
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onArmarPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria, onVerPase, onVerTodas }) {
   const [activeTypes,    setActiveTypes]    = useState(new Set());
   const [activeSecondary, setActiveSecondary] = useState([]);
   const [tabAloj,        setTabAloj]        = useState('Todos'); // eslint-disable-line
@@ -121,25 +120,32 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
   return (
     <div style={{ color: A.ink, fontFamily: A.font }}>
 
-      {/* ── HERO — Pase Gesell (un producto, un CTA, sin buscador) ── */}
-      <HeroPase
-        onVerDescuentos={() => { onVerTodas && onVerTodas(); window.scrollTo(0, 0); }}
-        onComprarPase={onComprarPase}
-        onSuscribir={onSuscribirHoteleria}
-      />
+      {/* ── HERO — Pase Gesell + propuesta para alojamientos/agencias,
+          fusionados en UN SOLO pin (2026-08-09). Antes eran dos secciones
+          separadas (HeroPase y HeroCoupons, cada una con su propio scroll-
+          jack) y el traspaso entre una y otra se sentía como "bajar a otra
+          pantalla" — un salto de sección normal en medio de dos tramos
+          pineados. Ahora todo el segundo acto (pregunta grande + panel de
+          suscripción + lluvia de cupones) vive DENTRO del mismo stage
+          pineado de HeroPase; HeroCoupons.jsx quedó sin uso en la home (no
+          se borró el archivo por las dudas de que se necesite reflotar
+          rápido, pero no se importa más acá). El link que antes era
+          "Conocé el catálogo" (llevaba al listado general vía onVerTodas)
+          pasó a decir "Regalá pases" y ya no navega a otra vista: salta al
+          panel de suscripción dentro del mismo hero (ver irAPostaRef en
+          HeroPase.jsx). El catálogo general no se perdió: reaparece
+          (2026-08-10) como "Conocé todas las ofertas" en los accesos del
+          primer slide, de vuelta con onVerTodas. */}
+      <HeroPase onComprarPase={onComprarPase} onSuscribirHoteleria={onSuscribirHoteleria} onVerCatalogo={() => onVerTodas?.(null)} />
 
-      {/* Marca el fin del hero: cuando este punto pasa bajo la navbar,
-          la navbar se estrecha (ver Navbar.jsx → [data-navbar-shrink]). Queda
-          ANTES del slide 2 a propósito: la navbar ya se angosta apenas se
-          deja atrás el primer hero, no hace falta esperar a que termine
-          también la lluvia de cupones. */}
+      {/* Antes había un anclaje acá (fin del primer hero) y otro después de
+          HeroCoupons (revelado de la navbar) — dos preguntas de scroll
+          distintas cayendo en dos puntos distintos. Con los dos heroes
+          fusionados en un solo pin ya no hay un punto intermedio real entre
+          ellos, así que las dos anclas quedan juntas, apenas termina el pin
+          entero. Ver Navbar.jsx → [data-navbar-shrink]/[data-navbar-reveal]. */}
       <div data-navbar-shrink aria-hidden="true" />
-
-      {/* ── Slide 2 del hero — la propuesta para alojamientos y agencias,
-          con lluvia de cupones atada al scroll. Antes vivía como el
-          cross-fade `.pv3-left-var--socio` adentro de HeroPase; ahora es su
-          propia sección. Mismo handler que el CTA de suscripción de arriba. */}
-      <HeroCoupons onSuscribir={onSuscribirHoteleria} />
+      <div data-navbar-reveal aria-hidden="true" />
 
       {/* ── Cuponeá en cada momento de tu viaje ──────────────── */}
       <CuponearCategoriasSection onVerOfertasRegalo={onVerOfertasRegalo} onNavCuponear={onNavCuponear} />
@@ -208,6 +214,26 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
   // de esa pastilla — antes que prometer un número que no existe.
   const [ahorros, setAhorros] = useState({});
   const [totalOfertas, setTotalOfertas] = useState(0);
+
+  // Entrada en cascada de las pastillas, la primera vez que la sección entra
+  // en pantalla. Mismo mecanismo que la tira de ofertas (ver PromosSection):
+  // IntersectionObserver que se desconecta al disparar, para que sea un
+  // estreno y no algo que se repite cada vez que se pasa por acá.
+  const gridRef = useRef(null);
+  const [revelado, setRevelado] = useState(false);
+  useEffect(() => {
+    if (revelado) return;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) { setRevelado(true); return; }
+    const el = gridRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setRevelado(true); obs.disconnect(); }
+    }, { threshold: 0.2, rootMargin: '0px 0px -60px 0px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [revelado]);
+
   useEffect(() => {
     let vivo = true;
     (async () => {
@@ -248,9 +274,67 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
         </div>
 
         {/* 4 cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 48 }}>
-          {CUPONEAR_CARDS.map((card) => (
-            <div key={card.titulo} onClick={() => onNavCuponear?.(card.navTarget)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
+        {/* Entrada de las pastillas, tomando como referencia phantom.com
+            (2026-08-10). Lo que se pudo VERIFICAR de esa página, midiendo
+            sus nodos: las cards que todavía no entraron están en opacity:0 +
+            transform:scale(0.95) y pasan a opacity:1 + transform:none, con
+            transition-duration en 0s —o sea que no lo anima CSS sino JS por
+            la Web Animations API—, y hay una segunda capa interna que sólo
+            hace fade. Los tiempos exactos NO se pudieron extraer (bundle
+            minificado, valores armados en runtime), así que de acá para
+            abajo son decisiones propias, no copia.
+            Lo importante es lo que NO hace: no hay barrido lateral. En esa
+            página cada card se dispara por su propio cruce de viewport, y
+            como las de una fila cruzan todas a la vez, entran juntas. Un
+            intento anterior acá escalonaba 90ms por índice y se leía
+            exactamente como lo que no tiene que ser: una carga de izquierda
+            a derecha. El escalonado de ahora sale del CENTRO hacia afuera
+            (ver el delay en el JSX): mantiene vida y profundidad, pero es
+            simétrico, así que no hay un lado que "va primero".
+            El blur y el desplazamiento corto son lo que le da cuerpo — sin
+            eso, fade+escala solo queda demasiado plano. */}
+        <style>{`
+          .cup-pastilla { opacity: 0; }
+          .cup-pastilla--in { animation: cupPastillaIn .9s cubic-bezier(.16,1,.3,1) both; }
+          @keyframes cupPastillaIn {
+            from { opacity: 0; transform: translateY(26px) scale(.92); filter: blur(10px); }
+            to   { opacity: 1; transform: none; filter: blur(0); }
+          }
+          /* La capa de texto entra un paso después que su pastilla — es la
+             segunda capa que hace sólo fade en la referencia. */
+          .cup-pastilla-texto { opacity: 0; }
+          .cup-pastilla--in .cup-pastilla-texto {
+            animation: cupTextoIn .6s ease-out both;
+            animation-delay: calc(var(--cup-delay, 0ms) + 260ms);
+          }
+          @keyframes cupTextoIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: none; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .cup-pastilla, .cup-pastilla-texto {
+              opacity: 1; transform: none; filter: none; animation: none;
+            }
+          }
+        `}</style>
+        <div ref={gridRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 48 }}>
+          {CUPONEAR_CARDS.map((card, i) => (
+            <div
+              key={card.titulo}
+              onClick={() => onNavCuponear?.(card.navTarget)}
+              className={`cup-pastilla${revelado ? ' cup-pastilla--in' : ''}`}
+              // Delay por distancia al CENTRO de la fila, no por índice: con
+              // 5 pastillas da 140/70/0/70/140ms, o sea que abre desde el
+              // medio hacia los dos lados a la vez. Escalonado por índice
+              // (0/90/180/270/360) es lo que producía la lectura de barrido
+              // de izquierda a derecha. --cup-delay lo reusa el texto de
+              // adentro para entrar después de su propia pastilla.
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, cursor: 'pointer',
+                '--cup-delay': `${Math.abs(i - (CUPONEAR_CARDS.length - 1) / 2) * 70}ms`,
+                animationDelay: `${Math.abs(i - (CUPONEAR_CARDS.length - 1) / 2) * 70}ms`,
+              }}
+            >
               {/* Imagen con proporción tall pill */}
               <div style={{ width: '80.5%', aspectRatio: '9/16', borderRadius: 999, overflow: 'hidden', boxShadow: '0 4px 24px rgba(11,16,32,0.10)' }}>
                 <img
@@ -263,7 +347,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
               </div>
 
               {/* Texto */}
-              <div style={{ textAlign: 'center' }}>
+              <div className="cup-pastilla-texto" style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, lineHeight: 1.2 }}>{card.titulo}</div>
                 {ahorros[card.navTarget] != null && (
                   <div style={{ fontSize: 13, fontWeight: 500, color: A.muted, marginTop: 5 }}>
@@ -566,9 +650,30 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
   const [visibleCount, setVisibleCount] = useState(10);
   const [loadingMore, setLoadingMore]   = useState(false);
   const scrollRef = useRef(null);
+  const seccionRef = useRef(null);
   const { addCupon } = useCarrito();
 
   useEffect(() => { setVisibleCount(10); scrollRef.current?.scrollTo({ left: 0 }); }, [filtroTipo]);
+
+  // Reveal en cascada: las fichas aterrizan desde la derecha la primera vez
+  // que la tira entra en pantalla al scrollear (una sola vez — no se repite
+  // si se vuelve a pasar por acá). `revelado` gatea la clase que dispara la
+  // animación (ver @keyframes promoCardIn, más abajo); el propio card sigue
+  // montado siempre, sólo cambia opacity/transform vía CSS. Con
+  // prefers-reduced-motion queda visible de entrada, sin animar.
+  const [revelado, setRevelado] = useState(false);
+  useEffect(() => {
+    if (revelado) return;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) { setRevelado(true); return; }
+    const el = seccionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setRevelado(true); obs.disconnect(); }
+    }, { threshold: 0.15, rootMargin: '0px 0px -80px 0px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [revelado]);
 
   const promosCat = promos.filter(p => p.tokens_costo !== 0 && buckets.includes(p.bucket));
   const promosFiltradas = (id === 'alojamientos' && filtroTipo)
@@ -601,8 +706,24 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
   };
 
   return (
-    <section data-nav-section={navSection} style={{ background: A.bg, padding: '57px 0', borderTop: conBordeSuperior ? `1px solid ${A.line}` : 'none', borderBottom: `1px solid ${A.line}` }}>
-      <style>{`@keyframes skelPulse { 0%, 100% { opacity: 0.9 } 50% { opacity: 0.3 } }`}</style>
+    <section ref={seccionRef} data-nav-section={navSection} style={{ background: A.bg, padding: '57px 0', borderTop: conBordeSuperior ? `1px solid ${A.line}` : 'none', borderBottom: `1px solid ${A.line}` }}>
+      <style>{`
+        @keyframes skelPulse { 0%, 100% { opacity: 0.9 } 50% { opacity: 0.3 } }
+        /* Reveal en cascada de las fichas — ver el useEffect con
+           IntersectionObserver más arriba (revelado). Arrancan corridas a la
+           derecha y transparentes; .promo-card--in las trae a su lugar, con
+           un animation-delay creciente por índice (inline, más abajo) para
+           que entren en cascada y no todas juntas. */
+        .promo-card { opacity: 0; transform: translateX(64px); }
+        .promo-card--in { animation: promoCardIn .6s cubic-bezier(.16,1,.3,1) both; }
+        @keyframes promoCardIn {
+          from { opacity: 0; transform: translateX(64px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .promo-card { opacity: 1; transform: none; animation: none; }
+        }
+      `}</style>
       {/* Header */}
       <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 28 }}>
         <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.01em', color: A.ink, margin: '0 0 20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -655,8 +776,12 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
               ))
             ) : (
               <>
-                {alojMostrados.map(promo => (
-                  <div key={promo.id} style={{ width: 340, flexShrink: 0, display: 'flex' }}>
+                {alojMostrados.map((promo, i) => (
+                  <div
+                    key={promo.id}
+                    className={`promo-card${revelado ? ' promo-card--in' : ''}`}
+                    style={{ width: 340, flexShrink: 0, display: 'flex', animationDelay: `${Math.min(i * 70, 560)}ms` }}
+                  >
                     <OfertaCard
                       promo={promo}
                       onOpen={p => {

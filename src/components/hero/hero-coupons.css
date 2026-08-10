@@ -10,6 +10,11 @@
   position: relative;
   height: var(--section-h);
   font-family: 'Inter', system-ui, sans-serif;
+  /* Mismo degradé que .pv3-hero (HeroPase.jsx): sin esto acá quedaba blanco
+     puro y el corte contra el final de HeroPase (que termina sobre este
+     mismo degradé, todavía con un dejo cremita a esa altura) se notaba —
+     "todo tiene que pasar sobre el fondo crema, no bajar a otro". */
+  background: linear-gradient(180deg, #FFF7EB 0%, #FFFFFF 60%);
 }
 
 .hc__stage {
@@ -21,6 +26,15 @@
   display: flex;
   align-items: center;
 }
+
+/* .hc__question/.hc__question-text (la pregunta grande que se
+   escribía/desescribía sola antes del panel) se sacaron enteras el
+   2026-08-10 — quedaba "sola, casi un segundo, en el medio" de la
+   transición y no agregaba nada que .hc__eyebrow, más abajo, no dijera ya
+   a su tamaño real. HeroCoupons.jsx (sin uso en la home) todavía las
+   referencia con nombres de couponRain.config.js que ya no existen
+   (QUESTION_WIPE/QUESTION_FADE se renombró a QUESTION_WIPE_OUT y después
+   se dejó de usar) — es dead code ya asumido como tal, no se corrigió. */
 
 /* Contenedor ancho, igual que .pv3-inner en HeroPase: centra el máximo de
    1328px y da el padding horizontal. La columna de texto en sí vive en
@@ -67,6 +81,18 @@
   display: block;
 }
 
+/* Misma frase que .hc__question (la pregunta grande centrada, ver HeroCoupons
+   .jsx), acá chica y quieta, arriba del título. Es la versión accesible y
+   permanente — la grande es sólo decorativa y transitoria. */
+.hc__eyebrow {
+  margin: 0 0 12px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--hc-primary);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
 .hc__title {
   position: relative;
   margin: 0;
@@ -100,24 +126,15 @@
   color: var(--hc-ink2);
 }
 
-.hc__pretitulo {
-  margin: 30px 0 0;
-  font-size: 15.5px;
-  line-height: 1.5;
-  color: var(--hc-ink2);
-}
-
-.hc__pretitulo b {
-  color: var(--hc-ink);
-  font-weight: 700;
-}
-
+/* Antes había un párrafo en bold acá (".hc__pretitulo") entre el cuerpo y el
+   botón; se sacó entero. margin-top sube de 12 a 32 para que el botón no
+   quede pegado al cuerpo ahora que no hay nada en el medio. */
 .hc__opciones {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  margin-top: 12px;
+  margin-top: 32px;
 }
 
 .hc__btn {

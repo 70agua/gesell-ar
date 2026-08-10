@@ -11,12 +11,16 @@ const NAURYZ  = "'NauryzRedkeds', sans-serif";
 // calibrados a 20px y escalan solos con `k`. Van así porque la NauryzRedkeds
 // trae los glifos descentrados dentro de su caja: se mueve la pastilla por su
 // cuenta y el texto por la suya para que "PaSS" quede alineado con la frase.
-export default function PaSSMark({ size = 20, conGesell = false }) {
+// `prefijo` es "CUPON" por default (2026-08-10: era "GESELL" — la marca es
+// "CUPON PaSS", no "GESELL PaSS", así que se cambió el default en vez de
+// pisarlo en cada uno de los llamados que ya lo usaban). Sigue siendo
+// override-able por si hace falta otro prefijo en el futuro.
+export default function PaSSMark({ size = 20, conGesell = false, prefijo = 'CUPON' }) {
   const k = size / 20;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 * k, lineHeight: 1 }}>
       {conGesell && (
-        <span style={{ fontFamily: NAURYZ, fontSize: size, letterSpacing: k, color: PRIMARY, lineHeight: 1 }}>GESELL</span>
+        <span style={{ fontFamily: NAURYZ, fontSize: size, letterSpacing: k, color: PRIMARY, lineHeight: 1 }}>{prefijo}</span>
       )}
       <span style={{ position: 'relative', display: 'inline-block', fontSize: size, lineHeight: 1, padding: `${5 * k}px ${13 * k}px ${6 * k}px` }}>
         <span aria-hidden="true" style={{ position: 'absolute', inset: 0, transform: `translate(${-7 * k}px, ${-2 * k}px)`, background: PRIMARY, borderRadius: 999 }} />

@@ -73,15 +73,64 @@ function CoinSVG({ size = 13 }) {
 
 const IcoBolt = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
 
+// ─── Contador FLASH: dígitos que ruedan ───────────────────────
+// (2026-08-10, a pedido, tomando como referencia skiper-ui/skiper37.) Antes
+// los números se reemplazaban de golpe y el contador no se leía como algo
+// vivo: cambiaba un carácter por segundo y listo. Ahora cada dígito es una
+// tira vertical del 0 al 9 dentro de una ventanita con overflow:hidden, y
+// "cambiar de número" es correr esa tira — el mismo mecanismo de odómetro
+// que usa la referencia (ahí vía number-flow; acá a mano, que son 20 líneas
+// y evita sumar dos dependencias nuevas —number-flow y framer-motion— a un
+// proyecto que no usa ninguna librería de animación).
+const DIGITO_H = 16; // alto de la ventana = alto de cada número de la tira
+
+function DigitoRodante({ n }) {
+  return (
+    <span style={{ display: 'block', height: DIGITO_H, overflow: 'hidden' }}>
+      <span
+        style={{
+          display: 'block',
+          transform: `translateY(-${n * DIGITO_H}px)`,
+          transition: 'transform .55s cubic-bezier(.16,1,.3,1)',
+          willChange: 'transform',
+        }}
+      >
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
+          <span key={d} style={{ display: 'block', height: DIGITO_H, lineHeight: `${DIGITO_H}px` }}>{d}</span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+// Una casilla (horas, minutos o segundos) = dos dígitos rodantes.
+function CasillaTiempo({ valor }) {
+  const s = String(valor).padStart(2, '0');
+  return (
+    <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, minWidth: 26, padding: '3px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontVariantNumeric: 'tabular-nums' }}>
+      {s.split('').map((d, i) => <DigitoRodante key={i} n={Number(d)} />)}
+    </div>
+  );
+}
+
 function FlashPill({ fechaFinFlash }) {
   const [secs, setSecs] = useState(() => secondsUntil(fechaFinFlash));
+  // Depende de `fechaFinFlash` (antes: array vacío, que dejaba el intervalo
+  // corriendo para siempre aunque el contador ya hubiera llegado a cero —
+  // seguía haciendo un setState por segundo sobre un componente que ya
+  // devolvía null). Ahora se recalcula si cambia la fecha y se corta solo al
+  // llegar a 0.
   useEffect(() => {
-    if (secs <= 0) return;
-    const t = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
+    setSecs(secondsUntil(fechaFinFlash));
+    const t = setInterval(() => {
+      setSecs(s => {
+        if (s <= 1) { clearInterval(t); return 0; }
+        return s - 1;
+      });
+    }, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [fechaFinFlash]);
   if (secs <= 0) return null;
-  const pad = n => String(n).padStart(2, '0');
   const th = Math.floor(secs / 3600), tm = Math.floor((secs % 3600) / 60), ts = secs % 60;
   return (
     // right:52 reserva el espacio del corazón (top-right) — si chip+contador
@@ -95,9 +144,12 @@ function FlashPill({ fechaFinFlash }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
         {[th, tm, ts].map((v, i) => (
           <React.Fragment key={i}>
-            <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, minWidth: 26, padding: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {i === 0 ? v : pad(v)}
-            </div>
+            {/* Arriba de 99h la tira de dos dígitos no alcanza y se muestra
+                el número plano: una oferta flash de más de cuatro días es un
+                caso de borde, no vale romper el formato por él. */}
+            {i === 0 && v > 99
+              ? <div style={{ background: '#fff', color: A.ink, borderRadius: 5, fontSize: 12, fontWeight: 800, minWidth: 26, padding: '3px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{v}</div>
+              : <CasillaTiempo valor={v} />}
             {i < 2 && <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13 }}>:</span>}
           </React.Fragment>
         ))}
