@@ -92,7 +92,7 @@ const SECONDARY_FILTERS = [
 // ═══════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onArmarPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria, onVerPase, onVerTodas }) {
+export default function HomeView({ accommodations = [], dining = [], aventura = [], onOpenDetail, onArmarPack, onVerPacks, onOpenOferta, onVerOfertasRegalo, onNavCuponear, onComprarPase, onSuscribirHoteleria, onSuscripcionLista, onVerPase, onVerTodas }) {
   const [activeTypes,    setActiveTypes]    = useState(new Set());
   const [activeSecondary, setActiveSecondary] = useState([]);
   const [tabAloj,        setTabAloj]        = useState('Todos'); // eslint-disable-line
@@ -133,19 +133,24 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
           "Conocé el catálogo" (llevaba al listado general vía onVerTodas)
           pasó a decir "Regalá pases" y ya no navega a otra vista: salta al
           panel de suscripción dentro del mismo hero (ver irAPostaRef en
-          HeroPase.jsx). El catálogo general no se perdió: reaparece
-          (2026-08-10) como "Conocé todas las ofertas" en los accesos del
-          primer slide, de vuelta con onVerTodas. */}
-      <HeroPase onComprarPase={onComprarPase} onSuscribirHoteleria={onSuscribirHoteleria} onVerCatalogo={() => onVerTodas?.(null)} />
+          HeroPase.jsx). "Conocé todas las ofertas" (2026-08-10) siguió
+          viviendo en esos accesos, pero dejó de navegar a onVerTodas
+          (2026-08-11 tarde): ahora desliza la propia home hasta "Cuponeá
+          antes de pagar", resuelto adentro de HeroPase.jsx contra el mismo
+          ancla [data-navbar-shrink] de acá abajo — por eso ya no se le pasa
+          onVerCatalogo. */}
+      {/* onSuscribirHoteleria ya no lo usa HeroPase (el camino "empresa" quedó
+          embebido ahí adentro, ver CheckoutHoteleroView `embebido`) — sigue
+          recibiéndolo por si hace falta reflotarlo, no rompe nada de más. */}
+      <HeroPase onComprarPase={onComprarPase} onSuscribirHoteleria={onSuscribirHoteleria} onSuscripcionLista={onSuscripcionLista} />
 
-      {/* Antes había un anclaje acá (fin del primer hero) y otro después de
-          HeroCoupons (revelado de la navbar) — dos preguntas de scroll
-          distintas cayendo en dos puntos distintos. Con los dos heroes
-          fusionados en un solo pin ya no hay un punto intermedio real entre
-          ellos, así que las dos anclas quedan juntas, apenas termina el pin
-          entero. Ver Navbar.jsx → [data-navbar-shrink]/[data-navbar-reveal]. */}
+      {/* Fin del hero: a partir de acá la navbar se condensa (Navbar.jsx →
+          [data-navbar-shrink]). Al lado había un segundo ancla,
+          [data-navbar-reveal], que era la que la hacía APARECER; se eliminó el
+          2026-08-11 porque aparecer dejó de ser una cuestión de posición: ahora
+          la navbar responde a la dirección del scroll desde el arranque de la
+          home. Ver el useEffect de dirección en Navbar.jsx. */}
       <div data-navbar-shrink aria-hidden="true" />
-      <div data-navbar-reveal aria-hidden="true" />
 
       {/* ── Cuponeá en cada momento de tu viaje ──────────────── */}
       <CuponearCategoriasSection onVerOfertasRegalo={onVerOfertasRegalo} onNavCuponear={onNavCuponear} />
@@ -171,6 +176,34 @@ export default function HomeView({ accommodations = [], dining = [], aventura = 
     </div>
   );
 }
+
+// Punto de disparo único para las entradas por scroll de la home: las
+// pastillas de "Cuponeá" y las fichas de cada tira "Ofertas en …".
+//
+// threshold: 0 + margen inferior en % (no en px, no con threshold) para que el
+// disparo NO dependa del alto del bloque: se activa exactamente cuando su
+// BORDE SUPERIOR cruza la mitad del alto de la ventana, mida lo que mida. Con
+// un threshold por fracción, un bloque alto tenía que meter mucha más altura en
+// pantalla que uno bajo, así que cada sección arrancaba en un momento distinto.
+//
+// 50% = la mitad exacta de la ventana. Se probó primero con 75% (un cuarto de
+// pantalla antes, para que la cascada estuviera terminando justo al llegar al
+// medio) y no funcionó: medido en pantalla, con el borde superior al 75% de una
+// ventana de 746px, de la tira de fichas —596px de alto— sólo entraban 186px,
+// o sea que las fichas animaban con tres cuartas partes abajo del pliegue y
+// para cuando se veían enteras la animación ya había terminado. Cuanto más alto
+// el bloque, peor: por eso las pastillas de "Cuponeá" (364px) zafaban y las
+// fichas no.
+//
+// Con el borde superior en el medio entran 373px, que es más o menos una ficha
+// completa (392px) y la grilla entera de pastillas: la mitad de abajo de la
+// pantalla es el bloque animándose. Eso es lo que se ve.
+//
+// Importante: hay que observar el BLOQUE QUE ANIMA, no la <section> que lo
+// contiene. La tira de fichas observaba la sección entera —57px de padding más
+// el header arriba— así que la cascada arrancaba con las fichas todavía abajo
+// de la ventana y para cuando aparecían ya había terminado.
+const REVEAL_IO = { threshold: 0, rootMargin: '0px 0px -50% 0px' };
 
 // ═══════════════════════════════════════════════════════════
 //  Cuponear — 4 grupos de ofertas genéricos
@@ -216,9 +249,9 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
   const [totalOfertas, setTotalOfertas] = useState(0);
 
   // Entrada en cascada de las pastillas, la primera vez que la sección entra
-  // en pantalla. Mismo mecanismo que la tira de ofertas (ver PromosSection):
-  // IntersectionObserver que se desconecta al disparar, para que sea un
-  // estreno y no algo que se repite cada vez que se pasa por acá.
+  // en pantalla. Mismo mecanismo (y mismo punto de disparo, ver REVEAL_IO) que
+  // la tira de ofertas: IntersectionObserver que se desconecta al disparar,
+  // para que sea un estreno y no algo que se repite cada vez que se pasa.
   const gridRef = useRef(null);
   const [revelado, setRevelado] = useState(false);
   useEffect(() => {
@@ -229,7 +262,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
     if (!el) return;
     const obs = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) { setRevelado(true); obs.disconnect(); }
-    }, { threshold: 0.2, rootMargin: '0px 0px -60px 0px' });
+    }, REVEAL_IO);
     obs.observe(el);
     return () => obs.disconnect();
   }, [revelado]);
@@ -269,7 +302,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
 
           {/* Atribución al producto, pegada al título */}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 30, fontSize: 19, color: A.muted, lineHeight: 1.6 }}>
-            Todo esto lo incluye tu <PaSSMark size={20} conGesell />
+            Todo esto lo conseguís con <PaSSMark size={20} conGesell />
           </span>
         </div>
 
@@ -661,16 +694,18 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
   // animación (ver @keyframes promoCardIn, más abajo); el propio card sigue
   // montado siempre, sólo cambia opacity/transform vía CSS. Con
   // prefers-reduced-motion queda visible de entrada, sin animar.
+  //
+  // Se observa la TIRA (scrollRef), no la <section>: ver la nota de REVEAL_IO.
   const [revelado, setRevelado] = useState(false);
   useEffect(() => {
     if (revelado) return;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reducedMotion) { setRevelado(true); return; }
-    const el = seccionRef.current;
+    const el = scrollRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) { setRevelado(true); obs.disconnect(); }
-    }, { threshold: 0.15, rootMargin: '0px 0px -80px 0px' });
+    }, REVEAL_IO);
     obs.observe(el);
     return () => obs.disconnect();
   }, [revelado]);

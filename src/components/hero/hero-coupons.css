@@ -166,13 +166,63 @@
 
 /* ─── Capa de cupones ─── */
 
+/* La capa arranca donde termina el sidebar, no en el borde del viewport: así
+   la x de cada cupón (ver couponRain.config) reparte sobre el espacio LIBRE y
+   ninguno cae detrás del panel, que es opaco. Atarlo a las mismas variables y
+   no a un porcentaje elegido a ojo es lo que lo hace válido en todo el rango
+   de anchos: el panel mide siempre lo mismo en px, así que el porcentaje que
+   ocupa cambia con la ventana.
+   clip y no hidden, por lo mismo que .pv3-hero y .pv3-galwin: hidden convertía
+   media pantalla en un scroll container al pedo. */
 .coupon-rain {
   position: absolute;
   inset: 0;
+  left: calc(var(--gp-margen) + var(--gp-ancho));
   z-index: 1;
-  overflow: hidden;
+  overflow: clip;
   pointer-events: none;
   perspective: 1100px;
+}
+
+/* Los dos planos de profundidad (ver CouponRain.jsx): pasan por alto, cada
+   uno ocupa la MISMA caja que .coupon-rain (position:absolute + inset:0,
+   sin tamaño propio) — así los cupones, que se posicionan en % contra su
+   padre, terminan en el mismo lugar sin importar en cuál de los dos caigan.
+   El orden en el DOM es lo que decide el apilado (fondo primero, frente al
+   final); no hace falta z-index acá. */
+.coupon-rain-plano {
+  position: absolute;
+  inset: 0;
+}
+
+/* El contenido intercalado (children de CouponRain) — el título en cursiva
+   liviana, en este caso. Ocupa toda la capa y centra lo que le llegue: no
+   sabe si es un texto corto o un bloque, así que no le impone tamaño. */
+.coupon-rain-medio {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 48px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* El título que va intercalado en la lluvia cuando se eligió "empresa" (ver
+   CouponRain, HeroPase.jsx) — mismo lenguaje que .pv3-t-it del título
+   principal del hero ("Viajá"): itálica, peso liviano. Más chico que aquel
+   porque acá es texto de acompañamiento sobre un fondo ya ocupado (cupones
+   cayendo), no el titular de la página. */
+.gp-headline-cupones {
+  margin: 0;
+  max-width: 20ch;
+  text-align: center;
+  font-style: italic;
+  font-weight: 300;
+  line-height: 1.25;
+  font-size: clamp(26px, 2.6vw, 36px);
+  color: var(--hc-ink, #0b1020);
 }
 
 .coupon {
@@ -232,6 +282,332 @@
     transition: background 0.15s;
   }
   .hc__btn:hover {
+    transform: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Panel "Pases de regalo" — contenedor con el formulario
+   (2026-08-11, reemplaza a la columna .hc__copy de la izquierda)
+
+   Un solo recuadro centrado sobre la lluvia. La decisión de centrarlo y no
+   dejarlo a un costado es del contenido: acá lo único que hay que hacer es
+   elegir entre dos caminos, y una columna corrida a un lado deja media
+   pantalla compitiendo con la que decide. Los cupones cayendo son el fondo,
+   no un contenido paralelo.
+
+   Escalas tomadas de PlanPicker.jsx, que es el otro selector de opciones de
+   la app (recuadro r=20, opciones r=14 con borde de 1.5px, punto de radio de
+   19px): dos cosas que hacen lo mismo se ven igual. El botón, en cambio,
+   sigue a .pv3-btn-pase del slide 1 —píldora de 999px, alto 56— porque vive
+   en el hero y ahí manda el lenguaje del hero.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Las dos medidas del sidebar viven acá, en una sola declaración, porque las
+   necesitan DOS hermanos: el panel (que las usa de margen y ancho) y la capa
+   de cupones (que arranca justo donde el panel termina, ver .coupon-rain más
+   abajo). El ancestro común es .pv3-hc-stage, que se define en el <style> de
+   HeroPase — de ahí que este archivo lo toque sólo para esto. */
+.pv3-hc-stage {
+  --gp-margen: 100px;
+  --gp-ancho: 620px;
+}
+
+.gp-wrap {
+  position: relative;
+  z-index: 2;
+  /* Columna sobre la izquierda, no caja centrada: el resto del ancho queda
+     libre para la lluvia, que es el punto — con la caja al medio, los cupones
+     caían mayormente por detrás o por los costados y el juego no se veía.
+     Ocupa el alto para poder centrar la caja adentro, pero la caja NO: vuelve
+     a flotar (2026-08-11), con sus cuatro bordes a la vista. */
+  height: 100%;
+  width: 100%;
+  max-width: calc(var(--gp-margen) + var(--gp-ancho));
+  padding-left: var(--gp-margen);
+  box-sizing: border-box;
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* Modificador para contenido alto que scrollea adentro (ver el JSX, sólo lo
+   lleva el sidebar de "Suscripción PRO" embebida). align-items pasa de
+   center a stretch: con center, un hijo con max-height quedaba centrado
+   dentro del sobrante, que es exactamente NO lo que se quiere acá — se
+   quiere que ocupe todo el alto disponible entre el padding de arriba y el
+   de abajo, ni más ni menos, para que .gp-panel (con su propio
+   max-height:100%, ver hero-coupons.css) llene ese espacio y scrollee lo que
+   sobre. padding-top deja ver la esquina superior redondeada por debajo de
+   la navbar —fija en esta pantalla, ver el pin en Navbar.jsx—; padding-bottom
+   es más chico porque abajo no hay nada con lo que competir. */
+.gp-wrap--alto {
+  align-items: stretch;
+  padding-top: 96px;
+  padding-bottom: 32px;
+}
+
+/* Envoltorio sin scroll propio, sólo para anclar ScrollbarSutil (2026-08-11
+   noche, corrige un bug: la barra vivía DENTRO de .gp-panel, que es la caja
+   que scrollea — un position:absolute cuyo containing block es el propio
+   elemento con overflow-y:auto viaja con el contenido en vez de quedar
+   clavado en el borde, así que la barra "no se deslizaba", se iba de
+   pantalla junto con el resto). .gp-panel sigue siendo el que scrollea (el
+   ref de ScrollbarSutil sigue apuntando ahí); este wrapper es sólo el
+   containing block del track, que ahora es HERMANO de .gp-panel, no hijo. */
+.gp-panel-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.gp-panel {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid var(--color-border, #E7E9EE);
+  border-radius: 20px;
+  /* Sombra larga y muy tirada hacia arriba, la misma familia que el resto del
+     hero: despega la caja de la lluvia sin leerse como un modal. */
+  box-shadow: 0 24px 60px -24px rgba(11, 16, 32, 0.28);
+  padding: 36px 40px 32px;
+  /* max-height + overflow-y:auto, no overflow:clip a secas (2026-08-11): el
+     panel del paso 2 ahora puede llevar CheckoutHoteleroView embebido
+     entero —planes, alta, captcha, pago—, bastante más alto que el sidebar.
+     max-height:100% lo tapa contra la altura real de .gp-wrap (que es la
+     del hero) y overflow-y scrollea lo que sobre, en vez de cortarlo. Para
+     el contenido corto (el paso 1 sobre la galería, el "elegí una opción"
+     del paso 2) esto no cambia nada: nunca llegan a esa altura, así que
+     nunca aparece la barra. overflow-x sigue en clip: nada de acá se
+     desborda para los costados. */
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: clip;
+  /* Nativa oculta: la reemplaza ScrollbarSutil (ver HeroPase.jsx) — track y
+     thumb propios, dibujados a mano, en vez de la barra del sistema. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.gp-panel::-webkit-scrollbar {
+  display: none;
+}
+
+/* Barra de scroll propia — ver ScrollbarSutil en HeroPase.jsx para el
+   porqué (arranca a la altura de "¿Cómo funciona?", no del borde del panel;
+   sólo se monta cuando el contenido embebido realmente desborda). Angosta y
+   redondeada: no compite con el contenido, sólo orienta. */
+.gp-scrollbar-track {
+  position: absolute;
+  top: 150px;
+  bottom: 20px;
+  right: 8px;
+  width: 5px;
+  pointer-events: none;
+}
+/* Dorado (2026-08-11 noche, a pedido), el mismo #FFB94A del moño de
+   giftpass-logo.svg que ya pinta el resto de la marca GIFT PaSS en este
+   panel — no un color nuevo inventado para la barra. */
+.gp-scrollbar-thumb {
+  width: 100%;
+  border-radius: 999px;
+  background: #FFB94A;
+  opacity: 0.75;
+  cursor: grab;
+  pointer-events: auto;
+  transition: opacity 0.15s;
+}
+.gp-scrollbar-thumb:hover,
+.gp-scrollbar-thumb:active {
+  opacity: 0.85;
+}
+
+/* ─── Cabezal: título y bajada ─── */
+
+.gp-cabezal {
+  text-align: center;
+}
+
+.gp-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  line-height: 1;
+}
+
+/* Sin max-width propio: usa el ancho de la caja. Con un tope en ch quedaba una
+   columnita angosta centrada adentro de un recuadro bastante más ancho, y el
+   aire de los costados se leía como un error de alineación, no como respiro. */
+.gp-bajada {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--hc-ink2);
+}
+
+/* El primer renglón (la promesa: qué es) pesa más que el segundo (la
+   condición: por cuánto) — mismo tono que el título, no el gris del cuerpo, y
+   el margen que lo separa del lockup es mayor que el que separa los dos
+   renglones entre sí. */
+.gp-bajada--fuerte {
+  margin-top: 18px;
+  font-weight: 700;
+  color: var(--hc-ink);
+}
+
+/* "Elegí una opción": el título de la sección de abajo, no más copy del
+   cabezal — itálica y oscura para que se lea como un rótulo, no como una
+   frase más. Separado de la bajada con más aire que el que hay entre sus dos
+   renglones: es un bloque nuevo, no una tercera línea del mismo párrafo. */
+.gp-elegi {
+  margin: 26px 0 0;
+  text-align: center;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--hc-ink);
+}
+
+.gp-opciones {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Cada opción es el botón que dispara su camino, no una casilla que se marca
+   (ver DESTINOS en HeroPase.jsx). De ahí que no haya punto de radio ni estado
+   "elegida": lo único que hay es reposo y hover. */
+.gp-opcion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1.5px solid var(--color-border, #E7E9EE);
+  border-radius: 14px;
+  background: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.gp-opcion:hover {
+  border-color: var(--hc-primary);
+  background: var(--color-primary-soft, #EEF0FD);
+}
+
+/* Ícono a la izquierda de cada opción (2026-08-11) — gift-01.svg (etiqueta con
+   %) para regalar un pase suelto, gift-02.svg (caja con moño) para la
+   suscripción. flex-shrink:0 para que nunca ceda ancho al texto; el tamaño
+   sale del propio SVG (viewBox 185x210, ~0,88 de relación), así que basta con
+   fijar el ancho y dejar que el alto lo siga. */
+.gp-opcion-icono {
+  flex-shrink: 0;
+  width: 46px;
+  height: auto;
+  display: block;
+}
+
+.gp-opcion-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.gp-opcion-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gp-opcion-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hc-ink);
+}
+
+/* Las dos opciones llevan tag (2026-08-11): "Personas" en el dorado de la
+   marca del panel, "Empresas" en el primary de la app — el color lo pasa cada
+   entrada de DESTINOS por `tagColor`, inline, así que acá sólo va la forma.
+   Relleno sólido y sin borde en los dos casos — no compite con el marco de la
+   tarjeta, que es lo que pasaba con un chip contorneado sobre fondo gris. */
+.gp-opcion-tag {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.gp-opcion-quien {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hc-primary);
+  line-height: 1.4;
+}
+
+.gp-opcion-detalle {
+  font-size: 13px;
+  color: var(--hc-ink2);
+  line-height: 1.45;
+}
+
+.gp-opcion-flecha {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted, #6B7280);
+  transition: color 0.15s, transform 0.15s;
+}
+
+.gp-opcion:hover .gp-opcion-flecha {
+  color: var(--hc-primary);
+  transform: translateX(3px);
+}
+
+/* Debajo del ancho del pin (ver .pv3-hero en HeroPase) el panel deja de ser
+   sidebar: no hay ancho sobrante donde poner la lluvia, así que vuelve a ser
+   una columna centrada en flujo normal. */
+@media (max-width: 1180px) {
+  .gp-wrap {
+    max-width: 560px;
+    margin-inline: auto;
+    padding-left: 0;
+    height: auto;
+  }
+  /* Sin sidebar tampoco hay zona libre: la lluvia vuelve a ocupar todo y
+     queda de fondo detrás de la tarjeta. */
+  .coupon-rain {
+    left: 0;
+  }
+  .gp-panel {
+    padding: 30px 26px 26px;
+  }
+}
+
+@media (max-width: 560px) {
+  .gp-panel {
+    padding: 24px 18px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-opcion,
+  .gp-opcion-flecha {
+    transition: none;
+  }
+  .gp-opcion:hover .gp-opcion-flecha {
     transform: none;
   }
 }

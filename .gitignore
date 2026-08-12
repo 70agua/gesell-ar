@@ -11,6 +11,9 @@ build/
 .env.*.local
 *.local
 
+# Generado por tools/memory-map.mjs (se regenera, no se versiona)
+tools/memory-map.html
+
 # Logs y Errores
 logs
 *.log

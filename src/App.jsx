@@ -388,6 +388,18 @@ function AppContent() {
               onVerOfertasRegalo={() => { setView('ofertas-regalo'); window.scrollTo(0, 0); }}
               onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
               onSuscribirHoteleria={() => { setView('checkout-hotelero'); window.scrollTo(0, 0); }}
+              // Mismo cierre que el `onListo` de la vista completa de
+              // checkout-hotelero, más abajo: el alta embebida en el hero
+              // (ver CheckoutHoteleroView `embebido`, disparada desde
+              // HeroPase) también necesita refrescar sesión/perfil y mandar
+              // al panel — no hay por qué navegar a otra ruta primero.
+              onSuscripcionLista={async () => {
+                const s = await getSession();
+                const p = await getPerfil();
+                setSession(s); setPerfil(p);
+                setView(p?.negocio_id ? 'admin' : 'home');
+                window.scrollTo(0, 0);
+              }}
               onVerPase={() => { setView('mi-pase'); window.scrollTo(0, 0); }}
               onNavMarketplaceTipo={(filtro) => { setMarketplaceTipo(filtro || 'todos'); setView('marketplace'); window.scrollTo(0, 0); }}
               onNavCuponear={(target) => {
@@ -595,7 +607,6 @@ function AppContent() {
           )}
           {view === 'checkout-hotelero' && (
             <CheckoutHoteleroView
-              onSoyTurista={() => { setPasePreguntarPerfil(false); setPaseNavKey(k => k + 1); setView('checkout-pase'); window.scrollTo(0, 0); }}
               onListo={async () => {
                 // El alta ya creó cuenta + negocio: refrescamos sesión y perfil
                 // y lo dejamos en su panel, que es donde está su código.

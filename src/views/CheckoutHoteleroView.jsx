@@ -12,12 +12,12 @@
 //  de antes del pivot y hablaba otro idioma visual.
 // ============================================================
 import { useEffect, useState } from 'react';
-import { Check, CreditCard, Loader2, MapPin } from 'lucide-react';
-import CaptchaDeslizar from '../components/CaptchaDeslizar';
+import { ArrowLeft, Building2, Check, CreditCard, Home, Loader2, MapPin, MoreHorizontal, Plane } from 'lucide-react';
+import CaptchaAuto from '../components/CaptchaAuto';
 import Icono from '../components/Icono';
-import { getPlanesPro, crearSuscripcionPro } from '../lib/planes';
+import PaSSMark from '../components/PaSSMark';
+import { getPlanesPro } from '../lib/planes';
 import { altaSocio, ERRORES_ALTA } from '../lib/altaSocio';
-import { loginConIdentificador, pareceEmail, getPerfil } from '../lib/auth';
 
 // Misma paleta acotada que el checkout del pase.
 const C = {
@@ -33,17 +33,20 @@ const C = {
 };
 
 // Qué clase de empresa se suscribe. Dejó de ser "tipo de alojamiento": el plan
-// también lo contratan agencias de turismo, inmobiliarias y revendedores, así
-// que ser hotelero no es condición. Lo único que sí es condición es tener
-// cuenta.
-// El `valor` es lo que va a `negocios.tipo` — vocabulario cerrado por el CHECK
-// de la tabla (db/20260802_tipos_empresa_socio.sql).
+// también lo contratan agencias de turismo e inmobiliarias, así que ser
+// hotelero no es condición.
+// `label`/`icono` son sólo de esta ficha (2026-08-11 noche, "Industria" en
+// vez de un <select> "Tipo de empresa" — ver el JSX más abajo); `valor` es lo
+// que va a `negocios.tipo` y NO cambió: sigue siendo el vocabulario cerrado
+// por el CHECK de la tabla (db/20260802_tipos_empresa_socio.sql), así que
+// "Real Estate" guarda 'Inmobiliaria', no un valor nuevo. "Revendedor" (un
+// valor válido igual) se sacó de estas cuatro fichas a pedido; sigue
+// aceptado por la base para quien se dé de alta por otro lado.
 const TIPOS_EMPRESA = [
-  { valor: 'alojamiento',        label: 'Alojamiento' },
-  { valor: 'Agencia de turismo', label: 'Agencia de turismo' },
-  { valor: 'Inmobiliaria',       label: 'Inmobiliaria' },
-  { valor: 'Revendedor',         label: 'Revendedor' },
-  { valor: 'Otro',               label: 'Otros' },
+  { valor: 'alojamiento',        label: 'Hotelería',        icono: Building2 },
+  { valor: 'Agencia de turismo', label: 'Agencia de viajes', icono: Plane },
+  { valor: 'Inmobiliaria',       label: 'Real Estate',       icono: Home },
+  { valor: 'Otro',               label: 'Otra',              icono: MoreHorizontal },
 ];
 
 const fmt = n => `$${Math.round(Number(n) || 0).toLocaleString('es-AR')}`;
@@ -173,40 +176,81 @@ function TramoPago({ p, mensual, activo, onSelect }) {
   );
 }
 
-// ─── Cómo funciona, contado desde el mostrador del hotel ─────
-const PASOS = [
-  { t: 'Elegís un plan',      d: 'Y completás el formulario con los datos de tu empresa' },
-  { t: 'Tu cliente lée el QR de tu empresa, o carga el código de 6 dígitos.', d: 'El pase se le activará cuando lo apruebes.' },
-  { t: '¡Listos para ahorrar!', d: 'Descuentos en los comercios adheridos durante toda la estadía.' },
-];
-
 // Vive DENTRO del contenedor del plan, así que no trae marco propio: el borde
 // y el fondo blanco los pone la tarjeta grande. El padding de abajo es generoso
 // a propósito: con poco, el paso 3 quedaba montado sobre la línea divisoria.
-function ComoFunciona() {
+function ComoFunciona({ embebido, onVolver }) {
   return (
     <div style={{ padding: '22px 22px 30px' }}>
-      <div style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: C.primary, letterSpacing: '-0.01em', textAlign: 'center', margin: '2px 0 20px' }}>
-        ¿Cómo funciona la suscripción?
+      {/* Logo GIFT PaSS PRO, arriba del título (2026-08-11) — mismo lockup, y
+          ahora también mismo dorado (#FFB94A, el moño de giftpass-logo.svg),
+          que usa el panel de regalo de la home: es la MISMA marca GIFT PaSS
+          en los dos caminos, no dos logos distintos. La etiqueta PRO sigue
+          ese mismo color (ver el prop `pro` en PaSSMark) — ya no un azul
+          fijo, se probó y se volvió atrás.
+          La flecha a la izquierda (2026-08-11) sólo aparece embebido: es la
+          salida completa del flujo de regalo, de vuelta a la home base —no
+          "un paso atrás" como el círculo de .pv3-regalo-cerrar (ese sigue
+          existiendo, en la esquina de .pv3-hc-stage, y vuelve sólo al paso
+          1). Sin círculo a propósito ("sin más", a pedido): no compite con
+          el logo, que es la protagonista de la fila.
+          Tamaño y color subieron una vuelta (2026-08-11): 20px en
+          #D1D5DB —gris clarito, como se había pedido primero— quedaba
+          perdida contra el blanco del panel, "no se ve". 28px + C.ink2 (el
+          gris oscuro que ya usa el resto del copy secundario de la app, no
+          un tono inventado) la hace legible sin llegar al negro del título,
+          que es lo que de verdad tiene que destacar acá. */}
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+        {embebido && onVolver && (
+          <button
+            type="button" onClick={onVolver} aria-label="Volver al inicio"
+            style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', display: 'grid', placeItems: 'center', padding: 4, border: 'none', background: 'none', color: C.ink2, cursor: 'pointer' }}
+          >
+            <ArrowLeft size={28} strokeWidth={2} />
+          </button>
+        )}
+        <PaSSMark size={26} conGesell prefijo="GIft" pro color="#FFB94A" />
       </div>
-      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {PASOS.map((p, i) => (
-          <li key={p.t} style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
-            <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 26, height: 26, borderRadius: '50%', background: C.primarySoft, color: C.primary, fontSize: 13, fontWeight: 800 }}>
-              {i + 1}
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>{p.t}</div>
-              <div style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5, marginTop: 2 }}>{p.d}</div>
-            </div>
-          </li>
-        ))}
-      </ol>
+      {/* Reemplaza a "¿Cómo funciona la suscripción?" + los 3 pasos
+          (2026-08-11 noche): un solo argumento, contado con la misma
+          ilustración de la mano con el celular que ya se usaba en la banda
+          promocional de la página completa (IlustracionRegalo) — acá más
+          chica, al lado del texto en vez de sola en una esquina.
+          Ancho subido de 50% a 68% y tamaño bajado de 22 a 19px (a pedido):
+          con 50% el párrafo cortaba antes de lo que el ancho real disponible
+          permitía —quedaba aire de sobra al lado sin usar—, y ese ancho
+          angosto forzaba un renglón de más además del <br/> a propósito de
+          acá abajo. El corte queda fijo en dos líneas balanceadas, no en el
+          wrap natural del navegador: a cualquier ancho razonable del panel
+          (embebido o página completa) tiene que seguir leyéndose en dos. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, margin: '28px 0 20px' }}>
+        <Icono src="/iconos/manopla.json" animar
+          label="Tu turista recibe el Pase en su celular"
+          style={{ flex: '0 0 auto', width: 110, height: 110, display: 'block' }} />
+        <div style={{ width: '68%', fontSize: 19, fontWeight: 500, fontStyle: 'italic', color: C.ink, letterSpacing: '-0.01em', textAlign: 'left', lineHeight: 1.32 }}>
+          El huésped canjea tu código promocional al contratar Cupon PASS
+        </div>
+      </div>
     </div>
   );
 }
 
-export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
+// `embebido` (2026-08-11): la home lo usa así para mostrar el flujo completo
+// DENTRO del sidebar blanco de "Suscripción PRO", sobre los cupones cayendo
+// (ver HeroPase.jsx) — sin navegar a otra vista. Cambia sólo el ENVOLTORIO,
+// nunca el adentro: se saca el wrapper de página completa (min-height:100vh,
+// padding-top para la navbar fija) y la banda de gradiente con la
+// ilustración y el "Regalá descuentos y beneficios a tus clientes" — eso lo
+// reemplaza, afuera, el título en cursiva liviana sobre la lluvia de
+// cupones. Todo lo demás —desde ComoFunciona—, mismo
+// componente, mismo estado, misma lógica de alta: es la razón de que esto
+// sea un prop y no una vista aparte, para no mantener el formulario
+// duplicado en dos lugares.
+// `onVolverAlInicio` (2026-08-11): sólo tiene sentido embebido — pinta la
+// flecha de ComoFunciona que cierra TODO el flujo de regalo y vuelve a la
+// home base (ver esa nota, más abajo). La vista completa no la recibe: ahí
+// "volver al inicio" ya es literalmente cualquier link del sitio.
+export default function CheckoutHoteleroView({ onListo, embebido = false, onVolverAlInicio }) {
   const [planes, setPlanes]   = useState(null);
   const [planId, setPlanId]   = useState('pro_12');
 
@@ -219,12 +263,14 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
 
   // De la persona: los mismos datos que se le piden a un turista nuevo. Nunca
   // se mezclan con los del negocio — son dos entidades distintas.
-  const [esNuevo, setEsNuevo]   = useState(true);
+  // (2026-08-11 noche) El formulario dejó de tener puerta "Ya tengo cuenta"
+  // —ver la nota junto a la tarjeta de alta, más abajo—: se asume siempre
+  // alta nueva, así que ya no hace falta el estado que distinguía un camino
+  // del otro (esNuevo, usuario, pideEmpresa/conEmpresa).
   const [nombrePersona, setNombrePersona] = useState('');
   const [apellido, setApellido] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail]       = useState('');
-  const [usuario, setUsuario]   = useState('');       // "ya tengo cuenta"
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [humano, setHumano]     = useState(false);
@@ -232,13 +278,6 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
   const [error, setError]     = useState('');
   const [enviando, setEnviando] = useState(false);
   const [listo, setListo]     = useState(null);
-
-  // El que entra con cuenta hecha normalmente ya tiene su empresa colgada del
-  // perfil, así que no se le pide nada de eso. La excepción es el turista que
-  // se convierte en socio: recién al validar la contraseña sabemos que no tiene
-  // ninguna, y ahí sí le mostramos los dos campos.
-  const [pideEmpresa, setPideEmpresa] = useState(false);
-  const conEmpresa = esNuevo || pideEmpresa;
 
   useEffect(() => {
     getPlanesPro()
@@ -257,56 +296,21 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
   async function enviar() {
     setError('');
 
-    if (conEmpresa) {
-      if (!tipo)                        return setError('Elegí qué tipo de empresa es.');
-      if (!nombre.trim())               return setError('Poné el nombre de tu empresa.');
-    }
-    if (esNuevo) {
-      if (!nombrePersona.trim() || !apellido.trim()) return setError('Completá tu nombre y apellido.');
-      if (!emailValido(email))          return setError('Revisá el mail: no parece válido.');
-      if (!telValido(telefono))         return setError('Revisá el teléfono: faltan dígitos.');
-      if (password.length < 6)          return setError('La contraseña tiene que tener al menos 6 caracteres.');
-      if (password !== password2)       return setError('Las contraseñas no coinciden.');
-      if (!humano)                      return setError('Deslizá el control de seguridad para confirmar que sos un humano.');
-    } else {
-      if (!pareceEmail(usuario) && usuario.replace(/\D/g, '').length < 8) {
-        return setError('Escribí tu mail o tu teléfono.');
-      }
-      if (password.length < 6)          return setError('Escribí tu contraseña.');
-    }
+    if (!tipo)                        return setError('Elegí qué tipo de empresa es.');
+    if (!nombre.trim())               return setError('Poné el nombre de tu empresa.');
+    if (!nombrePersona.trim() || !apellido.trim()) return setError('Completá tu nombre y apellido.');
+    if (!emailValido(email))          return setError('Revisá el mail: no parece válido.');
+    if (!telValido(telefono))         return setError('Revisá el teléfono: faltan dígitos.');
+    if (password.length < 6)          return setError('La contraseña tiene que tener al menos 6 caracteres.');
+    if (password !== password2)       return setError('Las contraseñas no coinciden.');
+    if (!humano)                      return setError('Deslizá el control de seguridad para confirmar que sos un humano.');
 
     setEnviando(true);
-
-    // El que ya tiene cuenta entra primero: altaSocio necesita la sesión viva
-    // para colgarle el negocio al perfil que ya existe.
-    if (!esNuevo) {
-      const { error: errLogin } = await loginConIdentificador(usuario, password);
-      if (errLogin) { setEnviando(false); return setError('Usuario o contraseña incorrectos.'); }
-
-      // Si esa cuenta ya tiene su empresa, no se crea otra: sólo se le contrata
-      // el plan a la que ya está. Es el socio sin plan que viene a pagar.
-      const perfil = await getPerfil();
-      if (perfil?.negocio_id) {
-        await crearSuscripcionPro(perfil.negocio_id, { codigoPlan: planId });
-        setEnviando(false);
-        return setListo({ nombre: perfil.negocios?.nombre || 'Tu empresa', plan });
-      }
-
-      // Cuenta sin empresa (el turista que se convierte en socio): recién acá
-      // sabemos que hay que pedirle los dos datos.
-      if (!pideEmpresa) {
-        setPideEmpresa(true);
-        setEnviando(false);
-        return setError('Tu cuenta todavía no tiene una empresa: contanos qué es y cómo se llama.');
-      }
-    }
 
     const r = await altaSocio({
       negocio: { nombre, tipo },
       cuenta:  { email, password },
-      // Al que ya tenía cuenta no le mandamos persona: sus datos ya están en el
-      // perfil y este formulario no se los pidió.
-      persona: esNuevo ? { nombre: nombrePersona, apellido, telefono } : null,
+      persona: { nombre: nombrePersona, apellido, telefono },
       codigoPlan: planId,
     });
 
@@ -317,10 +321,13 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
   }
 
   // ── Paso 2: dado de alta y operativo ──
+  // El wrapper de página completa (minHeight/paddingTop, la columna de 720)
+  // sólo va cuando esto ES la página — embebido ya vive dentro del sidebar
+  // de HeroPase, que pone su propio ancho y padding (ver .gp-panel).
   if (listo) {
     return (
-      <div style={{ minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '60px 24px 100px' }}>
+      <div style={embebido ? undefined : { minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
+        <div style={embebido ? { padding: '4px 0 8px' } : { maxWidth: 720, margin: '0 auto', padding: '60px 24px 100px' }}>
           <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '34px 26px', textAlign: 'center' }}>
             <span style={{ display: 'grid', placeItems: 'center', width: 54, height: 54, borderRadius: '50%', background: C.primarySoft, color: C.primary, margin: '0 auto 18px' }}>
               <Check size={26} strokeWidth={3} />
@@ -349,8 +356,8 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
 
   // ── Paso 1 ──
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px 100px' }}>
+    <div style={embebido ? undefined : { minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
+      <div style={embebido ? undefined : { maxWidth: 720, margin: '0 auto', padding: '36px 24px 100px' }}>
 
         {/* Sin título ni bajada arriba: la banda del plan ya abre la pantalla y
             dice lo mismo. La identidad Cuponear ahora vive adentro de esa banda
@@ -360,11 +367,20 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
         {/* Plan PRO — un solo contenedor: primero por qué te conviene, después
             qué incluye, y recién al final cómo lo pagás. Antes eran tres
             columnas finitas, cada una repitiendo el producto entero: el
-            argumento no entraba y la diferencia entre tramos se perdía. */}
-        <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, overflow: 'hidden', marginBottom: 16 }}>
+            argumento no entraba y la diferencia entre tramos se perdía.
+            Embebido (dentro del sidebar de HeroPase) pierde el marco propio —
+            border/fondo/radio— porque ya está adentro de OTRO blanco (el
+            .gp-panel del sidebar); dos tarjetas blancas una dentro de la otra
+            se leían como un error de anidado, no como jerarquía. */}
+        <div style={embebido ? undefined : { background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, overflow: 'hidden', marginBottom: 16 }}>
 
-          {/* Tira de cobertura, arriba de todo: quién es el destinatario y hasta
-              dónde llega el beneficio, antes de cualquier argumento de venta. */}
+          {/* Tira de cobertura + banda promocional (logo, tag, título,
+              ilustración): sólo en la página completa. Embebido, ese mensaje
+              lo dice —afuera, sobre la lluvia de cupones— el título en
+              cursiva liviana que arma HeroPase; repetirlo acá adentro sería
+              lo mismo dicho dos veces en la misma pantalla. */}
+          {!embebido && (
+            <>
           <div style={{
             background: C.primarySoft, color: C.primary,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -406,8 +422,10 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
             </div>
             <IlustracionRegalo />
           </div>
+            </>
+          )}
 
-          <ComoFunciona />
+          <ComoFunciona embebido={embebido} onVolver={onVolverAlInicio} />
 
           {/* Los tramos de pago. Sin título ni bajada: las tres filas con su
               tilde ya se leen como lo que son, una elección. */}
@@ -430,156 +448,144 @@ export default function CheckoutHoteleroView({ onListo, onSoyTurista }) {
                 ))}
               </div>
             )}
-
-            <div style={{ textAlign: 'center', marginTop: 16 }}>
-              <button type="button" onClick={onSoyTurista}
-                style={{ background: 'none', border: 'none', padding: 0, color: C.primary, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: C.font }}>
-                ¿Sos turista? <b style={{ fontWeight: 800 }}>Comprá tu pase acá</b>
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Alta: una sola tarjeta, y lo primero es la cuenta. Antes arrancaba
-            con un bloque "TU ALOJAMIENTO" que daba por sentado que el que se
-            suscribe es un hotelero — y no lo es: también contratan agencias de
-            turismo, inmobiliarias y revendedores. Ser hotelero no es condición;
-            tener cuenta sí. Del negocio se piden dos datos y nada más (qué es y
-            cómo se llama): el resto de la ficha se completa después del pago,
-            desde el panel. */}
-        <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
-            <div style={{ ...labelSt, display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
-              INGRESÁ A
-              <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 17, width: 'auto', display: 'block' }} />
-            </div>
-
-            <div role="tablist" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, background: C.bg, borderRadius: 12, marginBottom: 16 }}>
-              {[{ id: true, label: 'Soy nuevo' }, { id: false, label: 'Ya tengo cuenta' }].map(t => (
-                <button key={t.label} role="tab" aria-selected={esNuevo === t.id}
-                  onClick={() => { setEsNuevo(t.id); setError(''); setPideEmpresa(false); }}
-                  style={{
-                    padding: '13px 10px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: C.font,
-                    fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', transition: 'background .15s, color .15s',
-                    background: esNuevo === t.id ? '#fff' : 'transparent',
-                    color: esNuevo === t.id ? C.primary : C.ink2,
-                    boxShadow: esNuevo === t.id ? '0 1px 3px rgba(11,16,32,0.12)' : 'none',
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            {/* La empresa: qué es y cómo se llama. Alcanza para contratar. */}
-            {conEmpresa && (
-              <>
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelSt} htmlFor="hot-tipo">Tipo de empresa</label>
-                  {/* Sin default: que arranque en "Alojamiento" sería volver a
-                      dar por sentado quién se suscribe. */}
-                  <select id="hot-tipo" value={tipo} onChange={e => setTipo(e.target.value)}
-                    style={{ ...inputSt, color: tipo ? C.ink : C.muted }}>
-                    <option value="">Elegí una opción</option>
-                    {TIPOS_EMPRESA.map(t => <option key={t.valor} value={t.valor}>{t.label}</option>)}
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelSt} htmlFor="hot-nombre">Nombre de la empresa</label>
-                  <input id="hot-nombre" value={nombre} onChange={e => setNombre(e.target.value)}
-                    placeholder="Cómo se llama tu empresa" style={inputSt}
-                    onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                    onBlur={e => e.currentTarget.style.borderColor = C.line} />
-                </div>
-              </>
-            )}
-
-            {/* Nombre y apellido de la PERSONA. Nada de esto se usa como default
-                del negocio: el que atiende no se llama igual que la empresa. */}
-            {esNuevo && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div>
-                  <label style={labelSt} htmlFor="hot-pnombre">Nombre del titular</label>
-                  <input id="hot-pnombre" type="text" autoComplete="given-name"
-                    value={nombrePersona} onChange={e => setNombrePersona(e.target.value)}
-                    placeholder="Tu nombre" style={inputSt}
-                    onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                    onBlur={e => e.currentTarget.style.borderColor = C.line} />
-                </div>
-                <div>
-                  <label style={labelSt} htmlFor="hot-apellido">Apellido</label>
-                  <input id="hot-apellido" type="text" autoComplete="family-name"
-                    value={apellido} onChange={e => setApellido(e.target.value)}
-                    placeholder="Tu apellido" style={inputSt}
-                    onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                    onBlur={e => e.currentTarget.style.borderColor = C.line} />
-                </div>
+        {/* Alta: una sola tarjeta, siempre alta nueva (2026-08-11 noche): se
+            sacó el encabezado "INGRESÁ A CUPONEAR" y la tab-bar Soy
+            nuevo/Ya tengo cuenta — se asume que el que llega hasta acá no
+            tiene cuenta todavía, y el que ya la tiene puede seguir entrando
+            por Ingresar y contratando el plan desde su panel. Ser hotelero
+            no es condición; del negocio se piden dos datos y nada más (qué es
+            y cómo se llama): el resto de la ficha se completa después del
+            pago, desde el panel.
+            Embebido pierde el marco propio, mismo criterio que la tarjeta
+            del plan más arriba (2026-08-11 noche, a pedido: "la caja blanca
+            debe continuar hacia abajo, recién al final —el precio— se ve el
+            pie con bordes redondeados"). Con tres tarjetas blancas propias
+            adentro de OTRO blanco (.gp-panel) se veían tres cajas cortadas,
+            cada una con su propia esquina redondeada — acá sólo queda un
+            divisor (borderTop) entre secciones, y el único borde redondeado
+            visible es el de .gp-panel, al final de todo. */}
+        <div style={embebido
+          ? { borderTop: `1px solid ${C.line}`, padding: '20px 0 0' }
+          : { background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
+            {/* "Industria" en fichas de un click (2026-08-11 noche, reemplaza
+                al <select> "Tipo de empresa"): elegir es más rápido tocando
+                una tarjeta que abriendo un desplegable, y las cuatro entran
+                cómodas en un grid 2x2. Sin default: que arranque ya
+                seleccionada una sería volver a dar por sentado quién se
+                suscribe. */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelSt}>Industria</label>
+              {/* Píldoras chicas en fila, no fichas (2026-08-12, a pedido:
+                  "no hace falta que sean bloques, pueden ser más
+                  minimalistas") — mismo ícono+label de antes, pero sin la
+                  caja cuadrada (padding grande, ícono de 22px arriba del
+                  texto): ahora es una fila de pills bajitas, ícono y texto en
+                  la misma línea, que se van a la línea siguiente solas si no
+                  entran las cuatro (flexWrap) en vez de forzar un grid 2x2. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {TIPOS_EMPRESA.map(t => {
+                  const activo = tipo === t.valor;
+                  const Icon = t.icono;
+                  return (
+                    <button
+                      key={t.valor} type="button" onClick={() => setTipo(t.valor)}
+                      aria-pressed={activo}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
+                        border: `1px solid ${activo ? C.primary : C.line}`,
+                        background: activo ? C.primarySoft : '#fff',
+                        fontFamily: C.font, transition: 'all .15s',
+                      }}
+                    >
+                      <Icon size={15} strokeWidth={2} color={activo ? C.primary : C.ink2} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: activo ? C.primary : C.ink }}>{t.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={labelSt} htmlFor="hot-user">{esNuevo ? 'Mail' : 'Mail o teléfono'}</label>
-              <input id="hot-user" type={esNuevo ? 'email' : 'text'} autoComplete={esNuevo ? 'email' : 'username'}
-                value={esNuevo ? email : usuario}
-                onChange={e => (esNuevo ? setEmail : setUsuario)(e.target.value)}
-                placeholder={esNuevo ? 'vos@tuempresa.com' : 'vos@tuempresa.com, ó 1155555555'} style={inputSt}
+              <label style={labelSt} htmlFor="hot-nombre">Nombre de la empresa</label>
+              <input id="hot-nombre" value={nombre} onChange={e => setNombre(e.target.value)}
+                placeholder="Cómo se llama tu empresa" style={inputSt}
                 onFocus={e => e.currentTarget.style.borderColor = C.primary}
                 onBlur={e => e.currentTarget.style.borderColor = C.line} />
             </div>
 
-            {/* El nuevo crea la contraseña con confirmación; el que ya tiene
-                cuenta la usa para entrar. */}
-            {esNuevo ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div>
-                  <label style={labelSt} htmlFor="hot-pass">Contraseña</label>
-                  <input id="hot-pass" type="password" autoComplete="new-password"
-                    value={password} onChange={e => setPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres" style={inputSt}
-                    onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                    onBlur={e => e.currentTarget.style.borderColor = C.line} />
-                </div>
-                <div>
-                  <label style={labelSt} htmlFor="hot-pass2">Repetir contraseña</label>
-                  <input id="hot-pass2" type="password" autoComplete="new-password"
-                    value={password2} onChange={e => setPassword2(e.target.value)}
-                    placeholder="Otra vez" style={inputSt}
-                    onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                    onBlur={e => e.currentTarget.style.borderColor = C.line} />
-                </div>
+            {/* Nombre y apellido de la PERSONA. Nada de esto se usa como default
+                del negocio: el que atiende no se llama igual que la empresa. */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div>
+                <label style={labelSt} htmlFor="hot-pnombre">Nombre del titular</label>
+                <input id="hot-pnombre" type="text" autoComplete="given-name"
+                  value={nombrePersona} onChange={e => setNombrePersona(e.target.value)}
+                  placeholder="Tu nombre" style={inputSt}
+                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
+                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
               </div>
-            ) : (
+              <div>
+                <label style={labelSt} htmlFor="hot-apellido">Apellido</label>
+                <input id="hot-apellido" type="text" autoComplete="family-name"
+                  value={apellido} onChange={e => setApellido(e.target.value)}
+                  placeholder="Tu apellido" style={inputSt}
+                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
+                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelSt} htmlFor="hot-user">Mail</label>
+              <input id="hot-user" type="email" autoComplete="email"
+                value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="vos@tuempresa.com" style={inputSt}
+                onFocus={e => e.currentTarget.style.borderColor = C.primary}
+                onBlur={e => e.currentTarget.style.borderColor = C.line} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
               <div>
                 <label style={labelSt} htmlFor="hot-pass">Contraseña</label>
-                <input id="hot-pass" type="password" autoComplete="current-password"
+                <input id="hot-pass" type="password" autoComplete="new-password"
                   value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Tu contraseña" style={inputSt}
+                  placeholder="Mínimo 6 caracteres" style={inputSt}
                   onFocus={e => e.currentTarget.style.borderColor = C.primary}
                   onBlur={e => e.currentTarget.style.borderColor = C.line} />
               </div>
-            )}
-
-            {/* Teléfono sólo al nuevo: del que ya tiene cuenta ya lo tenemos. */}
-            {esNuevo && (
               <div>
-                <label style={labelSt} htmlFor="hot-tel">Teléfono <span style={{ fontWeight: 500, color: C.muted }}>(opcional)</span></label>
-                <input id="hot-tel" type="tel" inputMode="tel" autoComplete="tel"
-                  value={telefono} onChange={e => setTelefono(e.target.value)}
-                  placeholder="11 5555 5555" style={inputSt}
+                <label style={labelSt} htmlFor="hot-pass2">Repetir contraseña</label>
+                <input id="hot-pass2" type="password" autoComplete="new-password"
+                  value={password2} onChange={e => setPassword2(e.target.value)}
+                  placeholder="Otra vez" style={inputSt}
                   onFocus={e => e.currentTarget.style.borderColor = C.primary}
                   onBlur={e => e.currentTarget.style.borderColor = C.line} />
               </div>
-            )}
+            </div>
 
-            {esNuevo && (
-              <div style={{ marginTop: 16, maxWidth: 320, marginInline: 'auto' }}>
-                <CaptchaDeslizar verificado={humano} onVerificar={setHumano} />
-              </div>
-            )}
+            <div>
+              <label style={labelSt} htmlFor="hot-tel">Teléfono <span style={{ fontWeight: 500, color: C.muted }}>(opcional)</span></label>
+              <input id="hot-tel" type="tel" inputMode="tel" autoComplete="tel"
+                value={telefono} onChange={e => setTelefono(e.target.value)}
+                placeholder="11 5555 5555" style={inputSt}
+                onFocus={e => e.currentTarget.style.borderColor = C.primary}
+                onBlur={e => e.currentTarget.style.borderColor = C.line} />
+            </div>
+
+            <div style={{ marginTop: 16, maxWidth: 320, marginInline: 'auto' }}>
+              <CaptchaAuto verificado={humano} onVerificar={setHumano} />
+            </div>
         </div>
 
-        {/* Total + alta */}
-        <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '22px 24px' }}>
+        {/* Total + alta. Última sección: embebido, es acá donde por fin se ve
+            un borde redondeado propio (heredado de .gp-panel, no de esta
+            tarjeta) — ver la nota junto a la tarjeta de Alta, más arriba. */}
+        <div style={embebido
+          ? { borderTop: `1px solid ${C.line}`, padding: '20px 0 0' }
+          : { background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '22px 24px' }}>
           {plan?.nombre && (
               <div style={{ fontSize: 13, color: C.primary, fontWeight: 600, marginTop: 2,textAlign: 'center' }}>{plan.nombre}</div>
             )}

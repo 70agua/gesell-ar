@@ -89,6 +89,50 @@ export default function PanelOfertasSocio({
       boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)', overflow: 'hidden',
       fontFamily: A.font,
     }}>
+      {/* Apertura del acordeón. La altura del bloque expandido es variable
+          (depende del alto de la foto, del copy y de qué botones muestre
+          BloqueAccion), así que no se puede transicionar con `height` — de
+          `0` a `auto` el navegador no interpola. La forma de animar hacia una
+          altura automática sin medir nada con JS es la grilla de una sola
+          fila: 0fr → 1fr SÍ interpola, y el hijo aporta su alto real.
+          De ahí los dos divs: el de afuera es la grilla que crece, el de
+          adentro necesita min-height:0 (si no, el contenido impone su alto
+          mínimo y la fila nunca llega a 0) y overflow:hidden para que lo que
+          todavía no entra quede recortado en vez de desbordar.
+          Sólo se anima la apertura, no el cierre: la fila anterior deja de
+          renderizar su bloque en el mismo commit en que la nueva lo monta, y
+          sostener el saliente montado para animarlo dejaría dos
+          BloqueAccion vivos a la vez. El ojo va al lugar donde se hizo
+          click, así que la entrada es la que importa. */}
+      {/* Tiempos y curva (2026-08-10, segunda pasada): duraciones al doble
+          —la mitad de rápido— y easing simétrico. La curva anterior era
+          cubic-bezier(.16,1,.3,1), un ease-out fuerte: salía disparada desde
+          el primer frame y frenaba al final, o sea justo sin la entrada
+          suave que se pidió. cubic-bezier(.45,0,.55,1) es un ease-in-out
+          parejo: acelera al principio, desacelera al final, y los valores
+          quedan cerca del medio (.45/.55) para que ese arranque sea sutil y
+          no una demora perceptible. Va la misma curva en las dos capas para
+          que se lean como un solo gesto y no como dos animaciones sueltas. */}
+      <style>{`
+        .pos-exp { display: grid; grid-template-rows: 1fr; }
+        .pos-exp-in { min-height: 0; overflow: hidden; }
+        .pos-exp { animation: posExpAbrir .84s cubic-bezier(.45,0,.55,1); }
+        @keyframes posExpAbrir {
+          from { grid-template-rows: 0fr; opacity: 0; }
+          to   { grid-template-rows: 1fr; opacity: 1; }
+        }
+        /* El contenido entra un pelo después que la altura, para que se lea
+           como "se abre y aparece" y no como un bloque que ya estaba ahí. */
+        .pos-exp-in > * { animation: posExpContenido .9s cubic-bezier(.45,0,.55,1) .16s both; }
+        @keyframes posExpContenido {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .pos-exp, .pos-exp-in > * { animation: none; }
+        }
+      `}</style>
+
       {/* El contador es obligatorio (doc §2.1): sin él, la primera oferta
           expandida se lee como la única que tiene el socio. */}
       <div style={{
@@ -108,7 +152,15 @@ export default function PanelOfertasSocio({
         return (
           <div key={p.id} style={{ borderTop: `1px solid ${A.line}` }}>
             <OfertaFila promo={p} activa={activa} onClick={() => setElegidaId(String(p.id))} />
-            {activa && expandido}
+            {/* key = id de la oferta abierta, no del map: es lo que hace que
+                React remonte este bloque en CADA selección y la animación
+                vuelva a correr. Con la key de la fila, cambiar de oferta
+                dentro de la misma fila no reanimaría nada. */}
+            {activa && (
+              <div className="pos-exp" key={abierta.id}>
+                <div className="pos-exp-in">{expandido}</div>
+              </div>
+            )}
           </div>
         );
       })}

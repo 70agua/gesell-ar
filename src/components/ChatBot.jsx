@@ -595,12 +595,18 @@ const BUBBLE_NAME   = 'Cuponix';
 const BUBBLE_SUFFIX = '\nAvisame si necesitás ayuda :)';
 const BUBBLE_TEXT   = BUBBLE_PREFIX + BUBBLE_NAME + BUBBLE_SUFFIX;
 
+// Segundos que Cuponix queda grande antes de guardarse solo. Es el mismo
+// número que se ve en el contador del globito (abajo, el botón redondo), así
+// que cambiarlo acá alcanza: no hay un segundo plazo en el padre que haya que
+// mantener en sincronía.
+const BUBBLE_DURACION = 5;
+
 function SpeechBubble({ onDismiss }) {
   const typed = useTypewriter(BUBBLE_TEXT, 35);
   const prefixShown = typed.slice(0, BUBBLE_PREFIX.length);
   const nameShown   = typed.slice(BUBBLE_PREFIX.length, BUBBLE_PREFIX.length + BUBBLE_NAME.length);
   const suffixShown = typed.slice(BUBBLE_PREFIX.length + BUBBLE_NAME.length);
-  const [countdown, setCountdown] = useState(10);
+  const [countdown, setCountdown] = useState(BUBBLE_DURACION);
 
   // El updater de setState tiene que ser puro: React lo corre en fase de
   // render, así que avisarle al padre desde adentro es un setState de otro
@@ -686,6 +692,10 @@ function RobotButton({ open, onClick }) {
 
 // ─── Globito del circulito minimizado (contextual o "sigo por acá") ──
 const MINI_DURACION = 10; // segundos que dura abierto el globito
+// Segundos que queda el "Tsss! sigo por acá!" antes de cerrarse solo. Va
+// aparte del default de arriba porque es un aviso de despedida, no un mensaje
+// con contenido para leer: más corto que los contextuales, a propósito.
+const TSSS_DURACION = 3;
 
 function MiniBubble({ titulo, sub, onSaberMas, onClose, closing, duracion = MINI_DURACION }) {
   const [restante, setRestante] = useState(duracion);
@@ -811,8 +821,18 @@ export default function ChatBot({ view = 'home' }) {
     if (tsssShown.current) return;
     tsssShown.current = true;
     if (currentView) shownViews.current.add(currentView);
-    openMini({ titulo: 'Tsss! sigo por acá!', sub: 'Cualquier cosa avisame...' }, 5);
+    openMini({ titulo: 'Tsss! sigo por acá!', sub: 'Cualquier cosa avisame...' }, TSSS_DURACION);
   }, [openMini]);
+
+  // Guardar a Cuponix desde el estado grande. Estaba escrito inline en el
+  // onDismiss del globito; ahora lo comparte con el auto-minimizado por
+  // tiempo (ver el efecto de abajo), y son exactamente la misma acción: da
+  // igual si lo cerró el turista o si se venció el plazo.
+  const minimizarDesdeGlobito = useCallback(() => {
+    setBubbleVisible(false);
+    setMinimized(true);
+    triggerTsssOnce();
+  }, [triggerTsssOnce]);
 
   const handleMinimize = useCallback(() => {
     if (closingRef.current) return;
@@ -935,7 +955,7 @@ export default function ChatBot({ view = 'home' }) {
       ) : (
         <>
           {bubbleVisible && !open && !chatClosing && (
-            <SpeechBubble onDismiss={() => { setBubbleVisible(false); setMinimized(true); triggerTsssOnce(); }} />
+            <SpeechBubble onDismiss={minimizarDesdeGlobito} />
           )}
           <RobotButton
             open={open}

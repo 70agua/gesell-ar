@@ -1,44 +1,65 @@
 /**
- * Layout "Racimo" — 12 cupones.
- * Tres protagonistas casi enfocados, cada uno girado hacia un lado distinto.
- * Dos medianos de ambiente (m1/m2, con los protagonistas). Cinco chicos muy
- * desenfocados (a1-a5). Dos medianos más, MENOS desenfocados que a1-a5 —
- * ver 'idle' más abajo.
+ * Lluvia continua — 14 cupones en tres planos de profundidad.
  *
- * x, y      posicion final del centro, en % del contenedor
- * rz        rotacion final en el plano (grados)
- * ry        rotacion final sobre el eje vertical (grados). |ry| > 90 => espejado
- * scale     multiplicador sobre COUPON_BASE_WIDTH
- * blur      desenfoque en px
- * opacity   opacidad final
- * phase     'a' cae mientras entra el texto, 'b' cae con el texto ya quieto,
- *           'idle' cae durante el sostén de la pregunta centrada (ver más
- *           abajo) — es sólo documentación, el código no lee este campo.
- * enter     [inicio, fin] del tramo de scroll que le corresponde, 0..1
+ * Cambió el modelo (2026-08-11): antes cada cupón caía UNA vez hasta una
+ * posición final y se quedaba ahí quieto para siempre, con `y` y `enter`
+ * describiendo ese aterrizaje. Ahora la caída no termina nunca: cada uno
+ * recorre el alto del contenedor de arriba abajo, y al salir por abajo vuelve
+ * a entrar por arriba. `y` y `enter` ya no existen — el lugar de cada cupón en
+ * el ciclo lo dan `t0` (dónde arranca) y `vel` (qué tan rápido lo recorre).
+ *
+ * Los tres planos son el pedido de "más lejanos, chicos y difusos, y los más
+ * cercanos definidos", y se sostienen con las CUATRO variables a la vez, no
+ * sólo con el tamaño: lo lejano es chico + borroso + transparente + LENTO. La
+ * velocidad es la que más hace: dos cupones del mismo tamaño cayendo a
+ * distinta velocidad se leen a distinta distancia (paralaje), y sin eso el
+ * desenfoque solo se lee como "está mal enfocado" en vez de "está lejos".
+ *
+ * Dentro de cada plano las opacidades no son iguales a propósito: un plano con
+ * todos los cupones a la misma transparencia se lee como una calcomanía.
+ *
+ * La x va de 0 a 100 sobre el ESPACIO LIBRE, no sobre el ancho de la ventana:
+ * la capa arranca donde termina el sidebar (ver .coupon-rain en
+ * hero-coupons.css). Antes el rango empezaba en 34 para esquivar el panel a
+ * ojo, y eso valía sólo al ancho en que se calibró — el panel mide siempre lo
+ * mismo en px, así que el porcentaje que tapa cambia con la ventana.
+ *
+ * x        posicion horizontal del centro, en % del contenedor
+ * t0       fase inicial dentro del ciclo, 0..1 (0 = arriba de todo)
+ * vel      multiplicador de velocidad sobre PERIODO_BASE
+ * rz       inclinacion base en el plano (grados); el giro se le suma encima
+ * ry       giro base sobre el eje vertical (grados). |ry| > 90 => espejado
+ * scale    multiplicador sobre COUPON_BASE_WIDTH
+ * blur     desenfoque en px
+ * opacity  opacidad de referencia (los bordes del ciclo la modulan)
  */
 export const COUPONS = [
-  { id: 'p1', x: 56, y: 42, rz: -10, ry: -8, scale: 0.94, blur: 0, opacity: 0.96, phase: 'b', enter: [0.60, 0.77] },
-  { id: 'p2', x: 78, y: 70, rz: 28, ry: 60, scale: 0.78, blur: 0.5, opacity: 0.89, phase: 'b', enter: [0.65, 0.82] },
-  { id: 'p3', x: 94, y: 30, rz: -36, ry: 152, scale: 0.72, blur: 1.0, opacity: 0.83, phase: 'b', enter: [0.70, 0.87] },
+  // ── Cerca: nitidos, grandes, rapidos ──
+  // opacity: 1 los tres (2026-08-11, a pedido) — antes 0.97/0.92/0.88. Estos
+  // tres son el plano que pasa POR ENCIMA del título en cursiva que se
+  // intercala en la lluvia (ver CouponRain.jsx): con menos de 1 se veía el
+  // texto transparentar a través del cupón que lo cruzaba, que se leía como
+  // un error de capas, no como profundidad. estadoCupon() sigue bajando esta
+  // opacidad a 0 en los bordes del ciclo (entrada/salida de pantalla) — eso
+  // no cambia, sigue siendo necesario para que el wrap no se note.
+  { id: 'p1', x: 45, t0: 0.10, vel: 1.55, rz: -10, ry: -8, scale: 0.96, blur: 0, opacity: 1 },
+  { id: 'p2', x: 82, t0: 0.62, vel: 1.40, rz: 28, ry: 60, scale: 0.86, blur: 0, opacity: 1 },
+  { id: 'p3', x: 18, t0: 0.83, vel: 1.30, rz: -22, ry: 152, scale: 0.78, blur: 0.4, opacity: 1 },
 
-  { id: 'm1', x: 42, y: 58, rz: 16, ry: -52, scale: 0.42, blur: 3.0, opacity: 0.27, phase: 'b', enter: [0.76, 0.93] },
-  { id: 'm2', x: 66, y: 90, rz: -20, ry: 144, scale: 0.38, blur: 3.6, opacity: 0.23, phase: 'b', enter: [0.82, 1.0] },
+  // ── Medio: algo de desenfoque, tamano y ritmo intermedios ──
+  { id: 'm1', x: 62, t0: 0.34, vel: 0.95, rz: 16, ry: -52, scale: 0.56, blur: 1.6, opacity: 0.62 },
+  { id: 'm2', x: 30, t0: 0.55, vel: 0.88, rz: -20, ry: 144, scale: 0.52, blur: 2.0, opacity: 0.48 },
+  { id: 'm3', x: 93, t0: 0.06, vel: 0.92, rz: 12, ry: 88, scale: 0.50, blur: 1.8, opacity: 0.55 },
+  { id: 'm4', x: 7, t0: 0.44, vel: 0.84, rz: -14, ry: -70, scale: 0.46, blur: 2.4, opacity: 0.40 },
 
-  { id: 'a1', x: 38, y: 24, rz: 20, ry: -38, scale: 0.34, blur: 4.4, opacity: 0.2, phase: 'a', enter: [0.0, 0.35] },
-  { id: 'a2', x: 88, y: 88, rz: -14, ry: 54, scale: 0.32, blur: 4.8, opacity: 0.18, phase: 'a', enter: [0.05, 0.40] },
-  { id: 'a3', x: 52, y: 8, rz: 24, ry: -148, scale: 0.3, blur: 4.0, opacity: 0.22, phase: 'a', enter: [0.10, 0.45] },
-  { id: 'a4', x: 97, y: 58, rz: -18, ry: 40, scale: 0.28, blur: 5.2, opacity: 0.17, phase: 'a', enter: [0.15, 0.50] },
-  { id: 'a5', x: 70, y: 50, rz: 12, ry: -64, scale: 0.26, blur: 5.6, opacity: 0.15, phase: 'a', enter: [0.20, 0.55] },
-
-  // 2026-08-09: se suman estos dos para el sostén de la pregunta centrada
-  // (posta 2 de HeroPase, ver IDLE_CAP/idleHc ahí) — la pantalla quedaba
-  // muy estática ahí, así que la lluvia sigue cayendo sola, en cámara
-  // lenta. Menos desenfocados y más grandes que a1-a5 para que SE NOTE que
-  // son cupones (a1-a5 quedan casi manchas) — "que todos los cupones vayan
-  // cayendo" mientras se escribe/desescribe la pregunta, a pedido
-  // (2026-08-09).
-  { id: 'am1', x: 18, y: 42, rz: 15, ry: -58, scale: 0.50, blur: 1.7, opacity: 0.44, phase: 'idle', enter: [0.36, 0.53] },
-  { id: 'am2', x: 84, y: 14, rz: -16, ry: 88, scale: 0.46, blur: 2.0, opacity: 0.38, phase: 'idle', enter: [0.40, 0.55] },
+  // ── Lejos: chicos, muy difusos, lentos ──
+  { id: 'a1', x: 53, t0: 0.21, vel: 0.58, rz: 20, ry: -38, scale: 0.34, blur: 4.4, opacity: 0.30 },
+  { id: 'a2', x: 88, t0: 0.77, vel: 0.52, rz: -14, ry: 54, scale: 0.32, blur: 4.8, opacity: 0.22 },
+  { id: 'a3', x: 14, t0: 0.15, vel: 0.62, rz: 24, ry: -148, scale: 0.30, blur: 4.0, opacity: 0.34 },
+  { id: 'a4', x: 71, t0: 0.90, vel: 0.48, rz: -18, ry: 40, scale: 0.28, blur: 5.2, opacity: 0.19 },
+  { id: 'a5', x: 37, t0: 0.68, vel: 0.55, rz: 12, ry: -64, scale: 0.27, blur: 5.6, opacity: 0.26 },
+  { id: 'a6', x: 4, t0: 0.29, vel: 0.50, rz: -24, ry: 118, scale: 0.25, blur: 5.0, opacity: 0.17 },
+  { id: 'a7', x: 97, t0: 0.48, vel: 0.60, rz: 18, ry: -96, scale: 0.31, blur: 4.6, opacity: 0.28 },
 ];
 
 /** Tramo de scroll en el que la pregunta ("¿Tenés un alojamiento ó agencia
@@ -62,13 +83,23 @@ export const QUESTION_WIPE_OUT = [0.40, 0.48];
  *  cuando eso pase. */
 export const PANEL_ENTER = [0.40, 0.60];
 
-/** Fisica de la caida. Perfil "flotante": lenta, poco giro en Z, mucho volteo en Y. */
+/** Cuanto tarda en cruzar la pantalla, de arriba abajo, un cupon de vel: 1.
+ *  Los de vel: 1.55 (el plano de adelante) tardan ~19s y los de vel: 0.48 (el
+ *  del fondo) ~62s. Es deliberadamente lento: viene del pedido de "que caigan
+ *  10 veces mas lento" y de que esto es fondo de un formulario, no un show —
+ *  algo que se mueve rapido atras de un texto que hay que leer compite con el
+ *  texto. */
+export const PERIODO_BASE = 30000;
+
+/** Fisica de la caida. Perfil "flotante": lenta, poco giro en Z, mucho volteo
+ *  en Y. driftPx y spinZ ahora oscilan (seno) en vez de tender a un valor
+ *  final, porque la caida no termina; spinY es cuantos grados gira por ciclo,
+ *  o sea que el volteo tambien es continuo. */
 export const FALL = {
-  driftPx: 22, // deriva lateral maxima
-  spinZ: 11, // grados extra de rotacion en el plano durante la caida
-  spinY: 245, // grados de volteo horizontal durante la caida
-  riseVh: 52, // altura de partida, en % del alto del contenedor (2x, a pedido)
-  easing: 'cubic-bezier(.18,.72,.35,1)',
+  driftPx: 26, // amplitud del vaiven lateral
+  spinZ: 9, // grados de balanceo en el plano
+  spinY: 300, // grados de volteo horizontal por ciclo completo
+  entrada: 0.08, // fraccion del ciclo que tarda en aparecer arriba / desaparecer abajo
 };
 
 /** Alto de la seccion. El excedente sobre 100vh es el recorrido de scroll.
@@ -96,4 +127,4 @@ export const COUPON_BASE_WIDTH = 'clamp(88px, 12vw, 190px)';
 export const COUPON_RATIO = 1.374;
 
 /** En pantallas chicas se ocultan los cupones marcados y se agranda el resto. */
-export const MOBILE_HIDDEN = ['a4', 'a5', 'm2', 'a3'];
+export const MOBILE_HIDDEN = ['a3', 'a4', 'a5', 'a6', 'm2', 'm4'];

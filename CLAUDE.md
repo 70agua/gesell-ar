@@ -2,6 +2,36 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**El producto se llama Cuponear.** El repo (`gesell-ar`), el dominio (`gesell.ar`) y las URLs conservan el nombre histórico a propósito — no renombrar. "Villa Gesell" aparte es la localidad, y ahí "Gesell" es correcto.
+
+---
+
+## Memoria del proyecto
+
+Hay una segunda fuente de contexto además de este archivo, en `~/.claude/projects/-Users-mariano-gesell-ar/memory/`. **Las dos no dicen lo mismo y no deben pisarse:**
+
+| | qué contiene |
+|---|---|
+| **CLAUDE.md** (este archivo) | **El estado actual.** Arquitectura, tablas, reglas de negocio vigentes, convenciones. Se lee siempre. |
+| **`memory/`** | **El porqué y el descarte.** Decisiones con su motivo, modelos de negocio muertos, bugs que ya costaron tiempo, preferencias de Mariano. Se lee a demanda. |
+
+Si algo describe *cómo funciona hoy* → va acá. Si describe *por qué es así, qué se probó antes, o con qué hay que tener cuidado* → va en memoria. **Al documentar algo nuevo, elegir uno de los dos, nunca ambos.**
+
+`memory/MEMORY.md` tiene la tabla de ruteo completa (qué archivo leer según la tarea). Los atajos que más se usan:
+
+| Antes de tocar… | Leer |
+|---|---|
+| planes, precios de plan, suscripciones | `10-historia-modelos-de-plan` — BASE/PLUS/BLACK y Gratis/Plus están muertos |
+| precios de cupón, comisiones, puntos | `10-monedas-puntos-y-creditos` |
+| nombres, copy, terminología | `10-vocabulario-por-que` |
+| cualquier idea que suene nueva | `10-decisiones-abiertas` — puede estar planteada y sin cerrar |
+| queries, migraciones o RPCs | `20-gotchas-supabase` |
+| un cambio visual que "no se ve" | `20-ruteo-de-vistas` |
+
+Mapa visual navegable: `node tools/memory-map.mjs` regenera `tools/memory-map.html`.
+
+---
+
 ## Commands
 
 ```bash

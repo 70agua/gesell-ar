@@ -22,6 +22,12 @@ const A = {
   font:        "'Inter', system-ui, sans-serif",
 };
 
+// La display de la marca, la misma que usa el hero (ver NAURYZ en
+// HeroPase.jsx). Hoy la usa un solo lugar —el logo de la pastilla—: llegó a
+// usarla también el encabezado de SitiosDrop, que se sacó por repetir la
+// marca a un palmo del logo.
+const NAURYZ = "'NauryzRedkeds', 'Inter', sans-serif";
+
 // ─── Medidas de la pastilla: expandida (max) / estrechada (min) ──
 const NAV_TOP     = 12;
 const NAV_TOP_MIN = 8;
@@ -33,6 +39,12 @@ const NAV_EASE    = 'cubic-bezier(.4,0,.2,1)';
 // Scroll a partir del cual se condensa la navbar en las vistas sin ancla
 // (listados): alcanza para dejar atrás el título del listado.
 const SHRINK_FALLBACK_Y = 150;
+// Píxeles de subida seguida que hacen falta para esconder la navbar en la home
+// (bajar la muestra al toque). Ver el useEffect de dirección de scroll.
+const OCULTAR_TRAS_SUBIR = 500;
+// Milisegundos de mouse quieto que hacen falta para esconder la navbar en la
+// home. Ver el useEffect de mouse quieto, más abajo.
+const OCULTAR_TRAS_QUIETO_MS = 2000;
 
 // ─── Chevrons ────────────────────────────────────────────────
 function ChevD({ size = 12 }) {
@@ -533,8 +545,14 @@ function siteHost() {
     : 'gesell.ar';
 }
 
-// ─── Otros sitios de la red ──────────────────────────────────
+// ─── Sitios de la red ────────────────────────────────────────
+// gesell.ar entró a la lista el 2026-08-10: antes quedaba afuera porque era
+// el dominio que hacía de logo en la pastilla, así que ya estaba a la vista.
+// Con el logo mostrando CUPONEaR, si no estuviera acá no habría forma de
+// llegar a gesell.ar desde otro sitio de la red. Va primero por ser el
+// principal.
 const SITIOS_RED = [
+  'gesell.ar',
   'marazul.ar',
   'lasgaviotas.ar',
   'madariaga.ar',
@@ -543,24 +561,38 @@ const SITIOS_RED = [
   'costaatlantica.ar',
 ];
 
+// Sin encabezado (2026-08-10): el "CUPONEaR es:" que iba arriba repetía, a un
+// palmo de distancia, la misma marca que acaba de leerse en el logo que abre
+// este drop. La lista sola se entiende.
 function SitiosDrop() {
   const host = siteHost();
   return (
     <div style={{ padding: '8px 0', minWidth: 220 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '10px 16px 4px' }}>
-        <span style={{ fontFamily: "'NauryzRedkeds', 'Inter', sans-serif", color: A.primary, fontSize: 17, lineHeight: 1 }}>CUPONEaR</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color: A.muted, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: A.font }}>es:</span>
-      </div>
-      {SITIOS_RED.filter(d => d !== host).map(dominio => (
-        <a key={dominio} href={`https://${dominio}`} target="_blank" rel="noopener noreferrer"
-          style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', fontSize: 14, fontWeight: 500, color: A.ink2, textDecoration: 'none', cursor: 'pointer', fontFamily: A.font }}
-          onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
-        >
-          <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{EXT_ICON}</span>
-          {dominio}
-        </a>
-      ))}
+      {/* Todos los dominios, sin filtrar el actual (ver la nota de
+          SITIOS_RED). El de este sitio se marca en vez de esconderse: la
+          lista es "de qué se compone la red", y una lista a la que le falta
+          justo donde estás parado se lee como incompleta. Además va sin
+          href —ya estás acá— para no abrir una pestaña al mismo lugar. */}
+      {SITIOS_RED.map(dominio => {
+        const actual = dominio === host;
+        const base = { width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', fontSize: 14, textDecoration: 'none', fontFamily: A.font };
+        if (actual) return (
+          <div key={dominio} style={{ ...base, fontWeight: 700, color: A.primary, background: A.primarySoft, cursor: 'default' }}>
+            <span style={{ flexShrink: 0, display: 'flex', width: 14, justifyContent: 'center' }}>•</span>
+            {dominio}
+          </div>
+        );
+        return (
+          <a key={dominio} href={`https://${dominio}`} target="_blank" rel="noopener noreferrer"
+            style={{ ...base, fontWeight: 500, color: A.ink2, cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
+          >
+            <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{EXT_ICON}</span>
+            {dominio}
+          </a>
+        );
+      })}
     </div>
   );
 }
@@ -682,21 +714,45 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const mobileCloseTimer = useRef(null);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
   const [condensed,   setCondensed]   = useState(false);
-  // PRUEBA (2026-08-09): en 'home' la navbar arranca escondida —los primeros
-  // slides quedan despojados de menú a propósito, ver HeroPase/HeroCoupons—
-  // y aparece sola al cruzar [data-navbar-reveal] (la vista lo
-  // pone justo antes de "Cuponeá antes de pagar", donde están las pastillas
-  // de imágenes). Ancla DISTINTA de la de `condensed` a propósito: son dos
-  // preguntas que ya no coinciden en el mismo punto del scroll ("¿terminó el
-  // primer hero?" vs "¿ya hay que mostrar el menú?"). `manualReveal` es la
-  // salida manual: no hay ícono propio para eso —se sacó, ver más abajo—,
-  // la dispara clickear el ticket "Cupón PASS" de HeroPase (evento
-  // 'cuponear:navbar-reveal' en window, ver el listener más abajo). En
-  // cualquier otra vista, siempre visible desde el arranque.
-  const [scrollRevealed, setScrollRevealed] = useState(false);
-  const [manualReveal,   setManualReveal]   = useState(false);
-  const revealed = view !== 'home' || scrollRevealed || manualReveal;
+  // En 'home' la navbar arranca escondida —el hero queda despojado de menú a
+  // propósito— y de ahí en más sigue la DIRECCIÓN del scroll (2026-08-11):
+  // aparece apenas se baja, desde el primer píxel, y se esconde recién cuando
+  // se acumulan 500px hacia arriba. Ver el useEffect más abajo.
+  //
+  // Antes dependía de un ancla en el DOM ([data-navbar-reveal], que ponía
+  // HomeView justo antes de "Cuponeá antes de pagar"): era un punto fijo del
+  // scroll, no una respuesta a lo que hace el usuario, así que arriba de ese
+  // punto no había forma de sacar el menú. El ancla se eliminó junto con su
+  // observer; [data-navbar-shrink] sigue, que contesta otra pregunta
+  // (¿terminó el hero? → condensar). En cualquier otra vista, siempre visible.
+  const [visiblePorScroll, setVisiblePorScroll] = useState(false);
+  const revealed = view !== 'home' || visiblePorScroll;
   const { openDrawer } = useCarrito();
+
+  // ── Animar el tamaño SÓLO si la navbar ya estaba en pantalla ──────
+  // El condensado anima max-width y top acá, y height y padding en el div de
+  // adentro: las cuatro son propiedades de LAYOUT, así que el navegador
+  // recalcula la pastilla entera —logo, seis ítems de menú, botón— en cada uno
+  // de los ~23 frames que dura, y encima sobre un elemento fixed con
+  // backdrop-filter, que hay que volver a evaluar en cada uno.
+  //
+  // Ese pico no tiene por qué pagarse cuando la navbar está APARECIENDO: entra
+  // desde opacity 0, así que nadie percibe que además se encoge. Se la deja
+  // aparecer ya en su tamaño, sin transición, y la transición vuelve un frame
+  // después — que es cuando sí se ve y tiene que animar: con la navbar en
+  // pantalla, cruzando [data-navbar-shrink] o el fallback de los listados.
+  //
+  // (Se agregó cuando el revelado era por ancla y caía en el mismo punto que el
+  // condensado —los dos a 760px, el borde inferior del hero—, o sea todo el
+  // layout junto en una posición fija del scroll. Ahora que la navbar aparece
+  // por dirección de scroll ese choque ya no es fijo, pero el criterio vale
+  // igual: aparecer y redimensionar a la vez es trabajo que no se ve.)
+  const [animarTamano, setAnimarTamano] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAnimarTamano(revealed));
+    return () => cancelAnimationFrame(id);
+  }, [revealed]);
+  const transLayout = (prop) => (animarTamano ? `${prop} .38s ${NAV_EASE}` : null);
 
   const sitiosRef = useRef(null);
   const alojRef   = useRef(null);
@@ -760,34 +816,110 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
     return () => obs.disconnect();
   }, [view]);
 
-  // ── Revelado al llegar a "Cuponeá antes de pagar" ──────────
-  // Mismo mecanismo que el de arriba, ancla distinta: HomeView pone
-  // <div data-navbar-reveal /> justo antes de esa sección. Sin ancla (todas
-  // las vistas menos 'home') no hace falta observar nada —`revealed` ya da
-  // true por `view !== 'home'`— así que el efecto no hace nada.
+  // ── Aparece bajando, se esconde subiendo 500px ─────────────
+  // Sólo en 'home': en el resto `revealed` ya da true por la vista.
+  //
+  // La asimetría es a propósito. Bajar la muestra en el acto —el usuario está
+  // avanzando y en cualquier momento puede querer el menú—, pero subir NO la
+  // esconde enseguida: hay que acumular OCULTAR_TRAS_SUBIR px en ese sentido.
+  // Sin ese colchón, cualquier rebote del trackpad o un scroll corto hacia
+  // atrás para releer algo la haría parpadear. El contador se pone en cero
+  // apenas se vuelve a bajar, así que son 500px de subida SEGUIDA, no 500px
+  // sueltos sumados a lo largo de la página.
+  //
+  // Va con listener de scroll y no con IntersectionObserver porque acá la
+  // pregunta no es "¿dónde estoy?" sino "¿para dónde voy?", y eso no lo
+  // contesta una posición. El trabajo por evento es una resta y una
+  // comparación; los setState repetidos con el mismo valor los descarta React
+  // sin re-renderizar.
   useEffect(() => {
-    const linea = NAV_TOP + NAV_H_MAX;
-    const anchor = document.querySelector('[data-navbar-reveal]');
-    if (!anchor) return;
+    if (view !== 'home') return;
+    let ultimoY = window.scrollY;
+    let subidaAcumulada = 0;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - ultimoY;
+      ultimoY = y;
+      if (delta > 0) {
+        subidaAcumulada = 0;
+        setVisiblePorScroll(true);
+      } else if (delta < 0) {
+        subidaAcumulada -= delta;
+        // pinnedRef: ver la nota junto a cuponear:navbar-pin, más abajo.
+        if (subidaAcumulada >= OCULTAR_TRAS_SUBIR && !pinnedRef.current) setVisiblePorScroll(false);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [view]);
 
-    const obs = new IntersectionObserver(
-      ([e]) => setScrollRevealed(e.boundingClientRect.top <= linea),
-      { rootMargin: `-${linea}px 0px 0px 0px`, threshold: 0 }
-    );
-    obs.observe(anchor);
-    return () => obs.disconnect();
+  // ── Se esconde tras un rato quieto ──────────────────────────
+  // Sólo en 'home', mismo alcance que el efecto de arriba. Es un segundo
+  // camino hacia el mismo estado (visiblePorScroll) — no toca la lógica de
+  // scroll para nada, y tampoco la revela: la actividad sólo pospone el
+  // escondido, no trae la navbar de vuelta si ya estaba oculta (eso sigue
+  // siendo sólo bajar la página, ver el efecto de arriba).
+  //
+  // El pedido decía "si se deja el mouse quieto", pero el gatillo real tiene
+  // que ser cualquier actividad, no sólo el cursor: si sólo el mousemove
+  // resetea el contador, un usuario que scrollea con rueda/trackpad SIN mover
+  // el cursor (algo normal) ve la navbar aparecer al bajar y esconderse sola
+  // dos segundos después aunque siga con el dedo en el trackpad — se lee como
+  // un bug, no como "está quieto". Por eso el scroll TAMBIÉN pospone el
+  // escondido acá (además de decidir mostrarla, en el efecto de arriba).
+  useEffect(() => {
+    if (view !== 'home') return;
+    const armar = () => setTimeout(() => { if (!pinnedRef.current) setVisiblePorScroll(false); }, OCULTAR_TRAS_QUIETO_MS);
+    // Arranca contando desde que se entra a la vista, no recién desde el
+    // primer movimiento: "quieto" es un estado, no algo que sólo empieza a
+    // medirse después de que hay actividad una vez.
+    let timer = armar();
+    const posponer = () => { clearTimeout(timer); timer = armar(); };
+    window.addEventListener('mousemove', posponer, { passive: true });
+    window.addEventListener('scroll', posponer, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', posponer);
+      window.removeEventListener('scroll', posponer);
+      clearTimeout(timer);
+    };
   }, [view]);
 
   // ── Revelado manual (click en el ticket de HeroPase) ──────
   // El disparador vive en un componente hermano (HeroPase, colgado de
   // HomeView), no un hijo de Navbar, así que no hay prop que lo una sin
-  // subir manualReveal hasta App.jsx. Un evento propio en window es el
-  // atajo liviano: HeroPase lo dispara al clickear el ticket "Cupón PASS",
-  // acá sólo se escucha.
+  // subir el estado hasta App.jsx. Un evento propio en window es el atajo
+  // liviano: HeroPase lo dispara al clickear el ticket "Cupón PASS", acá sólo
+  // se escucha. Escribe el MISMO estado que el scroll y no un override aparte:
+  // si fuera pegajoso, subir 500px ya no la escondería y el click dejaría la
+  // navbar clavada para siempre.
   useEffect(() => {
-    const onReveal = () => setManualReveal(true);
+    const onReveal = () => setVisiblePorScroll(true);
     window.addEventListener('cuponear:navbar-reveal', onReveal);
     return () => window.removeEventListener('cuponear:navbar-reveal', onReveal);
+  }, []);
+
+  // ── Fijada mientras dura un flujo de página completa ──────
+  // (2026-08-11) La suscripción PRO embebida de HeroPase (formulario largo,
+  // scroll propio adentro del sidebar — ver .gp-panel) necesita la navbar
+  // SIEMPRE visible, sin el vaivén de "aparece bajando, se esconde subiendo/
+  // quieta" que tiene el resto de la home: ahí ese vaivén tiene sentido
+  // porque el usuario navega la página; acá está completando un alta, y la
+  // navbar desapareciéndose a mitad de eso se siente como perder el ancla.
+  //
+  // Mismo patrón que cuponear:navbar-reveal (evento en window, HeroPase no
+  // es hijo de Navbar): pin fuerza visible y CONGELA los otros dos efectos
+  // —no los reemplaza, pinnedRef es lo que ellos chequean antes de esconder—
+  // así que al des-pinear vuelven a responder exactamente donde estaban.
+  const pinnedRef = useRef(false);
+  useEffect(() => {
+    const onPin = () => { pinnedRef.current = true; setVisiblePorScroll(true); };
+    const onUnpin = () => { pinnedRef.current = false; };
+    window.addEventListener('cuponear:navbar-pin', onPin);
+    window.addEventListener('cuponear:navbar-unpin', onUnpin);
+    return () => {
+      window.removeEventListener('cuponear:navbar-pin', onPin);
+      window.removeEventListener('cuponear:navbar-unpin', onUnpin);
+    };
   }, []);
 
   // ── Subrayado según la sección que se está mirando ────────────
@@ -900,8 +1032,18 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         width: 'calc(100% - 44px)', maxWidth: condensed ? NAV_W_MIN : NAV_W_MAX, margin: '0 auto',
         borderRadius: 999,
         background: condensed ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.80)',
-        backdropFilter: 'blur(8px) saturate(150%)',
-        WebkitBackdropFilter: 'blur(22px) saturate(150%)',
+        // Un backdrop-filter sobre un elemento fixed se recalcula en CADA frame
+        // de scroll de toda la página —tiene que volver a muestrear y
+        // desenfocar lo que pasa por detrás—, así que es de lo poco que encarece
+        // el scroll en todas las vistas por igual, no sólo donde está. De ahí
+        // que el blur baje a 4px (el costo sigue al radio) y que se vaya el
+        // saturate, que sumaba un pase de color por nada: sobre un fondo blanco
+        // al 80-92% de opacidad casi no se veía.
+        // Las dos propiedades ahora dicen lo mismo: estaban en 8px la estándar
+        // y 22px la -webkit-, o sea que el vidrio se veía distinto según el
+        // navegador (Chrome tomaba la primera, Safari la segunda).
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
         border: `1px solid ${A.line}`,
         boxShadow: condensed
           ? '0 14px 34px -12px rgba(11,16,32,0.22)'
@@ -915,7 +1057,14 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         opacity: revealed ? 1 : 0,
         transform: revealed ? 'translateY(0)' : 'translateY(-14px)',
         pointerEvents: revealed ? 'auto' : 'none',
-        transition: `max-width .38s ${NAV_EASE}, top .38s ${NAV_EASE}, box-shadow .25s, background .25s, opacity .38s ease, transform .38s ${NAV_EASE}`,
+        // opacity/transform/box-shadow/background van siempre: las resuelve el
+        // compositor y no cuestan layout. max-width y top se suman recién
+        // cuando la navbar ya está en pantalla — ver animarTamano arriba.
+        transition: [
+          transLayout('max-width'), transLayout('top'),
+          'box-shadow .25s', 'background .25s',
+          'opacity .38s ease', `transform .38s ${NAV_EASE}`,
+        ].filter(Boolean).join(', '),
         fontFamily: A.font,
       }}>
         <div style={{
@@ -923,7 +1072,9 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
           padding: condensed ? '0 16px' : '0 22px',
           height: condensed ? NAV_H_MIN : NAV_H_MAX,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14,
-          transition: `height .38s ${NAV_EASE}, padding .38s ${NAV_EASE}`,
+          // Mismo criterio que la pastilla de afuera: height y padding son
+          // layout, así que sólo animan si la navbar ya estaba visible.
+          transition: [transLayout('height'), transLayout('padding')].filter(Boolean).join(', ') || 'none',
         }}>
 
           {/* ── Logo — el dominio del sitio es la marca, con su select de red ── */}
@@ -931,14 +1082,41 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
             onMouseEnter={() => hoverOpen('sitios')}
             onMouseLeave={hoverLeave}
           >
+            {/* La marca es CUPONEaR, no el dominio (2026-08-10). Antes acá
+                se imprimía siteHost() —el dominio del sitio hacía de logo— y
+                por eso el drop lo excluía de la lista: habría quedado
+                repetido. Ahora que el logo no nombra ningún dominio, el drop
+                los lista TODOS (ver SitiosDrop).
+                Sin fontWeight ni letter-spacing propios: los 700 y el -0.03em
+                estaban calzados para Inter; NauryzRedkeds ya trae su peso y
+                su espaciado dibujados en los glifos, y forzarlos la
+                deforma. El casing va tal cual —en esta fuente mayúscula y
+                minúscula son glifos distintos, no la misma letra en dos
+                tamaños—. */}
             <button
-              onClick={() => nav('home')}
-              style={{
-                ...navBtnSt, color: A.primary, fontWeight: 700,
-                fontSize: condensed ? 17 : 19, letterSpacing: '-0.03em', gap: 6,
+              onClick={() => {
+                nav('home');
+                // El panel "Regalá cuponeras" (GIFT PaSS PRO) vive DENTRO de
+                // la vista home —es un overlay de estado en HeroPase, no un
+                // `view` propio— así que si ya estabas en home con ese panel
+                // abierto, `nav('home')` no hacía nada: `setView('home')`
+                // sobre un view que ya es 'home' no dispara re-render, y el
+                // panel se quedaba ahí tapando todo (bug reportado: "el logo
+                // no lleva a la home"). Mismo patrón que cuponear:navbar-pin
+                // para cruzar de Navbar a HeroPase sin prop — HeroPase lo
+                // escucha y cierra sus tres estados de overlay.
+                window.dispatchEvent(new Event('cuponear:home-reset'));
               }}
+              aria-label="Cuponear — ir al inicio"
+              style={{ ...navBtnSt, color: A.primary, gap: 6 }}
             >
-              {siteHost()} <ChevD />
+              <span style={{
+                fontFamily: NAURYZ, lineHeight: 1,
+                /* −15% a pedido, sobre los 19/22 originales. */
+                fontSize: condensed ? 16.2 : 18.7,
+                transition: `font-size .35s ${NAV_EASE}`,
+              }}>CUPONEaR</span>
+              <ChevD />
             </button>
             {(openMenu === 'sitios' || closingMenu === 'sitios') && (
               <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'sitios' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>

@@ -434,8 +434,8 @@ function SelloPase() {
       style={{
         alignSelf: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
         background: 'none', border: 'none', padding: 0, textDecoration: 'none',
-        fontFamily: A.font, fontSize: 13.5, fontWeight: 600,
-        color: A.primary, cursor: clickable ? 'pointer' : 'default', lineHeight: 1,
+        fontFamily: A.font, fontSize: 12, fontWeight: 400,
+        color: A.primary, cursor: clickable ? 'pointer' : 'default', lineHeight: 3,
       }}
     >
       {/* La NauryzRedkeds del lockup se apoya más abajo que la Inter dentro de
