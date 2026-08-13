@@ -469,6 +469,7 @@ function AppContent() {
               onOpenLocalidad={handleOpenLocalidad}
               onOpenSeccion={handleOpenSeccion}
               onComprarPase={(dias) => { setPaseDias(dias || 7); setPasePreguntarPerfil(false); setView('checkout-pase'); window.scrollTo(0, 0); }}
+              onSuscribirHoteleria={() => { setView('checkout-hotelero'); window.scrollTo(0, 0); }}
               onOpenClase={({ localidad, clase }) => {
                 setMarketplaceLocalidad(localidad || '');
                 setMarketplaceTipo(clase || 'todos');

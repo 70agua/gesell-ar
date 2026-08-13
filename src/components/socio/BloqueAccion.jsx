@@ -23,18 +23,44 @@
 //  suelto es la puerta de entrada, no al revés.
 // ============================================================
 import { useEffect, useState } from 'react';
+import { ChevronDown, Gift } from 'lucide-react';
 import PaSSMark from '../PaSSMark';
 import { usePasePropio } from '../../lib/pasePropio';
 import { activarPaseAhora, elegirPremium, getPasesDestino, nivelEnPase, precioSueltoConPase } from '../../lib/pases';
 import { cuponPropioDe } from '../../lib/compras';
+import { esCuponDeEntrada, gananciaNeta } from '../../lib/cobros';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',
   line: '#E7E9EE', primary: '#475BE1', primaryDark: '#3347C8',
-  green: '#10A36B', font: "'Inter', system-ui, sans-serif",
+  green: '#10A36B', dorado: '#FFB94A', font: "'Inter', system-ui, sans-serif",
 };
 
 const fmt = n => `$${Math.round(Number(n) || 0).toLocaleString('es-AR')}`;
+
+// ─── Ahorro ───────────────────────────────────────────────────
+// Vivía en PanelOfertasSocio, arriba del bloque. Se mudó acá porque en el
+// estado A dejó de ser un renglón suelto: comparte fila con el CTA del cupón
+// ("Con este cupón ahorrás $X" a la izquierda, "Quiero el cupón por $Y" a la
+// derecha), y esa fila es la pregunta completa —cuánto ganás, cuánto cuesta—
+// leída de una. En el resto de los estados sigue yendo sola arriba.
+//
+// En los cupones de entrada (ahorro < $10.000) se muestra la GANANCIA NETA y
+// no el ahorro bruto — mismo criterio que la minificha: con ratio 2x, "ahorrás
+// $5.000" al lado de "pagás $2.500" invita a hacer la resta.
+// Sin ahorro cargado no se muestra nada: no hay número de relleno (CLAUDE.md).
+function LineaAhorro({ ahorro, style }) {
+  if (!(ahorro > 0)) return null;
+  const monto = esCuponDeEntrada(ahorro) ? gananciaNeta(ahorro) : ahorro;
+  return (
+    <span style={{
+      fontFamily: A.font, fontSize: 12, fontWeight: 500,
+      color: A.ink2, lineHeight: 1.4, whiteSpace: 'nowrap', ...style,
+    }}>
+      Con este cupón ahorrás <b style={{ color: A.green, fontWeight: 800 }}>{fmt(monto)}</b> aprox.
+    </span>
+  );
+}
 
 function Primario({ children, onClick, disabled }) {
   return (
@@ -90,35 +116,63 @@ function SelectorPaseInline({ onComprarPase }) {
   // inventado (regla de datos faltantes en CLAUDE.md).
   if (!pases?.length) return null;
 
+  const activo = pases.find(p => String(p.duracion_dias) === elegido);
+
   return (
-    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-      <select
-        value={elegido}
-        onChange={e => setElegido(e.target.value)}
-        aria-label="Duración del Pase"
-        style={{
-          flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 12,
-          border: `1px solid ${A.line}`, background: '#fff', color: A.ink,
-          fontFamily: A.font, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-        }}
-      >
-        {pases.map(p => (
-          <option key={p.id ?? p.duracion_dias} value={p.duracion_dias}>
-            {p.duracion_dias} días · {fmt(p.precio_final)}
-          </option>
-        ))}
-        <option value="custom">Más días (a medida)</option>
-      </select>
+    <div style={{ display: 'flex', gap: 11, marginTop: 16 }}>
+      {/* El <select> nativo va TRANSPARENTE encima de una carátula pintada a
+          mano. Hace falta porque el diseño pide pesos mezclados adentro del
+          control ("Pase **3 días** | $20.000") y el nativo pinta su texto con
+          un solo peso. Un menú propio lo resolvería, pero a cambio de
+          reescribir teclado, foco y el picker del sistema en mobile; así se
+          queda con las dos cosas. La carátula va aria-hidden y el que anuncia
+          es el select real. */}
+      <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+        <div aria-hidden="true" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 12px 10px 16px', borderRadius: 12,
+          border: `1px solid ${A.line}`, background: '#fff',
+          fontFamily: A.font, fontSize: 13.5, color: A.ink, whiteSpace: 'nowrap',
+        }}>
+          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {activo ? (
+              <>
+                Pase <b style={{ fontWeight: 800 }}>{activo.duracion_dias} días</b>
+                <span style={{ color: A.line, margin: '0 8px' }}>|</span>
+                {fmt(activo.precio_final)}
+              </>
+            ) : 'Más días (a medida)'}
+          </span>
+          <ChevronDown size={18} color={A.muted} style={{ flexShrink: 0 }} />
+        </div>
+        <select
+          value={elegido}
+          onChange={e => setElegido(e.target.value)}
+          aria-label="Duración del Pase"
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            opacity: 0, appearance: 'none', border: 'none', background: 'transparent',
+            fontFamily: A.font, fontSize: 13.5, cursor: 'pointer',
+          }}
+        >
+          {pases.map(p => (
+            <option key={p.id ?? p.duracion_dias} value={p.duracion_dias}>
+              {p.duracion_dias} días · {fmt(p.precio_final)}
+            </option>
+          ))}
+          <option value="custom">Más días (a medida)</option>
+        </select>
+      </div>
       <button
         type="button"
         onClick={() => onComprarPase?.(elegido === 'custom' ? 'custom' : Number(elegido))}
         style={{
-          flexShrink: 0, padding: '10px 18px', borderRadius: 12, border: 'none',
+          flexShrink: 0, padding: '10px 22px', borderRadius: 12, border: 'none',
           background: A.primary, color: '#fff', fontFamily: A.font,
-          fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+          fontSize: 14, fontWeight: 800, cursor: 'pointer',
         }}
       >
-        Lo quiero
+        Comprar
       </button>
     </div>
   );
@@ -161,8 +215,8 @@ function ConfirmarActivacion({ dias, ocupado, onCancelar, onConfirmar }) {
 }
 
 export default function BloqueAccion({
-  promo, session, precio,
-  onComprarPase, onSumarCupon, onCanjear, onCoordinarFecha,
+  promo, session, precio, cuponesEnZona = 0,
+  onComprarPase, onSumarCupon, onCanjear, onCoordinarFecha, onVerPase, onRegalarPase,
 }) {
   const { pase, activo, pendiente, libres, total, elegidasIds, premiumIlimitado, refrescar } = usePasePropio();
 
@@ -222,6 +276,17 @@ export default function BloqueAccion({
     <div style={{ marginTop: 8, fontSize: 12.5, color: '#B91C1C', fontFamily: A.font, textAlign: 'center' }}>{aviso}</div>
   );
 
+  // El ahorro encabeza todos los estados menos A, que lo pone en la misma fila
+  // que su CTA. Va por función y no repetido en cada rama para que no se
+  // desincronicen entre ellas.
+  const ahorro = promo?.ahorroEstimado || 0;
+  const conAhorro = cuerpo => (
+    <div>
+      <LineaAhorro ahorro={ahorro} style={{ display: 'block', marginBottom: 12 }} />
+      {cuerpo}
+    </div>
+  );
+
   const botonCanjear = (
     <Primario onClick={onCanjear}>
       <img src="/iconos/qr-code.svg" alt="" width={19} height={19}
@@ -234,37 +299,98 @@ export default function BloqueAccion({
   // Va primero, antes que cualquier rama del Pase: un cupón pago es del turista
   // pase lo que pase. Mostrarle otra cosa sería venderle lo que ya tiene.
   if (cuponPropio) {
-    return (
-      <div>
+    return conAhorro(
+      <>
         <Nota tono="ok">Ya es tuyo. Mostrá el QR del comercio para canjearlo.</Nota>
         {botonCanjear}
         <div style={{ marginTop: 8, fontSize: 12, color: A.muted, textAlign: 'center', fontFamily: A.font }}>
           Tu código: <b style={{ color: A.ink, letterSpacing: '0.08em' }}>{cuponPropio.codigo}</b>
         </div>
         {error}
-      </div>
+      </>
     );
   }
 
   // ─── A · no tiene Pase ──────────────────────────────────────
-  // El cupón suelto va primero: sigue siendo la puerta de entrada. El Pase
-  // deja de ser un botón azul y pasa a título — no compite con el cupón por
-  // el mismo lenguaje visual — y el selector de abajo lo convierte en una
-  // decisión de un solo tap, sin pasar primero por la home.
+  // Dos bloques separados por una línea, y no una pila de botones (rediseño
+  // 2026-08-13): arriba el cupón suelto —cuánto ahorrás y cuánto cuesta, en un
+  // solo renglón—, abajo el Pase con su propio encabezado.
+  //
+  // El cupón perdió el botón con borde y quedó como texto: dos botones, uno
+  // arriba del otro, se leían como dos versiones de lo mismo. Ahora el único
+  // relleno azul de la pantalla es el del Pase, que es el producto hero
+  // (doc §4), y el cupón suelto queda como la puerta de entrada que es.
   if (!conPase) {
     return (
       <div>
-        <Secundario onClick={() => onSumarCupon?.(promo)}>
-          Comprar cupón{precio > 0 ? ` · ${fmt(precio)}` : ''}
-        </Secundario>
+        {/* Los dos lados van en un renglón: juntos son la pregunta completa
+            —cuánto ganás, cuánto cuesta— y separarlos la parte al medio. La
+            columna del panel mide ~410px y ahí adentro los dos textos entran
+            recién a 12/13px; el diseño estaba dibujado sobre una card bastante
+            más ancha, así que el cuerpo bajó para respetar la fila. `wrap`
+            queda como red: con un ahorro de seis cifras o en una pantalla más
+            angosta, apilarse es mejor que desbordar. */}
+        <div style={{
+          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+          gap: 12, flexWrap: 'wrap',
+        }}>
+          <LineaAhorro ahorro={ahorro} />
+          <button
+            type="button"
+            onClick={() => onSumarCupon?.(promo)}
+            style={{
+              padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+              fontFamily: A.font, fontSize: 13, fontWeight: 500, color: A.ink,
+              lineHeight: 1.4, textAlign: 'left', whiteSpace: 'nowrap',
+            }}
+          >
+            <b style={{ fontWeight: 800 }}>Comprar</b>{precio > 0 ? ` por ${fmt(precio)}` : ''}
+          </button>
+        </div>
+
+        <div style={{ height: 1, background: A.line, margin: '18px 0 20px' }} />
+
+        {/* El número sale del catálogo vivo de la zona. Si todavía no cargó, o
+            la zona no tiene otros cupones, no va la línea: acá un dato que
+            falta se muestra vacío, nunca redondeado ni inventado. La frase
+            encabeza el bloque del Pase y termina en dos puntos porque presenta
+            al selector que viene abajo. */}
+        {cuponesEnZona > 0 && (
+          <div style={{
+            textAlign: 'center', fontFamily: A.font, fontSize: 15, fontWeight: 700,
+            color: A.ink2, letterSpacing: '-0.01em', lineHeight: 1.4,
+          }}>
+            Accedé a <b style={{ color: A.primary, fontWeight: 800 }}>{cuponesEnZona} cupones</b> más en la zona con un solo pase:
+          </div>
+        )}
+
+        <SelectorPaseInline onComprarPase={onComprarPase} />
+
+       
 
         <div style={{
-          marginTop: 18, fontSize: 15, fontWeight: 800, color: A.primary,
-          letterSpacing: '-0.01em', lineHeight: 1.35, fontFamily: A.font,
+          marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 13, fontFamily: A.font, fontSize: 13.5,
         }}>
-          Conseguí este y muchos más con tu <PaSSMark size={13} conGesell />
+          <button type="button" onClick={onRegalarPase} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+            fontFamily: A.font, fontSize: 13.5, fontWeight: 500, color: A.ink,
+          }}>
+            <Gift size={20} color={A.dorado} strokeWidth={2.2} aria-hidden="true" />
+            Regalar pass
+          </button>
+          <span aria-hidden="true" style={{ color: A.line }}>|</span>
+          <button type="button" onClick={onVerPase} style={{
+            padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+            fontFamily: A.font, fontSize: 13.5, fontWeight: 500, color: A.ink,
+          }}>
+            Conocé más
+          </button>
         </div>
-        <SelectorPaseInline onComprarPase={onComprarPase} />
+         <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+          <PaSSMark size={15} conGesell />
+        </div>
         {error}
       </div>
     );
@@ -278,12 +404,12 @@ export default function BloqueAccion({
   // ⚠️ Copy no negociable (Ley 18.829): nunca "reservá" ni "disponibilidad".
   // Cuponear TRANSMITE un pedido; confirma el comercio.
   if (pideFecha && onCoordinarFecha) {
-    return (
-      <div>
+    return conAhorro(
+      <>
         <Nota>Elegí el día y el comercio te responde. La fecha la confirma él, no nosotros.</Nota>
         <Primario onClick={() => onCoordinarFecha(promo)}>Coordinar fecha</Primario>
         {error}
-      </div>
+      </>
     );
   }
 
@@ -292,8 +418,8 @@ export default function BloqueAccion({
   // "incluida": hay que ELEGIRLA igual, sólo que sin tope de cuántas.
   if (!cubierta) {
     if (premiumIlimitado || libres > 0) {
-      return (
-        <div>
+      return conAhorro(
+        <>
           <Nota>
             {premiumIlimitado
               ? <>Tenés todo el catálogo PREMIUM disponible, sin tope.</>
@@ -308,18 +434,18 @@ export default function BloqueAccion({
             </Secundario>
           )}
           {error}
-        </div>
+        </>
       );
     }
-    return (
-      <div>
+    return conAhorro(
+      <>
         <Nota>Ya usaste tus {total} elecciones PREMIUM. Este lo sumás a mitad de precio.</Nota>
         <Primario onClick={() => onSumarCupon?.(promo)}>Sumarlo por {fmt(mitad)}</Primario>
         <div style={{ marginTop: 8, fontSize: 12, color: A.muted, textAlign: 'center', fontFamily: A.font }}>
           Precio sin Pase: {fmt(precio)}
         </div>
         {error}
-      </div>
+      </>
     );
   }
 

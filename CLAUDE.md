@@ -265,6 +265,7 @@ Only two: `Flash` (has countdown, `fecha_fin_flash`) and `Normal`. Config and co
 - Default font: `Inter` (self-hosted variable font in `public/fonts/`). Display font: `NauryzRedkeds`.
 - Responsive breakpoints follow Tailwind defaults; hero layout uses custom `.hero-content` / `.hero-grid` classes in `src/index.css`.
 - Inline styles are common for one-off animations and wizard overlays — that's intentional.
+- **Efectos de scroll: apagados por interruptor** (2026-08-13). `SCROLL_SUAVE` en `src/lib/efectos.js` está en `false`, así que el smooth-scroll con inercia (Lenis) no se monta ni en `useLenisSmoothScroll` ni en el panel PRO de `HeroPase`: el scroll de la página es 100% nativo. Se apagó para aislar dos síntomas —el scroll se trababa en el detalle de socio/oferta y el general se sentía lento— y **apagarlo resolvió los dos** (confirmado con rueda real). Se reactiva desde ahí. Los efectos de la navbar quedaron prendidos a propósito.
 
 **Antes de un cambio visual (componente nuevo, rediseño, layout, spacing, color, tipografía) — coherencia es criterio de aceptación, no un paso opcional para ahorrar lectura:**
 - Mirá 2-3 componentes existentes de la misma familia (si tocás una Card, mirá las otras Cards) antes de definir spacing, color o tipografía nueva. No inventes un patrón si ya hay uno establecido.

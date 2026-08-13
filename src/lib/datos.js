@@ -349,6 +349,59 @@ export async function getPromosLocalidad(localidad, excludeNegocioId = null) {
     .sort((a, b) => (a.negocioLocalidad === localidad ? -1 : 1) - (b.negocioLocalidad === localidad ? -1 : 1));
 }
 
+// ─── Ofertas parecidas a las de un socio ("También puede interesarte") ────────
+//
+// Reemplaza a la fila de alianzas + promos de la localidad que había al pie de
+// la ficha, que mezclaba cualquier cosa de la zona sin ningún criterio de
+// parecido. Acá el orden es el criterio: se puntúa cada oferta por cuánto se
+// parece al socio que el turista está mirando y se ordena por eso, así que la
+// caída a "la zona más cercana" o a "la misma categoría" no es un fallback
+// aparte —con un if— sino el mismo puntaje unos escalones más abajo.
+//
+//   subcategoría en común  +4   |  misma localidad     +2
+//   misma categoría        +2   |  localidad cercana   +1
+//
+// Puntaje 0 (ni parecida ni cerca) no entra: antes que una fila de relleno,
+// nada. Ojo con el select: `negocios.categoria` es de dónde salen las
+// subcategorías en normalizePromo y no está en el select de las otras
+// consultas, así que sin pedirlo explícitamente el puntaje de subcategoría
+// sería siempre 0.
+export async function getPromosSimilares(negocio, limite = 12) {
+  if (!negocio?.id) return [];
+
+  const localidad = negocio.localidad || '';
+  const cercanas  = new Set(LOCALIDADES_CERCANAS[localidad] || []);
+  const subs      = new Set((negocio.subcategorias || []).filter(Boolean));
+  const categoria = categoriaDeNegocio(negocio.type || negocio.tipo, negocio.id);
+
+  const { data } = await supabase
+    .from('promociones')
+    .select('*, negocios(nombre, tipo, localidad, zona, categoria, foto_perfil, imagen_url, activo)')
+    .eq('activa', true)
+    .eq('aprobada', true)
+    .neq('negocio_id', negocio.id);
+
+  return (data || [])
+    .filter(p => p.negocios?.activo !== false && p.tokens_costo !== 0)
+    .map(normalizePromo)
+    .map(p => {
+      const parecido = p.subcategorias.some(s => subs.has(s)) ? 4
+        : p.categoria === categoria ? 2
+        : 0;
+      const cerca = p.negocioLocalidad === localidad ? 2
+        : cercanas.has(p.negocioLocalidad) ? 1
+        : 0;
+      return { ...p, _puntaje: parecido + cerca };
+    })
+    .filter(p => p._puntaje > 0)
+    .sort((a, b) =>
+      b._puntaje - a._puntaje ||
+      (b.impulsoActivo === true) - (a.impulsoActivo === true) ||
+      b.ahorroEstimado - a.ahorroEstimado
+    )
+    .slice(0, limite);
+}
+
 export async function getNegocioById(id) {
   const { data } = await supabase
     .from('negocios')

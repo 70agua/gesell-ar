@@ -1,30 +1,41 @@
 // ============================================================
 //  src/components/MapView.jsx
-//  Mapa urbano interactivo con Leaflet nativo + galería sincronizada
+//  Mapa urbano interactivo con Leaflet nativo.
+//
+//  Desde 2026-08-13 el mapa va DENTRO de la columna central de la ficha de
+//  socio y no en una sección aparte a todo el ancho. Ahí no entraba la
+//  columna de microfichas que tenía al costado, así que se fue: quedó sólo el
+//  mapa, y la ficha de la oferta aparece sobre él al tocar el pin.
+//
+//  Esa ficha usa el mismo formato que la fila cerrada del acordeón de ofertas
+//  (OfertaFila): thumb 16:9, badge, título y aclaración. No es una tercera
+//  manera de mostrar una oferta — es la que el turista ya vio dos renglones
+//  más arriba, en la misma pantalla.
 // ============================================================
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import InfoTooltip, { CreditTooltip } from './InfoTooltip';
-import HeartButton from './HeartButton';
-import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { ZoomIn, X } from 'lucide-react';
 
 const C = {
   primary:  '#475BE1',
-  green:    '#10A36B',
   ink:      '#0B1020',
   ink2:     '#3D4255',
   muted:    '#6B7280',
   line:     '#E7E9EE',
-  bg:       '#F7F7F8',
-  yellow:   '#FFC93C',
 };
+
+const FICHA_ANCHO = 340;
+// Alto aproximado de la ficha, sólo para decidir de qué lado del pin sale y
+// para el caso en que sale por abajo. No hace falta que sea exacto: el thumb
+// de 62px + padding la fijan cerca de 86px y el título no envuelve (va con
+// ellipsis, igual que en la fila del acordeón).
+const FICHA_ALTO  = 88;
+const MAPA_ALTO   = 460;
 
 // ─── Marcador divIcon ────────────────────────────────────────
 function makeMarkerHtml(promo, active) {
   const badge  = promo.badge || '';
   const socio  = promo.proveedorNombre || '';
-  const label  = [badge, socio].filter(Boolean).join(' · ') || 'Promo';
   const bg     = active ? C.primary : '#fff';
-  const color  = active ? '#fff' : C.ink;
   const border = active ? C.primary : C.line;
   const scale  = active ? 'scale(1.12)' : 'scale(1)';
   const shadow = active
@@ -59,116 +70,110 @@ function makeMarkerHtml(promo, active) {
     </div>`;
 }
 
-// ─── Minificha mapa — mínima expresión ──────────────────────
-function PromoCard({ promo, active, onClick, onAdd, onOpenOferta, innerRef }) {
-  const titulo = promo.title || promo.titulo;
-  const creds  = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
-  const precioCreditos = promo.tokens_precio != null
-    ? `$${Math.round(promo.tokens_precio * 1.21).toLocaleString('es-AR')}`
-    : (promo.ahorroEstimado > 0 || promo.tokens_costo != null)
-    ? `$${precioActivacionARS({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo }).toLocaleString('es-AR')}`
-    : null;
+// La aclaración de la fila: el reloj del flash si corre, y si no, lo que traiga
+// la oferta. Misma regla que OfertaFila — sin dato no hay renglón vacío.
+function subtitulo(promo) {
+  if (promo.offerType === 'Flash' && promo.fechaFinFlash) {
+    const ms = new Date(promo.fechaFinFlash).getTime() - Date.now();
+    if (ms > 0) {
+      const hs = Math.floor(ms / 3600000);
+      return hs >= 24 ? `Termina en ${Math.floor(hs / 24)} días` : `Termina en ${Math.max(1, hs)} h`;
+    }
+  }
+  return promo.subtitle || '';
+}
 
+// ─── Ficha del pin — formato de la fila cerrada del acordeón ─────────────────
+function FichaPin({ promo, onAmpliar, onCerrar }) {
   return (
     <div
-      ref={innerRef}
-      onClick={onClick}
       style={{
-        borderRadius: 14, cursor: 'pointer', background: '#fff',
-        border: `2px solid ${active ? C.primary : C.line}`,
-        boxShadow: active ? '0 4px 16px rgba(71,91,225,0.14)' : 'none',
-        transition: 'border-color .2s, box-shadow .2s',
-        flexShrink: 0, width: 260,
-        display: 'flex', flexDirection: 'column',
-        padding: '13px 14px 12px',
-        gap: 10, position: 'relative',
+        width: FICHA_ANCHO, background: '#fff',
+        border: `1px solid ${C.line}`, borderRadius: 14,
+        boxShadow: '0 12px 36px -10px rgba(11,16,32,0.28)',
+        padding: '12px 12px 12px 12px',
+        display: 'flex', alignItems: 'center', gap: 12,
+        fontFamily: "'Inter', system-ui, sans-serif",
+        // Nace desde el pin: chica y transparente, y crece hacia arriba a la
+        // izquierda, que es donde está el marcador. Sin esto la ficha
+        // "aparece puesta" y no se lee como el mismo objeto que se tocó.
+        transformOrigin: 'bottom left',
+        animation: 'fichaPinIn .18s cubic-bezier(.16,1,.3,1)',
       }}
+      onClick={e => e.stopPropagation()}
     >
-      {/* Favorito */}
-      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2 }}>
-        <HeartButton id={promo.id} size={28} light />
+      <div style={{ width: 110, height: 62, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#1a2a35' }}>
+        {(promo.image || promo.imagen_url) && (
+          <img src={promo.image || promo.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        )}
       </div>
 
-      {/* Badge + título */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingRight: 32 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {promo.badge && (
-          <div style={{ display: 'inline-flex' }}>
-            <div style={{
-              background: C.green, color: '#fff', borderRadius: 10,
-              padding: '6px 10px', fontSize: 15, fontWeight: 900,
-              letterSpacing: '-0.03em', lineHeight: 1,
-              whiteSpace: 'nowrap',
-            }}>{promo.badge}</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.primary, lineHeight: 1.4, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {promo.badge}
           </div>
         )}
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>
-          {titulo}
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: C.ink, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {promo.title || promo.titulo}
         </div>
+        {subtitulo(promo) && (
+          <div style={{ fontSize: 12.5, fontWeight: 500, color: C.muted, lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {subtitulo(promo)}
+          </div>
+        )}
       </div>
 
-      {/* Socio — solo nombre + avatar */}
-      {promo.proveedorNombre && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: -4 }}>
-          {promo.proveedorImage
-            ? <img src={promo.proveedorImage} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-            : <div style={{ width: 22, height: 22, borderRadius: '50%', background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{promo.proveedorNombre[0]}</span>
-              </div>
-          }
-          <span style={{ fontSize: 11, fontWeight: 600, color: C.ink2 }}>{promo.proveedorNombre}</span>
-        </div>
-      )}
-
-
-      {/* Botón Ver oferta */}
+      {/* Lupa: la ficha tiene lo que se necesita para reconocer la oferta, no
+          para decidirla. El botón lleva al detalle, que es donde están el
+          precio, el ahorro y los términos. */}
       <button
-        onClick={e => { e.stopPropagation(); onOpenOferta ? onOpenOferta(promo) : onClick?.(); }}
+        type="button"
+        onClick={() => onAmpliar?.(promo)}
+        title="Ver la oferta completa"
+        aria-label="Ver la oferta completa"
         style={{
-          width: '100%', background: '#fff', color: C.ink,
-          border: `1px solid ${C.line}`, borderRadius: 10, padding: '9px 0',
-          fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          transition: 'border-color .13s, color .13s',
+          flexShrink: 0, width: 38, height: 38, borderRadius: 10,
+          border: `1px solid ${C.line}`, background: '#fff', color: C.ink2,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', transition: 'border-color .13s, color .13s',
         }}
         onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.ink; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.ink2; }}
       >
-        Ver oferta
+        <ZoomIn size={18} />
       </button>
 
-      {/* Activalo con — debajo del CTA */}
-      {(promo.ahorroEstimado > 0 || promo.tokens_costo != null) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Activalo con</span>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: C.ink }}>
-              <CoinSVGSmall />
-              {creds} crédito{creds !== 1 ? 's' : ''}
-            </span>
-            {precioCreditos && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 400, color: C.muted }}>
-                ({precioCreditos})<CreditTooltip />
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={onCerrar}
+        aria-label="Cerrar"
+        style={{
+          position: 'absolute', top: -9, right: -9,
+          width: 24, height: 24, borderRadius: 999,
+          border: `1px solid ${C.line}`, background: '#fff', color: C.muted,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', boxShadow: '0 2px 8px rgba(11,16,32,0.14)',
+        }}
+      >
+        <X size={13} />
+      </button>
     </div>
   );
 }
 
-function CoinSVGSmall() {
-  return <img src="/credito-coin.svg" alt="crédito" width="11" height="11" style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;
-}
-
 // ─── Componente principal MapView ────────────────────────────
-export default function MapView({ promos = [], center, hotelName = '', onAddCupon, onOpenOferta }) {
+export default function MapView({ promos = [], center, hotelName = '', onOpenOferta }) {
   const mapRef      = useRef(null);   // div DOM
   const leafletRef  = useRef(null);   // instancia L.Map
   const markersRef  = useRef({});     // { id → L.marker }
-  const [activeId, setActiveId]     = useState(null);
-  const [sheetPromo, setSheetPromo] = useState(null); // mobile bottom-sheet
-  const cardRefs    = useRef({});
-  const panelRef    = useRef(null);
+  const [activeId, setActiveId] = useState(null);
+  // Posición de la ficha en píxeles del contenedor. Se recalcula en cada
+  // movimiento del mapa: la ficha está en el DOM de React, fuera de las capas
+  // de Leaflet, así que nada la mueve sola cuando el turista panea.
+  const [pos, setPos] = useState(null);
+
+  const activa = promos.find(p => p.id === activeId) || null;
 
   // ── Inicializar mapa ────────────────────────────────────────
   useEffect(() => {
@@ -221,6 +226,9 @@ export default function MapView({ promos = [], center, hotelName = '', onAddCupo
         className: '',
       });
 
+    // Tocar el mapa fuera de un pin cierra la ficha.
+    map.on('click', () => setActiveId(null));
+
     leafletRef.current = map;
     return () => { map.remove(); leafletRef.current = null; };
   }, []);
@@ -245,98 +253,73 @@ export default function MapView({ promos = [], center, hotelName = '', onAddCupo
       });
       const marker = L.marker([p.lat, p.lng], { icon })
         .addTo(map)
-        .on('click', () => handleMarkerClick(p));
+        .on('click', ev => {
+          // Sin esto el click llega también al mapa y cierra la ficha en el
+          // mismo gesto que la abre.
+          window.L.DomEvent.stopPropagation(ev);
+          setActiveId(p.id);
+        });
       markersRef.current[p.id] = marker;
     });
   }, [promos, activeId]);
 
-  // ── Click en marcador → scroll a card + activar ─────────────
-  const handleMarkerClick = useCallback((p) => {
-    setActiveId(p.id);
-    const isMobile = window.innerWidth < 1024;
-    if (isMobile) {
-      setSheetPromo(p);
-    } else {
-      setTimeout(() => {
-        cardRefs.current[p.id]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 50);
-    }
-  }, []);
-
-  // ── Click en card → paneo suave del mapa ───────────────────
-  const handleCardClick = useCallback((p) => {
-    setActiveId(p.id);
+  // ── Seguir al pin activo mientras el mapa se mueve ──────────
+  const recolocar = useCallback(() => {
     const map = leafletRef.current;
-    if (map && p.lat && p.lng) {
-      map.setView([p.lat, p.lng], 15, { animate: true, duration: 0.5 });
-    }
-  }, []);
+    const cont = mapRef.current;
+    if (!map || !cont || !activa || activa.lat == null || activa.lng == null) { setPos(null); return; }
+
+    const pt = map.latLngToContainerPoint([activa.lat, activa.lng]);
+    const w = cont.clientWidth;
+    const h = cont.clientHeight;
+
+    // La ficha sale desde el pin hacia arriba. Se la mantiene dentro del mapa
+    // en los dos ejes: contra el borde derecho se corre a la izquierda, y si
+    // arriba no hay lugar cae debajo del pin.
+    // `top` es el BORDE INFERIOR de la ficha: el div va con translateY(-100%).
+    const left = Math.min(Math.max(pt.x - 6, 12), Math.max(12, w - FICHA_ANCHO - 12));
+    const cabeArriba = pt.y > FICHA_ALTO + 24;
+    const top = cabeArriba
+      ? pt.y - 12
+      : Math.min(pt.y + 40 + FICHA_ALTO, h - 12);
+
+    setPos({ left, top });
+  }, [activa]);
+
+  useEffect(() => {
+    const map = leafletRef.current;
+    if (!map) return;
+    recolocar();
+    map.on('move zoom resize', recolocar);
+    return () => { map.off('move zoom resize', recolocar); };
+  }, [recolocar]);
 
   return (
-    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', position: 'relative' }}>
+    <div style={{ position: 'relative' }}>
+      <style>{`@keyframes fichaPinIn { from { opacity: 0; transform: scale(.92) } to { opacity: 1; transform: none } }`}</style>
 
-      {/* ── Panel lateral (desktop) ──────────────────────────── */}
       <div
-        ref={panelRef}
-        className="zona-panel"
-        style={{
-          width: 300, flexShrink: 0,
-          display: 'none',            // override con .zona-panel en CSS
-          flexDirection: 'column',
-          gap: 10,
-          maxHeight: 460,
-          overflowY: 'auto',
-          paddingRight: 4,
-        }}
-      >
-        {promos.map(p => (
-          <PromoCard
-            key={p.id}
-            promo={p}
-            active={activeId === p.id}
-            onClick={() => handleCardClick(p)}
-            onAdd={onAddCupon}
-            onOpenOferta={onOpenOferta}
-            innerRef={el => { cardRefs.current[p.id] = el; }}
-          />
-        ))}
-      </div>
+        ref={mapRef}
+        style={{ height: MAPA_ALTO, borderRadius: 16, border: `1px solid ${C.line}` }}
+      />
 
-      {/* ── Mapa ─────────────────────────────────────────────── */}
-      <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-        <div
-          ref={mapRef}
-          style={{ height: 460, borderRadius: 16, border: `1px solid ${C.line}` }}
-        />
-      </div>
-
-      {/* ── Bottom-sheet mobile ──────────────────────────────── */}
-      {sheetPromo && (
+      {/* Fuera del div del mapa no: Leaflet le pisa el contenido a su
+          contenedor. Va como hermano absoluto, con el mismo origen. */}
+      {activa && pos && (
         <div
           style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2000,
-            background: '#fff', borderRadius: '18px 18px 0 0',
-            boxShadow: '0 -8px 40px rgba(11,16,32,0.18)',
-            padding: '12px 16px 24px',
-            animation: 'slideUp .25s ease',
+            position: 'absolute', left: pos.left, top: pos.top,
+            transform: 'translateY(-100%)',
+            zIndex: 500, pointerEvents: 'auto',
           }}
-          className="lg:hidden"
         >
-          <style>{`@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-          {/* Handle */}
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: C.line, margin: '0 auto 14px' }} />
-          {/* Cerrar */}
-          <button
-            onClick={() => setSheetPromo(null)}
-            style={{ position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 20, lineHeight: 1 }}
-          >✕</button>
-          <PromoCard
-            promo={sheetPromo}
-            active={true}
-            onClick={() => {}}
-            onAdd={p => { onAddCupon(p); setSheetPromo(null); }}
-            onOpenOferta={onOpenOferta}
-          />
+          <div style={{ position: 'relative' }}>
+            <FichaPin
+              promo={activa}
+              onAmpliar={p => onOpenOferta?.(p)}
+              onCerrar={() => setActiveId(null)}
+            />
+          </div>
         </div>
       )}
     </div>

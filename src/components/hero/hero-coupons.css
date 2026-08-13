@@ -36,8 +36,9 @@
    (QUESTION_WIPE/QUESTION_FADE se renombró a QUESTION_WIPE_OUT y después
    se dejó de usar) — es dead code ya asumido como tal, no se corrigió. */
 
-/* Contenedor ancho, igual que .pv3-inner en HeroPase: centra el máximo de
-   1328px y da el padding horizontal. La columna de texto en sí vive en
+/* Contenedor ancho, igual que .pv3-inner en HeroPase: centra el máximo del
+   sitio (--site-max, ver tokens.css) y da el padding horizontal. La
+   columna de texto en sí vive en
    .hc__copy, más abajo — separar los dos roles es lo que faltaba: antes
    .hc__copy hacía de contenedor Y de columna a la vez, y quedaba mucho más
    ancha que la del slide 1. */
@@ -45,9 +46,9 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 1328px;
+  max-width: var(--site-max);
   margin: 0 auto;
-  padding-inline: 40px;
+  padding-inline: var(--site-pad);
 }
 
 /* Misma columna que .pv3-left: 640px fijos, pegada a la izquierda de
@@ -62,6 +63,10 @@
      100vh, pero en viewports bajos con navegador angosto el centrado solo
      no deja margen de sobra respecto de la pastilla. */
   padding-top: 32px;
+}
+/* Ver la nota junto a .pv3-regalo-abierto .coupon, más abajo: el
+   will-change vive scopeado al panel abierto, no permanente. */
+.pv3-regalo-abierto .hc__copy {
   will-change: opacity, transform;
 }
 
@@ -227,8 +232,22 @@
 
 .coupon {
   position: absolute;
-  will-change: transform, opacity;
   transform-style: preserve-3d;
+}
+
+/* will-change SÓLO con el panel abierto (2026-08-12). Estaba puesto en
+   .coupon a secas, o sea 12 capas promovidas de forma permanente —más las
+   de .hc__copy y los tres grupos de HeroPase.jsx, 16 en total— que el
+   compositor no suelta nunca, aunque la lluvia esté quieta y el panel
+   entero viva fuera de pantalla (translateX(100%)) el 99% del tiempo.
+   Mantenerlas cuesta en cada frame de scroll de la home, y es justo lo que
+   MDN desaconseja: will-change es una pista para ANTES de una animación
+   inminente, no una propiedad para dejar clavada.
+   La lluvia sólo corre con `activo` (= regaloAbierto, ver CouponRain.jsx:
+   el rAF ni se agenda si está cerrado), así que ese es exactamente el
+   momento en que la pista sirve. */
+.pv3-regalo-abierto .coupon {
+  will-change: transform, opacity;
 }
 
 .coupon img {
@@ -371,7 +390,11 @@
   /* Sombra larga y muy tirada hacia arriba, la misma familia que el resto del
      hero: despega la caja de la lluvia sin leerse como un modal. */
   box-shadow: 0 24px 60px -24px rgba(11, 16, 32, 0.28);
-  padding: 36px 40px 32px;
+  /* Vertical parejo a 56px (2026-08-12, a pedido): antes era 36 arriba /
+     32 abajo, dos números sueltos sin motivo para diferir. El horizontal
+     (40px) no cambió — es el que ya usan .gp-opcion-fila y compañía para
+     alinear todo el contenido interno contra el mismo margen. */
+  padding: 56px 40px;
   /* max-height + overflow-y:auto, no overflow:clip a secas (2026-08-11): el
      panel del paso 2 ahora puede llevar CheckoutHoteleroView embebido
      entero —planes, alta, captcha, pago—, bastante más alto que el sidebar.
@@ -487,7 +510,14 @@
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  padding: 16px 18px;
+  /* 50px arriba/abajo (2026-08-12, a pedido) — el horizontal se dejó en 18px,
+     no en 50px parejo: se probó 50px en las cuatro direcciones y con
+     max-width:600px (ver .gp-panel .gp-opcion) el ancho para el texto quedaba
+     tan angosto que "Regalar un pase a alguien" envolvía palabra por
+     palabra — se verificó en pantalla, quedaba roto. Mismo criterio que
+     .gp-panel arriba: vertical es lo que se pidió mover, horizontal sigue el
+     que ya alineaba todo el contenido interno. */
+  padding: 50px 18px;
   border: 1.5px solid var(--color-border, #E7E9EE);
   border-radius: 14px;
   background: #fff;

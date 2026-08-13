@@ -22,7 +22,7 @@
 // ============================================================
 import PaSSMark from '../PaSSMark';
 import { usePasePropio } from '../../lib/pasePropio';
-import { nivelEnPase, esOfertaEstadia } from '../../lib/pases';
+import { nivelEnPase } from '../../lib/pases';
 
 const A = {
   ink2: '#3D4255', primary: '#475BE1', font: "'Inter', system-ui, sans-serif",
@@ -59,16 +59,14 @@ export default function LineaPase({ promo, onVerPase }) {
     );
   }
 
-  if (pase) return null;
-
-  // Alojamiento por debajo del umbral premium: no ocupa elección, pero el Pase
-  // trae UNA sola estadía. Decirle "incluido" prometería ilimitado.
-  const estadia = esOfertaEstadia(promo);
-  return (
-    <Linea onVerPase={onVerPase}>
-      {estadia
-        ? <>Tu estadía con el <PaSSMark size={11} conGesell />: el Pase trae una</>
-        : <>Incluido en el <PaSSMark size={11} conGesell /></>}
-    </Linea>
-  );
+  // Sin Pase ya no dice nada (2026-08-13). El bloque de acción del estado A se
+  // rediseñó y ahora cierra él mismo el discurso del Pase —encabezado, precio,
+  // "con un solo pase incluís esta oferta y muchas más", lockup y accesos—, así
+  // que cualquier renglón extra abajo era el mismo argumento repetido con otra
+  // redacción: justo lo que este archivo ya evitaba en los otros tres casos.
+  //
+  // Con eso quedó sin uso la variante de estadía ("el Pase trae una"). El dato
+  // sigue siendo cierto y NO está dicho en el bloque nuevo; si hay que
+  // recuperarlo, el lugar es el bloque de acción, no una línea suelta acá.
+  return null;
 }

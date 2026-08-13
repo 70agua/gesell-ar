@@ -14,7 +14,8 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
-import { getPromosDeNegocio, getAlianzasPorNegocio, getPromosLocalidad } from '../lib/datos';
+import { getPromosDeNegocio, getPromosLocalidad, getPromosSimilares } from '../lib/datos';
+import OfertaCard from '../components/OfertaCard';
 import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
 import { useCarrito } from '../lib/carrito';
 import { trackVistaFicha } from '../lib/tracking';
@@ -25,6 +26,7 @@ import HeartButton from '../components/HeartButton';
 import { esSiguiendo, toggleSeguir } from '../lib/seguir';
 import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 import PanelOfertasSocio from '../components/socio/PanelOfertasSocio';
+import PaseRegaloDrawer from '../components/PaseRegaloDrawer';
 import EscanerCanje from '../components/EscanerCanje';
 import SolicitarFecha from '../components/SolicitarFecha';
 
@@ -496,7 +498,13 @@ function AlojamientoGallery({ item, plan }) {
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px', gap: 8, height: 400, marginTop: 20, overflow: 'hidden' }}>
+      {/* Sin marginTop propio (2026-08-13): esos 20px eran de la galería y no
+          de la fila, así que la columna derecha —que arranca directo con el
+          panel de ofertas— empezaba 20px más arriba y las dos cabeceras no
+          coincidían. Ahora el aire lo pone el `pt` del grid, que es de las dos
+          columnas: alineadas por construcción y no por dos números iguales
+          escritos en dos lugares. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px', gap: 8, height: 400, overflow: 'hidden' }}>
         {/* Foto principal */}
         <div className="rounded-2xl overflow-hidden cursor-pointer" style={{ minHeight: 0, minWidth: 0 }} onClick={() => setLight(0)}>
           <img src={main} alt={item.name} className="object-cover" style={{ width: '100%', height: '100%', display: 'block' }} />
@@ -652,154 +660,81 @@ function MiCarritoPanel() {
   );
 }
 // ═══════════════════════════════════════════════════════════
-//  MiniPromoCard — minificha para fila horizontal
+//  ZonaDescuentosBloque — el mapa, dentro de la columna central
+//
+//  Estaba abajo de todo, a todo el ancho y con una columna de microfichas al
+//  costado (2026-08-13). Ahí el mapa era una sección aparte: quedaba después
+//  del pie de la ficha y el turista tenía que salir del contenido del socio
+//  para verlo. Ahora es un bloque más de la columna central, debajo de la
+//  descripción, y las microfichas se fueron — en esta caja no entran, y lo que
+//  decían lo dice la ficha que sale del pin al tocarlo.
 // ═══════════════════════════════════════════════════════════
-function MiniPromoCard({ promo: p, onAdd, onOpenOferta }) {
-  const { addCupon } = useCarrito();
-  const mostrarCreditos = useMostrarCreditos();
+function ZonaDescuentosBloque({ item, promosLocalidad = [], onOpenOferta, onOpenLocalidad }) {
+  if (!promosLocalidad.length) return null;
   return (
-    <div
-      style={{ width: 264, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 18, overflow: 'hidden', flexShrink: 0, display: 'flex', flexDirection: 'column', cursor: 'pointer', boxShadow: '0 2px 12px -4px rgba(11,16,32,0.08)' }}
-      onClick={() => onOpenOferta?.(p)}
-    >
-      {/* Imagen */}
-      <div style={{ position: 'relative', height: 148, background: '#1a2a35', flexShrink: 0 }}>
-        {(p.image || p.imagen_url) && (
-          <img src={p.image || p.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.68) 0%, transparent 58%)' }} />
-        <div style={{ position: 'absolute', top: 10, right: 10 }} onClick={e => e.stopPropagation()}>
-          <HeartButton id={p.id} size={30} />
-        </div>
-        {p.badge && (
-          <div style={{ position: 'absolute', bottom: 10, left: 13, fontSize: 34, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.badge}</div>
-        )}
-      </div>
-      {/* Body */}
-      <div style={{ padding: '10px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: C.ink, margin: 0, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.title || p.titulo}</p>
-        <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>{p.proveedorNombre}</p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingTop: 5, borderTop: `1px solid ${C.line}` }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Activalo con</span>
-          {mostrarCreditos ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <CoinSVG size={12} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>{creditosActivacion({ ahorro: p.ahorroEstimado || p.ahorro_estimado || 0, tokensCosto: p.tokens_costo })} crédito{creditosActivacion({ ahorro: p.ahorroEstimado || p.ahorro_estimado || 0, tokensCosto: p.tokens_costo }) !== 1 ? 's' : ''}</span>
-                <CreditTooltip />
-              </div>
-              <span style={{ fontSize: 10, color: C.muted }}>(${cuponARS(p).toLocaleString('es-AR')})</span>
-            </div>
-          ) : (
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${cuponARS(p).toLocaleString('es-AR')}</span>
-          )}
-        </div>
-        <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+    <div style={{ marginTop: 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+        {/* Sin el ícono de 30px que tenía como sección suelta: los otros
+            títulos de esta columna ("Sobre el lugar", "Servicios y
+            comodidades") van a texto pelado, y uno con ícono se leía como de
+            otra pantalla. */}
+        <h2 className="text-lg font-bold m-0" style={{ color: C.ink }}>Ubicación y descuentos en la zona</h2>
+        {onOpenLocalidad && item.localidad && (
           <button
-            onClick={e => { e.stopPropagation(); onOpenOferta ? onOpenOferta(p) : (onAdd ? onAdd(p) : addCupon(p)); }}
-            style={{ width: '100%', padding: '8px 0', borderRadius: 9, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'border-color .13s, color .13s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.ink; }}
+            onClick={() => onOpenLocalidad(item.localidad)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.primary, display: 'flex', alignItems: 'center', gap: 4, padding: 0, flexShrink: 0 }}
           >
-            Ver oferta
+            Ver todas <ChevronRight size={14} />
           </button>
-        </div>
+        )}
       </div>
+      <ZonaMap
+        item={item}
+        promos={promosLocalidad}
+        onOpenOferta={onOpenOferta}
+      />
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════
-//  Normalizador de alianza (para "Más cupones")
+//  SimilaresSection — "También puede interesarte"
+//
+//  Reemplaza a "¡Más cupones agregás, más beneficios para vos!", que era un
+//  título de campaña sobre una fila que mezclaba alianzas con cualquier oferta
+//  de la localidad. Acá el criterio es el parecido con el socio que se está
+//  mirando y lo resuelve getPromosSimilares() — misma subcategoría y misma
+//  zona primero, y de ahí para abajo.
+//
+//  La ficha es OfertaCard, la misma de la home y de los listados: si el
+//  turista se va de esta ficha, se va a una que ya sabe leer.
 // ═══════════════════════════════════════════════════════════
-function normAlianzaItem(al) {
-  if (al.promociones) {
-    const p = al.promociones;
-    return {
-      ...p,
-      title: p.titulo || '',
-      image: p.imagen_url || '',
-      badge: p.badge || '',
-      proveedorNombre: p.negocios?.nombre || '',
-      negocioLocalidad: p.negocios?.localidad || '',
-      ahorroEstimado: p.ahorro_estimado || 0,
-      ahorroMax: p.ahorro_max || null,
-      tokens_costo: p.tokens_costo,
-    };
-  }
-  if (al.promo) return { ...al.promo };
-  return null;
-}
-
-// ═══════════════════════════════════════════════════════════
-//  ZonaDescuentosSection — mapa interactivo "Otros descuentos"
-//  Compartida entre alojamiento y gastro/experiencia.
-// ═══════════════════════════════════════════════════════════
-function ZonaDescuentosSection({ item, promosLocalidad = [], onAddCupon, onOpenOferta, onOpenLocalidad }) {
-  if (!promosLocalidad.length) return null;
+function SimilaresSection({ promos = [], onOpenOferta }) {
+  if (!promos.length) return null;
   return (
-    <section style={{ background: '#fff', borderTop: `1px solid ${C.line}`, paddingTop: 56, paddingBottom: 56 }}>
-      <div className="max-w-[1328px] mx-auto px-10">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/ico-location.svg" alt="" style={{ width: 30, height: 30, filter: 'invert(36%) sepia(97%) saturate(600%) hue-rotate(205deg) brightness(90%)' }} />
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, margin: 0 }}>Ubicación y descuentos en la zona</h2>
-          </div>
-          {onOpenLocalidad && item.localidad && (
-            <button
-              onClick={() => onOpenLocalidad(item.localidad)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.primary, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
-            >
-              Ver todas <ChevronRight size={14} />
-            </button>
-          )}
-        </div>
-        <ZonaMap
-          item={item}
-          promos={promosLocalidad}
-          onAddCupon={onAddCupon}
-          onOpenOferta={onOpenOferta}
-        />
+    <section style={{ background: C.bg, borderTop: `1px solid ${C.line}`, paddingTop: 48, paddingBottom: 48 }}>
+      <div style={{ paddingLeft: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))', paddingRight: 56, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: 0 }}>
+          También puede interesarte
+        </h2>
       </div>
-    </section>
-  );
-}
 
-// ═══════════════════════════════════════════════════════════
-//  MasCuponesSection — fila "¡Más cupones agregás…!"
-//  Última sección antes del footer. Compartida.
-// ═══════════════════════════════════════════════════════════
-function MasCuponesSection({ alianzasNorm = [], promosLocalidad = [], onAddCupon, onOpenOferta, sectionRef }) {
-  // Combinar alianzas + promos de localidad (no-alojamiento), sin duplicados
-  const seen = new Set();
-  const miniPromos = [...alianzasNorm, ...promosLocalidad].filter(p => {
-    const key = String(p.id);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return p.categoria !== 'alojamiento';
-  });
-  if (!miniPromos.length) return null;
-  return (
-    <section ref={sectionRef} style={{ background: C.bg, borderTop: `1px solid ${C.line}`, paddingTop: 48, paddingBottom: 48 }}>
-      <div className="max-w-[1328px] mx-auto">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, paddingLeft: 40, paddingRight: 40 }}>
-          <img src="/ico-disc.svg" alt="" style={{ width: 30, height: 30 }} />
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: 0 }}>
-            ¡Más cupones agregás, más beneficios para vos!
-          </h2>
-        </div>
-        {/* Fila horizontal scrolleable con fade derecho */}
-        <div style={{ position: 'relative' }}>
-          <div style={{ overflowX: 'auto', paddingLeft: 40, paddingBottom: 8 }} className="no-scrollbar">
-            <div style={{ display: 'flex', gap: 14, width: 'max-content', paddingRight: 40 }}>
-              {miniPromos.map((p, i) => (
-                <MiniPromoCard key={p.id || i} promo={p} onAdd={() => onAddCupon(p)} onOpenOferta={onOpenOferta} />
-              ))}
-            </div>
+      <div style={{ position: 'relative' }}>
+        <div
+          style={{ overflowX: 'auto', paddingLeft: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))', paddingBottom: 8 }}
+          className="no-scrollbar"
+        >
+          {/* stretch, igual que la tira de la home: todas las fichas toman el
+              alto de la más alta y la fila no queda escalonada. */}
+          <div style={{ display: 'flex', gap: 24, width: 'max-content', paddingRight: 56, alignItems: 'stretch' }}>
+            {promos.map(p => (
+              <div key={p.id} style={{ width: 340, flexShrink: 0, display: 'flex' }}>
+                <OfertaCard promo={p} onOpen={onOpenOferta} />
+              </div>
+            ))}
           </div>
-          {/* Fade derecho */}
-          <div style={{ position: 'absolute', top: 0, right: 0, bottom: 8, width: 120, background: `linear-gradient(to right, transparent, ${C.bg})`, pointerEvents: 'none', zIndex: 2 }} />
         </div>
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 8, width: 120, background: `linear-gradient(to right, transparent, ${C.bg})`, pointerEvents: 'none', zIndex: 2 }} />
       </div>
     </section>
   );
@@ -815,10 +750,11 @@ function MasCuponesSection({ alianzasNorm = [], promosLocalidad = [], onAddCupon
 //  repitan el cableado de la cámara y del pedido de fecha. El panel en sí no
 //  sabe nada de modales: recibe callbacks y listo.
 // ═══════════════════════════════════════════════════════════
-function PanelOfertas({ promos, session, ofertaId, onOpenOferta, onComprarPase }) {
+function PanelOfertas({ promos, session, ofertaId, cuponesEnZona, cargando, onOpenOferta, onComprarPase, onSuscribirHoteleria }) {
   const { addCupon } = useCarrito();
   const [escaneando, setEscaneando] = useState(false);
   const [pidiendoFecha, setPidiendoFecha] = useState(null);
+  const [regalando, setRegalando] = useState(false);
   const [aviso, setAviso] = useState('');
 
   return (
@@ -827,12 +763,15 @@ function PanelOfertas({ promos, session, ofertaId, onOpenOferta, onComprarPase }
         promos={promos}
         session={session}
         ofertaId={ofertaId}
+        cuponesEnZona={cuponesEnZona}
+        cargando={cargando}
         onOpenOferta={onOpenOferta}
         onComprarPase={onComprarPase}
         onSumarCupon={p => addCupon(p)}
         onCanjear={() => setEscaneando(true)}
         onCoordinarFecha={p => setPidiendoFecha(p)}
         onVerPase={() => onComprarPase?.(7)}
+        onRegalarPase={() => setRegalando(true)}
       />
       {aviso && (
         <div style={{ fontSize: 12.5, color: C.ink2, textAlign: 'center', lineHeight: 1.5 }}>{aviso}</div>
@@ -850,46 +789,34 @@ function PanelOfertas({ promos, session, ofertaId, onOpenOferta, onComprarPase }
           onEnviada={() => { setPidiendoFecha(null); setAviso('Pedido enviado. El comercio tiene 72 horas para responder.'); }}
         />
       )}
+      {/* Montado siempre y no detrás de `regalando`: el drawer entra
+          deslizándose, y si naciera con el click no habría estado inicial
+          desde el cual animar — aparecería puesto. Cerrado no molesta:
+          está fuera de pantalla, sin pointer-events y aria-hidden. */}
+      <PaseRegaloDrawer
+        abierto={regalando}
+        onCerrar={() => setRegalando(false)}
+        onElegir={id => {
+          setRegalando(false);
+          if (id === 'empresa') onSuscribirHoteleria?.();
+          else onComprarPase?.();
+        }}
+      />
     </>
   );
 }
 
-function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loading, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase }) {
+function AlojamientoDetail({ item, promos, promosLocalidad = [], similares = [], loading, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
   const plan = item.plan || 'PLUS';
   const cfg  = PLAN_CFG[plan];
-  const { addCupon } = useCarrito();
-  const alianzasSectionRef = useRef(null);
 
   const tags = item.tags?.length
     ? item.tags
     : ['A 80m del mar', 'Piscina climatizada', 'Spa y circuito termal', 'Desayuno buffet incluido', 'Check-in 24hs', 'Cancelación flexible'];
 
-  function normPromo(p) {
-    return { ...p, title: p.title || p.titulo || '', image: p.image || p.imagen_url || '' };
-  }
-  function normAlianza(al) {
-    if (al.promociones) {
-      const p = al.promociones;
-      return {
-        ...p,
-        title: p.titulo || '',
-        image: p.imagen_url || '',
-        badge: p.badge || '',
-        proveedorNombre: p.negocios?.nombre || '',
-        negocioLocalidad: p.negocios?.localidad || '',
-        ahorroEstimado: p.ahorro_estimado || 0,
-        ahorroMax: p.ahorro_max || null,
-        tokens_costo: p.tokens_costo,
-      };
-    }
-    if (al.promo) return { ...al.promo };
-    return null;
-  }
-  const alianzasNorm = alianzas.map(normAlianza).filter(Boolean);
-
   return (
     <>
-      <div className="max-w-[1328px] mx-auto px-10">
+      <div className="max-w-[var(--site-max)] mx-auto px-[var(--site-pad)]">
 
         {/* ── Título + acciones ────────────────────────────── */}
         <div style={{ paddingTop: 20 }}>
@@ -922,7 +849,7 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
         </div>
 
         {/* ── Grid dos columnas ────────────────────────────── */}
-        <div className="grid gap-12 items-start py-6" style={{ gridTemplateColumns: '1.65fr 1fr' }}>
+        <div className="grid gap-12 items-start pt-11 pb-6" style={{ gridTemplateColumns: '1.65fr 1fr' }}>
 
           {/* LEFT */}
           <div>
@@ -943,6 +870,12 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
                 ))}
               </div>
 
+              <ZonaDescuentosBloque
+                item={item}
+                promosLocalidad={promosLocalidad}
+                onOpenOferta={onOpenOferta}
+                onOpenLocalidad={onOpenLocalidad}
+              />
             </div>
           </div>
 
@@ -952,33 +885,19 @@ function AlojamientoDetail({ item, promos, alianzas, promosLocalidad = [], loadi
               promos={promos.map(p => ({ ...p, title: p.title || p.titulo, image: p.image || p.imagen_url }))}
               session={session}
               ofertaId={item.ofertaId}
+              cuponesEnZona={promosLocalidad.length}
+              cargando={loading}
               onOpenOferta={onOpenOferta}
               onComprarPase={onComprarPase}
+              onSuscribirHoteleria={onSuscribirHoteleria}
             />
             <MiCarritoPanel />
           </div>
         </div>
       </div>
 
-      {/* ── Otros descuentos en la zona — mapa interactivo (antes de "Más cupones") ── */}
-      <ZonaDescuentosSection
-        item={item}
-        promosLocalidad={promosLocalidad}
-        onAddCupon={addCupon}
-        onOpenOferta={onOpenOferta}
-        onOpenLocalidad={onOpenLocalidad}
-      />
-
-      {/* ── Más cupones — última sección antes del footer ── */}
-      {!loading && (
-        <MasCuponesSection
-          alianzasNorm={alianzasNorm}
-          promosLocalidad={promosLocalidad}
-          onAddCupon={addCupon}
-          onOpenOferta={onOpenOferta}
-          sectionRef={alianzasSectionRef}
-        />
-      )}
+      {/* ── También puede interesarte — última sección antes del footer ── */}
+      {!loading && <SimilaresSection promos={similares} onOpenOferta={onOpenOferta} />}
 
     </>
   );
@@ -999,10 +918,8 @@ const IgIcon = ({ size = 14 }) => (
 // ═══════════════════════════════════════════════════════════
 //  GastroExperienciaDetail — ficha de socio (info + promos)
 // ═══════════════════════════════════════════════════════════
-function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promosLocalidad = [], loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired, onComprarPase }) {
-  const { addCupon } = useCarrito();
+function GastroExperienciaDetail({ item, tipo, promos = [], promosLocalidad = [], similares = [], loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
   const plan = item.plan || 'PLUS';
-  const alianzasNorm = alianzas.map(normAlianzaItem).filter(Boolean);
   const category  = item.category || item.type || '';
   const pinColor  = TIPO_COLORS[category] || C.muted;
   const isGastro  = tipo === 'salidas';
@@ -1040,7 +957,7 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
 
   return (
     <>
-      <div className="max-w-[1328px] mx-auto px-10">
+      <div className="max-w-[var(--site-max)] mx-auto px-[var(--site-pad)]">
 
         {/* ── Título + acciones (igual que alojamiento) ────── */}
         <div style={{ paddingTop: 20 }}>
@@ -1073,7 +990,7 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
         </div>
 
         {/* ── Grid dos columnas (igual que alojamiento) ────── */}
-        <div className="grid gap-12 items-start py-6" style={{ gridTemplateColumns: '1.65fr 1fr' }}>
+        <div className="grid gap-12 items-start pt-11 pb-6" style={{ gridTemplateColumns: '1.65fr 1fr' }}>
 
           {/* LEFT — galería + info del lugar */}
           <div>
@@ -1140,18 +1057,32 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
                 </div>
               )}
             </div>
+
+            <ZonaDescuentosBloque
+              item={item}
+              promosLocalidad={promosLocalidad}
+              onOpenOferta={onOpenOferta}
+              onOpenLocalidad={onOpenLocalidad}
+            />
             </div>{/* end marginTop wrapper */}
           </div>
 
           {/* RIGHT — sidebar sticky: promociones (siempre) + horario (si está cargado) */}
           <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {promosVisibles.length > 0 ? (
+            {/* `loading` va en la condición y no sólo en el prop: mientras la
+                consulta viaja, `promosVisibles` está vacío igual que cuando el
+                socio no tiene ninguna oferta, y este lado del ternario decía
+                "no cuenta con cupones disponibles" antes de saberlo. */}
+            {(loading || promosVisibles.length > 0) ? (
               <PanelOfertas
                 promos={promosVisibles}
                 session={session}
                 ofertaId={item.ofertaId}
+                cuponesEnZona={promosLocalidad.length}
+                cargando={loading}
                 onOpenOferta={onOpenOferta}
                 onComprarPase={onComprarPase}
+                onSuscribirHoteleria={onSuscribirHoteleria}
               />
             ) : (
               <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: '0 20px 60px -30px rgba(11,16,32,0.15)', overflow: 'hidden' }}>
@@ -1184,24 +1115,8 @@ function GastroExperienciaDetail({ item, tipo, promos = [], alianzas = [], promo
         </div>
       </div>
 
-      {/* ── Otros descuentos en la zona — mapa interactivo (antes de "Más cupones") ── */}
-      <ZonaDescuentosSection
-        item={item}
-        promosLocalidad={promosLocalidad}
-        onAddCupon={addCupon}
-        onOpenOferta={onOpenOferta}
-        onOpenLocalidad={onOpenLocalidad}
-      />
-
-      {/* ── Más cupones — última sección antes del footer ── */}
-      {!loading && (
-        <MasCuponesSection
-          alianzasNorm={alianzasNorm}
-          promosLocalidad={promosLocalidad}
-          onAddCupon={addCupon}
-          onOpenOferta={onOpenOferta}
-        />
-      )}
+      {/* ── También puede interesarte — última sección antes del footer ── */}
+      {!loading && <SimilaresSection promos={similares} onOpenOferta={onOpenOferta} />}
     </>
   );
 }
@@ -1215,21 +1130,20 @@ const CLASE_PLURAL = {
   'Camping': 'Campings', 'Glamping': 'Glamping',
 };
 
-export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired, onComprarPase }) {
+export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad, onOpenSeccion, onOpenClase, session, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
   // El tracking va antes del return temprano: los hooks no pueden quedar
   // detrás de una condición. La visita se cuenta una vez por pestaña.
   useEffect(() => { if (item?.id) trackVistaFicha(item.id); }, [item?.id]);
 
   if (!item) return null;
 
-  const { addCupon } = useCarrito();
   const tipo  = detectarTipo(item);
   const plan  = item.plan || 'PLUS';
   const pinColor = TIPO_COLORS[item.type || item.category] || C.primary;
 
   const [promos,          setPromos]          = useState([]);
-  const [alianzas,        setAlianzas]        = useState([]);
   const [promosLocalidad, setPromosLocalidad] = useState([]);
+  const [similares,       setSimilares]       = useState([]);
   const [loading,         setLoading]         = useState(true);
 
   const backLabel = { alojamiento: 'Alojamientos', salidas: 'Salidas', aventura_relax: 'Aventura & Relax' }[tipo] || 'Inicio';
@@ -1239,15 +1153,15 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
       setLoading(true);
       if (!item.id) { setLoading(false); return; }
 
-      const [propiasResult, alianzasResult, localidadResult] = await Promise.all([
+      const [propiasResult, localidadResult, similaresResult] = await Promise.all([
         getPromosDeNegocio(item.id),
-        getAlianzasPorNegocio(item.id),
         getPromosLocalidad(item.localidad || '', item.id),
+        getPromosSimilares(item),
       ]);
 
       setPromos(propiasResult.filter(p => p.tokens_costo !== 0));
-      setAlianzas(alianzasResult);
       setPromosLocalidad(localidadResult);
+      setSimilares(similaresResult);
       setLoading(false);
     }
     cargar();
@@ -1257,7 +1171,7 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
     <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Inter', system-ui, sans-serif", color: C.ink }}>
 
       {/* ── Wrapper único alineado con el nav ─────────────── */}
-      <div className="max-w-[1328px] mx-auto px-10">
+      <div className="max-w-[var(--site-max)] mx-auto px-[var(--site-pad)]">
 
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-3 text-[13px] pt-4 pb-0 flex-wrap" style={{ color: C.muted }}>
@@ -1336,17 +1250,18 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
         <AlojamientoDetail
           item={item}
           promos={promos}
-          alianzas={alianzas}
           promosLocalidad={promosLocalidad}
+          similares={similares}
           loading={loading}
           onOpenOferta={onOpenOferta}
           onOpenLocalidad={onOpenLocalidad}
           session={session}
           onLoginRequired={onLoginRequired}
           onComprarPase={onComprarPase}
+          onSuscribirHoteleria={onSuscribirHoteleria}
         />
       ) : (
-        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} alianzas={alianzas} promosLocalidad={promosLocalidad} loading={loading} session={session} onOpenOferta={onOpenOferta} onOpenLocalidad={onOpenLocalidad} onLoginRequired={onLoginRequired} onComprarPase={onComprarPase} />
+        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} promosLocalidad={promosLocalidad} similares={similares} loading={loading} session={session} onOpenOferta={onOpenOferta} onOpenLocalidad={onOpenLocalidad} onLoginRequired={onLoginRequired} onComprarPase={onComprarPase} onSuscribirHoteleria={onSuscribirHoteleria} />
       )}
 
       {/* Drawer */}

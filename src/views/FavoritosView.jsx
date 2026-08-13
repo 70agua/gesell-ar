@@ -36,7 +36,7 @@ export default function FavoritosView({ accommodations = [], dining = [], promos
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff', fontFamily: A.font, paddingTop: 92 }}>
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px 64px' }}>
+      <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: '0 var(--site-pad) 64px' }}>
 
         {/* Header */}
         <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: A.primary, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: A.font, padding: 0, marginBottom: 18 }}>

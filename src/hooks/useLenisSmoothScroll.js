@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import Lenis from 'lenis';
+import { SCROLL_SUAVE } from '../lib/efectos';
 
 /**
  * (2026-08-09) Después de tres vueltas intentando distinguir "rueda de
@@ -88,7 +89,29 @@ const SCROLL_TO_DURATION = 2.2;
 const scrollToEasing = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 export default function useLenisSmoothScroll() {
+  // Apagado por el interruptor (ver src/lib/efectos.js): sin Lenis, el scroll
+  // de la página es el nativo del navegador y `cuponear:scroll-to` se resuelve
+  // con scrollIntoView — el único consumidor del evento es el botón "Conocé
+  // todas las ofertas", que si no dejaría de hacer nada.
+  //
+  // Salto seco, no `behavior: 'smooth'` (2026-08-13): el smooth programático
+  // del navegador se verificó INERTE en este Chrome —no se mueve ni un píxel,
+  // y pasa igual en cualquier página, no es cosa de la app—, así que dejarlo
+  // en smooth es dejar el botón muerto. Con los efectos apagados el salto
+  // seco es además lo coherente; la curva vuelve sola al prender SCROLL_SUAVE.
   useEffect(() => {
+    if (SCROLL_SUAVE) return;
+    const irANativo = (e) => {
+      const target = e.detail?.target;
+      const el = typeof target === 'string' ? document.querySelector(target) : target;
+      el?.scrollIntoView({ block: 'start' });
+    };
+    window.addEventListener('cuponear:scroll-to', irANativo);
+    return () => window.removeEventListener('cuponear:scroll-to', irANativo);
+  }, []);
+
+  useEffect(() => {
+    if (!SCROLL_SUAVE) return;
     const lenis = new Lenis({
       autoRaf: true,
     });

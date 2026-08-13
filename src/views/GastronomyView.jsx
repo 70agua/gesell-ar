@@ -413,7 +413,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
     <div style={{ minHeight:'100vh', background:A.bg, fontFamily:A.font, color:A.ink, paddingTop:70 }}>
 
       {/* ── Body: sidebar + [mapa + resultados] ── */}
-      <div style={{ maxWidth:1328, margin:'0 auto', padding:'32px 40px 72px', display:'flex', gap:32, alignItems:'flex-start' }}>
+      <div style={{ maxWidth: 'var(--site-max)', margin:'0 auto', padding:'32px var(--site-pad) 72px', display:'flex', gap:32, alignItems:'flex-start' }}>
 
         {/* ── SIDEBAR ── */}
         <aside style={{ width:260, flexShrink:0 }}>

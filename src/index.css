@@ -1,9 +1,22 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
 
-@media (min-width: 1024px) {
-  .zona-panel { display: flex !important; }
-}
+/* El ancho de la página no cambia cuando se bloquea el scroll (2026-08-13).
+   Todo overlay que tapa la pantalla apaga el scroll de fondo con
+   overflow:hidden en html/body —el drawer GIFT PaSS y el slide de "Pases de
+   regalo" en HeroPase.jsx, CarritoDrawer.jsx—, y eso se lleva puesta la
+   barra de scroll clásica: el viewport se ensancha 15px de golpe y TODO lo
+   centrado salta 7.5px a la derecha. Se veía en el bloque "Aprovechá tu pase
+   cada día", donde el texto y la fila de botones se corrían al abrir el
+   drawer y volvían al cerrarlo, y también en la navbar flotante.
+   `stable` reserva el canal siempre, haya barra o no, así que esconder el
+   overflow ya no devuelve esos 15px y no hay salto. Va acá y no en cada
+   overlay a propósito: compensar con padding en el lock arregla el contenido
+   en flujo pero no los position:fixed —la navbar seguiría saltando—, y
+   habría que repetirlo en cada lugar que bloquee el scroll, incluidos los
+   que se escriban después.
+   En mobile no cambia nada: ahí las barras son overlay, no ocupan ancho. */
+html { scrollbar-gutter: stable; }
 
 .g-side-section:last-child {
   border-bottom: none;

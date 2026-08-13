@@ -64,3 +64,54 @@
   --color-accent: var(--color-accent-600);
   --color-accent-bg: var(--color-accent-100);
 }
+
+/*
+ * Ancho del contenedor del sitio (2026-08-13).
+ *
+ * Estaba hardcodeado como 1328px en 25 lugares de 13 archivos, en cuatro
+ * formatos distintos (`max-width: 1328px` en CSS, `maxWidth: 1328` en
+ * estilos inline, `max-w-[1328px]` en Tailwind, y adentro de un
+ * `calc((100vw - 1328px) / 2 + 40px)` para los carruseles que sangran).
+ * Cambiarlo obligaba a tocar los 25 a mano y era imposible saber si
+ * quedaba alguno suelto — de hecho el margen que dejaba en pantallas
+ * grandes se reportó como un bug.
+ *
+ * 1328 → 1600: en un monitor de 1470px el contenedor viejo dejaba ~64px
+ * de banda vacía a cada lado además del padding; con 1600 el max-width ya
+ * no llega a activarse a ese ancho y el contenido ocupa todo salvo los
+ * 40px de padding. En pantallas más grandes sigue topando, que es el
+ * punto de tener un máximo: sin él, las líneas de texto se vuelven
+ * ilegibles a lo ancho.
+ *
+ * Va en un :root aparte y no adentro de @theme: @theme es de Tailwind y
+ * ahí las variables generan utilidades según su namespace
+ * (--color-*, --spacing-*, ...). Esta no pertenece a ninguno y sólo se
+ * usa explícita, incluso desde Tailwind (`max-w-[var(--site-max)]`).
+ */
+:root {
+  --site-max: 1600px;
+  /*
+   * Aire lateral del contenedor, aparte de --site-max (2026-08-13).
+   *
+   * Son dos perillas distintas y hay que poder moverlas por separado: el
+   * margen que ves a la izquierda es `(pantalla − --site-max) / 2 +
+   * --site-pad`, así que cuando la pantalla es más angosta que --site-max
+   * el primer término es CERO y lo único que separa el contenido del borde
+   * es este padding. Con --site-max en 1600 y una pantalla de 1470 pasaba
+   * justo eso: quedaba pegado a 40px. Subirlo a 80 da el aire sin tener
+   * que achicar --site-max, que es lo que volvería a generar la banda
+   * vacía en monitores grandes.
+   *
+   * Para tunearlo: este número es el margen mínimo garantizado a cada lado
+   * en cualquier ancho. Es el único lugar donde se toca.
+   */
+  --site-pad: 80px;
+}
+
+/* En mobile el aire de 80px se come la pantalla (sobre un teléfono de
+   390px serían 160 de los 390 sólo en márgenes), y ahí lo apretado se
+   entiende. Las vistas que ya traían su propia rama mobile —Marketplace y
+   Ofertas, con 16px— la conservan; esto cubre a las que no la tenían. */
+@media (max-width: 760px) {
+  :root { --site-pad: 20px; }
+}

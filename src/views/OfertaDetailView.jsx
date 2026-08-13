@@ -411,7 +411,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
     <div className="min-h-screen bg-white" style={{ paddingTop: 100, fontFamily: "'Inter', system-ui, sans-serif", color: C.ink }}>
 
       {/* ── Breadcrumb + tipo de oferta ─────────────────────── */}
-      <div className="max-w-[1328px] mx-auto px-10">
+      <div className="max-w-[var(--site-max)] mx-auto px-[var(--site-pad)]">
 
           {/* Breadcrumb: Home › Ofertas (gris) › Localidad › Proveedor (bold, púrpura) */}
           <nav className="flex items-center gap-3 text-[13px] pt-4 pb-0 flex-wrap" style={{ color: C.muted }}>
@@ -482,7 +482,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
       </div>
 
       {/* ── Main two-column ──────────────────────────────────── */}
-      <div className="max-w-[1328px] mx-auto px-10" style={{ paddingTop: 20 }}>
+      <div className="max-w-[var(--site-max)] mx-auto px-[var(--site-pad)]" style={{ paddingTop: 20 }}>
         <div className="grid gap-12 items-start" style={{ gridTemplateColumns: '1.6fr 1fr' }}>
 
           {/* ═══ LEFT ══════════════════════════════════════════ */}

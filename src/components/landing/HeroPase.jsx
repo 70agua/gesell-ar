@@ -133,16 +133,19 @@
 //  Estilos responsive inyectados inline (<style> local, clases .pv3-*).
 // ============================================================
 
-import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ArrowLeft, ArrowDown, Gift, X } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ArrowRight, ArrowLeft, ArrowDown, Gift, X, MapPin, ChevronDown } from 'lucide-react';
 import Lenis from 'lenis';
+import { SCROLL_SUAVE } from '../../lib/efectos';
 import CouponRain from '../hero/CouponRain';
 import PaSSMark from '../PaSSMark';
-import CuponIcon from '../CuponIcon';
 import CheckoutHoteleroView from '../../views/CheckoutHoteleroView';
 import { COUPON_BASE_WIDTH } from '../hero/couponRain.config';
 import { subProgress } from '../hero/useScrollProgress';
 import { useLoading } from '../../lib/loading';
+import { LOCALIDADES } from '../../lib/localidades';
+import { DESTINOS } from '../hero/destinosRegalo';
 import '../hero/hero-coupons.css';
 
 // ─── Design tokens ───────────────────────────────────────────
@@ -176,44 +179,9 @@ const DORADO_GIFT = '#FFB94A';
 // una suscripción mensual, y de ahí para adelante no se parecen en nada. Por eso
 // es la primera pregunta del formulario y no un detalle a resolver después.
 //
-// `quien` va antes que `detalle` a propósito: primero que el que lee se
-// reconozca ("soy esto"), después qué se lleva. Al revés obliga a deducir de la
-// mecánica si la opción es para uno. En "persona" no hay `quien` — el título ya
-// quedó corto ("Regalar un pase") y sumarle una línea de quién es le devolvía
-// el peso de dos renglones que "Suscripción PRO" sí necesita para lo suyo.
-//
-// Cada opción ES el botón: clickearla arranca su camino, no la deja
-// seleccionada esperando un "Continuar" (2026-08-11). Con dos opciones y sin
-// nada que revisar entre elegir y seguir, el paso intermedio sólo sumaba un
-// click. Por eso tampoco hay punto de radio: no es un formulario que se
-// completa, son dos puertas.
-//
-// Sólo "empresa" lleva tag (2026-08-11 lo probó también en "persona" por
-// simetría, pero el tag "Personas" ahí no aportaba nada que el título
-// "Regalar un pase" no dijera ya, así que se sacó de nuevo). `tagColor` es
-// el primary de la app — es la que lleva a otro producto (suscripción) y no
-// al dorado de GIFT PaSS.
-//
-// `icono` es el SVG que va a la izquierda de cada opción (2026-08-11):
-// gift-01 (etiqueta/porcentaje) para el regalo suelto, gift-02 (caja con
-// moño) para la suscripción — la caja es la que de verdad regala EN SERIE.
-const DESTINOS = [
-  {
-    id: 'persona',
-    icono: '/gift-01.svg',
-    titulo: 'Regalar un pase',
-    detalle: 'Elegís cuántos días tendrá el catálogo a su disposición.',
-  },
-  {
-    id: 'empresa',
-    icono: '/gift-02.svg',
-    titulo: 'Suscripción PRO',
-    tag: 'Empresas',
-    tagColor: A.primary,
-    quien: 'Para hoteleros, agencias de turismo e inmobiliarias.',
-    detalle: 'Obsequiás acceso a todos tus huéspedes. Desde $30.000 /mes adquirí tu membresía.',
-  },
-];
+// Las tarjetas en sí (DESTINOS) se mudaron a hero/destinosRegalo.js: el panel
+// de ofertas del socio abre el mismo drawer (ver PaseRegaloDrawer), y dos
+// copias de esta lista se despegan al primer retoque de copy en una sola.
 
 const PASES = [
   { id: 'x3', dias: 3, label: '3 días', precio: '$20.000' },
@@ -360,6 +328,166 @@ function TickerPalabras({ reducedMotion }) {
   );
 }
 
+// ─── Buscador de ubicación (2026-08-12) ────────────────────────
+// Reemplaza a los dos accesos que vivían acá abajo del título ("Obtener
+// pases diarios" / "Regalar pases", ver la nota junto a .pv3-gift-icon-btn
+// más abajo para dónde se mudó el segundo). Arranca en Villa Gesell —sede
+// del catálogo— y deja elegir cualquier otra de LOCALIDADES
+// (lib/localidades.js, la misma lista que usan los filtros del resto del
+// sitio) desde un desplegable simple. RADIO_KM es una constante y no
+// todavía un control: el diseño lo muestra como dato fijo ("+20km
+// alrededor"), no como un slider — si en algún momento se vuelve
+// editable, este es el único lugar que hay que tocar.
+const RADIO_KM = 20;
+
+// Aire mínimo entre el desplegable y el borde de la ventana, y separación
+// entre el botón y el desplegable. Los dos entran en la cuenta del alto
+// disponible (ver medir()).
+const MENU_AIRE = 16;
+const MENU_GAP = 8;
+// Debajo de esto no vale la pena abrir hacia abajo: si no entra ni un par de
+// ítems, conviene abrir hacia arriba (ver medir()).
+const MENU_ALTO_MIN = 160;
+
+function BuscadorUbicacion() {
+  const [localidad, setLocalidad] = useState('Villa Gesell');
+  const [abierto, setAbierto] = useState(false);
+  // Coordenadas del desplegable en el viewport — el menú va por portal a
+  // <body> (ver abajo), así que no las hereda de nadie: se miden a mano.
+  const [pos, setPos] = useState(null);
+  const wrapRef = useRef(null);
+  const menuRef = useRef(null);
+
+  // Medir contra el viewport: dónde arranca el menú y CUÁNTO ALTO tiene
+  // permitido. El alto no es una constante a ojo — es lo que queda hasta el
+  // borde de la ventana, así que la lista nunca se desborda de la pantalla
+  // (se pedía: "la lista es tan grande que queda por debajo de la sección
+  // Cuponeá"). Lo que no entra se scrollea adentro (overflow-y en
+  // .pv3-buscador-menu). Si abajo no queda casi nada y arriba hay más, se
+  // abre hacia arriba en vez de achicarse a una franja inútil.
+  const medir = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    // Si el botón se fue de pantalla (scroll largo con el menú abierto), el
+    // desplegable queda colgado de la nada: se cierra en vez de seguir
+    // flotando pegado a un ancla que ya no se ve.
+    if (r.bottom < 0 || r.top > window.innerHeight) { setAbierto(false); return; }
+    const abajo  = window.innerHeight - r.bottom - MENU_GAP - MENU_AIRE;
+    const arriba = r.top - MENU_GAP - MENU_AIRE;
+    const haciaArriba = abajo < MENU_ALTO_MIN && arriba > abajo;
+    setPos({
+      left: r.left,
+      width: r.width,
+      haciaArriba,
+      top:    haciaArriba ? undefined : r.bottom + MENU_GAP,
+      bottom: haciaArriba ? window.innerHeight - r.top + MENU_GAP : undefined,
+      maxHeight: Math.max(MENU_ALTO_MIN, haciaArriba ? arriba : abajo),
+    });
+  }, []);
+
+  // Medir ANTES de pintar (useLayoutEffect, no useEffect): con el menú ya en
+  // el DOM pero sin posición, un frame intermedio lo mostraría pegado a la
+  // esquina superior izquierda de la página.
+  useLayoutEffect(() => {
+    if (abierto) medir();
+  }, [abierto, medir]);
+
+  // Cerrar al clickear afuera o con Escape — mismo patrón que cualquier
+  // desplegable liviano hecho a mano en este archivo (ver onDragStart de
+  // ScrollbarSutil para el mismo criterio de listeners en window/document).
+  // El menú ya no está adentro de wrapRef (vive en <body>), así que "afuera"
+  // se pregunta contra los dos nodos: si no, el mousedown sobre un ítem lo
+  // desmontaría antes de que llegue su click y no se podría elegir nada.
+  //
+  // Reposicionar en scroll y resize: position:fixed no acompaña al botón
+  // cuando la página se mueve. Va en captura porque el scroll de un
+  // contenedor interno no burbujea, y passive porque sólo lee.
+  useEffect(() => {
+    if (!abierto) return;
+    const onFuera = (e) => {
+      if (wrapRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
+      setAbierto(false);
+    };
+    const onEsc = (e) => { if (e.key === 'Escape') setAbierto(false); };
+    document.addEventListener('mousedown', onFuera);
+    document.addEventListener('keydown', onEsc);
+    window.addEventListener('scroll', medir, { capture: true, passive: true });
+    window.addEventListener('resize', medir);
+    return () => {
+      document.removeEventListener('mousedown', onFuera);
+      document.removeEventListener('keydown', onEsc);
+      window.removeEventListener('scroll', medir, { capture: true });
+      window.removeEventListener('resize', medir);
+    };
+  }, [abierto, medir]);
+
+  return (
+    <div className="pv3-buscador" ref={wrapRef}>
+      <button
+        type="button"
+        className="pv3-buscador-btn"
+        aria-expanded={abierto}
+        aria-haspopup="listbox"
+        onClick={() => setAbierto(a => !a)}
+      >
+        <MapPin size={18} strokeWidth={2.2} className="pv3-buscador-pin" aria-hidden="true" />
+        <span className="pv3-buscador-localidad">{localidad}</span>
+        <span className="pv3-buscador-radio">+{RADIO_KM}km alrededor</span>
+        <ChevronDown size={16} strokeWidth={2.2} className="pv3-buscador-chevron" aria-hidden="true" />
+      </button>
+      {/* Portal a <body>, no hijo del botón (2026-08-12): dentro del hero el
+          desplegable NO puede quedar por encima de todo, por más z-index que
+          se le ponga. La <section> del hero lleva zIndex:0 inline y
+          position:relative, o sea que es la raíz de su propio stacking
+          context, y la sección siguiente ("Cuponeá", HomeView) es
+          position:relative con zIndex:1 — todo el hero pinta por debajo de
+          ella como bloque, y eso es a propósito (ver la nota en HomeView,
+          tapa las imágenes de la galería). El z-index de acá adentro sólo
+          ordenaba contra los hermanos del hero, nunca contra esa sección.
+          Colgado de <body> el menú queda fuera de esa trampa y su z-index es
+          absoluto. Los estilos siguen viniendo del <style> de este archivo,
+          que es global (no scopeado). */}
+      {abierto && pos && createPortal(
+        <div
+          ref={menuRef}
+          className="pv3-buscador-menu"
+          role="listbox"
+          /* Lenis (scroll suave global, ver useLenisSmoothScroll.js)
+             intercepta la rueda y mueve la página aunque el cursor esté
+             sobre un contenedor scrolleable: allowNestedScroll está apagado
+             salvo con la página bloqueada. data-lenis-prevent le dice que no
+             toque los wheel de acá adentro y los deje al scroll nativo —para
+             una lista de seis ítems no hace falta la instancia propia con
+             inercia que sí tiene .gp-panel (ver el useEffect de
+             lenisPanelRef). */
+          data-lenis-prevent
+          style={{
+            left: pos.left, width: pos.width,
+            top: pos.top, bottom: pos.bottom,
+            maxHeight: pos.maxHeight,
+          }}
+        >
+          {LOCALIDADES.map(loc => (
+            <button
+              key={loc}
+              type="button"
+              role="option"
+              aria-selected={loc === localidad}
+              className={`pv3-buscador-item${loc === localidad ? ' pv3-buscador-item--activa' : ''}`}
+              onClick={() => { setLocalidad(loc); setAbierto(false); }}
+            >
+              {loc}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
 // ─── Panel "Pases de regalo" (ex-segundo acto) ─────────────────
 // (2026-08-10) Dejó de ser una posta del scroll-jack — ver la nota fechada
 // ese mismo día al principio del archivo. Ahora es un panel propio que se
@@ -500,25 +628,13 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
   useEffect(() => { regaloAbiertoRef.current = regaloAbierto; }, [regaloAbierto]);
   // Paso 1 de "Pases de regalo" (2026-08-11): clickear el acceso ya no salta
   // directo al slide completo (regaloAbierto) — primero dissuelve el bloque
-  // "¿Cuánto dura tu viaje?" y muestra la caja GIFT PaSS ahí mismo, sobre la
-  // galería (ver .pv3-gift-inline). Elegir una de sus dos opciones es lo que
+  // "¿Cuánto dura tu viaje?" y abre el drawer GIFT PaSS desde la derecha
+  // (ver .pv3-gift-drawer). Elegir una de sus dos opciones es lo que
   // recién ahí dispara regaloAbierto, el slide grande que ya existía. Viven
   // separados porque son dos preguntas distintas: "¿mostrar la caja?" vs
   // "¿correr toda la pantalla?" — regaloAbierto puede estar en true con
   // giftAbierto en true (van juntos en el camino normal), pero no al revés.
   const [giftAbierto, setGiftAbierto] = useState(false);
-
-  // Cuál de las dos está "abierta" (2026-08-12, tercera vuelta): sólo
-  // depende de si el flujo de regalo está realmente abierto (la caja sobre
-  // la galería o el slide grande) — YA NO del hover. Antes, pasar el mouse
-  // por "Regalá cuponeras" despintaba a "Pases diarios" (bug reportado: "no
-  // se despinte el botón que no se está presionando: queda en azul a pesar
-  // de estar haciendo hover en el otro botón" — el cruce de hover era
-  // justo lo que causaba eso). Ahora cada botón sólo reacciona a SU PROPIO
-  // hover (CSS puro, :hover — ver .pv3-acceso:hover en el <style>, ya no
-  // hace falta JS para esto), y regaloSeleccionado es lo único que decide
-  // cuál de las dos está pintada de azul.
-  const regaloSeleccionado = giftAbierto || regaloAbierto;
 
   // Qué camino se eligió en el paso 1/2 (persona/empresa/null). Decide qué
   // muestra el sidebar del paso 2, sobre los cupones — ver .pv3-hc-stage,
@@ -557,6 +673,25 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
     return () => window.dispatchEvent(new Event('cuponear:navbar-unpin'));
   }, [destinoElegido]);
 
+  // Disparado por el ícono de gift pass, junto a "¿Más días?" (2026-08-12,
+  // reemplaza al acceso "Regalar pases" que vivía bajo el título — ver la
+  // nota junto a .pv3-gift-icon-btn en el <style>). Misma lógica que tenía
+  // ese botón, sólo que ahora en un único lugar: en desktop abre el PASO 1
+  // (el drawer GIFT PaSS, ver .pv3-gift-drawer) — elegir una opción adentro
+  // es lo que recién dispara elegirDestino/regaloAbierto. En mobile/
+  // reduced-motion se salta ese paso intermedio (un drawer sobre un ancho ya
+  // angosto no suma nada) y va directo a regaloAbierto, trayendo el panel
+  // (siempre visible en flujo normal ahí) a pantalla con scroll suave.
+  const abrirRegalo = () => {
+    const activo = (window.matchMedia?.('(min-width: 1181px)').matches ?? false) && !reducedMotion;
+    if (activo) {
+      setGiftAbierto(true);
+    } else {
+      setRegaloAbierto(true);
+      document.querySelector('.gp-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   // Elegir un destino dispara el slide grande —lo que "empuja" el
   // contenedor blanco a su lugar final, sobre los cupones, del lado
   // izquierdo. Un solo lugar para esto: lo usan tanto el botón de la caja
@@ -583,7 +718,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
   // .map() duplicado en el paso 1 y en el paso 2 (ver los dos usos, más
   // abajo). `refs`, si se pasa, engancha cada botón a su grupo de la cascada
   // de entrada del paso 2 (hcG2Ref/hcG3Ref) — el paso 1 no la necesita: entra
-  // como bloque único, por CSS (ver .pv3-gift-inline).
+  // como bloque único, por CSS (ver .pv3-gift-drawer).
   const renderOpcionesDestino = (refs) => DESTINOS.map((d, i) => (
     <button
       key={d.id}
@@ -662,7 +797,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
   // galería se movía todo el tiempo, incluso quieto el usuario.
   //
   // Ahora todo el movimiento sale de una sola fuente de TIEMPO (ver
-  // driftAuto, más abajo) — nunca de window.scrollY. Cada columna recorre su
+  // pasoContinuo, más abajo) — nunca de window.scrollY. Cada columna recorre su
   // lista duplicada de fotos (para loop sin costura) a una velocidad propia
   // (COL_META.speed) y en su sentido (up/down), usando módulo sobre la mitad
   // real de su alto para el wrap — así el salto de vuelta al principio cae
@@ -731,13 +866,36 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
       });
     };
 
-    const pintarColumnas = (drift) => {
+    // Posición ACUMULADA por columna, no recalculada desde un reloj
+    // absoluto (2026-08-12, corrige un bug real: "las tiras de la galería
+    // hacen un salto de golpe, como si volvieran a empezar"). La versión
+    // vieja calculaba `(driftAuto * speed) % half` desde cero en CADA
+    // frame, con driftAuto como un reloj que sólo crece. Se probó en el
+    // navegador que la vuelta EN SÍ es perfecta —trasladar exactamente
+    // "half" px muestra el pixel exacto de vuelta al principio, se
+    // comparó captura contra captura—, así que el salto no viene de ahí.
+    // Viene de que "half" no es constante para siempre: cambia cada vez
+    // que medirAltos() se vuelve a llamar (resize de ventana; o el
+    // ResizeObserver de acá abajo, que corrige "half" si el contenido
+    // cambia de alto por cualquier motivo). Con la fórmula vieja, ese
+    // cambio de "half" hace que el resultado del módulo salte a un punto
+    // del ciclo SIN NINGUNA relación con el frame anterior —ahí está el
+    // "como si volviera a empezar"—, aunque el cambio real de altura haya
+    // sido mínimo.
+    // La solución: cada frame SUMA su propio avance a un acumulador por
+    // columna, y el módulo se aplica sobre ESE acumulador, no sobre un
+    // reloj absoluto. Si "half" cambia entre un frame y el siguiente, el
+    // acumulador sigue exactamente donde estaba — no hay nada que saltar;
+    // sólo cambia, de ahí en más, el punto en el que la próxima vuelta
+    // ocurre.
+    const recorridos = [0, 0, 0];
+    const pintarColumnas = (avancePx) => {
       colRefs.current.forEach((nodo, i) => {
         const half = halfHeights.current[i];
         if (!nodo || !half) return;
         const { speed, dir } = COL_META[i];
-        const recorrido = (drift * speed) % half;
-        const offset = dir === 'up' ? -recorrido : -(half - recorrido);
+        recorridos[i] = (recorridos[i] + avancePx * speed) % half;
+        const offset = dir === 'up' ? -recorridos[i] : -(half - recorridos[i]);
         nodo.style.transform = `translate3d(0, ${offset}px, 0)`;
       });
     };
@@ -746,10 +904,19 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
     const onResize = () => medirAltos();
     window.addEventListener('resize', onResize);
 
-    if (reducedMotion) return () => window.removeEventListener('resize', onResize);
+    // Remedir también cuando cambia el ALTO del contenido, no sólo en
+    // resize de ventana: aunque hoy cada celda mide su alto por
+    // aspect-ratio (no depende de que la imagen haya cargado), cualquier
+    // otro motivo de cambio de alto —una fuente que termina de aplicarse,
+    // un ajuste futuro— deja "half" al día. Ya no hace falta que esto sea
+    // "imperceptible" ni que pase temprano: con el acumulador de arriba,
+    // un cambio de "half" en cualquier momento es seguro por diseño.
+    const ro = new ResizeObserver(() => medirAltos());
+    colRefs.current.forEach(n => { if (n) ro.observe(n); });
+
+    if (reducedMotion) return () => { window.removeEventListener('resize', onResize); ro.disconnect(); };
 
     const AUTO_DRIFT_PX_POR_MS = 0.03; // ritmo del drift de fondo de la galería
-    let driftAuto = 0;
     let ultimoTiempo = performance.now();
     let continuoId = 0;
     let visible = true;
@@ -759,8 +926,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
       continuoId = 0;
       const dt = Math.min(now - ultimoTiempo, 100); // tope por si la pestaña estuvo en background
       ultimoTiempo = now;
-      driftAuto += dt * AUTO_DRIFT_PX_POR_MS;
-      pintarColumnas(driftAuto);
+      pintarColumnas(dt * AUTO_DRIFT_PX_POR_MS);
       if (visible && !scrolleando) continuoId = requestAnimationFrame(pasoContinuo);
     };
 
@@ -806,6 +972,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
       clearTimeout(scrolleando);
       if (continuoId) cancelAnimationFrame(continuoId);
       if (obs) obs.disconnect();
+      ro.disconnect();
     };
   }, [listo]); // se remide medirAltos() cuando las fotos ya cargaron y las columnas tienen su alto real
 
@@ -898,8 +1065,13 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
   // useLenisSmoothScroll.js) — el overflow:hidden de acá se deja igual,
   // como cinturón y tirantes para cualquier scroll nativo que no pase por
   // Lenis (p.ej. teclado con foco fuera del documento).
+  // giftAbierto sumado a la condición (2026-08-12): el paso 1 pasó de
+  // tarjeta flotando a drawer con scrim (ver .pv3-gift-drawer) — un drawer
+  // que tapa media pantalla y todavía deja scrollear la home detrás no es
+  // un drawer, mismo motivo por el que CarritoDrawer.jsx bloquea el body
+  // mientras está abierto.
   useEffect(() => {
-    if (!regaloAbierto) return;
+    if (!giftAbierto && !regaloAbierto) return;
     const html = document.documentElement;
     const prevBody = document.body.style.overflow;
     const prevHtml = html.style.overflow;
@@ -911,7 +1083,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
       html.style.overflow = prevHtml;
       window.dispatchEvent(new Event('cuponear:scroll-unlock'));
     };
-  }, [regaloAbierto]);
+  }, [giftAbierto, regaloAbierto]);
 
   // Lenis propio para el panel embebido de Suscripción PRO (2026-08-11,
   // segunda vuelta): con la página bloqueada (el useEffect de arriba) y
@@ -940,7 +1112,12 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
   // (tope arriba/abajo) el evento sigue de largo hacia la global — que en
   // ese momento está `stop()`eada por el lock de arriba, así que no pasa
   // nada: ni un salto, ni scroll de la página por detrás.
+  //
+  // (2026-08-13) Sujeta al mismo interruptor que la global (SCROLL_SUAVE, ver
+  // src/lib/efectos.js): apagada, el panel scrollea nativo por su propio
+  // overflow-y:auto — pierde la inercia, no la capacidad de scrollear.
   useEffect(() => {
+    if (!SCROLL_SUAVE) return;
     if (destinoElegido !== 'empresa') return;
     const el = panelEmbebidoRef.current;
     if (!el) return;
@@ -970,9 +1147,9 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
   // a diferencia de la flecha de "volver" (un paso atrás, ver
   // onVolverAlInicio más abajo), el logo es "llevame al principio de todo".
   // giftAbierto se apaga ya, sin esperar (a diferencia de destinoElegido,
-  // vía cerrarPaso2): .pv3-gift-inline ya está en opacity:0 todo este rato
-  // —mientras regaloAbierto es true, ver esa regla en el <style>—, así que
-  // no hay nada que "salte" ahí.
+  // vía cerrarPaso2): .pv3-gift-drawer ya está deslizado afuera de la
+  // pantalla (translateX(105%)) todo este rato —mientras regaloAbierto es
+  // true, ver esa regla en el <style>—, así que no hay nada que "salte" ahí.
   useEffect(() => {
     const onHomeReset = () => { cerrarPaso2(); setGiftAbierto(false); };
     window.addEventListener('cuponear:home-reset', onHomeReset);
@@ -1044,24 +1221,12 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
               entraba por cross-fade a medida que avanzaba el scroll pineado.
               Ese copy se mudó a su propia sección (HeroCoupons); lo que queda
               de la maquinaria —.pv3-left-stage/.pv3-left-var en
-              position:absolute, el alto compensado del stage, .pv3-logo-slot
-              con alto fijo— sigue funcionando para esta única variante, sólo
-              que ahora no tiene con qué cruzarse. */}
+              position:absolute— sigue funcionando para esta única variante,
+              sólo que ahora no tiene con qué cruzarse. El ticket-marca que
+              vivía acá arriba (.pv3-logo-slot) se mudó a .pv3-cta-full, ver
+              esa nota más abajo. */}
           <div className="pv3-left-stage">
             <div className="pv3-left-var">
-              {/* 1 · Marca del producto. Reemplaza a la pastilla "PASE TURISTA":
-                     dice lo mismo y encima es la imagen que el turista va a
-                     reconocer después en su Pase. Dejó de ser clickeable
-                     (2026-08-11): era el disparador manual del navbar
-                     escondido ('cuponear:navbar-reveal' en Navbar.jsx), pero
-                     el navbar ya se revela solo con la dirección del scroll
-                     (ver la nota junto a visiblePorScroll en Navbar.jsx), así
-                     que el click acá era redundante y se prestaba a
-                     confusión (nada en el ticket sugiere que sea un botón). */}
-              <div className="pv3-logo-slot">
-                <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
-              </div>
-
               {/* 2 · Título. Sin cambios de copy en las dos primeras líneas: es
                      el activo de marca del hero. El casing de las palabras en
                      NauryzRedkeds va tal cual — mayúscula y minúscula son
@@ -1076,98 +1241,19 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
                 <span className="pv3-t-ticker">— en <TickerPalabras reducedMotion={reducedMotion} /></span>
               </h1>
 
-              {/* Accesos (2026-08-10, reordenados y re-skinneados 2026-08-11
-                     tarde — ver el detalle de cada uno junto a .pv3-accesos
-                     en el JSX de más abajo): "Pases diarios" y "Regalá
-                     cuponeras" van agrupados arriba, "Conocé todas las
-                     ofertas" queda suelto abajo y ya no navega —desliza la
-                     home hasta "Cuponeá antes de pagar"—. Dorado sólo en
-                     "Regalá cuponeras" (mismo dorado que el moño de
-                     giftpass-logo.svg, el logo que ya usa el panel del
-                     segundo slide — no es un color inventado); los otros dos
-                     van en primary. "Pases de regalo" ya no navega directo
-                     (ver giftAbierto/elegirDestino, arriba) — el
-                     link "Regalá pases" que saltaba de posta (en
-                     .pv3-opciones-links, más abajo) se sacó: ahora este es
-                     el único acceso a esa suscripción. */}
+              {/* Buscador de ubicación (2026-08-12) — reemplaza a los
+                     accesos "Obtener pases diarios"/"Regalar pases" que
+                     vivían acá (ver BuscadorUbicacion, arriba del
+                     componente). "Obtener pases diarios" se sacó entero
+                     —los botones de pase, un poco más abajo en
+                     .pv3-cta-full, ya cubren esa acción—; "Regalar pases"
+                     se mudó a un ícono solo, junto a "¿Más días?" (ver
+                     .pv3-gift-icon-btn). "Conocé todas las ofertas" no
+                     vive acá: es hermana directa de .pv3-left y
+                     .pv3-cta-full más abajo en el JSX (ver esa nota, junto
+                     a .pv3-acceso--ofertas). */}
               <div className="pv3-accesos">
-                {/* Los dos van agrupados (7px entre sí, ver .pv3-accesos-top)
-                    porque son el mismo tipo de cosa —pases—. "Conocé todas
-                    las ofertas" ya no vive acá adentro (2026-08-12, se movió
-                    a ser hermana directa de .pv3-cta-full para alinearse con
-                    los botones de pase — ver esa nota, más abajo en el JSX,
-                    junto a .pv3-mas-dias). */}
-                <div className="pv3-accesos-top">
-                  {/* Lógica de estados simplificada (2026-08-12, a pedido:
-                      "no usar amarillo, azul/blanco con estados básicos"):
-                      de los dos, uno está SIEMPRE abierto y el otro cerrado,
-                      nunca los dos igual. regaloSeleccionado (si el flujo de
-                      regalo está REALMENTE abierto) decide cuál — en reposo,
-                      por default, es "Pases diarios" (clickearla siempre
-                      lleva al mismo lugar, así que lee como la opción "en
-                      curso"). Abierta = fondo primary, texto blanco, círculo
-                      blanco con ícono primary. Cerrada = fondo blanco, texto
-                      primary, círculo primary con ícono blanco (lógica
-                      invertida a propósito, para que el círculo siempre
-                      contraste con su propio fondo) — y sólo la cerrada
-                      tiene hover (celeste al 15%, ver .pv3-acceso:hover en
-                      el <style>; la abierta no cambia con el mouse encima,
-                      .pv3-acceso--abierta:hover se lo pisa a propósito). El
-                      hover de cada botón es sólo suyo —CSS puro— y no toca
-                      al otro: hovereando "Regalá cuponeras" con "Pases
-                      diarios" todavía abierta, "Pases diarios" se queda
-                      exactamente como está. */}
-                  <button
-                    type="button"
-                    className={`pv3-acceso pv3-acceso--pases${regaloSeleccionado ? '' : ' pv3-acceso--abierta'}`}
-                    onClick={() => onComprarPase?.('custom')}
-                  >
-                    <span className="pv3-acceso-titulo">Pases diarios</span>
-                    <span className="pv3-acceso-flecha" style={{ background: regaloSeleccionado ? A.primary : '#fff', color: regaloSeleccionado ? '#fff' : A.primary }} aria-hidden="true">
-                      <CuponIcon size={14} />
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`pv3-acceso pv3-acceso--regalo${regaloSeleccionado ? ' pv3-acceso--abierta' : ''}`}
-                    onClick={() => {
-                      // En desktop, el click abre el PASO 1: la caja GIFT PaSS
-                      // sobre la galería (ver .pv3-gift-inline), no el slide
-                      // completo todavía — eso lo dispara elegir una opción
-                      // adentro (ver onElegirDestino, más abajo).
-                      //
-                      // En mobile/reduced-motion no hay galería sobre la que
-                      // superponer nada (ver .pv3-gift-inline, neutralizado en
-                      // ese breakpoint) ni slide que abrir (.pv3-regalo-abierto
-                      // también neutralizado ahí) — el panel completo ya está
-                      // siempre visible en flujo normal, así que se salta el
-                      // paso 1 entero: va directo a regaloAbierto y el click
-                      // sólo trae la caja a pantalla con scroll suave, mismo
-                      // fallback que ya usaba "Regalá pases" antes de sacarse.
-                      const activo = (window.matchMedia?.('(min-width: 1181px)').matches ?? false) && !reducedMotion;
-                      if (activo) {
-                        setGiftAbierto(true);
-                      } else {
-                        setRegaloAbierto(true);
-                        document.querySelector('.gp-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    }}
-                  >
-                    <span className="pv3-acceso-texto">
-                      <span className="pv3-acceso-titulo">Regalá cuponeras</span>
-                    </span>
-                    {/* Regalito, no flecha: este acceso es el único de los
-                        tres que lleva a un regalo, no a un catálogo ni a los
-                        pases — el ícono lo dice antes de leer el texto. Ya no
-                        es dorado fijo (2026-08-12, se sacó el amarillo de
-                        esta botonera): mismo círculo invertido que "Pases
-                        diarios" — blanco+ícono primary cuando ESTA es la
-                        abierta, primary+ícono blanco cuando está cerrada. */}
-                    <span className="pv3-acceso-flecha" style={{ background: regaloSeleccionado ? '#fff' : A.primary, color: regaloSeleccionado ? A.primary : '#fff' }} aria-hidden="true">
-                      <Gift size={14} strokeWidth={2.5} />
-                    </span>
-                  </button>
-                </div>
+                <BuscadorUbicacion />
               </div>
             </div>
           </div>
@@ -1192,13 +1278,21 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
             la nota junto a .pv3-cta-full en el <style> para el porqué del
             margin:0 auto que lo reemplazó. */}
         <div className="pv3-cta-full" ref={ctaFullRef}>
-          <p className="pv3-pretitulo">
-            ¿Cuánto dura <span className="pv3-pretitulo-it">tu viaje?</span>
-          </p>
+          {/* Ticket-marca (2026-08-12): se mudó acá arriba de "¿Cuánto dura
+              tu viaje?" —antes vivía sobre el título principal, en
+              .pv3-left-var, a pedido—. Ya no tiene su propia animación de
+              entrada (la tenía porque ahí arriba el resto del bloque
+              también entraba en cascada, uno por uno): acá adentro es el
+              primer hijo de .pv3-cta-full, que ya fadea como un solo
+              bloque, así que el ticket viaja con el resto sin necesitar
+              nada propio. */}
+          <div className="pv3-logo-slot">
+            <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
+          </div>
+          <p className="pv3-pretitulo">Aprovechá tu pase cada día</p>
 
           <p className="pv3-pase-caption">
-            Cualquier pase te da acceso al catálogo de descuentos completo<br />
-            Tenés un cupón <b>PREMIUM</b> a elección por día.
+            Todos los pases te dan acceso al catálogo de descuentos.<br />
           </p>
 
           <div className="pv3-opciones">
@@ -1223,9 +1317,42 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
                   </button>
                 ))}
               </div>
-              <button className="pv3-mas-dias" onClick={() => onComprarPase?.('custom')}>
-                ¿Más días?
-              </button>
+              {/* .pv3-pases-extra agrupa "¿Más días?" y el ícono de gift
+                  pass — ambos cuelgan afuera del centrado de
+                  .pv3-pases-par (ver la nota de arriba), a su derecha, así
+                  que los dos botones de pase siguen 100% centrados sin que
+                  el ancho de ninguno de los dos pese en ese cálculo.
+                  "¿Más días?" primero y el ícono después (2026-08-12, a
+                  pedido; antes iba al revés). El ícono reemplaza al acceso
+                  "Regalar pases" que vivía bajo el título (2026-08-12, ver
+                  BuscadorUbicacion) — mismo destino (abrirRegalo, definido
+                  arriba), sin texto: el regalito ya lo dice, como pasaba
+                  antes con el ícono de Gift en ese acceso. Fondo blanco +
+                  dorado (DORADO_GIFT, el mismo del moño de
+                  giftpass-logo.svg) en vez del primary lleno de los pases:
+                  es la puerta a OTRO producto, no otro pase. */}
+              <div className="pv3-pases-extra">
+                <button className="pv3-mas-dias" onClick={() => onComprarPase?.('custom')}>
+                  ¿Más días?
+                </button>
+                {/* .pv3-gift-slot existe sólo para colgarle la iluminación
+                    giratoria (ver el <style>): el halo va en un elemento
+                    aparte, ANTES del botón en el DOM, así el botón lo tapa
+                    por orden de pintado y sólo asoma el anillo. Adentro del
+                    propio botón no se puede — un ::before con z-index:-1
+                    pinta ENCIMA del fondo del elemento que lo contiene. */}
+                <span className="pv3-gift-slot">
+                  <span className="pv3-gift-glow" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="pv3-gift-icon-btn"
+                    aria-label="Regalar pases"
+                    onClick={abrirRegalo}
+                  >
+                    <Gift size={24} strokeWidth={2.2} />
+                  </button>
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -1249,52 +1376,10 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           onClick={() => window.dispatchEvent(new CustomEvent('cuponear:scroll-to', { detail: { target: '[data-navbar-shrink]' } }))}
         >
           <span className="pv3-acceso-flecha" style={{ background: A.primary }} aria-hidden="true">
-            <ArrowDown size={14} strokeWidth={2.5} />
+            <ArrowDown size={18} strokeWidth={2.5} />
           </span>
           <span className="pv3-acceso-titulo">Conocé todas las ofertas</span>
         </button>
-
-        {/* ─── Paso 1: la caja GIFT PaSS sobre la galería ───────────────
-            (2026-08-11) Clickear "Regalá pases" ya no salta directo al slide
-            completo de más abajo (.pv3-hc-stage): primero dissuelve
-            .pv3-cta-full ("¿Cuánto dura tu viaje?", justo arriba) y muestra
-            ESTA caja en su lugar, superpuesta a la galería de fotos. Vive
-            DENTRO de .pv3-inner —hermana de .pv3-cta-full, mismo nivel— para
-            posicionarse con los mismos números que usa .pv3-inner para su
-            propio padding (ver .pv3-gift-inline en el <style> para el
-            porqué de 680/40/130/56 en vez de --pv3-lado); y dentro de
-            .pv3-slide-catalogo, así que viaja junto con TODO lo demás cuando
-            el paso 2 arranca el slide grande (no hace falta ocultarla aparte
-            en ese momento).
-            Reutiliza .gp-panel tal cual (mismo look que la del paso 2) pero
-            SIN .gp-wrap: acá no hace falta el alto:100% de sidebar, es una
-            tarjeta flotando centrada sobre la galería, con su propio alto de
-            contenido. La entrada es un fade simple por CSS
-            (.pv3-gift-abierto .pv3-gift-inline), no la cascada de tres
-            grupos del paso 2 — es una aparición más chica, no la escena
-            completa. */}
-        <div className="pv3-gift-inline" aria-hidden={!giftAbierto || regaloAbierto}>
-          <div className="gp-panel">
-            <button type="button" className="gp-gift-cerrar" onClick={() => setGiftAbierto(false)} aria-label="Cerrar">
-              <X size={18} strokeWidth={2.5} />
-            </button>
-            <div className="gp-cabezal">
-              <h2 className="gp-titulo">
-                <PaSSMark size={30} conGesell prefijo="GIft" color={DORADO_GIFT} />
-              </h2>
-              <p className="gp-bajada gp-bajada--fuerte">
-                Obsequiá un pase con todos los descuentos de la red
-              </p>
-              <p className="gp-bajada">
-                por la cantidad de días que decidas (ó que dure el viaje).
-              </p>
-            </div>
-            <p className="gp-elegi">Elegí una opción:</p>
-            <div className="gp-opciones">
-              {renderOpcionesDestino()}
-            </div>
-          </div>
-        </div>
 
         <div className="pv3-mobile-deco" aria-hidden="true">
           {MOBILE_DECO.map(s => (
@@ -1307,6 +1392,80 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
 
       <div aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 3, height: 6, background: A.primary }} />
       </div>
+
+      {/* ─── Paso 1: drawer GIFT PaSS, desde la derecha ────────────────
+          (2026-08-11, drawer desde 2026-08-12 — antes flotaba sobre la
+          galería, ver el historial de .pv3-gift-drawer más abajo). Clickear
+          "Regalá pases" ya no salta directo al slide completo de más abajo
+          (.pv3-hc-stage): primero dissuelve .pv3-cta-full ("¿Cuánto dura tu
+          viaje?") y abre ESTE drawer, deslizando desde el borde derecho —
+          mismo lenguaje que CarritoDrawer.jsx (scrim + panel fixed
+          top:0/right:0/height:100vh + slide en vez de fade), el otro drawer
+          que ya existe en la app.
+          HERMANO de .pv3-slide-catalogo, NO hijo (2026-08-12): antes vivía
+          adentro, para "viajar junto con todo lo demás" cuando arrancaba el
+          slide grande — pero un position:fixed adentro de un ancestro con
+          transform (.pv3-slide-catalogo, que trae `transform: translateX`
+          para su propio slide) deja de posicionarse contra el VIEWPORT y
+          pasa a posicionarse contra ESE ancestro — ver la nota del spec de
+          CSS sobre "containing block" para elementos fixed bajo un
+          transform. Sacándolo un nivel, position:fixed vuelve a anclar
+          contra la ventana de verdad, que es lo que un drawer necesita.
+          PORTAL a <body> (2026-08-13) — antes era hermano de
+          .pv3-slide-catalogo acá adentro, y position:fixed le daba la
+          geometría correcta (cubría el viewport entero, medido) pero NO el
+          orden de pintado: la <section> del hero lleva zIndex:0 inline +
+          position:relative, o sea que es la raíz de su propio stacking
+          context, y ahí adentro el z-index 2000/2001 del drawer sólo ordena
+          contra sus hermanos del hero. Contra el resto del sitio el hero
+          entero pinta como UN bloque en z-index 0, así que lo tapaban las
+          dos cosas que están por encima: la navbar (1000/1001) y la sección
+          siguiente de la home ("Cuponeá", position:relative + zIndex:1) —
+          con la página scrolleada esa sección se come la mitad de abajo del
+          drawer, que era el síntoma de "el drawer pasa sólo en el área del
+          hero". Es la MISMA trampa que ya tenía el desplegable de localidad
+          y se resuelve igual: colgado de <body> el z-index vuelve a ser
+          absoluto. De paso el backdrop-filter del scrim pasa a alcanzar al
+          sitio entero y no sólo al hero (ver .pv3-gift-scrim).
+          Las clases de estado van ACÁ y no en el ancestro: .pv3-gift-abierto
+          /.pv3-regalo-abierto viven en .pv3-hero, y desde <body> ya no hay
+          ancestro común del que colgarse. */}
+      {createPortal(
+        <>
+      <div
+        className={`pv3-gift-scrim${giftAbierto ? ' pv3-gift-scrim--visible' : ''}${regaloAbierto ? ' pv3-gift-scrim--saliendo' : ''}`}
+        aria-hidden="true"
+        onClick={() => setGiftAbierto(false)}
+      />
+      <div
+        className={`pv3-gift-drawer${giftAbierto ? ' pv3-gift-drawer--abierto' : ''}${regaloAbierto ? ' pv3-gift-drawer--saliendo' : ''}`}
+        aria-hidden={!giftAbierto || regaloAbierto}
+      >
+        <div className="gp-panel">
+          <button type="button" className="gp-gift-cerrar" onClick={() => setGiftAbierto(false)} aria-label="Cerrar">
+            <X size={18} strokeWidth={2.5} />
+          </button>
+          <div className="gp-cabezal">
+            {/* size 26, no 30 (2026-08-12, a pedido): mismo tamaño que el
+                logo GIFT PaSS PRO de la pantalla interna (ver ComoFunciona
+                en CheckoutHoteleroView.jsx) — es la misma marca en dos
+                pantallas del mismo flujo, no dos escalas sueltas. */}
+            <h2 className="gp-titulo">
+              <PaSSMark size={26} conGesell prefijo="GIft" color={DORADO_GIFT} />
+            </h2>
+            <p className="gp-bajada">
+              Obsequiá pases con todos los descuentos de la red.
+            </p>
+          </div>
+          <p className="gp-elegi">Elegí una opción:</p>
+          <div className="gp-opciones">
+            {renderOpcionesDestino()}
+          </div>
+        </div>
+      </div>
+        </>,
+        document.body,
+      )}
 
       {/* ─── Slide 2: "Pases de regalo" (ex-segundo acto/HeroCoupons) ───
           Hasta el 2026-08-10 esto era parte del mismo pin —una posta más,
@@ -1446,7 +1605,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
             <div className="gp-panel">
               <div ref={hcG1Ref} className="pv3-hc-g1 gp-cabezal" style={{ opacity: 0 }}>
                 <h2 className="gp-titulo">
-                  <PaSSMark size={30} conGesell prefijo="GIft" color={DORADO_GIFT} />
+                  <PaSSMark size={26} conGesell prefijo="GIft" color={DORADO_GIFT} />
                 </h2>
                 <p className="gp-bajada gp-bajada--fuerte">
                   Obsequiá un pase con todos los descuentos de la red
@@ -1481,7 +1640,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           to   { opacity: 1; transform: translateY(0); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .pv3-logo-slot, .pv3-t-it, .pv3-t-bold, .pv3-t-ticker {
+          .pv3-t-it, .pv3-t-bold, .pv3-t-ticker {
             animation: none; opacity: 1; transform: none;
           }
           /* Las columnas de la galería arrancan en opacity:0 esperando su
@@ -1560,9 +1719,9 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           --pv3-lado: clamp(250px, 22vw, 340px);
           position: relative;
           z-index: 2;
-          max-width: 1328px;
+          max-width: var(--site-max);
           margin: 0 auto;
-          padding: 130px 40px 56px;
+          padding: 100px var(--site-pad) 56px;
           min-height: 760px;
           display: grid;
           grid-template-columns: var(--pv3-lado) minmax(0, 1fr) var(--pv3-lado);
@@ -1592,48 +1751,48 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            se achica esos 128px y el align-items:center de .pv3-inner
            recentra todo el bloque más abajo de lo que estaba. */
         .pv3-left-stage { position: relative; width: 100%; height: clamp(568px, calc(58vh + 128px), 668px); }
-        /* top: 30px - 80px - 14px = -64px — todo el bloque (ticket a
-           botones) 80px más arriba, y encima 14px más (a pedido, "subir
-           unos px el headline"), sumado a que ya subió solo al sacarse la
-           ceja de localidades que colgaba entre el ticket y el título.
+        /* top:44% + translateY(-50%) (2026-08-12): reemplaza a un top:-64px
+           fijo — "todo el bloque, desde 'Viajá CUPONEaNdO' hasta el
+           buscador, tiene que estar 100% centrado verticalmente". El
+           offset fijo era un ajuste a ojo ("subir unos px el headline") que
+           dejó de tener sentido en cuanto el título y el buscador
+           cambiaron de tamaño un par de veces esa misma tarde: centraba
+           bien para UN tamaño de contenido, no para cualquiera.
+           translateY(-50%) es lo que hace el centrado real, inmune a que
+           el título/buscador cambien de tamaño más adelante — siempre
+           queda centrado el bloque EN SÍ, sin recalcular nada a mano.
+           top:44% (no 50%) es el único número a ojo que queda: un empujón
+           parejo hacia arriba —"capaz un poco más arriba, así no
+           corremos riesgo de solapamiento"— contra el ticket + "¿Cuánto
+           dura tu viaje?" de la columna del medio, que arranca más abajo
+           (align-self:end en .pv3-cta-full) y si no quedaban más cerca de
+           lo que se quería. Sigue siendo centrado "de verdad" en el
+           sentido que importa: no depende de la altura del bloque, sólo
+           corre el CENTRO un poco para arriba del centro exacto del stage.
            width explícito (antes era left:0/right:0, o sea el ancho de la
            columna): con el grid de tres columnas la columna 1 pasó a medir
            --pv3-lado (~340px máx), y el título necesita bastante más que eso
            para que "un pase, todos los descuentos" entre en una línea. Como
            esto es position:absolute, ese excedente se desborda sobre la
-           columna del medio sin empujarla ni robarle ancho — y no se pisa
-           con nada porque el bloque del medio arranca más abajo. */
+           columna del medio sin empujarla ni robarle ancho — y por eso
+           también el -15% de tamaño en .pv3-t-bold/.pv3-t-ticker, ese mismo
+           día: menos alto de bloque es más margen contra el solapamiento. */
         .pv3-left-var {
-          position: absolute; left: 0; top: -64px;
-          width: 640px; max-width: calc(100vw - 80px);
+          position: absolute; left: 0; top: 44%; transform: translateY(-50%);
+          width: 860px; max-width: calc(100vw - 80px);
         }
 
-        /* 1 · Ticket-marca. Ya viene inclinado de fábrica en el propio SVG,
-           en el mismo sentido que la galería (-10°) pero con bastante más
-           gesto — no se rotula por CSS. .pv3-logo-slot le fija un alto
-           reservado antes del título —era para que el ticket y el sello de
-           rating de la ex-variante socio arrancaran el título en la misma
-           línea pese a medir distinto; hoy es la única imagen del bloque,
-           pero se deja igual por si vuelve a convivir con algo más acá.
-           Dejó de ser un <button> (ver el JSX): sin cursor:pointer ni
-           padding/border de reset, que ya no hacen falta con un <div>.
-           margin-left negativo a propósito, distinto del resto de la
-           columna: en el boceto el ticket cuelga más a la izquierda que el
-           párrafo de texto, no de la misma línea — alinearlos de más
-           quedaba "contracturado". Valor a ojo contra el boceto, sin poder
-           verificarlo en vivo — ajustar si no calza. */
-        .pv3-logo-slot {
-          height: 130px; display: flex; align-items: flex-end; margin: 0 0 28px -40px;
-          opacity: 0;
-        }
-        /* .pv3-listo: se agrega recién cuando termina el loading general
-           (ver useLoading()/showLoading()/hideLoading() en el useEffect de
-           arriba) — antes de eso estos cuatro quedan en opacity:0 quietos,
-           sin animar (si el CSS de animation corriera desde el montaje, ya
-           habría terminado de tapado por la pantalla de carga, y al
-           destaparse se verían aparecer de golpe en vez de animados). */
-        .pv3-listo .pv3-logo-slot { animation: pv3FadeUp .5s ease-out .1s both; }
-        .pv3-ticket { width: 200px; height: auto; display: block; }
+        /* Ticket-marca. Ya viene inclinado de fábrica en el propio SVG, en
+           el mismo sentido que la galería (-10°) pero con bastante más
+           gesto — no se rotula por CSS. Vive arriba de "¿Cuánto dura tu
+           viaje?" (2026-08-12, se mudó desde .pv3-left-var, arriba del
+           título principal) — .pv3-cta-full ya es text-align:center, así
+           que .pv3-logo-slot sólo necesita el margen de abajo; centrar el
+           <img> en sí lo hace margin:0 auto en .pv3-ticket. */
+        .pv3-logo-slot { margin: 0 0 20px; }
+        /* 200px → 120px (2026-08-12, a pedido: "más chico que antes, al 60%
+           del tamaño que tenía"). */
+        .pv3-ticket { width: 120px; height: auto; display: block; margin: 0 auto; }
 
         /* 2 · Título. Entra con el mismo fade del resto del bloque —ver nota
            arriba de por qué se sacó el efecto máquina de escribir—, .pv3-t-it
@@ -1644,18 +1803,32 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            "subir unos px" que se pidió. */
         .pv3-title { position: relative; margin: 0; line-height: 1.12; letter-spacing: 0; }
         .pv3-title > span { display: block; }
-        /* +15% de tamaño a pedido (clamp original: 34px/4.1vw/50px). */
+        /* Otro +21.7% de tamaño a pedido (2026-08-12: probado en el
+           inspector contra clamp(70px, 4.72vw, 57.5px) — el mínimo y el
+           máximo estaban invertidos ahí, así que se los reordena acá: el
+           máximo VIEJO (57.5) pasa a ser el mínimo nuevo, y 70 es el
+           máximo nuevo. vw sin cambios. Historial: clamp original
+           34px/4.1vw/50px → +15% → 39px/4.72vw/57.5px → esto. En mobile
+           (<1180px, donde el mínimo es lo único que se ve casi siempre,
+           ver la nota de abajo) el 57.5 fijo explotaba en pantallas
+           angostas, así que hay un clamp aparte y más chico ahí — ver
+           @media (max-width: 1180px). */
         .pv3-t-it {
-          font-style: italic; font-weight: 300; color: ${A.ink}; font-size: clamp(39px, 4.72vw, 57.5px);
+          font-style: italic; font-weight: 300; color: ${A.ink}; font-size: clamp(57.5px, 4.72vw, 70px);
           opacity: 0;
         }
         .pv3-listo .pv3-t-it { animation: pv3FadeUp .5s ease-out .34s both; }
         .pv3-nauryz { font-family: ${NAURYZ}; font-style: normal; font-weight: normal; color: ${A.primary}; font-size: 0.8em; }
         /* Un poco más chico que en A (38px): el remate cierra el título, pero el
-           siguiente nivel necesita aire para leerse como nivel 2. +15% acá
-           también (clamp original: 24px/3.4vw/34px). */
+           siguiente nivel necesita aire para leerse como nivel 2. Historial:
+           clamp original 24px/3.4vw/34px → +15% → 27.5px/3.91vw/39px →
+           +21.7% (máximo viejo → mínimo nuevo) → 39px/3.91vw/47.5px → -15%
+           (2026-08-12, a pedido: "achicar en tamaño un 15%", para dejar
+           lugar a centrar el bloque entero sin pisar el logo de al lado —
+           ver .pv3-left-var) → esto. vw sin tocar en el paso anterior, así
+           que acá también se escala. */
         .pv3-t-bold {
-          font-weight: 600; color: ${A.ink}; font-size: clamp(27.5px, 3.91vw, 39px); margin-top: 0.18em;
+          font-weight: 600; color: ${A.ink}; font-size: clamp(33px, 3.32vw, 40.5px); margin-top: 0.18em;
           opacity: 0;
         }
         .pv3-listo .pv3-t-bold { animation: pv3FadeUp .5s ease-out .46s both; }
@@ -1665,7 +1838,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            nivel nuevo), el rubro en primary para que se distinga de "en".
            Entra un paso después que .pv3-t-bold, misma cascada. */
         .pv3-t-ticker {
-          font-weight: 600; color: ${A.ink}; font-size: clamp(27.5px, 3.91vw, 39px); margin-top: 0.18em;
+          font-weight: 600; color: ${A.ink}; font-size: clamp(33px, 3.32vw, 40.5px); margin-top: 0.18em;
           opacity: 0;
         }
         .pv3-listo .pv3-t-ticker { animation: pv3FadeUp .5s ease-out .58s both; }
@@ -1679,43 +1852,115 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           will-change: clip-path;
         }
 
-        /* Accesos nuevos (2026-08-10), bajo el título. Misma columna, uno
-           debajo del otro —no dos columnas de la misma fila: eso fue un
-           intento intermedio para el bug de la flecha pisando el título,
-           pero el bug era otro (ver la nota junto a .pv3-cta-full, más
-           abajo: vivía centrada contra la página entera y se metía debajo
-           de esta columna) — con .pv3-cta-full ya resuelta, esta lista
-           apilada con divisor horizontal es la que pide el boceto: texto a
-           la izquierda, flecha en círculo pegada al borde derecho de la
-           fila (max-width acá abajo). */
-        /* max-width 300 (antes 420): con justify-content:space-between, todo
-           el ancho de más se convertía en hueco entre el texto y la flecha
-           —se leían como dos cosas sueltas en vez de una fila—. Además es la
-           medida que fija de hecho el ancho útil de la columna 1: es lo único
-           que comparte banda vertical con el bloque del medio, así que
-           cuanto más angosta, más ancho libre queda para que los dos botones
-           de pase entren en una sola fila. */
-        /* Atados a --pv3-lado y no a un ancho suelto: los accesos viven
-           dentro de .pv3-left-var, que se desborda a 640px a propósito (ver
-           su nota), así que NO están limitados por el ancho de su columna
-           —con un max-width suelto de 300px se metían 16px adentro de la
-           celda del medio en viewports angostos—. Tomar exactamente el ancho
-           de la columna los mantiene dentro en todo el rango. */
-        /* Achicados y con menos interlínea (2026-08-11, a pedido): con tres
-           accesos el gap de 8px + el tamaño original (padding 10px, título
-           16px, círculo de 34px) leía como tres tarjetas sueltas, no como un
-           bloque. gap:2px con el propio padding vertical de cada botón (6px
-           en vez de 10px) es lo que da el aire real entre uno y otro —así se
-           lee como un índice/menú compacto, no como three cards apiladas. */
+        /* Bajo el título (2026-08-10). Atado a --pv3-lado y no a un ancho
+           suelto: vive dentro de .pv3-left-var, que se desborda a 640px a
+           propósito (ver su nota), así que NO está limitado por el ancho
+           de su columna. */
+        /* position+z-index acá (2026-08-12, corrige un bug real: el bloque
+           entero se pintaba DEBAJO de "Conocé todas las ofertas"). Nació por
+           el desplegable de localidades, que ya no lo necesita —se fue por
+           portal a <body>, ver .pv3-buscador-menu—, pero sigue haciendo
+           falta para el botón mismo. La animación de entrada de arriba
+           (.pv3-listo .pv3-accesos, pv3FadeUp con transform) convierte a
+           este div en la raíz de su propio stacking context aunque sea
+           position:static —transform crea contexto solo, sin necesitar
+           position—, y un elemento static no puede llevar z-index: queda
+           atrapado por debajo de cualquier hermano posicionado (como
+           .pv3-acceso--ofertas, position:absolute), sin importar qué
+           z-index tenga algo adentro suyo. position:relative + z-index acá
+           saca a todo el bloque de esa trampa. */
+        /* max-width propio, ya no var(--pv3-lado) (2026-08-12, a pedido:
+           "agrandar el campo de ubicaciones, ya que una localidad larga
+           hace que colapse" — con --pv3-lado, que clampea a 340px máx, un
+           nombre como "Chacras del Mar" no entraba con el radio al lado).
+           .pv3-accesos ya no necesita calzar con el ancho de la columna del
+           grid —eso era para alinearse con "Conocé todas las ofertas",
+           que ahora es un elemento aparte, position:absolute (ver esa
+           nota)—, así que puede tomar el ancho que el contenido necesite,
+           dentro de .pv3-left-var (860px, ver esa regla). */
         .pv3-accesos {
-          margin-top: 28px; width: 100%; max-width: var(--pv3-lado); opacity: 0;
+          position: relative; z-index: 2;
+          margin-top: 28px; width: 100%; max-width: 420px; opacity: 0;
           display: flex; flex-direction: column;
         }
-        /* "Pases diarios" y "Regalá cuponeras" son el mismo tipo de cosa
-           (pases) y van agrupados con poco aire entre sí. 7px = los 2px que
-           tenía el gap original más los 5px pedidos de más. */
-        .pv3-accesos-top {
-          display: flex; flex-direction: column; gap: 7px;
+        /* ─── Buscador de ubicación (2026-08-12) ──────────────────────
+           Único contenido de .pv3-accesos ahora (ver BuscadorUbicacion,
+           arriba del componente) — reemplaza a "Obtener pases
+           diarios"/"Regalar pases", que vivían acá como una lista de
+           botones píldora apilados. Mismo radio 999px y misma paleta que
+           el resto de los botones del hero (border #dbdef7, hover en
+           primary) para que se lea como parte de la misma familia, aunque
+           no navegue a nada por sí solo: sólo abre el desplegable de
+           localidades. */
+        .pv3-buscador { position: relative; width: 100%; }
+        .pv3-buscador-btn {
+          display: flex; align-items: center; gap: 10px;
+          width: 100%; padding: 14px 20px;
+          border: 1px solid #dbdef7; border-radius: 999px;
+          background: #fff; cursor: pointer;
+          font-family: inherit; text-align: left;
+          transition: border-color .15s ease;
+        }
+        .pv3-buscador-btn:hover,
+        .pv3-buscador-btn[aria-expanded="true"] { border-color: ${A.primary}; }
+        .pv3-buscador-pin { flex-shrink: 0; color: ${A.primary}; }
+        .pv3-buscador-localidad { font-size: 15px; font-weight: 700; color: ${A.ink}; white-space: nowrap; }
+        .pv3-buscador-radio { font-size: 13px; font-weight: 500; color: ${A.ink2}; white-space: nowrap; }
+        .pv3-buscador-chevron {
+          margin-left: auto; flex-shrink: 0; color: ${A.ink2};
+          transition: transform .15s ease;
+        }
+        .pv3-buscador-btn[aria-expanded="true"] .pv3-buscador-chevron { transform: rotate(180deg); }
+        @media (prefers-reduced-motion: reduce) {
+          .pv3-buscador-btn, .pv3-buscador-chevron { transition: none; }
+        }
+        /* Desplegable simple, sin librería. Cuelga de <body> por portal (ver
+           BuscadorUbicacion), así que: position FIXED contra el viewport
+           —left/top/bottom/width los calcula medir() y llegan inline—, y
+           z-index por encima de la navbar (1000/1001 en Navbar.jsx) para que
+           "quede siempre por delante de todo"; abajo del carrito (8000) y de
+           los modales (9500), que son overlays de pantalla completa y sí
+           deben taparlo. El z-index 4 de antes ordenaba sólo contra los
+           hermanos del hero (galería en 6, panel de regalo en 3) — ese es
+           justo el alcance que no alcanzaba.
+
+           max-height inline + overflow-y: la lista se recorta a lo que entra
+           en pantalla y el resto se scrollea acá adentro, en vez de seguir de
+           largo por debajo de la sección siguiente. overscroll-behavior:
+           contain corta el encadenado al llegar al tope: la rueda no le pasa
+           el sobrante a la página (que además está scrolleando suave con
+           Lenis, ver data-lenis-prevent en el JSX). */
+        .pv3-buscador-menu {
+          position: fixed;
+          z-index: 1200;
+          min-width: 220px;
+          padding: 6px;
+          border-radius: 18px;
+          background: #fff;
+          border: 1px solid #dbdef7;
+          box-shadow: 0 18px 38px -20px rgba(11,16,32,0.28);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+        }
+        /* Barra fina y visible, no escondida: es la única señal de que la
+           lista sigue más abajo. Mismos valores que .cupon-scroll en
+           CupopackModal.jsx, que es el otro listado scrolleable dentro de un
+           panel redondeado. */
+        .pv3-buscador-menu::-webkit-scrollbar { width: 8px; }
+        .pv3-buscador-menu::-webkit-scrollbar-thumb {
+          background: rgba(120,130,150,0.35); border-radius: 8px;
+        }
+        .pv3-buscador-item {
+          display: block; width: 100%; padding: 10px 14px;
+          border: none; border-radius: 12px; background: none;
+          font-family: inherit; font-size: 14px; font-weight: 600; color: ${A.ink};
+          text-align: left; cursor: pointer;
+          transition: background .15s ease;
+        }
+        .pv3-buscador-item:hover { background: rgba(71, 91, 225, 0.1); }
+        .pv3-buscador-item--activa { color: ${A.primary}; background: ${A.primarySoft}; }
+        @media (prefers-reduced-motion: reduce) {
+          .pv3-buscador-item { transition: none; }
         }
         /* Ya no hay recuadro común: cada acceso es su propio botón píldora
            (2026-08-11). El radio va en 999px, el mismo de .pv3-btn-pase, para
@@ -1746,35 +1991,13 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            "Conocé todas las ofertas" por igual. Sin :hover propio (2026-08-11
            noche, a pedido): ya está pintado como la sección abierta, un
            hover encima sugería que hay algo más para activar. */
-        /* Especificidad (2026-08-12): los modificadores de acá para abajo
-           van encadenados a ".pv3-acceso" (".pv3-acceso.pv3-acceso--x" en
-           vez de ".pv3-acceso--x" solo) a propósito — un bug real: con un
-           solo nivel de clase, un modificador (0,1,0) perdía contra el
-           genérico ".pv3-acceso:hover" (0,2,0) de más abajo apenas el mouse
-           quedaba encima (p.ej. clickeando "Regalá cuponeras", el cursor le
-           queda arriba). Con ".pv3-acceso.pv3-acceso--x" la especificidad
-           sube a (0,2,0) o (0,3,0) con :hover encadenado, así que gana
-           siempre, sin importar el orden de las reglas en la hoja.
-           Estados básicos, sin amarillo (2026-08-12, a pedido: "azul es
-           abierta, blanco apagada"): entre "Pases diarios" y "Regalá
-           cuponeras" siempre hay una abierta y una cerrada, nunca las dos
-           igual (ver regaloSeleccionado en el componente, que decide
-           cuál). ABIERTA: fondo primary, texto blanco — el círculo
-           se resuelve aparte, por style inline en el JSX (mismo dato que
-           decide esta clase), porque también tiene que invertirse en el
-           ÍCONO (Gift vs CuponIcon) y no sólo en el fondo. CERRADA es la
-           ausencia de esta clase: fondo blanco (ver la regla base,
-           .pv3-acceso) con hover en primary clarito — el mismo
-           .pv3-acceso:hover de siempre, ya le alcanza, no hace falta una
-           regla nueva. */
-        .pv3-acceso.pv3-acceso--abierta {
-          background: ${A.primary}; border-color: transparent;
-        }
-        .pv3-acceso.pv3-acceso--abierta .pv3-acceso-titulo { color: #fff; }
-        /* Sin :hover propio a propósito ("el hover sólo aplica al
-           fondito blanco", a pedido): la abierta ya está pintada como tal,
-           un hover encima sugería que hay algo más para activar. */
-        .pv3-acceso.pv3-acceso--abierta:hover { background: ${A.primary}; }
+        /* Único acceso que queda con esta clase: "Conocé todas las ofertas"
+           (2026-08-12: "Obtener pases diarios"/"Regalar pases", que
+           llegaron a tener un estado ABIERTA/CERRADA que alternaba entre
+           los dos —fondo primary vs. blanco—, se sacaron enteros; ver
+           BuscadorUbicacion y .pv3-gift-icon-btn para dónde quedó cada
+           uno). Fondo blanco con hover en primary clarito, sin más
+           estados. */
         /* "Conocé todas las ofertas" es hermana directa de .pv3-left y
            .pv3-cta-full adentro de .pv3-inner, no un hijo más de
            .pv3-accesos (2026-08-12, a pedido: "alineado a los CTA de
@@ -1816,15 +2039,44 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
              PADDING de su ancestro posicionado, cuyo borde exterior
              coincide con el borde interior del border —el padding en sí
              queda AFUERA de esa caja—, así que left:0/bottom:0 caen justo
-             ahí, antes de descontar el padding. 40px y 56px son
+             ahí, antes de descontar el padding. Por eso left/bottom repiten
              exactamente el padding-left/padding-bottom de .pv3-inner (ver
              esa regla): con eso, el origen pasa a ser el mismo que ya usa
              la columna 1 y el mismo piso que usa .pv3-cta-full con
-             align-self:end. */
-          position: absolute; left: 40px; bottom: 56px;
+             align-self:end. left va por var(--site-pad) y no por un 40px
+             suelto (2026-08-13) justamente porque tiene que SEGUIR a ese
+             padding — cuando el aire lateral del sitio subió a 80px, un
+             40 acá clavado dejaba este acceso desalineado contra el título
+             de arriba, que sí lo sigue. */
+          position: absolute; left: var(--site-pad); bottom: 56px;
           border-color: transparent;
           justify-content: flex-start; gap: 10px;
           width: auto; padding: 4px 0;
+          /* Entra con la cascada, como todo lo demás del hero (2026-08-13):
+             se había quedado afuera —aparecía servido desde el frame cero
+             mientras el resto todavía estaba entrando—. Ver la animación
+             justo abajo para el porqué del delay. */
+          opacity: 0;
+        }
+        /* ÚLTIMO de toda la entrada, después de la galería (a pedido). El
+           número no es a ojo: la cascada de texto termina con .pv3-cta-full
+           (0.82s + 0.5s = 1.32s), pero la galería sigue después —tres
+           columnas de pv3ColIn, 0.95s cada una, arrancando en 0.95 / 1.11 /
+           1.27s (ver --col-delay en el JSX)—, así que la última aterriza a
+           los 1.27 + 0.95 = 2.22s. 2.25s lo deja entrar apenas se asienta
+           la galería, sin pisarla.
+           Si se toca cualquiera de esos dos números (el 0.95 de duración o
+           el 0.16 de separación entre columnas), este delay hay que
+           recalcularlo — es lo que lo mantiene "último". */
+        .pv3-listo .pv3-acceso--ofertas { animation: pv3FadeUp .5s ease-out 2.25s both; }
+        /* Va acá abajo y no en el bloque grande de prefers-reduced-motion de
+           más arriba: una media query no suma especificidad, así que aquel
+           (0,2,0) perdería contra el (0,2,0) de la regla de animación de acá,
+           que viene después en la hoja. Mismo gotcha que ya documenta
+           .pv3-col en ese bloque. Con reduced-motion, además, esperar 2.25s
+           a que aparezca un link no tiene sentido: se muestra servido. */
+        @media (prefers-reduced-motion: reduce) {
+          .pv3-listo .pv3-acceso--ofertas { animation: none; opacity: 1; transform: none; }
         }
         .pv3-acceso.pv3-acceso--ofertas:hover { background: none; }
         .pv3-acceso.pv3-acceso--ofertas:hover .pv3-acceso-titulo { text-decoration: underline; }
@@ -1838,17 +2090,19 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           .pv3-acceso { transition: none; }
         }
         .pv3-acceso-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .pv3-acceso-titulo { font-size: 14px; font-weight: 700; color: ${A.primary}; }
+        /* 14px → 17px (2026-08-12, a pedido: "al tamaño del texto de los
+           botones de pases" — mismo font-size que .pv3-btn-pase). */
+        .pv3-acceso-titulo { font-size: 17px; font-weight: 700; color: ${A.primary}; }
         .pv3-acceso-sub { font-size: 11.5px; font-weight: 500; color: ${A.ink2}; font-style: italic; }
-        /* Círculo con la flecha — mismo tamaño para los tres, sólo cambia el
-           color de fondo (pasado por style inline en el JSX: primary para
-           catálogo y "Pases diarios", el dorado de giftpass-logo.svg para
-           "Pases de regalo"). El ícono (lucide) hereda blanco vía
-           currentColor. */
+        /* Círculo con la flecha. 26px → 32px, ícono 14 → 18 (2026-08-12, a
+           pedido: "en proporción" al bump de .pv3-acceso-titulo — misma
+           razón, 17/14 ≈ 1.2, aplicada al círculo y al ArrowDown del JSX).
+           El color de fondo llega por style inline en el JSX (primary); el
+           ícono (lucide) hereda blanco vía currentColor. */
         .pv3-acceso-flecha {
           flex-shrink: 0;
           display: grid; place-items: center;
-          width: 26px; height: 26px;
+          width: 32px; height: 32px;
           border-radius: 50%;
           color: #fff;
         }
@@ -1856,14 +2110,19 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
         /* "¿Cuánto dura tu viaje?" — ver la nota fechada 2026-08-10 junto a
            TEXTO_ENTER, en el useEffect: se mudó adentro de .pv3-cta-full
            (más abajo), que ya es text-align:center, así que no necesita
-           ningún centrado propio. Una sola línea (antes dos, con <br/>),
-           mismo peso visual que tenía. */
+           ningún centrado propio. Una sola línea (antes dos, con <br/>).
+           Toda en itálica y -15% de tamaño (2026-08-12, a pedido: clamp
+           original 24px/2.4vw/30px ×0.85). Un solo espesor (2026-08-12,
+           segunda vuelta, a pedido: "hay dos espesores, dejar solamente el
+           más liviano") — antes "¿Cuánto dura" iba en 650 y sólo "tu
+           viaje?" (.pv3-pretitulo-it, un <span> aparte) en 500; ahora toda
+           la frase es 500 y el span dejó de hacer falta. */
         .pv3-pretitulo {
           margin: 0 0 14px;
-          font-weight: 650; font-size: clamp(24px, 2.4vw, 30px); line-height: 1.25;
+          font-style: italic;
+          font-weight: 500; font-size: clamp(20.5px, 2.04vw, 25.5px); line-height: 1.25;
           color: ${A.primary};
         }
-        .pv3-pretitulo-it { font-style: italic; font-weight: 500}
 
         /* Letra chica + botones — columna DEL MEDIO del grid de tres (ver la
            nota junto a .pv3-inner). Vive en flujo normal, como celda 2: no
@@ -1908,114 +2167,130 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            poder pisarla por orden. */
         .pv3-listo .pv3-cta-full--asentada { animation: none; opacity: 1; }
         /* Paso 1 de "Pases de regalo": este bloque ya NO desaparece —se pidió
-           lo contrario (2026-08-12): que quede blureado "por detrás" del
-           bloque blanco, en vez de irse del todo. Sin opacity (2026-08-12,
-           segunda vuelta: "no le pongas transparencia porque queda raro
-           sobre la galería") — sólo el blur lo saca de foco, a media asta
-           (3px, antes 6px, "no lo blurees tanto"); pointer-events:none lo
-           saca de la interacción igual, sin hacer falta bajarle la opacidad.
-           saturate(0.4) (2026-08-12, tercera vuelta, a pedido: "desaturar
-           levemente todo color primary que haya en ese bloque") — el CSS
-           filter no puede apuntar a un color puntual, así que desatura el
-           bloque entero; en la práctica lo único con saturación ahí son los
-           dos botones de pase (primary) y el texto en cursiva, que es
-           exactamente lo que se pidió atenuar. Sólo filter en la transition
-           (2026-08-12): opacity/animation ya quedaron resueltos por
-           .pv3-cta-full--asentada, arriba, así que blurear/desblurear y
-           saturar/desaturar es lo único que anima acá, siempre suave, nunca
-           un salto. */
-        .pv3-gift-abierto .pv3-cta-full {
-          filter: blur(3px) saturate(0.4);
-          pointer-events: none;
-          transition: filter .4s ease;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .pv3-gift-abierto .pv3-cta-full { transition: none; filter: none; }
-        }
+           lo contrario (2026-08-12): que quede "por detrás" del bloque
+           blanco, en vez de irse del todo. Queda sólo pointer-events:none,
+           que lo saca de la interacción.
+           (2026-08-13) Se eliminó el tratamiento visual que vivía acá:
+           filter: blur(3px) saturate(0.4) brightness(1.2), repetido hoja por
+           hoja sobre .pv3-logo-slot / .pv3-pretitulo / .pv3-pase-caption /
+           .pv3-pases-par / .pv3-mas-dias para saltear la rama del regalito
+           (un filter en el padre alcanza a todos los descendientes y no hay
+           "filter:none" que revierta el del ancestro, así que la única forma
+           de dejar un hijo nítido era no bluerar al padre). A pedido: "es al
+           pedo el blur de esa zona si ya le estamos poniendo blur a todo el
+           sitio; sacar el des-saturar y que el blur sea el compartido".
+           Y era literal: el scrim ya trae backdrop-filter, sólo que atrapado
+           en el stacking context del hero no llegaba a nada de afuera. Con
+           el drawer portaleado a <body> (ver la nota en el JSX) ese blur
+           pasó a cubrir el sitio entero, así que la capa local dejó de
+           sumar y sólo aportaba un tratamiento distinto —desaturado y
+           aclarado— en un recorte arbitrario de la pantalla.
+           Efecto lateral asumido: el círculo del regalito ahora se blurea
+           como todo lo demás. Antes quedaba nítido a propósito (2026-08-12,
+           "que el círculo e ícono del regalito no se blureen"), pero eso
+           dependía justamente de la capa hoja-por-hoja que se fue; un
+           backdrop-filter no sabe de excepciones. */
+        .pv3-gift-abierto .pv3-cta-full { pointer-events: none; }
 
-        /* La caja GIFT PaSS del paso 1 — ver el JSX, hermana de .pv3-cta-full.
-           left: 720px, NO calc(--pv3-lado + gap). --pv3-lado es el ancho de la
-           columna VIRTUAL del grid (máx 340px), pero el título/ticket
-           (.pv3-left-var) se desborda a propósito hasta 640px de ancho real
-           —ver su nota—, bastante más allá de esa columna. Con el cálculo
-           viejo la caja arrancaba a los ~364px y pisaba el título de lleno.
-           720 = 40 (padding izq. de .pv3-inner, donde arranca .pv3-left-var)
-           + 640 (su desborde real) + 40 de aire — medido desde el mismo
-           origen que .left en .pv3-gift-inline: la caja de PADDING de
-           .pv3-inner, que es el contexto de posicionamiento de los dos.
-           Verificado en pantalla: con 680 (sin el aire) tocaban borde a
-           borde, cero separación. right: 40px por la misma razón, simétrico.
-           top/bottom: 0/0, NO el padding vertical de .pv3-inner (130px/56px,
-           lo que tenía antes). Esa columna (desde left:720px) no tiene nada
-           arriba —el padding-top de 130px es aire reservado para el
-           ticket/título de la columna de la izquierda, no contenido de acá—,
-           así que restarlo corría el centrado hacia abajo (37px, la mitad de
-           la diferencia entre 130 y 56): la caja quedaba visiblemente "baja"
-           contra el alto real de .pv3-inner, que es lo que el ojo compara.
-           Centrando contra la caja completa (0/0) el centro coincide con el
-           de la columna vacía real.
-           z-index 3: por encima de la galería (0) y de .pv3-cta-full, que en
-           este momento ya se está disolviendo debajo. */
-        .pv3-gift-inline {
-          position: absolute;
-          left: 720px;
-          right: 40px;
-          top: 0;
-          bottom: 0;
-          z-index: 3;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px 0;
-          box-sizing: border-box;
+        /* ─── Drawer GIFT PaSS del paso 1 (2026-08-12) ───────────────────
+           Mismo lenguaje que CarritoDrawer.jsx, el otro drawer de la app:
+           scrim + panel fixed a la derecha, ancho fijo con tope en vw, slide
+           por transform (no fade). Reemplaza a la tarjeta flotando sobre la
+           galería que había antes —ver el historial más arriba en el JSX—:
+           esa dependía de esquivar el título de la izquierda con números
+           medidos a mano (720px, después 960px) y cada vez que el título
+           cambiaba de ancho quedaba en riesgo de tocarlo. Un drawer anclado
+           al borde derecho no compite con nada de la columna izquierda: no
+           importa cuánto mida el título, nunca están en el mismo lugar.
+
+           width: 560, más ancho que los 600 de max-width que tenía la
+           tarjeta vieja PARA EL PANEL COMPLETO (acá 560 es sólo el drawer;
+           .gp-panel adentro llega a ocupar los 560 enteros menos su propio
+           padding, más ancho neto que antes) — "dando más espacio... para
+           el contenido", a pedido. max-width:92vw, mismo criterio que
+           CarritoDrawer, para no desbordar en viewports angostos (aunque
+           esto es de escritorio, ver el breakpoint <1180px más abajo, que
+           lo apaga entero).
+           z-index 2000/2001: por encima de la navbar (1000, ver Navbar.jsx)
+           — un drawer tapa todo, como CarritoDrawer. Ese "por encima" recién
+           se cumple desde que los dos cuelgan de <body> por portal (ver la
+           nota en el JSX): adentro del hero el número era el mismo pero no
+           servía de nada.
+           El blur del scrim es EL blur de la escena (2026-08-13, a pedido:
+           "que el blur sea el compartido de todo el sitio"). Son los mismos
+           2px de CarritoDrawer.jsx — un solo lenguaje para los dos drawers.
+           Antes convivía con un filter local sobre media docena de elementos
+           del hero, que además desaturaba; eso se eliminó, ver la nota de
+           .pv3-gift-abierto .pv3-cta-full más arriba. */
+        .pv3-gift-scrim {
+          position: fixed;
+          inset: 0;
+          z-index: 2000;
+          background: rgba(11, 16, 32, 0.45);
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(2px);
           opacity: 0;
           pointer-events: none;
-          transition: opacity .45s ease .12s;
+          transition: opacity .32s ease;
         }
-        .pv3-gift-abierto .pv3-gift-inline { opacity: 1; pointer-events: auto; }
-        /* Une vez que arrancó el paso 2, la caja del paso 1 deja de ser
-           clickeable — va DESPUÉS de la regla de arriba (misma especificidad,
-           gana por orden) para pisarle el pointer-events mientras las dos
-           clases conviven durante el slide. Sin esto, sus botones seguían
-           respondiendo —y podían disparar elegirDestino() de nuevo— mientras
-           la caja ya estaba yéndose de la pantalla.
-           opacity:0 sumado acá (2026-08-12, bug reportado: "toma carrera",
-           un salto hacia atrás antes de ir hacia adelante): esta caja vive
-           DENTRO de .pv3-slide-catalogo a propósito —ver la nota grande más
-           arriba, "viaja junto con TODO lo demás"—, así que al arrancar el
-           slide sale arrastrada hacia la IZQUIERDA (translateX(-100%) del
-           padre) justo cuando el panel nuevo entra por la DERECHA: quien
-           acababa de clickear ahí veía su propio click huir para el lado
-           contrario antes de que llegara lo nuevo. Transition propia, mucho
-           más corta que la de entrada (.15s en vez de .45s): se apaga en el
-           lugar case-instantáneo, antes de que el arrastre del padre llegue
-           a notarse, en vez de viajar visible hasta desaparecer afuera. */
-        .pv3-regalo-abierto .pv3-gift-inline { opacity: 0; pointer-events: none; transition: opacity .15s ease; }
-        /* Sin .gp-wrap (ver hero-coupons.css): acá no es sidebar de alto
-           completo, es una tarjeta flotando con su alto de contenido — sólo
-           hace falta topearle el ancho para que no se estire a ocupar toda la
-           franja libre. position:relative es lo único que le suma esta regla
-           encima de la compartida: ancla al botón de cerrar, que es de acá,
-           no del panel del paso 2 (ese usa su propio botón, afuera de
-           .gp-panel). */
-        .pv3-gift-inline .gp-panel {
-          position: relative;
-          /* 600 y no 480: con la tarjeta angosta, "Desde $30.000 por mes,
-             obsequiás acceso total a cada turista que se hospeda en tu
-             negocio" partía en tres líneas. Sin max-width fijo (ancho:100%
-             del flex item nomás) se estiraría a ocupar TODO el espacio libre
-             entre 680px y el borde, que en pantallas anchas es demasiado —
-             600 es el tope; abajo de eso, se achica sola con el contenedor
-             (mismo mecanismo que ya usa este mismo panel en el breakpoint
-             <1180px, ver más abajo). */
-          max-width: 600px;
+        .pv3-gift-scrim--visible { opacity: 1; pointer-events: auto; }
+        /* Se apaga junto con el drawer cuando arranca el paso 2 — la escena
+           de .pv3-hc-stage ya cubre toda la pantalla por su cuenta, no hace
+           falta un scrim aparte detrás. Después de --visible a propósito:
+           misma especificidad, gana por orden mientras las dos conviven. */
+        .pv3-gift-scrim--saliendo { opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+
+        .pv3-gift-drawer {
+          position: fixed;
+          top: 0;
+          right: 0;
+          height: 100vh;
+          height: 100dvh;
+          width: 560px;
+          max-width: 92vw;
+          z-index: 2001;
+          background: #fff;
+          border-top-left-radius: 24px;
+          border-bottom-left-radius: 24px;
+          box-shadow: -30px 0 80px -40px rgba(11, 16, 32, 0.35);
+          overflow: hidden;
+          transform: translateX(105%);
+          pointer-events: none;
+          transition: transform .42s cubic-bezier(.22,1,.36,1);
         }
-        /* Cruz, arriba a la derecha — mismo lenguaje que cualquier "cerrar" de
-           overlay en la app (ver .pv3-regalo-cerrar, el del paso 2): círculo
-           gris neutro. Acá el ícono va blanco y no ${A.ink} porque el fondo es
-           un gris sólido (no el gris-al-6% translúcido de allá, que sólo
-           funciona con un ícono oscuro encima) — contraste blanco-sobre-gris,
-           mismo criterio que .gp-opcion-tag. */
+        .pv3-gift-drawer--abierto { transform: translateX(0); pointer-events: auto; }
+        /* Una vez que arrancó el paso 2, el drawer del paso 1 vuelve a
+           deslizarse afuera — DESPUÉS de la regla de arriba (misma
+           especificidad, gana por orden) para pisarle transform/pointer-
+           events mientras las dos clases conviven durante el slide grande.
+           Transition propia, más corta que la de entrada (.3s en vez de
+           .42s): se va rápido, sin competir visualmente con la escena nueva
+           que entra desde el mismo lado. */
+        .pv3-gift-drawer--saliendo { transform: translateX(105%); pointer-events: none; transition: transform .3s ease; }
+        /* .gp-panel llena el drawer entero (antes era una tarjeta con sus
+           propios bordes/radio/sombra flotando adentro de una columna
+           angosta) — acá ESO ya lo resuelve .pv3-gift-drawer (el borde
+           redondeado, la sombra), así que .gp-panel se aplana: sin borde,
+           sin radio propio, sin sombra, ocupando el 100% del alto para que
+           el cabezal + las opciones se centren en el medio del drawer entero
+           (justify-content:center), no arriba pegados contra el techo. */
+        .pv3-gift-drawer .gp-panel {
+          width: 100%;
+          height: 100%;
+          max-width: none;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        /* Cruz, arriba a la derecha (2026-08-12, a pedido: "el circulito en
+           outline negro y la cruz en negro") — círculo sin relleno, sólo
+           borde negro, con el ícono también negro (currentColor hereda del
+           color de texto). Al hover se invierte (se rellena de negro, el
+           ícono pasa a blanco): mismo gesto de "botón de cerrar" que el
+           resto de la app, pero en outline en reposo en vez de sólido. */
         .gp-gift-cerrar {
           position: absolute;
           top: 14px;
@@ -2024,16 +2299,16 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           place-items: center;
           width: 32px;
           height: 32px;
-          border: none;
+          border: 1.5px solid ${A.ink};
           border-radius: 50%;
-          background: var(--color-text-muted, #6B7280);
-          color: #fff;
+          background: none;
+          color: ${A.ink};
           cursor: pointer;
-          transition: background .15s ease;
+          transition: background .15s ease, color .15s ease;
         }
-        .gp-gift-cerrar:hover { background: ${A.ink}; }
+        .gp-gift-cerrar:hover { background: ${A.ink}; color: #fff; }
         @media (prefers-reduced-motion: reduce) {
-          .pv3-gift-inline { transition: none; }
+          .pv3-gift-drawer, .pv3-gift-scrim { transition: none; }
           .gp-gift-cerrar { transition: none; }
         }
 
@@ -2061,18 +2336,42 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            (ver .pv3-inner: las columnas laterales se achican por clamp y le
            ceden lugar a esta). Cuando de verdad no hay ancho, el apilado
            vuelve, pero explícito y sólo ahí: ver la media query de 560px. */
-        .pv3-opciones-botones { position: relative; display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; }
+        /* width:fit-content + margin auto en vez de un flex a todo el ancho
+           con justify-content:center (2026-08-12): el par queda centrado
+           igual —es el único contenido en flujo—, pero ahora el borde
+           derecho del container coincide con el del pase de 7 días, que es
+           lo que .pv3-pases-extra usa de ancla (left:100%). Antes el
+           container se estiraba a todo el ancho disponible y ese borde caía
+           ~30px más a la derecha, así que el aire real hasta "¿Más días?"
+           era el margin-left MÁS un sobrante que cambiaba con el viewport. */
+        .pv3-opciones-botones {
+          position: relative; width: fit-content; margin-inline: auto;
+          display: flex; flex-wrap: nowrap; align-items: center; justify-content: center;
+        }
         .pv3-pases-par { display: flex; flex-wrap: nowrap; gap: 14px; }
         /* Cuelga afuera del centrado del par, a su derecha —ver la nota en
            el JSX. left:100% toma como referencia el borde derecho de
            .pv3-opciones-botones (el propio flex container, que mide
            exactamente lo que mide .pv3-pases-par porque es su único
            contenido en flujo), así que sigue pegado al pase de 7 días sin
-           importar cuánto se centre el conjunto. */
-        .pv3-mas-dias {
+           importar cuánto se centre el conjunto — el ícono de gift pass y
+           "¿Más días?" van juntos adentro de este wrapper (2026-08-12, antes
+           era sólo "¿Más días?" el que colgaba acá), en flujo normal entre
+           ellos, así que ninguno de los dos pesa en el centrado del par.
+           Las dos distancias son asimétricas a propósito (2026-08-12, a
+           pedido): "¿Más días?" queda cerca de los pases (24px, la mitad
+           del aire que había) porque pertenece a esa misma decisión, y
+           lejos del regalito (32px, el doble) porque ese ícono abre otro
+           producto.
+           En mobile el gap vuelve a 16px: ahí el par se apila y la fila del
+           extra es la única en horizontal, sin nada de qué despegarse. */
+        .pv3-pases-extra {
           position: absolute; left: 100%; top: 50%;
           transform: translateY(-50%);
-          margin-left: 18px;
+          margin-left: 24px;
+          display: flex; align-items: center; gap: 32px;
+        }
+        .pv3-mas-dias {
           padding: 0; border: none; background: none; cursor: pointer;
           font-family: inherit; font-size: 15.5px; font-weight: 600; color: ${A.primary};
           white-space: nowrap;
@@ -2081,6 +2380,139 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           transition: color .15s;
         }
         .pv3-mas-dias:hover { color: ${A.primaryDark}; }
+        /* Mismo alto que .pv3-btn-pase (56px) para que las tres pastillas de
+           la fila —dos pases + este— lean como una misma familia, pero
+           circular y en blanco: es la puerta a OTRO producto (la
+           suscripción PRO), no un tercer pase. El dorado es DORADO_GIFT, el
+           mismo del moño de giftpass-logo.svg que ya usa el panel de
+           "Pases de regalo" — no un amarillo nuevo. Sin borde en ningún
+           estado (2026-08-12, a pedido: "el círculo sin outline") — una
+           sombra suave, no un borde, es lo que separa el círculo blanco
+           del fondo claro del hero. Hover invierte: fondo dorado, ícono
+           blanco (currentColor) — misma inversión de color que ya usan los
+           demás botones del hero al pasar a su estado "activo". */
+        .pv3-gift-icon-btn {
+          position: relative;
+          flex-shrink: 0;
+          display: grid; place-items: center;
+          width: 56px; height: 56px;
+          border: none; border-radius: 999px;
+          background: #fff; color: ${DORADO_GIFT}; cursor: pointer;
+          box-shadow: 0 4px 14px -8px rgba(11,16,32,0.25);
+          transition: background .15s, color .15s, transform .15s, box-shadow .15s;
+        }
+        /* Iluminación giratoria (2026-08-13) — el regalito es la puerta a
+           OTRO producto y queda callado al lado de dos pastillas llenas de
+           primary: un borde dorado que gira despacio lo señala sin sumar
+           copy ni un badge.
+           La receta es la del "glowing button hover" de Webflow, que pasó
+           Mariano de referencia (glowing-button-hover.webflow.io, de Dhruv
+           Sachdev). Lo que hace ese efecto, mirado de cerca: un conic-
+           gradient con UN arco encendido y el resto transparente, girando
+           2.5s linear infinite, repetido en dos capas —una nítida recortada
+           al borde y otra desenfocada de fondo—. Los ángulos de las paradas
+           son los del original (0/60/310/360, o sea un arco de ~110° que
+           cruza el 0); lo único que cambia es el color: el original va en
+           blanco sobre fondo oscuro y acá tiene que ser DORADO_GIFT sobre el
+           fondo claro del hero, que es el dorado del ícono y del moño de
+           giftpass-logo.svg.
+           El original arma esas capas con cuatro divs anidados y una máscara
+           SVG porque tiene que resolver una PÍLDORA; un círculo se recorta
+           con dos líneas de CSS, así que acá son dos capas y nada más:
+             .pv3-gift-slot::before — el anillo nítido. La máscara
+               content-box/exclude es el truco estándar de "sólo el borde":
+               se pinta el gradiente en toda la caja y se descuenta el
+               interior del padding, quedando visible un aro del grosor de
+               ese padding.
+             .pv3-gift-glow — el bloom. Mismo gradiente, desenfocado y más
+               grande, que es lo que hace que el borde "ilumine" en vez de
+               ser sólo una línea de color.
+           Las dos rotan con la MISMA duración y arrancan juntas, así que el
+           arco nítido y su resplandor van siempre en fase — si se
+           desincronizaran se vería como dos luces distintas, no como una.
+           Rota el elemento entero y no el ángulo inicial del gradiente, que
+           no está interpolado en todos los navegadores (ahí el giro se ve a
+           saltos).
+           Las dos quedan atrás por ORDEN DE PINTADO, no por z-index: son
+           hermanas anteriores al botón dentro del slot, y el botón (que trae
+           su propio fondo opaco) pinta después y las tapa, así que sólo se
+           ve lo que asoma afuera de los 56px. Con z-index:-1 adentro del
+           botón NO funciona: un hijo con z-index negativo pinta encima del
+           fondo del elemento que crea su contexto de apilado. */
+        .pv3-gift-slot {
+          position: relative; display: inline-flex; flex-shrink: 0;
+          /* Una sola definición para las dos capas: si el arco nítido y el
+             bloom no fueran el mismo gradiente, tocar uno y olvidarse del
+             otro los dejaría con formas distintas. */
+          --gift-conic: conic-gradient(
+            from 0deg,
+            rgba(255,185,74,0.95) 0deg,
+            rgba(255,185,74,0)    60deg,
+            rgba(255,185,74,0)    310deg,
+            rgba(255,185,74,0.95) 360deg
+          );
+          transition: transform .15s;
+        }
+        .pv3-gift-slot::before,
+        .pv3-gift-glow {
+          content: ''; position: absolute; border-radius: 999px;
+          pointer-events: none;
+          background: var(--gift-conic);
+          animation: pv3GiftGlow 2.5s linear infinite;
+          transition: opacity .2s;
+        }
+        /* Pegado al borde del botón, no flotando alrededor: en el original el
+           aro ES el borde de la pastilla y por eso se lee como una luz que
+           recorre el contorno. Como esta capa se pinta ANTES que el botón,
+           un inset:0 quedaría tapado entero por el círculo blanco — de ahí
+           el -1.5px: el aro arranca justo donde termina el botón. */
+        .pv3-gift-slot::before {
+          inset: -1.5px;
+          padding: 1.5px;
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+        }
+        .pv3-gift-glow {
+          inset: -8px;
+          filter: blur(8px);
+          opacity: .6;
+        }
+        @keyframes pv3GiftGlow {
+          to { transform: rotate(360deg); }
+        }
+        /* Con el drawer abierto el glow se apaga: ya llamó la atención, y lo
+           que importa mirar es lo que se abrió, no el botón que lo abrió. */
+        .pv3-gift-abierto .pv3-gift-slot::before,
+        .pv3-gift-abierto .pv3-gift-glow { opacity: 0; }
+        /* El hover queda CLAVADO mientras el recuadro está abierto (2026-08-12,
+           a pedido) — el botón es la puerta de lo que se abrió, y con todo lo
+           de al lado fuera de foco tiene que leerse encendido, no en reposo.
+           Como .pv3-cta-full pasa a pointer-events:none en ese momento, el
+           :hover real ni siquiera se dispararía: la clase del section es la
+           única forma de sostenerlo.
+           El levante va en .pv3-gift-slot y no acá (2026-08-13): mover sólo
+           el botón lo despegaba 1px de su propio anillo, que vive en el slot
+           — se veía como un aro descentrado. Subiendo el slot viaja todo
+           junto. */
+        .pv3-gift-icon-btn:hover,
+        .pv3-gift-abierto .pv3-gift-icon-btn {
+          background: ${DORADO_GIFT}; color: #fff;
+          box-shadow: 0 10px 20px -12px rgba(11,16,32,0.35);
+        }
+        .pv3-gift-slot:hover,
+        .pv3-gift-abierto .pv3-gift-slot { transform: translateY(-1px); }
+        @media (prefers-reduced-motion: reduce) {
+          .pv3-gift-icon-btn { transition: background .15s, color .15s; }
+          .pv3-gift-slot:hover,
+          .pv3-gift-abierto .pv3-gift-slot { transform: none; }
+          /* El giro se corta y las dos capas quedan quietas en su posición
+             de arranque: el aro dorado sigue distinguiendo al botón del par
+             de pases, sin nada en movimiento permanente en pantalla. */
+          .pv3-gift-slot::before,
+          .pv3-gift-glow { animation: none; }
+        }
         .pv3-btn-pase {
           display: inline-flex; align-items: center; gap: 12px;
           min-height: 56px; padding: 0 26px;
@@ -2167,12 +2599,19 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            que los anima) arrancan con pointer-events:none por default acá
            hasta que cada uno pasa a 'auto' por su cuenta, ya bastante
            visible — el botón (adentro de .hc__opciones) hereda el de su
-           grupo, no necesita su propia regla. will-change en los tres: son
-           los que esa rampa anima. */
+           grupo, no necesita su propia regla. */
         .pv3-hc-stage .pv3-hc-g1,
         .pv3-hc-stage .hc__sub,
         .pv3-hc-stage .hc__opciones {
           pointer-events: none;
+        }
+        /* will-change SÓLO con el panel abierto (2026-08-12) — ver la nota
+           larga junto a .pv3-regalo-abierto .coupon en hero-coupons.css.
+           Estos tres son los que anima la rampa de PANEL_G1/G2/G3, y esa
+           rampa corre únicamente cuando regaloAbierto pasa a true. */
+        .pv3-regalo-abierto .pv3-hc-stage .pv3-hc-g1,
+        .pv3-regalo-abierto .pv3-hc-stage .hc__sub,
+        .pv3-regalo-abierto .pv3-hc-stage .hc__opciones {
           will-change: opacity, transform;
         }
 
@@ -2289,7 +2728,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
              quedar en true en este ancho — pero por si el viewport se achica
              CON la caja ya abierta (achicar la ventana en vivo), display:none
              la saca sin depender de que el estado se resetee solo. */
-          .pv3-gift-inline { display: none; }
+          .pv3-gift-drawer, .pv3-gift-scrim { display: none; }
           .pv3-left-stage { height: auto; }
           /* width/max-width: en desktop .pv3-left-var se desborda a propósito
              (640px sobre una columna de ~340, ver su nota arriba); acá vuelve
@@ -2309,17 +2748,23 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
             min-height: 0;
           }
           .pv3-left { display: flex; flex-direction: column; align-items: center; max-width: 620px; }
-          /* Ya es una lista apilada en la regla base (ver la nota junto a
-             .pv3-accesos, arriba) — acá sólo hace falta centrarla contra la
-             columna. Un poco más ancha que en desktop: sin la columna del
-             medio al lado, el hueco entre texto y flecha ya no compite con
-             nada. */
-          .pv3-accesos { max-width: 360px; margin-inline: auto; }
-          /* height:auto: a este ancho el ticket ya no entra en los 130px
-             fijos de la regla base sin recortarse. margin-left vuelve a 0:
-             el offset negativo de escritorio (para despegarlo del párrafo)
-             no tiene sentido acá, la columna entera está centrada. */
-          .pv3-logo-slot { height: auto; margin: 0 0 24px; }
+          /* Título: clamp propio y más chico acá (2026-08-12), no el de la
+             regla base. La regla base tiene un cruce vw/mínimo recién
+             arriba de los 1218px de ancho —por debajo, que es TODO este
+             breakpoint, el tamaño queda pinneado en el mínimo (57.5px /
+             39px)—, y ese mínimo se pensó para desktop, no para que
+             explote en un teléfono de 360px. Estos clamp aparte retoman el
+             +21.7% pedido (mismo factor que la regla base) pero sobre los
+             valores que este breakpoint ya usaba, con piso propio para
+             pantallas angostas. */
+          .pv3-t-it { font-size: clamp(30px, 8vw, 47.5px); }
+          /* -15% acá también (2026-08-12), mismo motivo que la regla base:
+             21/5.6vw/33.5 × 0.85. */
+          .pv3-t-bold, .pv3-t-ticker { font-size: clamp(18px, 4.76vw, 28.5px); }
+          /* Centrada contra la columna, sin más — el max-width de la regla
+             base (420px) ya le alcanza acá también, así que sólo hace
+             falta el margin-inline:auto. */
+          .pv3-accesos { margin-inline: auto; }
           /* En la regla base es la celda 2 del grid, asentada abajo con
              align-self:end + margin-bottom (ver su nota): acá, apilada bajo
              .pv3-left en una sola columna, ese margen de abajo dejaría un
@@ -2359,14 +2804,15 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
         }
         @media (max-width: 560px) {
           /* Los dos pases pasan a ocupar el ancho: en mobile la comparación se
-             hace en vertical, uno debajo del otro. "¿Más días?" vuelve al
-             flujo normal (era position:absolute para no pesar en el centrado
-             del par, ver la nota junto a .pv3-mas-dias) y se apila como
-             tercer elemento, centrado con el resto. */
-          .pv3-opciones-botones { flex-direction: column; align-items: stretch; gap: 12px; }
+             hace en vertical, uno debajo del otro. .pv3-pases-extra (ícono de
+             gift pass + "¿Más días?") vuelve al flujo normal (era
+             position:absolute para no pesar en el centrado del par, ver la
+             nota junto a esa regla) y se apila como tercer elemento,
+             centrado con el resto. */
+          .pv3-opciones-botones { width: auto; flex-direction: column; align-items: stretch; gap: 12px; }
           .pv3-pases-par { flex-direction: column; gap: 12px; }
           .pv3-btn-pase { justify-content: center; }
-          .pv3-mas-dias { position: static; transform: none; margin-left: 0; text-align: center; }
+          .pv3-pases-extra { position: static; transform: none; margin-left: 0; justify-content: center; gap: 16px; }
         }
       `}</style>
     </section>

@@ -540,7 +540,7 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
       )}
 
       {/* ── Body ── */}
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: isMobile ? '16px 16px 72px' : '32px 40px 72px', display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+      <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: isMobile ? '16px 16px 72px' : '32px var(--site-pad) 72px', display: 'flex', gap: 32, alignItems: 'flex-start' }}>
 
         {/* Sidebar desktop */}
         {!isMobile && (

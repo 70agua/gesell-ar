@@ -73,7 +73,7 @@ export default function HeroCoupons({ onSuscribir }) {
         </div>
 
         {/* .hc__inner replica el rol de .pv3-inner en HeroPase (ancho máx.
-            1328px, centrado, padding horizontal); .hc__copy replica a
+            --site-max, centrado, padding horizontal); .hc__copy replica a
             .pv3-left (columna fija de 640px, pegada a la izquierda con
             margin-left:30px). */}
         <div className="hc__inner">

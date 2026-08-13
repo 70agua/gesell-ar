@@ -288,7 +288,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
     // zIndex por encima del hero (z:0) para tapar como bloque las imágenes
     // que asoman desde atrás de la línea divisoria.
     <section style={{ position: 'relative', zIndex: 1, background: 'linear-gradient(180deg, #EAF4FB 0%, #E2F0FB 100%)', padding: '72px 0' }}>
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '0 40px' }}>
+      <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: '0 var(--site-pad)' }}>
         {/* Header */}
         <div style={{ marginBottom: 60, textAlign: 'center' }}>
           {/* Icono de los cuponcitos, encima del título */}
@@ -760,7 +760,7 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
         }
       `}</style>
       {/* Header */}
-      <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 56, marginBottom: 28 }}>
+      <div style={{ paddingLeft: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))', paddingRight: 56, marginBottom: 28 }}>
         <h2 style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.01em', color: A.ink, margin: '0 0 20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
           <span>Ofertas en&nbsp;</span>
           {/* La categoría en azul es el mismo atajo que el botón negro del pie */}
@@ -797,7 +797,7 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          style={{ overflowX: 'auto', paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingBottom: 44 }}
+          style={{ overflowX: 'auto', paddingLeft: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))', paddingBottom: 44 }}
           className="no-scrollbar"
         >
           {/* stretch: todas las fichas toman el alto de la más alta. Con
@@ -852,7 +852,7 @@ function PromosSection({ grupo, promos, loading, onOpenDetail, accommodations, o
 
       {/* Botón negro centrado — sólo si hay más ofertas que las que se ven */}
       {!loading && promosFiltradas.length > 4 && (
-        <div style={{ maxWidth: 1328, margin: '0 auto', padding: '8px 40px 0', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: '8px var(--site-pad) 0', display: 'flex', justifyContent: 'center' }}>
           <button
             onClick={() => onNavCuponear?.(navTarget)}
             style={{ background: A.ink, color: '#fff', border: 'none', borderRadius: 999, padding: '13px 30px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: A.font }}
@@ -947,7 +947,7 @@ function CupopacksSection({ onVerPacks, onVerPase }) {
 
       {/* Banda azul superior: cubre el header y baja hasta ~1/3 de la 1ª fila de cards */}
       <div style={{ background: A.navy, color: '#fff', paddingTop: 88, paddingBottom: 220 }}>
-        <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 'max(40px, calc((100vw - 1328px) / 2 + 40px))' }}>
+        <div style={{ paddingLeft: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))', paddingRight: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))' }}>
 
         {/* Header */}
         <div style={{ marginBottom: 0 }}>
@@ -973,7 +973,7 @@ function CupopacksSection({ onVerPacks, onVerPase }) {
       </div>{/* /banda azul */}
 
       {/* Grid — subido para que el tercio superior de las cards quede sobre el azul */}
-      <div style={{ paddingLeft: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', paddingRight: 'max(40px, calc((100vw - 1328px) / 2 + 40px))', marginTop: -170, paddingBottom: 96, position: 'relative', zIndex: 1 }}>
+      <div style={{ paddingLeft: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))', paddingRight: 'max(var(--site-pad), calc((100vw - var(--site-max)) / 2 + var(--site-pad)))', marginTop: -170, paddingBottom: 96, position: 'relative', zIndex: 1 }}>
         <div className="cupopacks-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
           {cupopacks === null
             ? Array.from({ length: 3 }).map((_, i) => (

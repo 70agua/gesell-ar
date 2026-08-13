@@ -125,7 +125,7 @@ export default function OfertasRegaloView({ onBack, onOpenOferta }) {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '40px 40px 80px' }}>
+      <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: '40px var(--site-pad) 80px' }}>
 
         {/* Back */}
         <button

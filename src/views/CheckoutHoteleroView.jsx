@@ -183,30 +183,38 @@ function ComoFunciona({ embebido, onVolver }) {
   return (
     <div style={{ padding: '22px 22px 30px' }}>
       {/* Logo GIFT PaSS PRO, arriba del título (2026-08-11) — mismo lockup, y
-          ahora también mismo dorado (#FFB94A, el moño de giftpass-logo.svg),
-          que usa el panel de regalo de la home: es la MISMA marca GIFT PaSS
-          en los dos caminos, no dos logos distintos. La etiqueta PRO sigue
-          ese mismo color (ver el prop `pro` en PaSSMark) — ya no un azul
-          fijo, se probó y se volvió atrás.
+          mismo dorado (#FFB94A, el moño de giftpass-logo.svg), que usa el
+          panel de regalo de la home: es la MISMA marca GIFT PaSS en los dos
+          caminos, no dos logos distintos. La etiqueta PRO, en cambio, va
+          fija en PRIMARY relleno + texto blanco (ver el prop `pro` en
+          PaSSMark) — se probaron dos vueltas (outline siguiendo `color`,
+          después dorado) y quedó en esto: un fondo sólido que la distingue
+          del lockup dorado, no un tono que lo siga.
           La flecha a la izquierda (2026-08-11) sólo aparece embebido: es la
           salida completa del flujo de regalo, de vuelta a la home base —no
           "un paso atrás" como el círculo de .pv3-regalo-cerrar (ese sigue
           existiendo, en la esquina de .pv3-hc-stage, y vuelve sólo al paso
-          1). Sin círculo a propósito ("sin más", a pedido): no compite con
-          el logo, que es la protagonista de la fila.
-          Tamaño y color subieron una vuelta (2026-08-11): 20px en
-          #D1D5DB —gris clarito, como se había pedido primero— quedaba
-          perdida contra el blanco del panel, "no se ve". 28px + C.ink2 (el
-          gris oscuro que ya usa el resto del copy secundario de la app, no
-          un tono inventado) la hace legible sin llegar al negro del título,
-          que es lo que de verdad tiene que destacar acá. */}
+          1).
+          Círculo outline (2026-08-12, a pedido): mismo look que la cruz del
+          paso 1 en el hero (.gp-gift-cerrar en HeroPase.jsx) — 32px, borde
+          1.5px negro, sin relleno en reposo, se invierte al hover (se
+          rellena de negro, el ícono pasa a blanco). Mismo tamaño de ícono
+          (18) y grosor de trazo (2.5) que esa cruz también, para que las dos
+          "salidas" del flujo se lean como el mismo control. */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
         {embebido && onVolver && (
           <button
             type="button" onClick={onVolver} aria-label="Volver al inicio"
-            style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', display: 'grid', placeItems: 'center', padding: 4, border: 'none', background: 'none', color: C.ink2, cursor: 'pointer' }}
+            style={{
+              position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+              display: 'grid', placeItems: 'center', width: 32, height: 32,
+              border: `1.5px solid ${C.ink}`, borderRadius: '50%',
+              background: 'none', color: C.ink, cursor: 'pointer', transition: 'background .15s ease, color .15s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = C.ink; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = C.ink; }}
           >
-            <ArrowLeft size={28} strokeWidth={2} />
+            <ArrowLeft size={18} strokeWidth={2.5} />
           </button>
         )}
         <PaSSMark size={26} conGesell prefijo="GIft" pro color="#FFB94A" />
@@ -226,7 +234,7 @@ function ComoFunciona({ embebido, onVolver }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, margin: '28px 0 20px' }}>
         <Icono src="/iconos/manopla.json" animar
           label="Tu turista recibe el Pase en su celular"
-          style={{ flex: '0 0 auto', width: 110, height: 110, display: 'block' }} />
+          style={{ flex: '0 0 auto', width: 140, height: 140, display: 'block' }} />
         <div style={{ width: '68%', fontSize: 19, fontWeight: 500, fontStyle: 'italic', color: C.ink, letterSpacing: '-0.01em', textAlign: 'left', lineHeight: 1.32 }}>
           El huésped canjea tu código promocional al contratar Cupon PASS
         </div>

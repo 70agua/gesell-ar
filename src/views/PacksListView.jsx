@@ -196,7 +196,7 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange,
 
       {/* ── Header ── */}
       <div style={{ background: C.navy, color: '#fff' }}>
-        <div style={{ maxWidth: 1328, margin: '0 auto', padding: '48px 40px 52px' }}>
+        <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: '48px var(--site-pad) 52px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>
             <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: C.font }}>Inicio</button>
             <ChevronRight size={12} />
@@ -214,7 +214,7 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange,
       </div>
 
       {/* ── Familias, como filtro del listado ── */}
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '30px 40px 0' }}>
+      <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: '30px var(--site-pad) 0' }}>
         {/* Sin pop de CSS sobre el ícono: la única animación del hover es la que
             trae el propio Lottie (ver components/Icono.jsx). */}
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${FAMILIAS_PACK.length + 1}, 1fr)`, gap: 12 }}>
@@ -245,7 +245,7 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange,
       </div>
 
       {/* ── Listado ── */}
-      <div style={{ maxWidth: 1328, margin: '0 auto', padding: '30px 40px 80px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div style={{ maxWidth: 'var(--site-max)', margin: '0 auto', padding: '30px var(--site-pad) 80px', display: 'flex', flexDirection: 'column', gap: 22 }}>
         {visibles === null ? (
           <>
             <style>{`@keyframes packSkel { 0%,100% { opacity: .9 } 50% { opacity: .35 } }`}</style>
