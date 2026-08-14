@@ -164,11 +164,14 @@ Definido en `src/lib/cobros.js`. 1 crédito = $2.000 + 21% IVA. Saldos en `socio
 
 **Precio del cupón** (lo que paga el turista) — `calcularPrecioCupon(ahorro)`:
 `clamp(redondear_centena(comisión × 1.21), PRECIO_MIN, PRECIO_MAX)` con `PRECIO_MIN = 2500`, `PRECIO_MAX = 20000`.
-La comisión es **marginal** (como ganancias): 20% sobre la porción hasta $15.000, 15% de $15.000 a $40.000, 10% de $40.000 a $100.000, 7% por encima. Marginal y no por tramo entero para que el precio sea monótono: antes, subir el ahorro de $15.000 a $15.001 bajaba el cupón de $3.600 a $2.700.
-El techo se toca a partir de un ahorro de $153.395, así que los cuatro tramos son alcanzables.
-`promociones.precio_manual` saltea la escalera y es **override exclusivo del superadmin** — el socio no lo ve ni lo escribe.
+La comisión son **dos tasas planas sobre el ahorro entero** (2026-08-13): **20%** (`COMISION_BASE`), o **15%** (`COMISION_PREMIUM`) si la oferta es premium, o sea `ahorro > AHORRO_BASE_MAX` ($40.000) — la misma frontera que dispara la corona PREMIUM en la ficha. El IVA va **encima** de la comisión: el turista paga 24,2% del ahorro, 18,15% en premium.
+`AHORRO_BASE_MAX` vive en `cobros.js` y `pases.js` la re-exporta: desde que decide el precio es también una constante de precio, y cobros.js es el único módulo que puede ser dueño sin armar un ciclo (`cobros → pases → datos → cobros`).
+El piso muerde hasta ~$10.300 de ahorro y el techo recién a partir de ~$110.000.
+⚠️ **El precio ya no es monótono**: en la frontera baja. $40.000 de ahorro → cupón de $9.700; $40.001 → $7.300. Reemplazó a una escalera *marginal* (20/15/10/7 sobre la porción de cada tramo) que existía justamente para evitar eso. Si vuelve a molestar, el arreglo es cobrar el 15% sólo sobre la porción por encima de $40.000.
+`promociones.precio_manual` saltea el cálculo y es **override exclusivo del superadmin** — el socio no lo ve ni lo escribe.
 - `AHORRO_MIN = 5000` es el ahorro mínimo publicable (se valida en el editor del socio).
-- Debajo de `AHORRO_CUPON_ENTRADA = 10000` es un **cupón de entrada**: precio clavado en $2.500. Se comunica por su **ganancia neta** (`gananciaNeta(ahorro)` = ahorro − precio), no por el ahorro bruto, y no entra en espacios destacados.
+- Debajo de `AHORRO_CUPON_ENTRADA = 10000` es un **cupón de entrada**: precio clavado en $2.500 y no entra en espacios destacados.
+- **El ahorro que se muestra es siempre el que declaró el socio.** Los cupones de entrada se comunicaban por su ganancia neta (ahorro − precio); se revirtió el 2026-08-13 porque el número dejaba de ser el del socio: una oferta de $5.000 —el mínimo publicable— aparecía en pantalla como "ahorrás $2.500" y se leía como un ahorro por debajo del mínimo. Peor, la leyenda seguía diciendo "del precio original", que del neto es falso. `gananciaNeta()` sigue existiendo, pero sólo para el editor del socio, donde el número está rotulado como lo que es.
 
 **Ningún socio paga por publicar ni por canjear.** El único débito de créditos es el impulso voluntario de una oferta (`src/lib/impulso.js`). El plan compra visibilidad, no funcionalidad básica.
 
@@ -222,7 +225,7 @@ No se mide "click a contacto": ese botón se eliminó en la Fase 2b.
 
 ### Cupo premium — elección explícita
 
-Una oferta con ahorro > $15.000 entra en la capa premium del Pase, y el socio **tiene que elegir** entre un cupo mensual N o `premium_ilimitado = true`. Sin default: la constraint `promociones_premium_definido` no deja publicarla si no eligió (los borradores sí). El cupo protege al socio de alto ticket; el ilimitado es una opción real, no un 0.
+Una oferta con ahorro > $40.000 (`AHORRO_BASE_MAX`) entra en la capa premium del Pase, y el socio **tiene que elegir** entre un cupo mensual N o `premium_ilimitado = true`. Sin default: la constraint `promociones_premium_definido` no deja publicarla si no eligió (los borradores sí). El cupo protege al socio de alto ticket; el ilimitado es una opción real, no un 0.
 
 ### Pase regalo del socio
 

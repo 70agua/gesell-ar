@@ -78,11 +78,11 @@ function Cabecera() {
     }}>
       <span>
         <span style={{
-          display: 'block', fontSize: 21, fontWeight: 800,
+          display: 'block', fontSize: 24, fontWeight: 800,
           letterSpacing: '-0.02em', lineHeight: 1.15,
         }}>Promociones</span>
         <span style={{
-          display: 'block', marginTop: 2, fontSize: 14, fontWeight: 500,
+          display: 'block', marginTop: 2, fontSize: 15.5, fontWeight: 500,
           lineHeight: 1.3,
         }}>de este socio</span>
       </span>
@@ -91,17 +91,20 @@ function Cabecera() {
           bajada encima dice para qué está ahí — que estas mismas ofertas
           rinden más con el Pase— y las dos líneas de la derecha quedan
           enfrentadas a las dos de la izquierda.
+          Va centrada sobre el lockup y no alineada al borde derecho: el lockup
+          es más ancho que la frase, así que al ras de la derecha la frase
+          quedaba corrida y las dos piezas no se leían como un bloque.
           Invertido: `color` pinta la pastilla y la palabra del prefijo —acá,
           blanco sobre el primary de la banda— y `colorTexto` devuelve el
           "PaSS" de adentro al azul, que si no quedaba blanco sobre blanco. */}
       <span style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
         gap: 7, flexShrink: 0,
       }}>
-        <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
           Más beneficios con
         </span>
-        <PaSSMark size={16} conGesell color="#fff" colorTexto={A.primary} />
+        <PaSSMark size={14} conGesell color="#fff" colorTexto={A.primary} />
       </span>
     </div>
   );
@@ -154,7 +157,7 @@ function FilaSkeleton({ indice }) {
 }
 
 export default function PanelOfertasSocio({
-  promos = [], session, ofertaId, cuponesEnZona = 0, cargando = false,
+  promos = [], session, ofertaId, cuponesTotal = 0, cargando = false,
   onOpenOferta, onComprarPase, onSumarCupon, onCanjear, onCoordinarFecha, onVerPase, onRegalarPase,
 }) {
   // El deep-link manda sobre el índice 0. Si el id no está entre las ofertas de
@@ -242,7 +245,7 @@ export default function PanelOfertasSocio({
           promo={promo}
           session={session}
           precio={precioDe(promo)}
-          cuponesEnZona={cuponesEnZona}
+          cuponesTotal={cuponesTotal}
           onComprarPase={onComprarPase}
           onSumarCupon={onSumarCupon}
           onCanjear={() => onCanjear?.(promo)}

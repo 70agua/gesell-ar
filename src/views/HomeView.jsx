@@ -302,7 +302,7 @@ function CuponearCategoriasSection({ onVerOfertasRegalo, onNavCuponear }) {
 
           {/* Atribución al producto, pegada al título */}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 30, fontSize: 19, color: A.muted, lineHeight: 1.6 }}>
-            Todo esto lo conseguís con <PaSSMark size={20} conGesell />
+            con <PaSSMark size={16} conGesell />
           </span>
         </div>
 

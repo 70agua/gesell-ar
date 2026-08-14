@@ -20,7 +20,7 @@ import PaSSMark from './PaSSMark';
 import { usePasePropio } from '../lib/pasePropio';
 import { useCarrito } from '../lib/carrito';
 import { secondsUntil } from '../lib/ofertas';
-import { precioActivacionARS, creditosActivacion, esCuponDeEntrada, gananciaNeta } from '../lib/cobros';
+import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
 import HeartButton from './HeartButton';
 import { CreditTooltip } from './InfoTooltip';
 import { useMostrarCreditos } from '../lib/sesion';
@@ -58,10 +58,15 @@ const MODALIDAD_AHORRO = {
   por_noche:          'por noche',
   en_toda_la_estadia: 'en toda la estadía',
 };
+// La excepción del cupón de entrada se fue con la ganancia neta (2026-08-13):
+// existía porque en esas ofertas el número mostrado no era un ahorro sobre la
+// estadía sino la resta ahorro − precio, y la modalidad no le cabía. Ahora
+// todas muestran el ahorro declarado, así que a todas les corresponde su
+// modalidad. De paso desaparece un renglón que era falso: la ficha decía
+// "ahorrás $2.500 · del precio original" cuando el descuento sobre el precio
+// original era $5.000 y $2.500 era lo que quedaba después de pagar el cupón.
 function ahorroLegend(promo) {
-  // El cupón de entrada no muestra un ahorro sobre la estadía, así que tampoco
-  // le corresponde la modalidad: cae en la leyenda genérica.
-  if (promo.categoria === 'alojamiento' && !esCuponDeEntrada(promo.ahorroEstimado)) {
+  if (promo.categoria === 'alojamiento') {
     return MODALIDAD_AHORRO[promo.ahorroModalidad] || 'en toda la estadía';
   }
   return 'del precio original';
@@ -272,8 +277,9 @@ function ImagenConBadge({ promo, imgHeight, inMarketplace, hideHeart = false, gr
 // A la derecha va `accion` — el "Ver oferta". Va acá y no abajo porque es lo
 // más barato que puede hacer el turista, y en la franja no le compite al Pase.
 function FranjaAhorro({ ahorroEstimado, legend, accion = null }) {
-  const entrada = esCuponDeEntrada(ahorroEstimado);
-  const monto   = entrada ? gananciaNeta(ahorroEstimado) : ahorroEstimado;
+  // Siempre el ahorro declarado por el socio, nunca la ganancia neta — ver la
+  // nota en ahorroLegend() y la de LineaAhorro en BloqueAccion.jsx.
+  const monto = ahorroEstimado;
   const outerRef = useRef(null);
   const innerRef = useRef(null);
   const [scale, setScale] = useState(1);
@@ -492,7 +498,21 @@ function PrecioYAcciones({ promo, onOpen, hideActions = false, hideAgregar = fal
     <div style={{ padding: '15px 16px 17px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
       <button
           type="button"
-          onClick={e => { e.stopPropagation(); usar ? onOpen?.(promo, { detalle: true }) : addCupon(promo); }}
+          onClick={e => {
+            e.stopPropagation();
+            // "Canjear ahora" va al detalle del cupón: ahí vive el canje
+            // (cámara, código manual, confirmación).
+            if (usar)   { onOpen?.(promo, { detalle: true }); return; }
+            // "Lo quiero, es gratis" sí adquiere: no hay nada que evaluar.
+            if (gratis) { addCupon(promo); return; }
+            // "Ver cupón" MUESTRA (2026-08-13). Antes hacía addCupon(), o sea
+            // que el botón decía "ver" y abría el carrito con el cupón ya
+            // adentro y el Pase encima: el turista terminaba en una pantalla
+            // de compra sin haber visto qué compraba. Ahora abre la ficha del
+            // socio con esta oferta desplegada en el acordeón, que es donde
+            // están el precio, el ahorro, los términos y el botón de comprar.
+            onOpen?.(promo);
+          }}
           onMouseEnter={() => setHover(true)}
           onMouseLeave={() => setHover(false)}
           style={{
@@ -509,7 +529,7 @@ function PrecioYAcciones({ promo, onOpen, hideActions = false, hideAgregar = fal
             transition: 'background .15s',
           }}
         >
-          {usar ? 'Canjear ahora' : gratis ? 'Lo quiero, es gratis' : 'Quiero el cupón'}
+          {usar ? 'Canjear ahora' : gratis ? 'Lo quiero, es gratis' : 'Ver cupón'}
         </button>
 
       {!hideAgregar && <SelloPase />}

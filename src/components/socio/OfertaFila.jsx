@@ -23,6 +23,10 @@ import { ChevronDown } from 'lucide-react';
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',
   line: '#E7E9EE', primary: '#475BE1',
+  // Fondo de la fila abierta. Era #F7F8FC, un gris con una pizca de azul que
+  // se leía como "deshabilitada" y no como "es esta". rgb(237 241 255) es el
+  // primary bien diluido: tiñe, no apaga.
+  activa: 'rgb(237 241 255)',
   font: "'Inter', system-ui, sans-serif",
 };
 
@@ -60,7 +64,7 @@ export default function OfertaFila({ promo, activa, onClick, filaRef }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 12, width: '100%',
         minHeight: ALTO_FILA,
-        padding: '16px 14px', border: 'none', background: activa ? '#F7F8FC' : 'none',
+        padding: '16px 14px', border: 'none', background: activa ? A.activa : 'none',
         cursor: 'pointer', textAlign: 'left', fontFamily: A.font,
       }}
     >

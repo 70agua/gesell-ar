@@ -2046,7 +2046,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
                   </div>
                   {entrada && (
                     <div style={{ fontFamily: FONT, fontSize: 11.5, color: MUTED, marginTop: 5, lineHeight: 1.45 }}>
-                      Es un <b>cupón de entrada</b>: precio fijo de ${PRECIO_MIN.toLocaleString('es-AR')}. Se muestra por su ganancia neta y no entra en espacios destacados.
+                      Es un <b>cupón de entrada</b>: precio fijo de ${PRECIO_MIN.toLocaleString('es-AR')} y no entra en espacios destacados.
                     </div>
                   )}
                 </div>

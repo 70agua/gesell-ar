@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { getPromosDeNegocio, getPromosLocalidad, getPromosSimilares } from '../lib/datos';
+import { contarDescuentosDelPase } from '../lib/pases';
 import OfertaCard from '../components/OfertaCard';
 import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
 import { useCarrito } from '../lib/carrito';
@@ -750,7 +751,7 @@ function SimilaresSection({ promos = [], onOpenOferta }) {
 //  repitan el cableado de la cámara y del pedido de fecha. El panel en sí no
 //  sabe nada de modales: recibe callbacks y listo.
 // ═══════════════════════════════════════════════════════════
-function PanelOfertas({ promos, session, ofertaId, cuponesEnZona, cargando, onOpenOferta, onComprarPase, onSuscribirHoteleria }) {
+function PanelOfertas({ promos, session, ofertaId, cuponesTotal, cargando, onOpenOferta, onComprarPase, onSuscribirHoteleria }) {
   const { addCupon } = useCarrito();
   const [escaneando, setEscaneando] = useState(false);
   const [pidiendoFecha, setPidiendoFecha] = useState(null);
@@ -763,7 +764,7 @@ function PanelOfertas({ promos, session, ofertaId, cuponesEnZona, cargando, onOp
         promos={promos}
         session={session}
         ofertaId={ofertaId}
-        cuponesEnZona={cuponesEnZona}
+        cuponesTotal={cuponesTotal}
         cargando={cargando}
         onOpenOferta={onOpenOferta}
         onComprarPase={onComprarPase}
@@ -806,7 +807,7 @@ function PanelOfertas({ promos, session, ofertaId, cuponesEnZona, cargando, onOp
   );
 }
 
-function AlojamientoDetail({ item, promos, promosLocalidad = [], similares = [], loading, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
+function AlojamientoDetail({ item, promos, promosLocalidad = [], similares = [], cuponesTotal = 0, loading, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
   const plan = item.plan || 'PLUS';
   const cfg  = PLAN_CFG[plan];
 
@@ -879,13 +880,19 @@ function AlojamientoDetail({ item, promos, promosLocalidad = [], similares = [],
             </div>
           </div>
 
-          {/* RIGHT — sticky desde arriba */}
-          <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
+          {/* RIGHT — scrollea con la página, no anclada (2026-08-13). El panel
+              estaba en `position: sticky` y quedaba clavado mientras la columna
+              izquierda seguía de largo: las dos cabeceras arrancan alineadas y
+              a partir del primer scroll dejaban de estarlo, y con el mapa ahora
+              en la columna central la ficha del pin podía quedar tapada por el
+              panel congelado. Si más adelante hace falta anclar algo, se ancla
+              eso y no la columna entera. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
             <PanelOfertas
               promos={promos.map(p => ({ ...p, title: p.title || p.titulo, image: p.image || p.imagen_url }))}
               session={session}
               ofertaId={item.ofertaId}
-              cuponesEnZona={promosLocalidad.length}
+              cuponesTotal={cuponesTotal}
               cargando={loading}
               onOpenOferta={onOpenOferta}
               onComprarPase={onComprarPase}
@@ -918,7 +925,7 @@ const IgIcon = ({ size = 14 }) => (
 // ═══════════════════════════════════════════════════════════
 //  GastroExperienciaDetail — ficha de socio (info + promos)
 // ═══════════════════════════════════════════════════════════
-function GastroExperienciaDetail({ item, tipo, promos = [], promosLocalidad = [], similares = [], loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
+function GastroExperienciaDetail({ item, tipo, promos = [], promosLocalidad = [], similares = [], cuponesTotal = 0, loading, session, onOpenOferta, onOpenLocalidad, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
   const plan = item.plan || 'PLUS';
   const category  = item.category || item.type || '';
   const pinColor  = TIPO_COLORS[category] || C.muted;
@@ -1067,8 +1074,10 @@ function GastroExperienciaDetail({ item, tipo, promos = [], promosLocalidad = []
             </div>{/* end marginTop wrapper */}
           </div>
 
-          {/* RIGHT — sidebar sticky: promociones (siempre) + horario (si está cargado) */}
-          <div style={{ position: 'sticky', top: 84, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* RIGHT — promociones (siempre) + horario (si está cargado).
+              Scrollea con la página, igual que en la ficha de alojamiento: ver
+              la nota de allá. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* `loading` va en la condición y no sólo en el prop: mientras la
                 consulta viaja, `promosVisibles` está vacío igual que cuando el
                 socio no tiene ninguna oferta, y este lado del ternario decía
@@ -1078,7 +1087,7 @@ function GastroExperienciaDetail({ item, tipo, promos = [], promosLocalidad = []
                 promos={promosVisibles}
                 session={session}
                 ofertaId={item.ofertaId}
-                cuponesEnZona={promosLocalidad.length}
+                cuponesTotal={cuponesTotal}
                 cargando={loading}
                 onOpenOferta={onOpenOferta}
                 onComprarPase={onComprarPase}
@@ -1144,6 +1153,11 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
   const [promos,          setPromos]          = useState([]);
   const [promosLocalidad, setPromosLocalidad] = useState([]);
   const [similares,       setSimilares]       = useState([]);
+  // Total de cupones vigentes del catálogo entero — lo que promete el Pase en
+  // el bloque de acción. No sale de `promos` ni de `promosLocalidad`: esos son
+  // subconjuntos de esta pantalla, y el número que se muestra es del producto,
+  // no de la ficha. Misma fuente que el "Ver los N descuentos" de la home.
+  const [cuponesTotal,    setCuponesTotal]    = useState(0);
   const [loading,         setLoading]         = useState(true);
 
   const backLabel = { alojamiento: 'Alojamientos', salidas: 'Salidas', aventura_relax: 'Aventura & Relax' }[tipo] || 'Inicio';
@@ -1153,15 +1167,17 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
       setLoading(true);
       if (!item.id) { setLoading(false); return; }
 
-      const [propiasResult, localidadResult, similaresResult] = await Promise.all([
+      const [propiasResult, localidadResult, similaresResult, conteo] = await Promise.all([
         getPromosDeNegocio(item.id),
         getPromosLocalidad(item.localidad || '', item.id),
         getPromosSimilares(item),
+        contarDescuentosDelPase(),
       ]);
 
       setPromos(propiasResult.filter(p => p.tokens_costo !== 0));
       setPromosLocalidad(localidadResult);
       setSimilares(similaresResult);
+      setCuponesTotal(conteo.total);
       setLoading(false);
     }
     cargar();
@@ -1252,6 +1268,7 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
           promos={promos}
           promosLocalidad={promosLocalidad}
           similares={similares}
+          cuponesTotal={cuponesTotal}
           loading={loading}
           onOpenOferta={onOpenOferta}
           onOpenLocalidad={onOpenLocalidad}
@@ -1261,7 +1278,7 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
           onSuscribirHoteleria={onSuscribirHoteleria}
         />
       ) : (
-        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} promosLocalidad={promosLocalidad} similares={similares} loading={loading} session={session} onOpenOferta={onOpenOferta} onOpenLocalidad={onOpenLocalidad} onLoginRequired={onLoginRequired} onComprarPase={onComprarPase} onSuscribirHoteleria={onSuscribirHoteleria} />
+        <GastroExperienciaDetail item={item} tipo={tipo} promos={promos} promosLocalidad={promosLocalidad} similares={similares} cuponesTotal={cuponesTotal} loading={loading} session={session} onOpenOferta={onOpenOferta} onOpenLocalidad={onOpenLocalidad} onLoginRequired={onLoginRequired} onComprarPase={onComprarPase} onSuscribirHoteleria={onSuscribirHoteleria} />
       )}
 
       {/* Drawer */}

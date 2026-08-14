@@ -41,45 +41,43 @@ export const AHORRO_MIN = 5000;
 // por $2.500" invita a hacer la resta. Tampoco entra en espacios destacados.
 export const AHORRO_CUPON_ENTRADA = 10000;
 
-// Tramos de comisión. El del 25% (ahorro ≤ $5.000) se eliminó: su techo cae
-// entero dentro de la zona del piso, así que nunca llegaba a aplicarse.
-//
-// `hasta` es el techo del tramo; `pct` la comisión que se cobra SOBRE LA
-// PORCIÓN del ahorro que cae dentro de él.
-const TRAMOS_COMISION = [
-  { hasta:  15000, pct: 0.20 },
-  { hasta:  40000, pct: 0.15 },
-  { hasta: 100000, pct: 0.10 },
-  { hasta: Infinity, pct: 0.07 },
-];
+// Frontera base/premium del Pase, y desde 2026-08-13 también la que decide qué
+// comisión se cobra. Vive acá y no en pases.js —de donde vino— porque cobros.js
+// no importa a nadie del dominio: si fuera al revés habría un ciclo
+// (cobros → pases → datos → cobros). pases.js la re-exporta con este mismo
+// nombre, así que sigue habiendo UNA definición y UN nombre para la regla.
+export const AHORRO_BASE_MAX = 40000;
 
-// Comisión MARGINAL, como el impuesto a las ganancias: cada tramo se aplica
-// sólo a la porción del ahorro que le corresponde.
+// Dos tasas planas sobre el ahorro, no una escalera marginal (2026-08-13, a
+// pedido de Mariano). El cupón cuesta el 20% del ahorro, y el 15% si la oferta
+// es PREMIUM —la misma corona que ve el turista en la ficha, o sea ahorro por
+// encima de AHORRO_BASE_MAX—. El premium paga menos porcentaje a propósito: es
+// alto ticket, y el 20% ahí daba un cupón suelto carísimo.
 //
-// Antes la comisión del tramo se aplicaba a TODO el ahorro, y eso hacía que
-// el precio bajara al cruzar un borde: con $15.000 de ahorro el cupón salía
-// $3.600 y con $15.001 salía $2.700. Un socio que subía el ahorro un peso
-// bajaba el precio $900. Marginal, el precio es monótono: más ahorro nunca
-// puede dar un cupón más barato.
-function comisionMarginal(ahorro) {
-  let acumulado = 0, piso = 0;
-  for (const { hasta, pct } of TRAMOS_COMISION) {
-    if (ahorro <= piso) break;
-    acumulado += (Math.min(ahorro, hasta) - piso) * pct;
-    piso = hasta;
-  }
-  return acumulado;
-}
+// Reemplaza a la escalera marginal de cuatro tramos (20/15/10/7 sobre la
+// porción de cada uno). ⚠️ Con eso se pierde la MONOTONÍA que la escalera
+// garantizaba: en la frontera el precio BAJA. Un ahorro de $40.000 da un cupón
+// de $9.700 y uno de $40.001 da $7.300 — el socio que sube el ahorro un peso
+// abarata el cupón $2.400. Es exactamente el efecto que la versión marginal
+// había venido a arreglar; queda así porque la regla de dos tasas es la
+// pedida, pero si algún día molesta, el arreglo es el de siempre: cobrar el
+// 15% sólo sobre la porción que pasa los $40.000.
+export const COMISION_BASE    = 0.20;
+export const COMISION_PREMIUM = 0.15;
 
-// Precio del cupón con IVA incluido. Se redondea a la centena (desde 50 hacia
-// arriba) y recién después se acota entre el piso y el techo.
+const comision = ahorro => ahorro * (ahorro > AHORRO_BASE_MAX ? COMISION_PREMIUM : COMISION_BASE);
+
+// Precio del cupón con IVA incluido: el porcentaje es la COMISIÓN y el IVA va
+// encima (20% + 21% de ese 20% = 24,2% del ahorro; 18,15% en premium). Se
+// redondea a la centena (desde 50 hacia arriba) y recién después se acota
+// entre el piso y el techo.
 //
-// Consecuencia buscada: entre $5.000 y ~$10.300 de ahorro el precio se clava
-// en $2.500 y el porcentaje del tramo es decorativo. Al socio se le comunica
-// como "cupón de entrada, $2.500 fijo", no como un porcentaje.
+// Dónde muerde cada límite: el piso, hasta ~$10.300 de ahorro (todo eso sale
+// $2.500 y el porcentaje es decorativo — es el "cupón de entrada"); el techo,
+// recién a partir de ~$110.000 de ahorro, que ya es premium al 15%.
 export function calcularPrecioCupon(ahorroDeclarado) {
   if (!ahorroDeclarado || ahorroDeclarado <= 0) return 0;   // 0 = cupón de regalo
-  const bruto = comisionMarginal(ahorroDeclarado) * 1.21;
+  const bruto = comision(ahorroDeclarado) * 1.21;
   const redondeado = Math.round(bruto / 100) * 100;
   return Math.min(Math.max(redondeado, PRECIO_MIN), PRECIO_MAX);
 }

@@ -24,10 +24,19 @@
 import { supabase } from './supabase';
 import { normalizePromo } from './datos';
 import { acreditarPuntos } from './gamificacion';
+import { AHORRO_BASE_MAX } from './cobros';
 
 // ─── Parámetros de negocio ────────────────────────────────────
 export const DESTINO_DEFAULT       = 'gesell';
-export const AHORRO_BASE_MAX       = 40000;   // frontera base/premium
+// La frontera base/premium se mudó a cobros.js (2026-08-13): desde que el
+// precio del cupón depende de ella —20% de comisión abajo, 15% arriba— es
+// también una constante de precio, y cobros.js es el módulo que nadie del
+// dominio importa, así que puede ser el dueño sin armar un ciclo. Se re-exporta
+// con el mismo nombre para que los ocho lugares que ya la usan no cambien: es
+// una sola definición, no un alias.
+// Se importa además de re-exportarse: un `export ... from` no trae el nombre al
+// scope del módulo, y acá adentro lo usan esBase/esPremium y el conteo.
+export { AHORRO_BASE_MAX };
 // El tope de pases regalo dejó de ser una constante de código y un atributo
 // del plan: es GLOBAL y vive en `configuracion.pases_regalo_tope_mensual`
 // (arranca en 150/mes), para poder calibrarlo en temporada sin deploy.

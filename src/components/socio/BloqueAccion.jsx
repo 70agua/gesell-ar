@@ -28,7 +28,6 @@ import PaSSMark from '../PaSSMark';
 import { usePasePropio } from '../../lib/pasePropio';
 import { activarPaseAhora, elegirPremium, getPasesDestino, nivelEnPase, precioSueltoConPase } from '../../lib/pases';
 import { cuponPropioDe } from '../../lib/compras';
-import { esCuponDeEntrada, gananciaNeta } from '../../lib/cobros';
 
 const A = {
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',
@@ -45,13 +44,18 @@ const fmt = n => `$${Math.round(Number(n) || 0).toLocaleString('es-AR')}`;
 // derecha), y esa fila es la pregunta completa —cuánto ganás, cuánto cuesta—
 // leída de una. En el resto de los estados sigue yendo sola arriba.
 //
-// En los cupones de entrada (ahorro < $10.000) se muestra la GANANCIA NETA y
-// no el ahorro bruto — mismo criterio que la minificha: con ratio 2x, "ahorrás
-// $5.000" al lado de "pagás $2.500" invita a hacer la resta.
+// El monto es SIEMPRE el ahorro que declaró el socio, sin restarle nada
+// (2026-08-13). Antes, en los cupones de entrada (ahorro < $10.000), se
+// mostraba la ganancia neta —ahorro menos precio— para que no se leyera
+// "ahorrás $5.000" al lado de "pagás $2.500" e invitara a hacer la resta. El
+// problema es que ese número ya no era el del socio: en una oferta de $5.000
+// la pantalla decía "ahorrás $2.500", que es justo el mínimo publicable menos
+// el precio, y se leía como un ahorro por debajo del mínimo. El dato que el
+// socio carga es el que se muestra; la resta la hace el turista si quiere.
 // Sin ahorro cargado no se muestra nada: no hay número de relleno (CLAUDE.md).
 function LineaAhorro({ ahorro, style }) {
   if (!(ahorro > 0)) return null;
-  const monto = esCuponDeEntrada(ahorro) ? gananciaNeta(ahorro) : ahorro;
+  const monto = ahorro;
   return (
     <span style={{
       fontFamily: A.font, fontSize: 12, fontWeight: 500,
@@ -215,7 +219,7 @@ function ConfirmarActivacion({ dias, ocupado, onCancelar, onConfirmar }) {
 }
 
 export default function BloqueAccion({
-  promo, session, precio, cuponesEnZona = 0,
+  promo, session, precio, cuponesTotal = 0,
   onComprarPase, onSumarCupon, onCanjear, onCoordinarFecha, onVerPase, onRegalarPase,
 }) {
   const { pase, activo, pendiente, libres, total, elegidasIds, premiumIlimitado, refrescar } = usePasePropio();
@@ -335,32 +339,66 @@ export default function BloqueAccion({
           gap: 12, flexWrap: 'wrap',
         }}>
           <LineaAhorro ahorro={ahorro} />
-          <button
-            type="button"
-            onClick={() => onSumarCupon?.(promo)}
-            style={{
-              padding: 0, border: 'none', background: 'none', cursor: 'pointer',
-              fontFamily: A.font, fontSize: 13, fontWeight: 500, color: A.ink,
-              lineHeight: 1.4, textAlign: 'left', whiteSpace: 'nowrap',
-            }}
-          >
-            <b style={{ fontWeight: 800 }}>Comprar</b>{precio > 0 ? ` por ${fmt(precio)}` : ''}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <button
+              type="button"
+              onClick={() => onSumarCupon?.(promo)}
+              style={{
+                padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+                fontFamily: A.font, fontSize: 13, fontWeight: 500, color: A.ink,
+                lineHeight: 1.4, textAlign: 'left', whiteSpace: 'nowrap',
+              }}
+            >
+              <b style={{ fontWeight: 800 }}>Comprar</b>{precio > 0 ? ` por ${fmt(precio)}` : ''}
+            </button>
+            {/* El neto, ahora rotulado. Arriba se muestra el ahorro que declaró
+                el socio y al lado lo que cuesta el cupón; la resta de los dos
+                es el dato que al turista le importa de verdad, y hacerla en su
+                cabeza no es obvio. Antes esta cuenta se colaba SIN rótulo en el
+                lugar del ahorro —"ahorrás $2.500" sobre una oferta de $5.000—,
+                que es lo que hacía parecer que el socio había cargado un ahorro
+                por debajo del mínimo.
+                Sale de `ahorro − precio` y no de `gananciaNeta(ahorro)`, que
+                recalcula desde la escalera: así la resta cierra con los dos
+                números que están en pantalla, incluso cuando el superadmin
+                fijó un `precio_manual` que no sale de la escalera.
+                Chiquito, itálico y gris: es la nota al pie de la fila, no un
+                tercer número compitiendo con los otros dos. */}
+            {precio > 0 && ahorro > precio && (
+              <span style={{
+                fontFamily: A.font, fontSize: 10.5, fontStyle: 'italic',
+                fontWeight: 400, color: A.muted, lineHeight: 1.3, whiteSpace: 'nowrap',
+              }}>
+                Ahorro final: {fmt(ahorro - precio)} aprox.
+              </span>
+            )}
+          </div>
         </div>
 
         <div style={{ height: 1, background: A.line, margin: '18px 0 20px' }} />
 
-        {/* El número sale del catálogo vivo de la zona. Si todavía no cargó, o
-            la zona no tiene otros cupones, no va la línea: acá un dato que
-            falta se muestra vacío, nunca redondeado ni inventado. La frase
-            encabeza el bloque del Pase y termina en dos puntos porque presenta
-            al selector que viene abajo. */}
-        {cuponesEnZona > 0 && (
+        {/* El número es el catálogo ENTERO, no el de la localidad (2026-08-13).
+            Antes decía "N cupones en la zona" con el conteo de
+            `promosLocalidad`, que en Mar Azul o Las Gaviotas daba un puñado y
+            hacía ver chico justo lo que el pase tiene de grande. Lo que el pase
+            habilita no está limitado a la zona, así que el número honesto y el
+            número alto son el mismo: el total vigente, contado por
+            `contarDescuentosDelPase()` — el mismo que muestra la home en "Ver
+            los N descuentos", para que no haya dos cifras distintas del mismo
+            catálogo dando vueltas.
+            Sin locativo: el conteo ya no es de ningún lugar en particular, y
+            cambiarlo por "en toda la red" sería agregar una promesa que la
+            frase no necesita.
+            Si todavía no cargó, no va la línea: acá un dato que falta se
+            muestra vacío, nunca redondeado ni inventado. La frase encabeza el
+            bloque del Pase y termina en dos puntos porque presenta al selector
+            que viene abajo. */}
+        {cuponesTotal > 0 && (
           <div style={{
             textAlign: 'center', fontFamily: A.font, fontSize: 15, fontWeight: 700,
             color: A.ink2, letterSpacing: '-0.01em', lineHeight: 1.4,
           }}>
-            Accedé a <b style={{ color: A.primary, fontWeight: 800 }}>{cuponesEnZona} cupones</b> más en la zona con un solo pase:
+            Un pase y desbloqueás <b style={{ color: A.primary, fontWeight: 800 }}>{cuponesTotal} cupones</b> en un solo pago:
           </div>
         )}
 
@@ -389,7 +427,7 @@ export default function BloqueAccion({
           </button>
         </div>
          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          <PaSSMark size={15} conGesell />
+          <PaSSMark size={12} conGesell />
         </div>
         {error}
       </div>

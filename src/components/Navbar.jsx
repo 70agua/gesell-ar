@@ -44,7 +44,7 @@ const SHRINK_FALLBACK_Y = 150;
 const OCULTAR_TRAS_SUBIR = 500;
 // Milisegundos de mouse quieto que hacen falta para esconder la navbar en la
 // home. Ver el useEffect de mouse quieto, más abajo.
-const OCULTAR_TRAS_QUIETO_MS = 2000;
+const OCULTAR_TRAS_QUIETO_MS = 5000;
 
 // ─── Chevrons ────────────────────────────────────────────────
 function ChevD({ size = 12 }) {

@@ -1191,7 +1191,10 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
               style={{
                 '--col-op': COL_META[ci].opacity ?? 1,
                 '--col-from': COL_META[ci].dir === 'up' ? '90px' : '-90px',
-                '--col-delay': `${(0.95 + ci * 0.16).toFixed(2)}s`,
+                // String y no el número pelado: para las custom properties
+                // React pasa el valor tal cual, pero dejarlo explícito evita
+                // depender de esa regla — y el que lo lea en CSS es un calc().
+                '--col-i': String(ci),
               }}>
               <div className="pv3-coldrift" ref={n => { colRefs.current[ci] = n; }}>
                 {[...items, ...items].map((item, idx) => {
@@ -1671,7 +1674,37 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            traba al pasar de acá a "Cuponeá". clip recorta igual pero NO crea
            scroll container, así que el eje vertical sigue en visible y la
            rueda va al documento de una. */
-        .pv3-hero { position: relative; min-height: 100vh; overflow-x: clip; }
+        /* ── Reloj de la entrada del hero ─────────────────────────────────
+           Todos los tiempos de la cascada salen de acá. Antes eran siete
+           números sueltos repartidos por la hoja más uno calculado en el JSX,
+           y cambiar el orden obligaba a recalcularlos a mano de a uno — de
+           hecho había un comentario avisando "si tocás esto, recalculá aquel".
+
+           EL ORDEN LO ABRE LA GALERÍA (2026-08-14, a pedido). Antes entraba
+           última, arrancando a los 0.95s, y se superponía con la cola del
+           texto (.pv3-cta-full corría hasta 1.32s): la galería es lo más caro
+           que anima la pantalla —tres columnas grandes con blur + scale +
+           opacity, y encima el drift ya corriendo— así que compartir frames
+           con los fades del texto la hacía entrar trabada. Ahora corre sola,
+           de 0 a --gal-fin, y el texto empieza cuando ella termina.
+
+           No hace falta esperar a las fotos acá: el estado "listo" (y con él
+           la clase .pv3-listo que dispara todo esto) ya se pone recién cuando
+           cargaron las primeras cuatro de cada columna. */
+        .pv3-hero {
+          position: relative; min-height: 100vh; overflow-x: clip;
+
+          /* 1 · Galería: tres columnas escalonadas, cada una --gal-dur. */
+          --gal-dur:  .95s;
+          --gal-paso: .14s;
+          /* Cuándo aterriza la última: dos pasos de retraso + su duración. */
+          --gal-fin:  calc(var(--gal-paso) * 2 + var(--gal-dur));
+
+          /* 2 · Texto: arranca donde termina la galería. */
+          --txt-t0:   var(--gal-fin);
+          --txt-paso: .12s;
+          --txt-dur:  .5s;
+        }
 
         /* Slide 1 (catálogo/decisión) — ver la nota larga en el JSX. Mismo
            tamaño que .pv3-hero (position:relative, sin tocar dimensiones);
@@ -1778,7 +1811,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            también el -15% de tamaño en .pv3-t-bold/.pv3-t-ticker, ese mismo
            día: menos alto de bloque es más margen contra el solapamiento. */
         .pv3-left-var {
-          position: absolute; left: 0; top: 44%; transform: translateY(-50%);
+          position: absolute; left: 0; top: 35%; transform: translateY(-50%);
           width: 860px; max-width: calc(100vw - 80px);
         }
 
@@ -1792,7 +1825,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
         .pv3-logo-slot { margin: 0 0 20px; }
         /* 200px → 120px (2026-08-12, a pedido: "más chico que antes, al 60%
            del tamaño que tenía"). */
-        .pv3-ticket { width: 120px; height: auto; display: block; margin: 0 auto; }
+        .pv3-ticket { width: 150px; height: auto; display: block; margin: 0 auto; }
 
         /* 2 · Título. Entra con el mismo fade del resto del bloque —ver nota
            arriba de por qué se sacó el efecto máquina de escribir—, .pv3-t-it
@@ -1817,7 +1850,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           font-style: italic; font-weight: 300; color: ${A.ink}; font-size: clamp(57.5px, 4.72vw, 70px);
           opacity: 0;
         }
-        .pv3-listo .pv3-t-it { animation: pv3FadeUp .5s ease-out .34s both; }
+        .pv3-listo .pv3-t-it { animation: pv3FadeUp var(--txt-dur) ease-out var(--txt-t0) both; }
         .pv3-nauryz { font-family: ${NAURYZ}; font-style: normal; font-weight: normal; color: ${A.primary}; font-size: 0.8em; }
         /* Un poco más chico que en A (38px): el remate cierra el título, pero el
            siguiente nivel necesita aire para leerse como nivel 2. Historial:
@@ -1831,7 +1864,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           font-weight: 600; color: ${A.ink}; font-size: clamp(33px, 3.32vw, 40.5px); margin-top: 0.18em;
           opacity: 0;
         }
-        .pv3-listo .pv3-t-bold { animation: pv3FadeUp .5s ease-out .46s both; }
+        .pv3-listo .pv3-t-bold { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso)) both; }
 
         /* 3 · "en [rubro]" — tercera línea, nueva (2026-08-09). Mismo peso
            que .pv3-t-bold (es la continuación de esa misma frase, no un
@@ -1841,8 +1874,8 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           font-weight: 600; color: ${A.ink}; font-size: clamp(33px, 3.32vw, 40.5px); margin-top: 0.18em;
           opacity: 0;
         }
-        .pv3-listo .pv3-t-ticker { animation: pv3FadeUp .5s ease-out .58s both; }
-        .pv3-listo .pv3-accesos { animation: pv3FadeUp .5s ease-out .7s both; }
+        .pv3-listo .pv3-t-ticker { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 2) both; }
+        .pv3-listo .pv3-accesos { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 3) both; }
         /* El span en sí no tiene ancho propio más que el de "en " — el que
            cambia de ancho al tipear/borrar es .pv3-ticker-word, adentro. */
         .pv3-ticker-word {
@@ -2058,17 +2091,12 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
              justo abajo para el porqué del delay. */
           opacity: 0;
         }
-        /* ÚLTIMO de toda la entrada, después de la galería (a pedido). El
-           número no es a ojo: la cascada de texto termina con .pv3-cta-full
-           (0.82s + 0.5s = 1.32s), pero la galería sigue después —tres
-           columnas de pv3ColIn, 0.95s cada una, arrancando en 0.95 / 1.11 /
-           1.27s (ver --col-delay en el JSX)—, así que la última aterriza a
-           los 1.27 + 0.95 = 2.22s. 2.25s lo deja entrar apenas se asienta
-           la galería, sin pisarla.
-           Si se toca cualquiera de esos dos números (el 0.95 de duración o
-           el 0.16 de separación entre columnas), este delay hay que
-           recalcularlo — es lo que lo mantiene "último". */
-        .pv3-listo .pv3-acceso--ofertas { animation: pv3FadeUp .5s ease-out 2.25s both; }
+        /* ÚLTIMO de toda la entrada (a pedido). Sale un paso completo después
+           de .pv3-cta-full, que es la última pieza de la cascada de texto:
+           mismo delay + su duración, o sea que arranca justo cuando aquélla
+           terminó. Ya no hay que recalcularlo a mano cuando cambian los
+           tiempos — se mueve solo con el reloj de .pv3-hero. */
+        .pv3-listo .pv3-acceso--ofertas { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 4 + var(--txt-dur)) both; }
         /* Va acá abajo y no en el bloque grande de prefers-reduced-motion de
            más arriba: una media query no suma especificidad, así que aquel
            (0,2,0) perdería contra el (0,2,0) de la regla de animación de acá,
@@ -2150,7 +2178,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           text-align: center;
           opacity: 0;
         }
-        .pv3-listo .pv3-cta-full { animation: pv3FadeUp .5s ease-out .82s both; }
+        .pv3-listo .pv3-cta-full { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 4) both; }
         /* La clase la pone el listener de animationend (ver el useEffect de
            ctaFullRef) — mismo motivo y misma forma que .pv3-listo
            .pv3-col--fin, en la galería: con fill-mode 'both' el último
@@ -2654,15 +2682,17 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           gap: var(--gap);
           transform: rotate(${TILT}deg);
         }
-        /* ─── Entrada de la galería, en cascada y DESPUÉS del texto ───
+        /* ─── Entrada de la galería, en cascada y PRIMERA de todo ───
            (2026-08-10, a pedido, tomando como referencia el parallax por
            columnas de skiper-ui/skiper30.) Antes la galería estaba servida
            desde el primer frame y el ojo no llegaba a registrarla: entraba
-           junto con todo lo demás. Ahora cada columna entra por separado,
-           arrancando recién a los 0.95s —después de la última pieza de
-           texto, que es .pv3-cta-full a los 0.82s— y con 0.16s entre
-           columna y columna, que es lo que la hace legible como galería y
-           no como un bloque que aparece.
+           junto con todo lo demás. Cada columna entra por separado, con
+           --gal-paso entre una y otra, que es lo que la hace legible como
+           galería y no como un bloque que aparece.
+           Abre la entrada y corre SOLA (2026-08-14): ver la nota del reloj en
+           .pv3-hero. El escalonado sale de --col-i (el índice, puesto en el
+           JSX) por --gal-paso, y no de un delay ya calculado en JS: el tiempo
+           entero vive en CSS y no hay dos mitades que se puedan desfasar.
            Cada una entra DESDE el lado hacia el que después va a driftear
            (--col-from, ver el JSX): así el gesto de entrada y el movimiento
            continuo se leen como uno solo. El blur de salida es lo que le da
@@ -2679,7 +2709,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           to   { opacity: var(--col-op, 1); transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
         }
         .pv3-listo .pv3-col {
-          animation: pv3ColIn .95s cubic-bezier(.16, 1, .3, 1) var(--col-delay, 1s) both;
+          animation: pv3ColIn var(--gal-dur) cubic-bezier(.16, 1, .3, 1) calc(var(--col-i, 0) * var(--gal-paso)) both;
         }
         /* La clase la pone el listener de animationend (ver el useEffect que
            la agrega). NO es cosmético: con fill-mode 'both' el último keyframe
