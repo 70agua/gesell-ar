@@ -717,7 +717,7 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
         {/* Total + pago */}
         <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '22px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
-            <PaSSMark size={14} conGesell />
+            <PaSSMark size={14} conPrefijo />
             {dias > 0 && <span style={{ fontSize: 14, fontWeight: 800, color: C.ink2 }}>x {dias} días</span>}
           </div>
 

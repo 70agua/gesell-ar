@@ -54,7 +54,7 @@ export default function LineaPase({ promo, onVerPase }) {
     if (!pase) return null;
     return (
       <Linea onVerPase={onVerPase}>
-        Entra como una de tus experiencias PREMIUM del <PaSSMark size={11} conGesell />
+        Entra como una de tus experiencias PREMIUM del <PaSSMark size={11} conPrefijo />
       </Linea>
     );
   }

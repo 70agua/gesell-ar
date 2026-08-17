@@ -1452,7 +1452,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
                 en CheckoutHoteleroView.jsx) — es la misma marca en dos
                 pantallas del mismo flujo, no dos escalas sueltas. */}
             <h2 className="gp-titulo">
-              <PaSSMark size={26} conGesell prefijo="GIft" color={DORADO_GIFT} />
+              <PaSSMark size={26} conPrefijo prefijo="GIft" color={DORADO_GIFT} />
             </h2>
             <p className="gp-bajada">
               Obsequiá pases con todos los descuentos de la red.
@@ -1606,7 +1606,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
             <div className="gp-panel">
               <div ref={hcG1Ref} className="pv3-hc-g1 gp-cabezal" style={{ opacity: 0 }}>
                 <h2 className="gp-titulo">
-                  <PaSSMark size={26} conGesell prefijo="GIft" color={DORADO_GIFT} />
+                  <PaSSMark size={26} conPrefijo prefijo="GIft" color={DORADO_GIFT} />
                 </h2>
                 <p className="gp-bajada gp-bajada--fuerte">
                   Obsequiá un pase con todos los descuentos de la red

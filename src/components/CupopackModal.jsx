@@ -398,7 +398,7 @@ function PieConPase({ cupones, onVerPase }) {
 
   return (
     <section className="cp-checkout">
-      <p className="cp-pase-rotulo">Tenés el <PaSSMark size={12} conGesell /></p>
+      <p className="cp-pase-rotulo">Tenés el <PaSSMark size={12} conPrefijo /></p>
 
       {/* El estado se dice en una frase, no en una tabla: cuántos ya vienen y
           cuántos ocupan lugar. Nunca "incluye": los regulares vienen con el

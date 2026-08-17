@@ -104,7 +104,7 @@ function Cabecera() {
         <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
           Más beneficios con
         </span>
-        <PaSSMark size={14} conGesell color="#fff" colorTexto={A.primary} />
+        <PaSSMark size={14} conPrefijo color="#fff" colorTexto={A.primary} />
       </span>
     </div>
   );

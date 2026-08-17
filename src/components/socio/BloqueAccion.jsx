@@ -427,7 +427,7 @@ export default function BloqueAccion({
           </button>
         </div>
          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          <PaSSMark size={12} conGesell />
+          <PaSSMark size={12} conPrefijo />
         </div>
         {error}
       </div>

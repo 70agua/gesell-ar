@@ -448,7 +448,7 @@ function SelloPase() {
           la misma caja. Los 2px alinean las dos ópticamente; `alignItems:
           center` sólo iguala las cajas, no los trazos. */}
       <span style={{ position: 'relative', top: -2 }}>{texto}</span>
-      <PaSSMark size={11} conGesell />
+      <PaSSMark size={11} conPrefijo />
     </button>
   );
 }

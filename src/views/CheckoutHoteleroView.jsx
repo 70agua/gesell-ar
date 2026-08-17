@@ -217,7 +217,7 @@ function ComoFunciona({ embebido, onVolver }) {
             <ArrowLeft size={18} strokeWidth={2.5} />
           </button>
         )}
-        <PaSSMark size={26} conGesell prefijo="GIft" pro color="#FFB94A" />
+        <PaSSMark size={26} conPrefijo prefijo="GIft" pro color="#FFB94A" />
       </div>
       {/* Reemplaza a "¿Cómo funciona la suscripción?" + los 3 pasos
           (2026-08-11 noche): un solo argumento, contado con la misma

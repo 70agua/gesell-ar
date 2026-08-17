@@ -1,8 +1,9 @@
 // ============================================================
 //  src/components/PaSSMark.jsx
-//  El lockup de la marca: "GESELL" en NauryzRedkeds azul + "PaSS" en blanco
-//  sobre una pastilla primary. Vive acá porque ya lo pintan la home, el
-//  checkout del pase y las minifichas de oferta — una sola versión para todos.
+//  El lockup de la marca: el prefijo ("CUPON", "GIft") en NauryzRedkeds +
+//  "PaSS" en blanco sobre una pastilla primary. Vive acá porque ya lo pintan
+//  la home, el checkout del pase y las minifichas de oferta — una sola
+//  versión para todos.
 // ============================================================
 const PRIMARY = '#475BE1';
 const NAURYZ  = "'NauryzRedkeds', sans-serif";
@@ -15,6 +16,11 @@ const NAURYZ  = "'NauryzRedkeds', sans-serif";
 // "CUPON PaSS", no "GESELL PaSS", así que se cambió el default en vez de
 // pisarlo en cada uno de los llamados que ya lo usaban). Sigue siendo
 // override-able por si hace falta otro prefijo en el futuro.
+// `conPrefijo` decide si se muestra esa palabra o sólo la pastilla "PaSS".
+// Se llamaba `conGesell` hasta el 2026-08-17: quedó del nombre viejo y
+// mentía —ya renderizaba "CUPON"— justo en el prop que decide qué palabra se
+// lee. El destino no va en el nombre del producto: el esquema es multi-destino
+// y una marca que se llama por su ciudad no se puede expandir.
 // `color` pinta las dos mitades del lockup: la palabra del prefijo y la
 // pastilla de "PaSS". Default primary, que es la marca. El panel "Pases de
 // regalo" lo pasa en el dorado de giftpass-logo.svg (#FFB94A) para armar
@@ -31,11 +37,11 @@ const NAURYZ  = "'NauryzRedkeds', sans-serif";
 // NauryzRedkeds: es una etiqueta, mismo lenguaje que el resto de los badges
 // chicos de la app (.gp-opcion-tag, "El más elegido" en TramoPago) — texto
 // uppercase con tracking, no parte de la tipografía de marca.
-export default function PaSSMark({ size = 20, conGesell = false, prefijo = 'CUPON', color = PRIMARY, colorTexto = '#fff', pro = false }) {
+export default function PaSSMark({ size = 20, conPrefijo = false, prefijo = 'CUPON', color = PRIMARY, colorTexto = '#fff', pro = false }) {
   const k = size / 20;
   return (
     <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 10 * k, lineHeight: 1 }}>
-      {conGesell && (
+      {conPrefijo && (
         <span style={{ fontFamily: NAURYZ, fontSize: size, letterSpacing: k, color, lineHeight: 1 }}>{prefijo}</span>
       )}
       <span style={{ position: 'relative', display: 'inline-block', fontSize: size, lineHeight: 1, padding: `${5 * k}px ${13 * k}px ${6 * k}px` }}>

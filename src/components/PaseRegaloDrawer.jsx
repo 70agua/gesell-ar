@@ -67,7 +67,7 @@ export default function PaseRegaloDrawer({ abierto, onCerrar, onElegir }) {
 
           <div className="gp-cabezal">
             <h2 className="gp-titulo">
-              <PaSSMark size={26} conGesell prefijo="GIft" color={DORADO_GIFT} />
+              <PaSSMark size={26} conPrefijo prefijo="GIft" color={DORADO_GIFT} />
             </h2>
             <p className="gp-bajada">
               Obsequiá pases con todos los descuentos de la red.

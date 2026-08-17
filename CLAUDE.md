@@ -148,6 +148,8 @@ Además: **créditos publicitarios** (del socio) y **puntos** (del turista) — 
 
 **El Pase se renombra a PASS y se parte en tres** (decisión del 2026-08-17, `docs/5-modelo-comercial.md` §2, **sin ejecutar**): **Cupon PASS** (el que el turista compra para sí), **Gift PASS** (el mismo, comprado para un tercero) y **Gift PASS PRO** (la suscripción del socio distribuidor). Los tres nombres van en comunicación, UI **y** código. "Pase" sobrevive sólo como sinónimo informal de uso escaso — no es etiqueta de pantalla. Mientras el rename no se ejecute, el código sigue diciendo `pase`/`pases`.
 
+**"Gesell PASS" está muerto en todas sus grafías** (Gesell Pass, Gesell PaSS, el logo) y **el borrado ya se ejecutó** (2026-08-17): `pases.nombre_comercial` dice "Cupon PaSS", el prop `conGesell` de `PaSSMark` pasó a `conPrefijo`, y `public/gesell-pass*.svg` se borraron. El destino **no va en el nombre del producto**: el esquema es multi-destino a propósito y una marca que se llama por su ciudad no se puede expandir sin renombrarse. Sobrevive sólo en docs históricos, como registro.
+
 **"Huésped" también se retiró del copy** (2026-07-31). El actor es **turista**, que es como ya se llama en el código. El plan no es sólo para alojamientos —también para agencias de turismo—, así que "huésped" quedaba corto. Para *contar gente* (capacidad de una unidad, cantidad en una solicitud) se dice **personas**, no "turistas": es un conteo, no el nombre del actor. Los identificadores de código y las columnas siguen igual (`unidad_precio='huesped'`, `min_huespedes`, `max_huespedes`, `num_huespedes`, `exclusivoHuespedes`).
 
 ### Dos monedas, cuatro tablas que dicen "token"
@@ -212,7 +214,7 @@ El piso muerde hasta ~$10.300 de ahorro y el techo recién a partir de ~$110.000
 
 `useMiPase` devuelve también el pase **pendiente** (`pendiente: true`), no sólo el activo: quien ya compró no debe ver el upsell de comprarlo otra vez.
 
-> ⚠️ **La activación manual está condenada** (2026-08-17, `docs/5-modelo-comercial.md` §3.6, **sin ejecutar**): el pase va a arrancar solo con el **primer canje**, no con `activar_pase` ni con una fecha programada. Pedir una fecha de reserva no dispara el reloj; canjear sí, siempre. Antes de invertir en los estados pendiente/activo o en el cron `activar-pases-programados`, mirar ese doc — y el conflicto abierto con el descuento de estadía, que hoy está diseñado justo al revés.
+> ⚠️ **El arranque deja de decidirlo el turista** (2026-08-17, `docs/5-modelo-comercial.md` §3.6–3.7, **sin ejecutar**). Ni `activar_pase` ni una fecha que él programe: el pase arranca solo, en **lo que caiga primero entre un canje efectivo y la fecha confirmada más temprana por un socio**. Pedir la fecha no dispara nada — la confirmación agenda el arranque, y una confirmación posterior para una fecha *anterior* lo adelanta. El cron `activar-pases-programados` sobrevive; lo que cambia es quién escribe la fecha. Consecuencia: el reloj propio del alojamiento (`esOfertaEstadia`) **se borra**, porque resuelve un problema que esta regla ya resuelve sola.
 
 ### Tracking y estadísticas del socio
 
@@ -242,7 +244,7 @@ Bloque en el panel del socio (`TabCanjes` → `BloquePase`), datos vía `bloque_
 - **Premium: 1 incluido, igual para todos.** `pro_1`/`pro_6`/`pro_12` son formas de **pago**, no niveles de servicio.
 - **Upgrade packs** ($6.000 c/u, mínimo 10) dan **+1 premium** cada uno sobre un pase regalo concreto, vía `asignar_upgrade_pack()` (descuento de saldo atómico). Se pueden acumular en el mismo pase. Antes sólo habilitaban puntos, que no se podía vender.
 
-> ⚠️ **Esto se convierte en el Gift PASS PRO** (2026-08-17, `docs/5-modelo-comercial.md` §5, **sin ejecutar**). Los 150/mes dejan de ser un tope global y pasan a ser el **cupo que el socio compra** con su suscripción (mensual / semestral / anual). El regalo deja de ser un beneficio lateral del plan: **es el producto**. Los upgrade packs quedan a revisar.
+> ⚠️ **Esto se convierte en el Gift PASS PRO** (2026-08-17, `docs/5-modelo-comercial.md` §5, **sin ejecutar**). El tope global de 150 pasa a ser un **cupo de 50 que el socio compra** con su suscripción y que **se pierde si no lo usa**; por encima, compra pases extra sueltos a $2.500 (`PRECIO_MIN`). El regalo deja de ser un beneficio lateral del plan: **es el producto**. El precio del abono no cambia ($45.000/$37.500/$30.000), pero **los 15 créditos mensuales desaparecen** — sólo queda el bono de bienvenida (5/20/60). ⚠️ Los pases extra chocan de nombre con los **upgrade packs** de acá arriba, que son otra cosa (+1 premium, no +1 pase): hay que renombrar antes de codear.
 
 ### Solicitudes de fecha (premium con reserva)
 

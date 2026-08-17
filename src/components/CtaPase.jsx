@@ -140,7 +140,7 @@ export default function CtaPase({
         <Nota>
           <span>
             {estadia
-              ? <>Es tu estadía del <PaSSMark size={11} conGesell />. Pedí el día y el comercio te responde.</>
+              ? <>Es tu estadía del <PaSSMark size={11} conPrefijo />. Pedí el día y el comercio te responde.</>
               : <>Elegí el día y el comercio te responde. La fecha la confirma él, no nosotros.</>}
           </span>
         </Nota>
@@ -179,14 +179,14 @@ export default function CtaPase({
         <Nota>
           {premium ? (
             <span>
-              Elegilo con el <PaSSMark size={11} conGesell />
+              Elegilo con el <PaSSMark size={11} conPrefijo />
               {mitad > 0 && <> — o sumalo suelto por <b>{fmt(mitad)}</b> en vez de {fmt(precioLista)}</>}.
             </span>
           ) : (
             <span>
               {estadia
-                ? <>Tu estadía con el <PaSSMark size={11} conGesell />: el Pase trae una.</>
-                : <>Incluido en <PaSSMark size={11} conGesell />.</>}
+                ? <>Tu estadía con el <PaSSMark size={11} conPrefijo />: el Pase trae una.</>
+                : <>Incluido en <PaSSMark size={11} conPrefijo />.</>}
             </span>
           )}
         </Nota>
@@ -240,8 +240,8 @@ export default function CtaPase({
         <Nota>
           <span>
             {premiumIlimitado
-              ? <>Elegilo con el <PaSSMark size={11} conGesell />: tenés todo el catálogo PREMIUM disponible, sin tope.</>
-              : <>Elegilo con el <PaSSMark size={11} conGesell />. Te {restantes === 1 ? 'queda' : 'quedan'}{' '}
+              ? <>Elegilo con el <PaSSMark size={11} conPrefijo />: tenés todo el catálogo PREMIUM disponible, sin tope.</>
+              : <>Elegilo con el <PaSSMark size={11} conPrefijo />. Te {restantes === 1 ? 'queda' : 'quedan'}{' '}
                   <b>{restantes}</b> {restantes === 1 ? 'elección' : 'elecciones'} de {miPase.total}.</>}
           </span>
         </Nota>
