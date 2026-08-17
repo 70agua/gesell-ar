@@ -1,12 +1,12 @@
 // ============================================================
 //  src/views/SuperAdminView.jsx  —  Aire design (AdminA)
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, Eye, EyeOff, CheckCircle2, XCircle, ChevronDown, ChevronUp, Calendar, List, LayoutGrid, BarChart2, Settings, Lock, Trash2, RefreshCw, Plus, Check, Search, Upload, Link2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Pencil, CheckCircle2, XCircle, ChevronDown, ChevronUp, List, LayoutGrid, BarChart2, Settings, Lock, Trash2, RefreshCw, Plus, Check, Search, Upload, Link2 } from 'lucide-react';
 import { TabOfertas as SocioOfertasEditor } from './AdminNegocioView';
 import { CoinSVG } from '../components/Token';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:240 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
-import { CREDITO_TOTAL, calcularPrecioCupon } from '../lib/cobros';
+import { calcularPrecioCupon } from '../lib/cobros';
 import { getVentasPendientes, confirmarVentaTransferencia, anularVentaPendiente } from '../lib/compras';
 import { getCanjesReportados, anularCanje, descartarReporteCanje } from '../lib/canjes';
 import { getPlanesPro, actualizarPlanCopy } from '../lib/planes';
@@ -21,7 +21,6 @@ import { listarCupopacks, crearCupopack, actualizarCupopack, eliminarCupopack, a
 import { BENEFICIO_ICONOS, getBeneficioIcon } from '../lib/beneficioIconos';
 import { BENEFICIO_TIPOS, tipoBeneficio } from '../lib/beneficiosCupopack';
 import { CAPACIDADES, listarRoles, crearRol, actualizarRol, eliminarRol, listarUsuariosAdmin, crearUsuario, actualizarUsuario, eliminarUsuario } from '../lib/adminUsuarios';
-
 // ─── Helpers ──────────────────────────────────────────────────
 function formatearCategoria(categoria) {
   const map = {
@@ -238,7 +237,6 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     setLoading(false);
   }
 
-
   function showToast(msg, type = 'ok') {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -355,7 +353,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
 // ═══════════════════════════════════════════════════════════
 //  TAB: RESUMEN
 // ═══════════════════════════════════════════════════════════
-function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, setOfertas, showToast, onActualizar }) {
+function TabResumen({ stats, negocios, ofertas, ventas, onEditarSocio, setTab, setOfertas, showToast }) {
   const [ofertaEditando, setOfertaEditando] = useState(null);
 
   const kpis = [
@@ -1060,7 +1058,7 @@ function CuponRowBody({ o, precioDe, onSocio }) {
   );
 }
 
-function TabOfertas({ ofertas, setOfertas, showToast, negocioEditando, setNegocioEditando, filtroNegocioId, setFiltroNegocioId, negocios, onActualizar }) {
+function TabOfertas({ ofertas, setOfertas, showToast, setNegocioEditando, filtroNegocioId, setFiltroNegocioId, negocios }) {
   const [filtro, setFiltro]             = useState('todas');   // estado: todas|activas|pendientes|inactivas
   const [vistaOferta, setVistaOferta]   = useState('lista');
   const [expandida, setExpandida]       = useState(null);
@@ -2320,32 +2318,6 @@ function TabVentas({ ventas }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  TAB: USUARIOS
-// ═══════════════════════════════════════════════════════════
-function TabUsuarios({ usuarios }) {
-  return (
-    <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
-      {usuarios.length === 0 ? (
-        <div style={{ padding:'48px 24px', textAlign:'center', color:A.muted, fontFamily:A.font }}>No hay usuarios registrados todavía</div>
-      ) : usuarios.map((u, i) => (
-        <div key={u.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderTop: i > 0 ? `1px solid ${A.line}` : 'none' }}>
-          <div style={{ width:40, height:40, borderRadius:'50%', background:A.primarySoft, display:'grid', placeItems:'center', flexShrink:0 }}>
-            <span style={{ fontFamily:A.font, fontWeight:700, fontSize:14, color:A.primary }}>{(u.nombre || 'U')[0].toUpperCase()}</span>
-          </div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:A.font, fontSize:14, fontWeight:600, color:A.ink }}>{u.nombre || 'Sin nombre'}</div>
-            <div style={{ fontFamily:A.font, fontSize:12, color:A.muted, marginTop:2 }}>
-              {u.es_superadmin ? '⭐ Superadmin' : `Negocio: ${u.negocios?.nombre || 'Sin asignar'}`}
-            </div>
-          </div>
-          <span style={{ fontFamily:'monospace', fontSize:11, color:A.muted }}>{u.id.slice(0, 8)}...</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
 //  TAB: CONSULTAS
 // ═══════════════════════════════════════════════════════════
 function TabConsultas({ consultas, onLeer }) {
@@ -2426,7 +2398,7 @@ function BeneficioItem({ valor, index, onEdit, onDelete, onReorder }) {
   );
 }
 
-function PlanForm({ plan, onChange, showToast }) {
+function PlanForm({ plan, onChange }) {
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [nuevoBeneficio, setNuevoBeneficio] = useState('');
 
@@ -2557,7 +2529,7 @@ function pathDesdeUrl(url) {
 }
 async function borrarDeStorage(url) {
   const p = pathDesdeUrl(url);
-  if (p) { try { await supabase.storage.from(IMG_BUCKET).remove([p]); } catch (_) {} }
+  if (p) { try { await supabase.storage.from(IMG_BUCKET).remove([p]); } catch {} }
 }
 async function subirArchivo(path, file) {
   const { data, error } = await supabase.storage.from(IMG_BUCKET).upload(path, file, { upsert: true });

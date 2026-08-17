@@ -1,38 +1,57 @@
 // ============================================================
 //  src/views/DetailView.jsx — Tailwind + Aire design system
 // ============================================================
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import MapView from '../components/MapView';
 import {
-  X, Gift, Check, Eye, EyeOff, Lock,
-  Heart, Share2, Flag, ChevronRight, ChevronLeft, Home,
-  Wifi, Car, Waves, Coffee, ShieldCheck, KeyRound,
-  Utensils, Clock, Globe, MapPin, Ticket,
-  Star, Sunrise, Users, Bell,
-  Dumbbell, Wind, Flame, PawPrint, Baby, Bike, Tv, ChefHat,
-  TreePine, Droplets, Sparkles, BedDouble, AirVent,
+  X,
+  Check,
+  Heart,
+  Share2,
+  ChevronRight,
+  ChevronLeft,
+  Home,
+  Wifi,
+  Car,
+  Waves,
+  Coffee,
+  ShieldCheck,
+  KeyRound,
+  Utensils,
+  Clock,
+  Globe,
+  MapPin,
+  Star,
+  Users,
+  Bell,
+  Dumbbell,
+  Wind,
+  Flame,
+  PawPrint,
+  Baby,
+  Bike,
+  Tv,
+  ChefHat,
+  TreePine,
+  Droplets,
+  Sparkles,
+  BedDouble,
+  AirVent,
   BookOpen,
 } from 'lucide-react';
-import { CoinSVG } from '../components/Token';
 import { getPromosDeNegocio, getPromosLocalidad, getPromosSimilares } from '../lib/datos';
 import { contarDescuentosDelPase } from '../lib/pases';
 import OfertaCard from '../components/OfertaCard';
-import { guardarConsulta, registrarTurista, loginTurista } from '../lib/auth';
+
 import { useCarrito } from '../lib/carrito';
 import { trackVistaFicha } from '../lib/tracking';
-import InfoTooltip, { CreditTooltip } from '../components/InfoTooltip';
-import { useMostrarCreditos } from '../lib/sesion';
 import { socialProof } from '../lib/socialProof';
-import HeartButton from '../components/HeartButton';
 import { esSiguiendo, toggleSeguir } from '../lib/seguir';
-import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
+
 import PanelOfertasSocio from '../components/socio/PanelOfertasSocio';
 import PaseRegaloDrawer from '../components/PaseRegaloDrawer';
 import EscanerCanje from '../components/EscanerCanje';
 import SolicitarFecha from '../components/SolicitarFecha';
-
-// Precio de activación de un cupón (pesos, IVA incl.) desde la tabla oficial.
-const cuponARS = p => precioActivacionARS({ ahorro: p?.ahorroEstimado ?? p?.ahorro_estimado ?? 0, tokensCosto: p?.tokens_costo });
 
 // ─── Design tokens (para inline styles puntuales) ───────────
 const C = {
@@ -104,7 +123,6 @@ function SeguirOfertasBtn({ negocioId, session, onLoginRequired }) {
   );
 }
 
-const PRECIO_CREDITO_IVA = 2420; // pesos con IVA incluido (usado sólo en el pack a mitad de precio)
 // ─── Plan config ────────────────────────────────────────────
 // Lo que ve el turista según si el socio contrató o no. Las claves quedaron
 // con los nombres viejos porque son los valores que llegan en `item.plan`;
@@ -134,27 +152,6 @@ function detectarTipo(item) {
   if (TIPOS_GASTRO.has(t)) return 'salidas';
   return 'aventura_relax';
 }
-
-// ─── Helpers de formulario ───────────────────────────────────
-function DField({ label, children }) {
-  return (
-    <div>
-      <label className="block text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: C.muted }}>{label}</label>
-      {children}
-    </div>
-  );
-}
-function DInput({ value, onChange, placeholder, type = 'text' }) {
-  return (
-    <input type={type} value={value} onChange={onChange} placeholder={placeholder}
-      className="w-full px-3.5 py-[11px] rounded-[10px] text-sm outline-none"
-      style={{ border: `1px solid ${C.line}`, background: C.bg, color: C.ink }} />
-  );
-}
-function DError({ children }) {
-  return <div className="rounded-[10px] px-3.5 py-2.5 text-[13px] font-medium" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626' }}>{children}</div>;
-}
-
 
 // ─── Coordenadas aproximadas por localidad ───────────────────
 const LOCALIDAD_COORDS = {
@@ -193,10 +190,6 @@ function ZonaMap({ item, promos, onAddCupon, onOpenOferta }) {
   );
 }
 
-function hashPos(id) {
-  const n = typeof id === 'string' ? id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : Number(id) || 7;
-  return { x: ((n * 37 + 11) % 60) + 18, y: ((n * 53 + 17) % 55) + 18 };
-}// ─── Amenity chip ─────────────────────────────────────────
 const TAG_ICONS = {
   // Conectividad
   'WiFi gratuito':             <Wifi size={15} />,
@@ -266,68 +259,6 @@ function AmenityChip({ tag }) {
     </div>
   );
 }
-// ─── Timer regresivo para ofertas Flash ──────────────────────
-function FlashTimer({ fechaFin }) {
-  const getRemaining = () => {
-    const diff = new Date(fechaFin) - Date.now();
-    if (diff <= 0) return { h: 0, m: 0, s: 0 };
-    const t = Math.floor(diff / 1000);
-    return { h: Math.floor(t / 3600), m: Math.floor((t % 3600) / 60), s: t % 60 };
-  };
-  const [remaining, setRemaining] = useState(getRemaining);
-  useEffect(() => {
-    const id = setInterval(() => setRemaining(getRemaining()), 1000);
-    return () => clearInterval(id);
-  }, [fechaFin]);
-  const pad = n => String(n).padStart(2, '0');
-  const { h, m, s } = remaining;
-  // Si expiró no renderizar
-  if (h === 0 && m === 0 && s === 0) return null;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      {[h, m, s].map((v, i) => (
-        <React.Fragment key={i}>
-          <div style={{
-            background: '#fff', color: C.ink, borderRadius: 6,
-            fontSize: 14, fontWeight: 800, lineHeight: 1,
-            width: 32, height: 32,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
-          }}>
-            {i === 0 ? v : pad(v)}
-          </div>
-          {i < 2 && (
-            <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, fontSize: 13, lineHeight: 1 }}>:</span>
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
-
-// Timer compacto inline para la pill de oferta flash
-function MiniFlashTimer({ fechaFin }) {
-  const getR = () => {
-    const diff = new Date(fechaFin) - Date.now();
-    if (diff <= 0) return { h: 0, m: 0, s: 0 };
-    const t = Math.floor(diff / 1000);
-    return { h: Math.floor(t / 3600), m: Math.floor((t % 3600) / 60), s: t % 60 };
-  };
-  const [r, setR] = useState(getR);
-  useEffect(() => { const id = setInterval(() => setR(getR()), 1000); return () => clearInterval(id); }, [fechaFin]);
-  if (r.h === 0 && r.m === 0 && r.s === 0) return null;
-  const pad = n => String(n).padStart(2, '0');
-  return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: '#e02020', borderRadius: 999, padding: '3px 8px' }}>
-      {[r.h, r.m, r.s].map((v, i) => (
-        <React.Fragment key={i}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{i === 0 ? v : pad(v)}</span>
-          {i < 2 && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>:</span>}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
 
 // ─── Paletas animadas para PropiaOfferCard ───────────────────
 // Inyectar keyframes una sola vez
@@ -349,18 +280,6 @@ if (typeof document !== 'undefined' && !document.getElementById('__blob_kf__')) 
   document.head.appendChild(s);
 }
 
-const BLOB_PALETTES = [
-  { bg: '#1A4A6B', c: ['#2E86C1','#48C9B0','#1ABC9C'] },
-  { bg: '#5B2C6F', c: ['#E67E22','#E91E8C','#8E44AD'] },
-  { bg: '#1A5C2A', c: ['#27AE60','#52BE80','#1E8449'] },
-  { bg: '#6B4010', c: ['#F39C12','#E67E22','#D4AC0D'] },
-  { bg: '#1A3A5C', c: ['#16A085','#2E86C1','#27AE60'] },
-  { bg: '#2C1A7A', c: ['#5B2C6F','#7D3C98','#4A90D9'] },
-  { bg: '#0E4D6B', c: ['#17A589','#1A8FC0','#48C9B0'] },
-  { bg: '#6B1A3A', c: ['#C0392B','#E91E8C','#8E44AD'] },
-  { bg: '#3A2A6B', c: ['#7B68EE','#9B59B6','#4A90D9'] },
-  { bg: '#2A4A1A', c: ['#C0392B','#27AE60','#D4AC0D'] },
-];// ═══════════════════════════════════════════════════════════
 //  DatePickerField — calendario inline tipo popover
 // ═══════════════════════════════════════════════════════════
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -465,14 +384,6 @@ function DatePickerField({ label, value, onChange, minDate }) {
   );
 }
 
-const RULES = [
-  { icon: '🕑', text: 'Check-in: de 14:00 a 22:00 hs' },
-  { icon: '🕙', text: 'Check-out: hasta las 10:00 hs' },
-  { icon: '🚭', text: 'Prohibido fumar en interiores y espacios comunes' },
-  { icon: '🐾', text: 'No se admiten mascotas sin consulta previa' },
-  { icon: '🎉', text: 'No se permiten fiestas ni eventos' },
-  { icon: '🔇', text: 'Silencio a partir de las 22:00 hs' },
-];
 // ═══════════════════════════════════════════════════════════
 //  AlojamientoGallery — foto grande + columna 3 thumbs
 // ═══════════════════════════════════════════════════════════
@@ -557,74 +468,6 @@ function AlojamientoGallery({ item, plan }) {
         </div>
       )}
     </>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-//  CarritoItem — mini-ficha para columna derecha
-// ═══════════════════════════════════════════════════════════
-function CarritoItem({ promo, onOpenOferta }) {
-  const mostrarCreditos = useMostrarCreditos();
-  const tokens = creditosActivacion({ ahorro: promo.ahorroEstimado, tokensCosto: promo.tokens_costo });
-  const tokensMitad = Math.max(1, Math.floor(tokens / 2));
-  return (
-    <div
-      onClick={() => onOpenOferta?.(promo)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
-        border: `1px solid ${C.line}`, background: '#fff',
-        transition: 'border-color 0.15s',
-      }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = C.primary}
-      onMouseLeave={e => e.currentTarget.style.borderColor = C.line}
-    >
-      {/* Foto limpia sin overlay */}
-      <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: C.line, position: 'relative' }}>
-        {(promo.image || promo.imagen_url) && (
-          <img src={promo.image || promo.imagen_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
-      </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* Badge inline + título más grande */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
-          {promo.badge && (
-            <span style={{ flexShrink: 0, background: C.primary, color: '#fff', fontSize: 12, fontWeight: 800, borderRadius: 4, padding: '2px 7px', letterSpacing: '0.02em', lineHeight: 1.4 }}>
-              {promo.badge}
-            </span>
-          )}
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, lineHeight: 1.4 }}>
-            {promo.title || promo.titulo}
-          </span>
-        </div>
-        {/* Localidad · Socio — igual que microficha del mapa */}
-        {(promo.proveedorNombre || promo.negocios?.nombre || promo.negocioLocalidad || promo.negocios?.localidad) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.muted }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0, color: C.primary }}>
-              <path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>
-            </svg>
-            {[promo.negocioLocalidad || promo.negocios?.localidad, promo.proveedorNombre || promo.negocios?.nombre].filter(Boolean).join(' · ')}
-          </div>
-        )}
-        {/* Precio */}
-        {mostrarCreditos ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <CoinSVG size={11} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.ink }}>{tokens} crédito{tokens !== 1 ? 's' : ''}</span>
-              <CreditTooltip />
-            </div>
-            <span style={{ fontSize: 10, color: C.muted }}>(${(cuponARS(promo)).toLocaleString('es-AR')})</span>
-          </div>
-        ) : (
-          <div style={{ marginTop: 2 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>${(cuponARS(promo)).toLocaleString('es-AR')}</span>
-          </div>
-        )}
-      </div>
-      <HeartButton id={promo.id} size={28} light />
-      <ChevronRight size={14} color={C.muted} style={{ flexShrink: 0 }} />
-    </div>
   );
 }
 
@@ -809,7 +652,6 @@ function PanelOfertas({ promos, session, ofertaId, cuponesTotal, cargando, onOpe
 
 function AlojamientoDetail({ item, promos, promosLocalidad = [], similares = [], cuponesTotal = 0, loading, onOpenOferta, onOpenLocalidad, session, onLoginRequired, onComprarPase, onSuscribirHoteleria }) {
   const plan = item.plan || 'PLUS';
-  const cfg  = PLAN_CFG[plan];
 
   const tags = item.tags?.length
     ? item.tags
@@ -1147,8 +989,6 @@ export default function DetailView({ item, onBack, onOpenOferta, onOpenLocalidad
   if (!item) return null;
 
   const tipo  = detectarTipo(item);
-  const plan  = item.plan || 'PLUS';
-  const pinColor = TIPO_COLORS[item.type || item.category] || C.primary;
 
   const [promos,          setPromos]          = useState([]);
   const [promosLocalidad, setPromosLocalidad] = useState([]);

@@ -2,7 +2,6 @@
 //  src/components/LoadingScreen.jsx
 //  Pantalla de carga global — usa loading-casa.webm
 // ============================================================
-import React from 'react';
 
 export default function LoadingScreen() {
   return (

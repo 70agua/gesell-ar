@@ -2,9 +2,8 @@
 //  src/components/PaxSelector.jsx
 //  Select de beneficiarios (min..max). Emite onChange(N).
 // ============================================================
-import React from 'react';
-import { Users } from 'lucide-react';
 
+import { Users } from 'lucide-react';
 const C = { ink: '#0B1020', muted: '#6B7280', line: '#E7E9EE', primary: '#475BE1' };
 
 export default function PaxSelector({ minPax, maxPax, value, onChange }) {

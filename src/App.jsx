@@ -1,9 +1,8 @@
 // ============================================================
 //  src/App.jsx
 // ============================================================
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail } from 'lucide-react';
-
 import Navbar           from './components/Navbar';
 import Footer           from './components/Footer';
 import HomeView         from './views/HomeView';
@@ -32,14 +31,14 @@ import PaseDebugView         from './views/PaseDebugView'; // ⚠️ TEMPORAL (B
 import CanjearView           from './views/CanjearView';   // entra por ?canjear=<negocioId> (QR del socio)
 
 import { getAlojamientos, getGastronomia, getAventura, getNegocioById, getPromos } from './lib/datos';
-import { getSession, getPerfil }           from './lib/auth';
-import { supabase }                        from './lib/supabase';
-import { LoadingProvider, useLoading }     from './lib/loading';
-import { CarritoProvider }               from './lib/carrito';
-import { PasePropioProvider }            from './lib/pasePropio';
+import { getSession, getPerfil } from './lib/auth';
+import { supabase } from './lib/supabase';
+import { LoadingProvider, useLoading } from './lib/loading';
+import { CarritoProvider } from './lib/carrito';
+import { PasePropioProvider } from './lib/pasePropio';
 import CarritoDrawer                     from './components/CarritoDrawer';
-import { FavoritosProvider }             from './lib/favoritos';
-import { SesionProvider }                from './lib/sesion';
+import { FavoritosProvider } from './lib/favoritos';
+import { SesionProvider } from './lib/sesion';
 import ChatBot                           from './components/ChatBot';
 import BienvenidaTuristaWizard           from './components/BienvenidaTuristaWizard';
 import useLenisSmoothScroll              from './hooks/useLenisSmoothScroll';

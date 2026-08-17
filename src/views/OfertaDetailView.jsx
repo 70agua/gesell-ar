@@ -1,11 +1,21 @@
 // ============================================================
 //  src/views/OfertaDetailView.jsx — Detalle de oferta/cupón
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  ChevronRight, Zap, Ticket, Check, Clock, ShieldCheck,
-  MessageCircle, Star, Heart, Share2, Flag,
-  MapPin, Users, Gift, X, Send, Home,
+  ChevronRight,
+  Zap,
+  Check,
+  Clock,
+  ShieldCheck,
+  MessageCircle,
+  Star,
+  Heart,
+  Share2,
+  Flag,
+  X,
+  Send,
+  Home,
 } from 'lucide-react';
 import { CoinSVG } from '../components/Token';
 import { useCarrito } from '../lib/carrito';
@@ -503,7 +513,6 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(11,16,32,0.78) 0%,rgba(11,16,32,0.18) 60%,transparent 100%)' }} />
-
 
               {/* Badge + Título en la parte inferior de la imagen */}
               <div className="absolute bottom-0 left-0 right-0 px-7 pb-7">

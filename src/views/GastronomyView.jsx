@@ -1,7 +1,7 @@
 // ============================================================
 //  src/views/GastronomyView.jsx — Mapa arriba · Mini-fichas abajo
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -56,8 +56,6 @@ const EXPERIENCIA_OPTS = [
   { label: 'Para grupos grandes',  icon: '🎉' },
   { label: 'Vista al mar',         icon: '🌅' },
 ];
-const PRECIO_OPTS  = [{ id:'$', label:'$ — Económico' },{ id:'$$', label:'$$ — Moderado' },{ id:'$$$', label:'$$$ — Premium' }];
-const ORDEN_OPTS   = [{ id:'relevancia', label:'Más relevantes' },{ id:'az', label:'A → Z' }];
 
 const TIPO_COLORS = {
   'Restaurante': '#EF4444', 'Bar': '#F59E0B', 'Cafeterías': '#8B5CF6',
@@ -151,10 +149,7 @@ function ZoomControls() {
   );
 }
 
-// ─── Icons SVG ───────────────────────────────────────────────
-const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>;
 const IcoX       = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>;
-const IcoChevD   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>;
 const IcoPin     = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 21s-7-6.5-7-12a7 7 0 1 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>;
 
 // ─── Minificha de ranking (card con número dorado/gris) ──────
@@ -220,9 +215,6 @@ function PropuestaRow({ item, hoveredId, setHoveredId, onOpenDetail }) {
     </div>
   );
 }
-const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
-const IcoLock    = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
-const IcoRefresh = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>;
 
 // ─── Checkbox ────────────────────────────────────────────────
 function CheckRow({ label, checked, onChange }) {
@@ -286,7 +278,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
         setSalidas(await getGastronomia());
       }
       // Ofertas generales de la categoría (para el listado bajo el ranking).
-      try { setPromos(await getPromos(200)); } catch (_) {}
+      try { setPromos(await getPromos(200)); } catch {}
       setLoading(false);
     })();
   }, [modoAventura]);
@@ -346,7 +338,6 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
   ];
 
   // IDs de items que pasan los filtros de sidebar (para highlight de pins)
-  const filtradoBaseIds = new Set(gastroFiltradaBase.map(i => i.id));
 
   // ─── Mapa: círculos numerados del top 10 + puntitos del resto ──
   //  Se posiciona distinto según el modo (ver más abajo en el render).

@@ -118,7 +118,7 @@ function PuntoMapa({ lat, lng, label }) {
 }
 
 // ─── Ficha central (se remonta por key={idx} → resetea tab/scroll) ─
-function CuponCard({ cupon, cupopack, cupones, idx, dir, onClose, onBack }) {
+function CuponCard({ cupon, cupones, idx, dir, onClose, onBack }) {
   const [tab, setTab]           = useState('detalles');
   const [mapReady, setMapReady] = useState(false);
   const scrollRef = useRef(null);

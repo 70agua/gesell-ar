@@ -2,7 +2,7 @@
 //  src/views/PublicarOfertaView.jsx
 //  Formulario de 3 pasos para publicar una oferta como socio
 // ============================================================
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -334,7 +334,6 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
     : ahorroDesde ? `Desde ${ahorroDesde}`
     : ahorroHasta ? `Hasta ${ahorroHasta}` : '';
 
-
   function handleTituloChange(v) {
     setTitulo(v);
     const hasCaps = /([A-ZÁÉÍÓÚÑ]{2,}\s){2,}/.test(v) || /[A-ZÁÉÍÓÚÑ]{5,}/.test(v);
@@ -460,7 +459,6 @@ export default function PublicarOfertaView({ onBack, onLoginSuccess, onGoAdmin, 
   }
 
   // ─ Layout ───────────────────────────────────────────────
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
     <>

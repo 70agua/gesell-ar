@@ -1,9 +1,8 @@
 // ============================================================
 //  src/components/CarritoDrawer.jsx — Variante Ticket / Wallet
 // ============================================================
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useCarrito } from '../lib/carrito';
-
 // ── Tokens ──
 const A = {
   ink:         '#0B1020',

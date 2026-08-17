@@ -5,8 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard from '../components/OfertaCard';
 import { getAlojamientos, getPromos } from '../lib/datos';
-import { LOCALIDADES, ZONAS, getVecinas } from '../lib/localidades';
-
+import { LOCALIDADES, getVecinas } from '../lib/localidades';
 const A = {
   primary:     '#475BE1',
   primaryDark: '#3347C8',
@@ -42,8 +41,6 @@ const ORDEN_OPTS = [
   { id: 'precio_desc', label: 'Mayor precio'    },
 ];
 
-// ─── Inline SVG icons ────────────────────────────────────────
-const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>;
 const IcoX       = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>;
 const IcoChevD   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>;
 const IcoChevR   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m9 6 6 6-6 6"/></svg>;
@@ -52,8 +49,6 @@ const IcoPin     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="n
 const IcoGrid    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
 const IcoList    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>;
 const IcoMap     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>;
-const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
-
 
 // ─── Accommodation card (list) ────────────────────────────────
 function AlojListCard({ item, onClick }) {
@@ -120,15 +115,6 @@ function CheckRow({ label, checked, onChange, count }) {
   );
 }
 
-function SideSection({ title, children }) {
-  return (
-    <div className="g-side-section" style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: A.ink, letterSpacing: '0.04em', textTransform: 'uppercase', padding: '4px 0 10px' }}>{title}</div>
-      <div>{children}</div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 //  Mapa de resultados
 // ═══════════════════════════════════════════════════════════
@@ -186,7 +172,7 @@ function MarketplaceMapView({ items, onBoundsChange }) {
       try {
         const bounds = L.latLngBounds(conCoords.map(i => [i.lat, i.lng]));
         map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-      } catch (_) {}
+      } catch {}
     }
 
     conCoords.forEach(item => {

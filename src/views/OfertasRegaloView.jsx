@@ -2,12 +2,11 @@
 //  src/views/OfertasRegaloView.jsx
 //  Vista limpia (sin sidebar) de ofertas destacadas por el superadmin
 // ============================================================
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { getPromos } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'60px 0' }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
 import { useCarrito } from '../lib/carrito';
-
 const C = {
   primary:     '#475BE1',
   primarySoft: '#EEF0FD',

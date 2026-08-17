@@ -3,8 +3,7 @@
 //  Calendario doble de rango de fechas compartido entre
 //  HomeView (variant='search') y DetailView (variant='field').
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
-
+import { useState, useEffect, useRef } from 'react';
 const T = {
   primary:     '#475BE1',
   primarySoft: '#EEF0FD',

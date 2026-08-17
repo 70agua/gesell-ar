@@ -1,12 +1,11 @@
 // ============================================================
 //  src/views/FavoritosView.jsx — Mis favoritos
 // ============================================================
-import React from 'react';
+
 import { ArrowLeft, Heart } from 'lucide-react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard from '../components/OfertaCard';
 import { useFavoritos } from '../lib/favoritos';
-
 const A = {
   primary: '#475BE1', primarySoft: '#EEF0FD',
   ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280',

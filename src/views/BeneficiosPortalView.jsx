@@ -5,24 +5,19 @@
 //  Muestra las ofertas asociadas a ese alojamiento con cabecera
 //  de marca y contexto claro de que son beneficios exclusivos.
 // ============================================================
-import React, { useState } from 'react';
-import InfoTooltip from '../components/InfoTooltip';
+import { useState } from 'react';
+
 import { useMostrarCreditos } from '../lib/sesion';
 import { precioActivacionARS, creditosActivacion } from '../lib/cobros';
-
 // ─── Tokens ──────────────────────────────────────────────────
 const P     = '#475be1';
-const NAVY  = '#0f172a';
 const GREEN = '#10b981';
-const YELLOW= '#f59e0b';
 const LINE  = '#e2e8f0';
 const BG    = '#f8fafc';
 const CARD  = '#fff';
 const INK   = '#0f172a';
 const INK2  = '#475569';
 const MUTED = '#94a3b8';
-const PS    = '#eef0fd';
-const GREENS= '#ecfdf5';
 const FONT  = "'Inter', system-ui, sans-serif";
 
 // ─── Mock data ───────────────────────────────────────────────

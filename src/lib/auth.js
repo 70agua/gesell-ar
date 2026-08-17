@@ -4,7 +4,6 @@
 // ============================================================
 import { supabase } from './supabase';
 import { otorgarPuntos } from './gamificacion';
-
 // Iniciar sesión
 export async function login(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -100,7 +99,7 @@ async function crearPerfilTuristaSiFalta(session) {
 }
 
 // Registrar turista (usuario público)
-export async function registrarTurista({ nombre, apellido = '', email, password, intereses = [] }) {
+export async function registrarTurista({ nombre, apellido = '', email, password}) {
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
 

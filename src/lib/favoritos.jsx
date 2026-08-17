@@ -1,8 +1,7 @@
 // ============================================================
 //  src/lib/favoritos.jsx — Contexto global de favoritos
 // ============================================================
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 const FavoritosCtx = createContext(null);
 
 // ── Tooltip anclado bajo el botón Ingresar / Registrarse ───

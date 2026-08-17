@@ -2,12 +2,11 @@
 //  src/views/CheckoutView.jsx — Checkout estándar del turista
 //  v1: sin reserva, sin códigos de descuento
 // ============================================================
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useCarrito } from '../lib/carrito';
 import { getPuntos, pesosDePuntos, puntosDeCompra } from '../lib/gamificacion';
 import { consumirImpulso } from '../lib/impulso';
 import { registrarCompra } from '../lib/compras';
-
 const A = {
   ink:         '#0B1020',
   ink2:        '#3D4255',

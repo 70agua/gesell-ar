@@ -62,7 +62,6 @@ const DROP_BASE = {
   zIndex: 1001, overflow: 'hidden',
 };
 
-
 // Subrayado de sección: barrita al pie del ítem, 4px más corta por la derecha
 // para que no llegue al borde de la flechita. Entra creciendo desde el centro
 // para que el cambio de tira no se sienta un salto.
@@ -391,18 +390,6 @@ function AlojDrop({ onNavigate }) {
   );
 }
 
-
-const GASTRO_QUE_COME = [
-  'Pescados & Mariscos',
-  'Panificados & Facturas',
-  'Carnes & Parrilla',
-  'Pastas artesanales',
-  'Pizzas & Empanadas',
-  'Helados & Dulces',
-  'Vegano & Saludable',
-  'Cocina internacional',
-];
-
 function GastroDrop({ onNavigate }) {
   return (
     <div style={{ display: 'flex', gap: 0, padding: '24px 24px 20px' }}>
@@ -596,7 +583,6 @@ function SitiosDrop() {
     </div>
   );
 }
-
 
 // ─── Dropdown "Planes y suscripción" ─────────────────────────
 // Tres intenciones que no se parecen, en el orden en que conviene ofrecerlas:
@@ -1304,10 +1290,23 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                 )}
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: A.font }} className="navbar-auth">
-                {/* Única acción a la derecha para el visitante anónimo: entra
-                    por el registro/login de siempre (LoginView), no por el
-                    atajo de convertir una cuenta que todavía no existe. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontFamily: A.font }} className="navbar-auth">
+                {/* "Ingresar" faltaba en desktop (2026-08-15). El menú mobile y
+                    el footer siempre lo tuvieron, pero acá arriba el visitante
+                    anónimo veía UN solo botón —"Publicá una oferta"—, que lleva
+                    al alta de NEGOCIO. O sea que el turista que quería entrar a
+                    su cuenta tenía que scrollear hasta el pie de la home para
+                    encontrar la puerta. Son dos públicos distintos y ahora cada
+                    uno tiene la suya.
+                    Va en texto y no en pastilla: la única pastilla de la
+                    derecha sigue siendo la del socio, que es la acción que el
+                    negocio quiere empujar. Ingresar no compite, sólo tiene que
+                    estar. */}
+                <button onClick={() => onLoginClick?.('ingresar')}
+                  style={{ ...navBtnSt, color: A.ink, fontWeight: 600 }}
+                  onMouseEnter={e => e.currentTarget.style.color = A.primary}
+                  onMouseLeave={e => e.currentTarget.style.color = A.ink}
+                >Ingresar</button>
                 <button onClick={() => onRegisterClick?.('registrarse', 'comercial')}
                   style={{ background: A.ink, border: 'none', borderRadius: 999, fontSize: condensed ? 12.5 : 13, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: condensed ? '8px 16px' : '10px 20px', fontFamily: A.font, whiteSpace: 'nowrap', transition: `background 0.15s, padding .38s ${NAV_EASE}` }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}

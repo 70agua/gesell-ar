@@ -2,10 +2,9 @@
 //  src/components/ComprarTokensModal.jsx
 // ============================================================
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Zap, CreditCard, Smartphone, Building2, Banknote } from 'lucide-react';
 import { TOKEN_PACKS, calcularPrecio, registrarCompra, CREDITO_PRECIO } from '../lib/cobros';
-
 const FORMAS_PAGO = [
   { id: 'mercadopago',  label: 'MercadoPago',       icon: <Smartphone size={18} />,  desc: 'Pagá con tu cuenta MP',           descuento: 0 },
   { id: 'tarjeta',      label: 'Tarjeta',            icon: <CreditCard size={18} />,  desc: 'Crédito o débito',                 descuento: 0 },

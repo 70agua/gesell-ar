@@ -3,7 +3,6 @@
 //  Portada de un Cupopack: o la foto cargada a mano (`imagen_url`), o un
 //  mosaico armado con las portadas de las ofertas que incluye.
 // ============================================================
-import React from 'react';
 
 // Con más de 5 ofertas las celdas quedan ilegibles, así que el mosaico se
 // arma con las primeras 5 — que además cae siempre en el caso "impar".

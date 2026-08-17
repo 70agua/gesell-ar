@@ -1,7 +1,6 @@
 // ============================================================
 //  src/components/Token.jsx — Moneda dorada SVG
 // ============================================================
-import React from 'react';
 
 export function CoinSVG({ size = 20 }) {
   return <img src="/credito-coin.svg" alt="crédito" width={size} height={size} style={{ display:'inline-block', verticalAlign:'middle', flexShrink:0 }}/>;

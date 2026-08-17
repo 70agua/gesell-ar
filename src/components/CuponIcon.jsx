@@ -3,8 +3,6 @@
 //  Ícono de cupón de descuento claro y reconocible
 // ============================================================
 
-import React from 'react';
-
 export default function CuponIcon({ size = 14, className = '' }) {
   return (
     <svg

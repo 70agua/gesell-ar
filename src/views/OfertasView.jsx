@@ -2,8 +2,8 @@
 //  src/views/OfertasView.jsx — Listado de todas las ofertas
 //  Diseño: mismo sistema Aire que MarketplaceView
 // ============================================================
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { getPromos, getAlojamientos, categoriaDeNegocio, EXPERIENCIAS_SALIDAS } from '../lib/datos';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { getAlojamientos, categoriaDeNegocio, EXPERIENCIAS_SALIDAS } from '../lib/datos';
 import OfertaCard from '../components/OfertaCard';
 import HeartButton from '../components/HeartButton';
 import { getPortadas, elegirPortada } from '../lib/portadas';
@@ -25,7 +25,6 @@ const A = {
 };
 
 const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul', 'Chacras del Mar', 'El Salvaje'];
-
 
 // Subcategorías primarias (tipo de negocio agrupado)
 // Subcategorías = CATS_RUBRO (src/lib/datos.js), los valores reales que un socio
@@ -88,10 +87,7 @@ const SUBCATS_SECONDARY = {
   ],
 };
 
-// ─── SVG Icons ───────────────────────────────────────────────
-const IcoArrowL  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>;
 const IcoBolt    = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>;
-const IcoSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>;
 
 // ─── CheckRow (sidebar) — toda la fila es clickeable ─────────
 function CheckRow({ label, checked, onChange }) {
@@ -112,7 +108,6 @@ function CheckRow({ label, checked, onChange }) {
     </div>
   );
 }
-
 
 // ─── Sección colapsable del sidebar ──────────────────────────
 function SideSection({ title, children, onLimpiar, bold }) {
@@ -260,7 +255,7 @@ function SocioMiniCard({ socio, promoCount, onOpen }) {
   );
 }
 
-export default function OfertasView({ onBack, onOpenOferta, initialCategoria = null, initialLocalidades = [], initialTipo = null, initialExperiencia = null }) {
+export default function OfertasView({ onOpenOferta, initialCategoria = null, initialLocalidades = [], initialTipo = null, initialExperiencia = null }) {
   const [promos,      setPromos]      = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [busqueda,    setBusqueda]    = useState('');
@@ -295,7 +290,6 @@ export default function OfertasView({ onBack, onOpenOferta, initialCategoria = n
     async function cargar() {
       setLoading(true);
       const { supabase } = await import('../lib/supabase');
-      const now = new Date().toISOString();
 
       const { data } = await supabase
         .from('promociones')

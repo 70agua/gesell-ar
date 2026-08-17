@@ -2,9 +2,8 @@
 //  src/components/HeartButton.jsx — Corazón de favoritos
 //  Funciona en cualquier vista mientras esté dentro de FavoritosProvider
 // ============================================================
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useFavoritos } from '../lib/favoritos';
-
 export default function HeartButton({ id, size = 32, light = false }) {
   const ctx = useFavoritos();
   const [pulse, setPulse] = useState(false);

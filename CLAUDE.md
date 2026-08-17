@@ -21,6 +21,7 @@ Si algo describe *cómo funciona hoy* → va acá. Si describe *por qué es así
 
 | Antes de tocar… | Leer |
 |---|---|
+| **cualquier cosa de monetización** | **`docs/5-modelo-comercial.md`** — decisión del 2026-08-17, todavía sin implementar; manda sobre lo que diga este archivo |
 | planes, precios de plan, suscripciones | `10-historia-modelos-de-plan` — BASE/PLUS/BLACK y Gratis/Plus están muertos |
 | precios de cupón, comisiones, puntos | `10-monedas-puntos-y-creditos` |
 | nombres, copy, terminología | `10-vocabulario-por-que` |
@@ -76,6 +77,8 @@ Auth via `src/lib/auth.js`. Session is checked at app boot and stored in `App.js
 | `FavoritosProvider` | `src/lib/favoritos.jsx` | Heart-saves for accommodations, persisted to Supabase. |
 
 ### Business roles & plans
+
+> ⚠️ **El modelo comercial cambió el 2026-08-17 y todavía no está implementado.** Lo de abajo describe lo que **corre hoy en el código** — no es lo que se va a construir. El modelo decidido (Cupon PASS / Gift PASS / Gift PASS PRO) está en **`docs/5-modelo-comercial.md`**, con el delta contra esto en su §7. Antes de tocar planes, suscripciones o el arranque del Pase, leerlo: el plan PRO por tramos deja de dar créditos mensuales y pasa a dar cupo de Gift PASS.
 
 **Un solo modelo: PRO por tramos** (unificado el 2026-07-31 — el viejo Gratis/Plus se eliminó, filas y todo). Hay tres tramos del *mismo* plan, que sólo se diferencian por el compromiso, compartidos entre las tres categorías (Alojamiento, Salidas, Aventura & Relax):
 
@@ -143,6 +146,8 @@ where conrelid = 'public.<tabla>'::regclass and contype = 'c';
 
 Además: **créditos publicitarios** (del socio) y **puntos** (del turista) — nunca "créditos" ni "tokens" a secas.
 
+**El Pase se renombra a PASS y se parte en tres** (decisión del 2026-08-17, `docs/5-modelo-comercial.md` §2, **sin ejecutar**): **Cupon PASS** (el que el turista compra para sí), **Gift PASS** (el mismo, comprado para un tercero) y **Gift PASS PRO** (la suscripción del socio distribuidor). Los tres nombres van en comunicación, UI **y** código. "Pase" sobrevive sólo como sinónimo informal de uso escaso — no es etiqueta de pantalla. Mientras el rename no se ejecute, el código sigue diciendo `pase`/`pases`.
+
 **"Huésped" también se retiró del copy** (2026-07-31). El actor es **turista**, que es como ya se llama en el código. El plan no es sólo para alojamientos —también para agencias de turismo—, así que "huésped" quedaba corto. Para *contar gente* (capacidad de una unidad, cantidad en una solicitud) se dice **personas**, no "turistas": es un conteo, no el nombre del actor. Los identificadores de código y las columnas siguen igual (`unidad_precio='huesped'`, `min_huespedes`, `max_huespedes`, `num_huespedes`, `exclusivoHuespedes`).
 
 ### Dos monedas, cuatro tablas que dicen "token"
@@ -207,6 +212,8 @@ El piso muerde hasta ~$10.300 de ahorro y el techo recién a partir de ~$110.000
 
 `useMiPase` devuelve también el pase **pendiente** (`pendiente: true`), no sólo el activo: quien ya compró no debe ver el upsell de comprarlo otra vez.
 
+> ⚠️ **La activación manual está condenada** (2026-08-17, `docs/5-modelo-comercial.md` §3.6, **sin ejecutar**): el pase va a arrancar solo con el **primer canje**, no con `activar_pase` ni con una fecha programada. Pedir una fecha de reserva no dispara el reloj; canjear sí, siempre. Antes de invertir en los estados pendiente/activo o en el cron `activar-pases-programados`, mirar ese doc — y el conflicto abierto con el descuento de estadía, que hoy está diseñado justo al revés.
+
 ### Tracking y estadísticas del socio
 
 `src/lib/tracking.js` → RPC `registrar_evento(tipo, negocio, promocion)`. Es **SECURITY DEFINER** porque el visitante suele ser anónimo y no puede escribir sobre las métricas de todos los socios. Resuelve el `negocio_id` desde la oferta (no lo elige el cliente) y **descarta al socio mirando su propia ficha**.
@@ -234,6 +241,8 @@ Bloque en el panel del socio (`TabCanjes` → `BloquePase`), datos vía `bloque_
 - **Tope de regalos: global, 150/mes, igual para todos.** Vive en `configuracion.pases_regalo_tope_mensual` y se edita en SuperAdmin → General → Pase. **No es un atributo del plan**: antes el plan pago daba regalos ilimitados y eso socavaba el precio de las tandas del distribuidor. Por encima del tope, el socio compra tandas (`docs/4-socio-distribuidor.md`, sin implementar).
 - **Premium: 1 incluido, igual para todos.** `pro_1`/`pro_6`/`pro_12` son formas de **pago**, no niveles de servicio.
 - **Upgrade packs** ($6.000 c/u, mínimo 10) dan **+1 premium** cada uno sobre un pase regalo concreto, vía `asignar_upgrade_pack()` (descuento de saldo atómico). Se pueden acumular en el mismo pase. Antes sólo habilitaban puntos, que no se podía vender.
+
+> ⚠️ **Esto se convierte en el Gift PASS PRO** (2026-08-17, `docs/5-modelo-comercial.md` §5, **sin ejecutar**). Los 150/mes dejan de ser un tope global y pasan a ser el **cupo que el socio compra** con su suscripción (mensual / semestral / anual). El regalo deja de ser un beneficio lateral del plan: **es el producto**. Los upgrade packs quedan a revisar.
 
 ### Solicitudes de fecha (premium con reserva)
 

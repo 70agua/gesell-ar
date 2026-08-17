@@ -1292,11 +1292,9 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           <div className="pv3-logo-slot">
             <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
           </div>
-          <p className="pv3-pretitulo">Aprovechá tu pase cada día</p>
+          <p className="pv3-pretitulo">¿Cuánto dura tu viaje?</p>
 
-          <p className="pv3-pase-caption">
-            Todos los pases te dan acceso al catálogo de descuentos.<br />
-          </p>
+          
 
           <div className="pv3-opciones">
             {/* .pv3-pases-par agrupa SÓLO los dos botones de pase, aparte de

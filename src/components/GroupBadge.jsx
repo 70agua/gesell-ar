@@ -3,9 +3,8 @@
 //  Chip "Más ahorro viajando en grupo" — label de marketing.
 //  El posicionamiento (absolute sobre la card) lo decide el padre.
 // ============================================================
-import React from 'react';
-import { Users } from 'lucide-react';
 
+import { Users } from 'lucide-react';
 export default function GroupBadge({ descuentoMax, compact = false }) {
   return (
     <div style={{

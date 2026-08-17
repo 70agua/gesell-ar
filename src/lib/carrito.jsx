@@ -1,10 +1,9 @@
 // ============================================================
 //  src/lib/carrito.jsx — Context global del carrito de compra
 // ============================================================
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { calcularPrecioCupon, CREDITO_TOTAL } from './cobros';
 import { trackAgregarCarrito } from './tracking';
-
 const CarritoContext = createContext(null);
 
 // Cupón que el visitante quiso agregar estando deslogueado. Se guarda en

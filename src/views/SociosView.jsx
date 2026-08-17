@@ -2,7 +2,7 @@
 //  src/views/SociosView.jsx
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Zap, X, Store, Mail, Lock, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getPlanesPro, registrarIntentoPagoTarjeta } from '../lib/planes';

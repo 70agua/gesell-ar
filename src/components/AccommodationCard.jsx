@@ -1,7 +1,7 @@
 // ============================================================
 //  src/components/AccommodationCard.jsx — Aire design
 // ============================================================
-import React, { useState } from 'react';
+import { useState } from 'react';
 import HeartButton from './HeartButton';
 
 const A = { ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE', primary: '#475BE1', bg: '#F7F7F8', font: "'Inter', system-ui, sans-serif" };

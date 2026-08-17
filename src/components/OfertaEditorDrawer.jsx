@@ -2,14 +2,13 @@
 //  src/components/OfertaEditorDrawer.jsx
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, CheckCircle2, Users, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { calcularPrecioCupon, CREDITO_TOTAL } from '../lib/cobros';
 import { puntosDeCompra } from '../lib/gamificacion';
 import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
 import { sanitizeTituloOferta } from '../lib/ofertas';
-
 const TIPOS_ALOJ = ['Hotel','Cabaña','Departamento','Domo','Dormi','Carpa'];
 // Set más amplio para detectar si el negocio actual es un alojamiento
 const ES_ALOJ_TIPOS = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi','Domo','Carpa','Glamping']);

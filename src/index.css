@@ -18,12 +18,6 @@
    En mobile no cambia nada: ahí las barras son overlay, no ocupan ancho. */
 html { scrollbar-gutter: stable; }
 
-.g-side-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
 /* Inter — self-hosted variable font (weights 100–900 en un solo archivo) */
 @font-face {
   font-family: 'Inter';

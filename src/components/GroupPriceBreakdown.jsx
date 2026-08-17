@@ -3,7 +3,6 @@
 //  Precio por persona final, descuento aplicado y total.
 //  Recibe el resultado ya calculado por useGroupPricing.
 // ============================================================
-import React from 'react';
 
 const C = { ink: '#0B1020', ink2: '#3D4255', muted: '#6B7280', line: '#E7E9EE', green: '#10A36B' };
 const fmt = n => '$' + Math.round(Number(n) || 0).toLocaleString('es-AR');

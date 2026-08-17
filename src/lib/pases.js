@@ -642,4 +642,3 @@ export async function comprarUpgradePack({ negocioId, cantidad, pagoRef = null }
   return { ok: true, cantidad, total: cantidad * UPGRADE_PACK_PRECIO };
 }
 
-

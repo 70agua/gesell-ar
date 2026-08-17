@@ -2,11 +2,10 @@
 //  src/components/ChatBot.jsx
 //  Asistente flotante con sugerencias de FAQ
 // ============================================================
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, ChevronRight } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import { supabase } from '../lib/supabase';
-
 // ⚠️ VOCABULARIO — las respuestas de acá son texto FIJO (no se genera nada:
 // `matchFaqs` elige por puntaje de palabras clave). Eso las pone bajo el mismo
 // control que cualquier otro copy, y bajo las mismas reglas:
@@ -197,7 +196,7 @@ function SuggestionChip({ faq, onClick }) {
 }
 
 // ─── Vista de todas las FAQs por categoría ────────────────────
-function FaqFullScreen({ onBack, onSelect, filterCat }) {
+function FaqFullScreen({ onSelect, filterCat }) {
   const cats = filterCat ? [filterCat] : FAQ_CATS;
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>

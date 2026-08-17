@@ -2,7 +2,7 @@
 //  src/views/LoginView.jsx
 // ============================================================
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, Ticket, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Check, Mail, Lock, User, Store, ChevronRight, ArrowLeft } from 'lucide-react';
 import { login, registrarTurista, loginConGoogle } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { registrarIntentoPagoTarjeta, FOTOS_GALERIA_MAX } from '../lib/planes';
@@ -13,7 +13,6 @@ import PerfilNegocioForm from '../components/PerfilNegocioForm';
 import { perfilDesdeNegocio, perfilAPayload, validarPerfil } from '../lib/perfilNegocio';
 import { existePersonaConNombre, existeNegocioConNombre } from '../lib/validacionRegistro';
 import { TabOfertas } from './AdminNegocioView';
-
 // ─── Helpers ─────────────────────────────────────────────────
 function getSiteName() {
   if (typeof window === 'undefined') return 'gesell.ar';
@@ -134,7 +133,6 @@ function BtnSubmit({ loading, label, loadingLabel }) {
     </button>
   );
 }
-
 
 // ═══════════════════════════════════════════════════════════════
 //  ONBOARDING COMERCIAL — wizard de 3 pasos estilo panel admin

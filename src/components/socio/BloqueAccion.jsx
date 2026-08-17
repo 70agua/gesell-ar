@@ -398,7 +398,7 @@ export default function BloqueAccion({
             textAlign: 'center', fontFamily: A.font, fontSize: 15, fontWeight: 700,
             color: A.ink2, letterSpacing: '-0.01em', lineHeight: 1.4,
           }}>
-            Un pase y desbloqueás <b style={{ color: A.primary, fontWeight: 800 }}>{cuponesTotal} cupones</b> en un solo pago:
+            Ó desbloqueá <b style={{ color: A.primary, fontWeight: 800 }}>{cuponesTotal} cupones</b> en todo el catálogo:
           </div>
         )}
 

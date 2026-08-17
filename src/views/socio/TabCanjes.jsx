@@ -143,7 +143,6 @@ function ModalReporte({ canje, onCerrar, onEnviado, showToast }) {
   );
 }
 
-
 // ═══════════════════════════════════════════════════════════
 //  BLOQUE PASE — lo que el checkout hotelero venía prometiendo
 //  y el panel no mostraba: el código de 6 dígitos, el cupo del mes, los

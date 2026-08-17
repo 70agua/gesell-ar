@@ -5,9 +5,8 @@
 //  controlado: no sube nada solo, el padre decide cuándo persistir
 //  (mismo patrón que ya usa el logo hoy).
 // ============================================================
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Upload, Image as ImageIcon, Trash2, AlertCircle } from 'lucide-react';
-
 const P = '#475BE1';
 const INK = '#0B1020';
 const MUTED = '#6B7280';

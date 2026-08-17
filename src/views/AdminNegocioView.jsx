@@ -4,14 +4,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import {
-  LayoutDashboard, MessageSquare, Bell, Tag, CreditCard, Puzzle,
-  LogOut, ArrowLeft, TrendingUp, Eye, EyeOff, MousePointerClick, Users, ChevronRight,
-  Plus, X, Save, ToggleLeft, ToggleRight, Send, Check,
-  Clock, Star, Trash2, Upload, Image, AlertCircle, CheckCircle2, Zap, Crown,
-  Store, ShoppingBag, Utensils, Map, Smartphone, Globe, Calendar,
-  MessageCircle, Edit2, RefreshCw, Package, BarChart2, Home, Search,
-  Inbox, CalendarDays, Minus, Megaphone, Download, Mail, Link2,
-  Disc3, Info, Loader2, Ticket,
+  MessageSquare,
+  Tag,
+  CreditCard,
+  LogOut,
+  ArrowLeft,
+  TrendingUp,
+  Eye,
+  EyeOff,
+  Users,
+  ChevronRight,
+  Plus,
+  X,
+  Save,
+  Check,
+  Clock,
+  Star,
+  Trash2,
+  Upload,
+  AlertCircle,
+  CheckCircle2,
+  Zap,
+  Store,
+  Smartphone,
+  Edit2,
+  BarChart2,
+  CalendarDays,
+  Disc3,
+  Info,
+  Loader2,
+  Ticket,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { categoriaDeNegocio } from '../lib/datos';
@@ -23,8 +45,14 @@ import { FOTOS_GALERIA_MAX, getPlanesPro } from '../lib/planes';
 import { DEFAULT_TIERS, validarTramos } from '../lib/grupos';
 import { AHORRO_BASE_MAX } from '../lib/pases';
 import { getStatsNegocio } from '../lib/tracking';
-import { getSolicitudesDeNegocio, getConsultasDeNegocio, responderSolicitud, marcarConsultaLeida,
-         ESTADOS as ESTADOS_SOL, textoError as textoErrorSol } from '../lib/solicitudes';
+import {
+  getSolicitudesDeNegocio,
+  getConsultasDeNegocio,
+  responderSolicitud,
+  marcarConsultaLeida,
+  ESTADOS as ESTADOS_SOL,
+  textoError as textoErrorSol,
+} from '../lib/solicitudes';
 import { impulsarOferta, costoPorAcceso, costoPorVenta, costoPorResultado } from '../lib/impulso';
 import { sanitizeTituloOferta } from '../lib/ofertas';
 import ComprarTokensModal from '../components/ComprarTokensModal';
@@ -33,10 +61,8 @@ import LoadingScreen from '../components/LoadingScreen';
 import GaleriaFotos from '../components/GaleriaFotos';
 import PerfilNegocioForm from '../components/PerfilNegocioForm';
 import { perfilDesdeNegocio, perfilAPayload, validarPerfil } from '../lib/perfilNegocio';
-
 // ─── Design tokens ───────────────────────────────────────────
 const P = '#475be1';   // primary blue
-const PD = '#3347c8';  // primary dark
 const PS = '#eef0fd';  // primary soft
 const INK = '#0f172a';
 const INK2 = '#475569';
@@ -56,60 +82,31 @@ function CreditCoin({ size = 22 }) {
 }
 
 // ─── Nav config ─────────────────────────────────────────────
-const NAV_GRUPOS = [
-  {
-    id: 'grupo-ofertas',
-    label: 'Ofertas',
-    items: [
-      { id: 'ofertas',     label: 'Creadas por mí', Icon: Tag         },
-      { id: 'solicitudes', label: 'Ventas',          Icon: Inbox,      alojOnly: true },
-      { id: 'canjes',      label: 'Pase y canjes',   Icon: Ticket      },
-    ],
-  },
-  {
-    id: 'grupo-empresa',
-    label: 'Mi empresa',
-    items: [
-      { id: 'cuenta',  label: 'Cuenta',               Icon: CreditCard },
-      { id: 'empresa', label: 'Perfil del negocio',   Icon: Store      },
-      { id: 'galeria', label: 'Galería de imágenes',  Icon: Image      },
-      { id: 'stats',   label: 'Estadísticas',         Icon: BarChart2  },
-    ],
-  },
-];
-const NAV_BOTTOM = [
-  { id: 'notif', label: 'Notificaciones', Icon: Bell },
+// Cinco destinos planos (2026-08-17). Eran OCHO repartidos en dos grupos
+// ("Ofertas" y "Mi empresa") más Notificaciones colgando abajo. Qué cambió y
+// por qué:
+//
+//  · "Perfil del negocio" + "Galería de imágenes" → **Mi negocio**. Eran dos
+//    entradas de menú para UNA sola tarea —completar la ficha—, y el socio que
+//    entra a cargar sus datos las hace de corrido, no eligiendo entre las dos.
+//    Van apiladas en la misma página (ver TabMiNegocio).
+//  · "Ventas" + "Pase y canjes" → **Ventas y canjes**. Las dos contestan "qué
+//    pasó con mis ofertas". Acá sí van como secciones elegibles y no apiladas:
+//    se consultan de a una (ver TabVentasYCanjes).
+//  · **Notificaciones se fue.** No tiene fuente de datos real: mostraba cinco
+//    avisos inventados y un badge con un 5 clavado. Vuelve cuando haya de qué
+//    notificar, no antes.
+//
+// Y se fueron los grupos: con cinco ítems, dos encabezados de sección agregan
+// un nivel de jerarquía que no ordena nada — sólo alarga la lista.
+const NAV_ITEMS = [
+  { id: 'ofertas', label: 'Mis ofertas',     Icon: Tag        },
+  { id: 'empresa', label: 'Mi negocio',      Icon: Store      },
+  { id: 'canjes',  label: 'Ventas y canjes', Icon: Ticket     },
+  { id: 'stats',   label: 'Estadísticas',    Icon: BarChart2  },
+  { id: 'cuenta',  label: 'Cuenta',          Icon: CreditCard },
 ];
 const TIPOS_ALOJ_ADMIN = new Set(['Hotel','Cabaña','Departamento','Casa','Hostel','Dormi']);
-
-const MOCK_NOTIFS = [
-  { id: 1, tipo: 'propia', icon: ShoppingBag, color: GREEN, title: 'Cupón propio canjeado', cliente: 'Valentina R.', cupon: 'Escapada Romántica (-15%)', time: 'Hace 5 min', creditos: 0 },
-  { id: 2, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Un turista generó créditos', desc: 'Un turista tuyo compró un cupón de Churros El Topo. ¡+1 Crédito!', time: 'Hace 22 min', creditos: 1 },
-  { id: 3, tipo: 'tercero', icon: Utensils, color: YELLOW, title: 'Un turista generó créditos', desc: 'Un turista tuyo compró un cupón de La Pescadería Gesell. ¡+1 Crédito!', time: 'Hace 1 h', creditos: 1 },
-  { id: 4, tipo: 'propia', icon: ShoppingBag, color: GREEN, title: 'Cupón propio canjeado', cliente: 'Martín G.', cupon: 'Pack 3 noches + excursión', time: 'Ayer 18:40', creditos: 0 },
-  { id: 5, tipo: 'tercero', icon: Map, color: YELLOW, title: 'Un turista generó créditos', desc: 'Un turista tuyo compró un cupón de Paseos en Cuatriciclo. ¡+1 Crédito!', time: 'Ayer 11:20', creditos: 1 },
-];
-
-const MOCK_OFERTAS = [
-  { id: 1, titulo: 'Escapada Romántica -15%', desc: 'Descuento especial para parejas, incluye detalle de bienvenida.', descuento: 15, tipo: 'Descuento Directo', activa: true },
-  { id: 2, titulo: 'Pack 3 Noches + Excursión', desc: 'Pack armado con traslado y entrada a Reserva Dunas.', descuento: 20, tipo: 'Pack Armado', activa: true },
-  { id: 3, titulo: 'Tarifa Anticipada -10%', desc: 'Reserva con 30 días de anticipación y ahorrá.', descuento: 10, tipo: 'Descuento Directo', activa: false },
-];
-
-const MOCK_FACTURAS = [
-  { fecha: 'Jun 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
-  { fecha: 'May 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
-  { fecha: 'Abr 2025', concepto: 'Abono PLUS mensual', monto: 20000, estado: 'Pagado' },
-];
-
-const ADDONS_CATALOG = [
-  { id: 'rumrak',    titulo: 'Rumrak PMS/CRM', desc: 'Gestión hotelera integral: reservas, historial de turistas, ingresos/egresos exportable.', precio: 15000, Icon: BarChart2, color: P },
-  { id: 'destaque',  titulo: 'Destaque Fin de Semana', desc: 'Resaltá tu hotel en los listados durante los días de recambio turístico.', precio: 5000, Icon: Star, color: YELLOW },
-  { id: 'whatsapp',  titulo: 'WhatsApp Premium', desc: 'Enlace directo al celular desde la ficha pública, sin intermediarios.', precio: 3000, Icon: Smartphone, color: GREEN },
-  { id: 'traductor', titulo: 'Traductor IA', desc: 'Traduce tu perfil y promociones al inglés y portugués automáticamente.', precio: 4000, Icon: Globe, color: '#8b5cf6' },
-  { id: 'reservas',  titulo: 'Motor de Reservas Básico', desc: 'Calendario de reservas desde tu ficha en Cuponear.', precio: 8000, Icon: Calendar, color: '#0ea5e9' },
-  { id: 'sms',       titulo: 'Alertas SMS Instantáneas', desc: 'Notificaciones de consultas directamente a tu celular.', precio: 2500, Icon: MessageCircle, color: '#ec4899' },
-];
 
 // ─── Helpers UI ──────────────────────────────────────────────
 const Card = React.forwardRef(function Card({ children, style = {} }, ref) {
@@ -297,21 +294,6 @@ function TabEstadisticas({ negocio }) {
         </>
       )}
     </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  TAB INBOX — mock. NO se toca en la Fase 7.
-//  Pasa a la Fase 5b, donde se convierte en la bandeja única del socio con
-//  dos tipos: consultas y solicitudes de fecha. Misma lógica que
-//  TabPendientes en el superadmin.
-// ════════════════════════════════════════════════════════════
-function LabelPill({ label, color }) {
-  if (!label) return null;
-  return (
-    <span style={{ display:'inline-block', padding:'2px 8px', borderRadius:99, fontSize:11, fontWeight:600, background:color+'20', color, fontFamily:FONT, border:`1px solid ${color}40` }}>
-      {label}
-    </span>
   );
 }
 
@@ -505,99 +487,6 @@ function TabInbox({ negocio, showToast }) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  TAB 3 — NOTIFICACIONES
-// ════════════════════════════════════════════════════════════
-function TabNovedades({ credits, setCredits, onGoToVentas }) {
-  const [notifs, setNotifs] = useState(MOCK_NOTIFS);
-  const [filter, setFilter] = useState('todas');
-
-  function markRead(id) { setNotifs(prev => prev.filter(n => n.id !== id)); }
-
-  const filtered = filter === 'todas' ? notifs
-    : filter === 'ventas' ? notifs.filter(n => n.tipo === 'propia')
-    : notifs.filter(n => n.tipo === 'tercero');
-
-  const FILTROS = [
-    { id: 'todas',    label: 'Todas'    },
-    { id: 'ventas',   label: 'Mis ventas' },
-    { id: 'terceros', label: 'Créditos ganados' },
-  ];
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:0 }}>Novedades</h2>
-        <div style={{ display:'flex', alignItems:'center', gap:8, background:`${YELLOW}15`, border:`1px solid ${YELLOW}40`, borderRadius:12, padding:'8px 14px' }}>
-          <CreditCoin size={20}/>
-          <span style={{ fontFamily:FONT, fontWeight:700, fontSize:16, color:INK }}>{credits} créditos</span>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div style={{ display:'flex', gap:8 }}>
-        {FILTROS.map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)} style={{
-            padding:'6px 16px', borderRadius:99, border:`1px solid ${filter===f.id ? P : LINE}`,
-            background: filter===f.id ? PS : 'transparent', color: filter===f.id ? P : INK2,
-            fontFamily:FONT, fontSize:12, fontWeight:600, cursor:'pointer',
-          }}>{f.label}</button>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <Card style={{ textAlign:'center', padding:40, color:MUTED }}>
-          <Megaphone size={32} style={{ margin:'0 auto 10px', display:'block', opacity:0.3 }}/>
-          <div style={{ fontFamily:FONT, fontSize:14 }}>Sin novedades</div>
-        </Card>
-      )}
-
-      {filtered.map(n => (
-        <Card key={n.id} style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
-          <div style={{ width:44, height:44, borderRadius:12, background:n.color+'15', display:'grid', placeItems:'center', flexShrink:0 }}>
-            <n.icon size={20} color={n.color}/>
-          </div>
-          <div style={{ flex:1 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-              <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:INK }}>{n.title}</div>
-              <span style={{ fontFamily:FONT, fontSize:11, color:MUTED, whiteSpace:'nowrap', marginLeft:12 }}>{n.time}</span>
-            </div>
-
-            {/* Cupón propio: nombre del cliente + CTA */}
-            {n.tipo === 'propia' ? (
-              <div style={{ marginTop:6 }}>
-                <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>
-                  {n.cliente} te compró un cupón!
-                </div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:MUTED, marginTop:2 }}>{n.cupon}</div>
-                <button
-                  onClick={() => onGoToVentas?.()}
-                  style={{ marginTop:10, display:'inline-flex', alignItems:'center', gap:6, background:P, color:'#fff', border:'none', borderRadius:8, padding:'7px 14px', fontFamily:FONT, fontSize:12, fontWeight:700, cursor:'pointer' }}
-                >
-                  <MessageSquare size={13}/> Ponerse en contacto
-                </button>
-              </div>
-            ) : (
-              <>
-                <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:4 }}>{n.desc}</div>
-                {n.creditos > 0 && (
-                  <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:6 }}>
-                    <CreditCoin size={16}/>
-                    <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:YELLOW }}>+{n.creditos} Crédito acumulado</span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-          <button onClick={() => markRead(n.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:MUTED, padding:4 }}>
-            <X size={16}/>
-          </button>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
 //  TAB 4 — MIS OFERTAS
 // ════════════════════════════════════════════════════════════
 const PLACEHOLDER_IMGS = [
@@ -605,11 +494,6 @@ const PLACEHOLDER_IMGS = [
   'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=220&fit=crop',
   'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=220&fit=crop',
   'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400&h=220&fit=crop',
-];
-
-const MOCK_OFERTAS_ASOCIADAS = [
-  { id: 'as1', titulo: 'Cena para dos en La Parrilla del Puerto', tipo: 'Salidas', descuento: 20, socio: 'La Parrilla del Puerto', img: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=220&fit=crop' },
-  { id: 'as2', titulo: 'Alquiler de bicicletas — día completo', tipo: 'Actividades', descuento: 15, socio: 'BiciAventura', img: 'https://images.unsplash.com/photo-1558981033-0f0309284409?w=400&h=220&fit=crop' },
 ];
 
 // ¿Es un id real de promociones (uuid) o un id local/mock (numérico)?
@@ -909,15 +793,14 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
   // Los alojamientos por defecto piden reserva previa (fechas de estadía); el resto no.
   const esAlojamientoNegocio = categoriaDeNegocio(negocioTipo) === 'alojamiento';
   const [ofertas, setOfertas] = useState(() => {
-    if (dbPromos.length > 0) return dbPromos.map(dbRowToItem);
-    // En el onboarding arrancamos sin ninguna oferta (sólo el placeholder), sin datos de ejemplo.
-    if (onboarding) return [];
-    return MOCK_OFERTAS.map((o, i) => {
-      const src = PLACEHOLDER_IMGS[i % PLACEHOLDER_IMGS.length];
-      return { ...o, img: src, imagenes: [{ src, file: null }] };
-    });
+    // Sin ofertas propias, la lista queda vacía — nunca datos de ejemplo
+    // (2026-08-16). Antes caía a MOCK_OFERTAS y el socio recién registrado
+    // abría su panel con tres ofertas que él no había cargado ("Escapada
+    // Romántica -15%", "Pack 3 Noches"), con fotos de Unsplash y todo. Las
+    // podía editar, activar y creer suyas. El onboarding ya arrancaba vacío;
+    // ahora es igual siempre.
+    return dbPromos.length > 0 ? dbPromos.map(dbRowToItem) : [];
   });
-  const ofertasAsociadas = MOCK_OFERTAS_ASOCIADAS;
   const [vistaGrid, setVistaGrid]         = useState(true);
   const [editingOferta, setEditingOferta] = useState('new');
   const [editorAbierto, setEditorAbierto] = useState(true); // panel derecho de carga/edición
@@ -1626,67 +1509,6 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
   const IcoGrid = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
   const IcoList = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
 
-  // Barra de compartir el portal de beneficios asociados
-  function ShareAsociadasBar() {
-    const [email, setEmail] = React.useState('');
-    const [sent, setSent] = React.useState(false);
-    const portalUrl = `https://cuponear.ar/beneficios/${negocioId || 'mi-hotel'}`;
-
-    function handleSendEmail(e) {
-      e.preventDefault();
-      if (!email) return;
-      setSent(true);
-      setTimeout(() => { setSent(false); setEmail(''); }, 2500);
-    }
-
-    function copyLink() {
-      navigator.clipboard?.writeText(portalUrl);
-      showToast('Link copiado', 'ok');
-    }
-
-    function sendWhatsapp() {
-      const msg = encodeURIComponent(`¡Hola! Te comparto los beneficios exclusivos de nuestros socios: ${portalUrl}`);
-      window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }
-
-    return (
-      <div style={{ background:PS, border:`1px solid #c7d0f8`, borderRadius:14, padding:'14px 16px', display:'flex', flexDirection:'column', gap:12 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={P} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:P }}>Enviá el portal de beneficios a tus turistas</span>
-        </div>
-
-        {/* Fila: campo email + botón enviar */}
-        <form onSubmit={handleSendEmail} style={{ display:'flex', gap:8 }}>
-          <input
-            type="email"
-            placeholder="correo@ejemplo.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            style={{ flex:1, padding:'9px 13px', borderRadius:10, border:`1px solid #c7d0f8`, background:'#fff', fontFamily:FONT, fontSize:13, color:INK, outline:'none', minWidth:0 }}
-          />
-          <button type="submit" style={{ padding:'9px 16px', borderRadius:10, border:'none', background: sent ? GREEN : P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', transition:'background 0.2s', display:'flex', alignItems:'center', gap:6 }}>
-            {sent
-              ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Enviado</>
-              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar</>
-            }
-          </button>
-        </form>
-
-        {/* Botones secundarios */}
-        <div style={{ display:'flex', gap:8 }}>
-          <button onClick={copyLink} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:10, border:`1px solid #c7d0f8`, background:'#fff', fontFamily:FONT, fontSize:12, fontWeight:600, color:INK2, cursor:'pointer' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copiar link
-          </button>
-          <button onClick={sendWhatsapp} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 0', borderRadius:10, border:`1px solid #c7d0f8`, background:'#fff', fontFamily:FONT, fontSize:12, fontWeight:600, color:'#16a34a', cursor:'pointer' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="#16a34a"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-            WhatsApp
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const inputSt = { width: '100%', padding: '9px 12px', borderRadius: 9, border: `1px solid ${LINE}`, fontFamily: FONT, fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box', background: '#fff' };
   const labelSt = { fontFamily: FONT, fontSize: 10, fontWeight: 700, color: INK2, textTransform: 'uppercase', letterSpacing: '0.06em' };
@@ -2546,7 +2368,7 @@ function TabEmpresa({ negocio, showToast }) {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 40 }}>
         <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8, background: saving ? MUTED : P, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontFamily: FONT, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(71,91,225,0.3)', transition: 'background .15s' }}>
-          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
+          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar perfil'}
         </button>
       </div>
     </div>
@@ -2590,7 +2412,7 @@ function TabGaleria({ negocio, showToast }) {
       </Card>
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 40 }}>
         <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8, background: saving ? MUTED : P, color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontFamily: FONT, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(71,91,225,0.3)', transition: 'background .15s' }}>
-          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
+          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar galería'}
         </button>
       </div>
     </div>
@@ -2620,19 +2442,15 @@ function CoinSVG({ size = 22 }) {
   );
 }
 
-
 const PACKS_ABONO = [
   { badge:'-2k',  off:2000,  cred:8,  popular:false },
   { badge:'-5k',  off:5000,  cred:16, popular:true  },
   { badge:'-10k', off:10000, cred:32, popular:false },
 ];
 
-// dark1 = oscuro medio, dark2 = más oscuro
-const PACK_DARKS = ['#2d3a5c', '#1a2440'];
-
 const PACK_IMGS = { '-2k': '/img/2k.jpg', '-5k': '/img/5k.jpg' };
 
-function PackFicha({ badge, off, cred, popular, darkIdx = 0 }) {
+function PackFicha({ badge, off, cred, popular}) {
   const fmt = n => '$' + n.toLocaleString('es-AR');
   const imgSrc = PACK_IMGS[badge];
   return (
@@ -2760,7 +2578,7 @@ function ModalEliminarCuenta({ nombreNegocio, onClose, onEliminada }) {
   );
 }
 
-function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNegocio, showToast, onCuentaEliminada }) {
+function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEliminada }) {
   const [filtroMov, setFiltroMov] = useState('todo');
   const [showEliminar, setShowEliminar] = useState(false);
   const [cambiandoVisibilidad, setCambiandoVisibilidad] = useState(false);
@@ -3113,63 +2931,6 @@ function TabCuenta({ credits, addonTotal, setShowComprar, perfil, negocio, setNe
 }
 
 // ════════════════════════════════════════════════════════════
-//  TAB 7 — ADD-ONS
-// ════════════════════════════════════════════════════════════
-function TabAddons({ addonTotal, setAddonTotal, showToast }) {
-  const [contratados, setContratados] = useState(new Set());
-
-  function contratar(addon) {
-    if (contratados.has(addon.id)) return;
-    setContratados(prev => new Set([...prev, addon.id]));
-    setAddonTotal(prev => prev + addon.precio);
-    showToast(`${addon.titulo} contratado correctamente`, 'ok');
-  }
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-      <div>
-        <h2 style={{ fontFamily:FONT, fontSize:20, fontWeight:700, color:INK, margin:'0 0 4px' }}>Módulos Extras</h2>
-        <p style={{ fontFamily:FONT, fontSize:13, color:INK2, margin:0 }}>Amplía las capacidades de tu ficha contratando servicios adicionales.</p>
-      </div>
-      {addonTotal > 0 && (
-        <div style={{ background:PS, border:`1px solid ${P}30`, borderRadius:12, padding:'12px 16px', fontFamily:FONT, fontSize:13, color:P, fontWeight:600 }}>
-          Add-ons activos: +${addonTotal.toLocaleString('es-AR')}/mes al plan
-        </div>
-      )}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14 }}>
-        {ADDONS_CATALOG.map(a => {
-          const activo = contratados.has(a.id);
-          return (
-            <Card key={a.id} style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
-                <div style={{ width:44, height:44, borderRadius:12, background:a.color+'15', display:'grid', placeItems:'center', flexShrink:0 }}>
-                  <a.Icon size={22} color={a.color}/>
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:INK }}>{a.titulo}</div>
-                  <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:4, lineHeight:1.5 }}>{a.desc}</div>
-                </div>
-              </div>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'auto' }}>
-                <span style={{ fontFamily:FONT, fontSize:15, fontWeight:800, color:INK }}>${a.precio.toLocaleString('es-AR')}<span style={{ fontSize:11, fontWeight:400, color:MUTED }}>/mes</span></span>
-                <button onClick={() => contratar(a)} style={{
-                  padding:'8px 16px', borderRadius:10, border: activo ? `1px solid ${GREEN}` : 'none',
-                  background: activo ? GREENS : P, color: activo ? GREEN : '#fff',
-                  fontFamily:FONT, fontSize:12, fontWeight:700, cursor: activo ? 'default' : 'pointer',
-                  display:'flex', alignItems:'center', gap:6,
-                }}>
-                  {activo ? <><Check size={13}/> Contratado</> : <>Contratar</>}
-                </button>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
 //  RENDIMIENTO WIDGET
 // ════════════════════════════════════════════════════════════
 // Bloque de saldos — créditos publicitarios + puntos, en el sidebar (estilo oscuro)
@@ -3309,9 +3070,77 @@ function RendimientoCard({ plan = 'free', onUpgrade }) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Mi negocio — perfil + galería, una sola página
+//
+//  Apiladas y no en sub-pestañas: las dos son la misma tarea ("completá tu
+//  ficha") y el socio que entra a cargar sus datos las hace de corrido. Cada
+//  bloque conserva su propio botón de guardar porque guardan cosas distintas
+//  —columnas de `negocios` una, la columna `galeria` la otra—, así que los
+//  rótulos dicen cuál es cuál en vez de repetir "Guardar cambios" dos veces.
+// ════════════════════════════════════════════════════════════
+function TabMiNegocio({ negocio, showToast }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <TabEmpresa negocio={negocio} showToast={showToast} />
+      <div style={{ height: 1, background: LINE, maxWidth: 740, margin: '4px 0 28px' }} />
+      <TabGaleria negocio={negocio} showToast={showToast} />
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Ventas y canjes — lo que pasó con las ofertas
+//
+//  Acá SÍ van como secciones elegibles y no apiladas: son consultas, se miran
+//  de a una. El patrón (pastillas arriba) es el que ya usaba "Ventas" adentro
+//  suyo, así que no se inventa un control nuevo.
+//
+//  Consultas y solicitud de cupones siguen siendo sólo de alojamiento, igual
+//  que antes de la fusión. Para el resto de los socios queda una sola sección
+//  y entonces la barra no se dibuja: un selector de una opción no es un
+//  selector.
+// ════════════════════════════════════════════════════════════
+function TabVentasYCanjes({ negocio, negocioId, esAloj, showToast }) {
+  const [section, setSection] = useState('canjes');
+
+  const SECCIONES = [
+    { id: 'canjes',    label: 'Pase y canjes',        Icon: Ticket },
+    ...(esAloj ? [
+      { id: 'consultas', label: 'Consultas',            Icon: MessageSquare },
+      { id: 'cupones',   label: 'Solicitud de cupones', Icon: CalendarDays },
+    ] : []),
+  ];
+
+  return (
+    <div>
+      {SECCIONES.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+          {SECCIONES.map(s => (
+            <button key={s.id} onClick={() => setSection(s.id)} style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '8px 18px', borderRadius: 99,
+              border: `1px solid ${section === s.id ? P : LINE}`,
+              background: section === s.id ? PS : 'transparent',
+              color: section === s.id ? P : INK2,
+              fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}>
+              <s.Icon size={14} /> {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {section === 'canjes'    && <TabCanjes negocio={negocio} showToast={showToast} />}
+      {section === 'consultas' && <TabInbox negocio={negocio} showToast={showToast} />}
+      {section === 'cupones'   && <SolicitudCupones negocioId={negocioId} showToast={showToast} />}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ════════════════════════════════════════════════════════════
-function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, puntos = 0, setShowComprar, onVolver, onGoHome, onLogout, navCounts = {} }) {
+function Sidebar({ tab, setTab, negocio, perfil, saldoTokens, puntos = 0, setShowComprar, onVolver, onGoHome, onLogout, navCounts = {} }) {
   const esAloj = negocio?.tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
   const plan   = negocio?.plan || 'free';
 
@@ -3323,7 +3152,6 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, puntos
   const navItem = (t, sub = false) => {
     if (t.alojOnly && !esAloj) return null;
     const active    = tab === t.id;
-    const badge     = t.id === 'notif' ? notifCount : 0;
     const planBadge = t.id === 'cuenta' ? (PLAN_BADGE[plan] || PLAN_BADGE.free) : null;
     return (
       <button
@@ -3347,7 +3175,6 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, puntos
             <span style={{ opacity: 0.55, fontWeight: 400 }}> ({navCounts[t.id]})</span>
           )}
         </span>
-        {badge > 0 && <span style={{ background: YELLOW, color: NAVY, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999 }}>{badge}</span>}
         {planBadge && <span style={{ background: planBadge.bg, color: planBadge.color, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 999, letterSpacing: '0.03em' }}>{planBadge.label}</span>}
       </button>
     );
@@ -3363,18 +3190,7 @@ function Sidebar({ tab, setTab, negocio, perfil, notifCount, saldoTokens, puntos
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '8px 8px 4px', display: 'flex', flexDirection: 'column', gap: 0, overflowY: 'auto' }}>
-        {NAV_GRUPOS.map(grupo => (
-          <div key={grupo.id} style={{ marginBottom: 2 }}>
-            <div style={{ padding: '8px 10px 3px', fontSize: 9.5, fontWeight: 700, color: '#b1bbff', letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: FONT }}>
-              {grupo.label}
-            </div>
-            {grupo.items.map(t => navItem(t, true))}
-          </div>
-        ))}
-
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 2px' }} />
-
-        {NAV_BOTTOM.map(t => navItem(t, false))}
+        {NAV_ITEMS.map(t => navItem(t))}
       </nav>
 
       {/* Saldos: créditos publicitarios + puntos */}
@@ -3550,41 +3366,6 @@ function SolicitudCupones({ negocioId, showToast }) {
   );
 }
 
-function TabVentas({ negocioId, showToast }) {
-  const [section, setSection] = useState('consultas');
-
-  const SECCIONES = [
-    { id: 'consultas', label: 'Consultas', Icon: MessageSquare },
-    { id: 'cupones',   label: 'Solicitud de cupones', Icon: CalendarDays },
-  ];
-
-  return (
-    <div style={{ padding: '32px 36px' }}>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: INK, margin: '0 0 20px' }}>Ventas</h2>
-
-      {/* Sub-nav */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        {SECCIONES.map(s => (
-          <button key={s.id} onClick={() => setSection(s.id)} style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '8px 18px', borderRadius: 99,
-            border: `1px solid ${section === s.id ? P : LINE}`,
-            background: section === s.id ? PS : 'transparent',
-            color: section === s.id ? P : INK2,
-            fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          }}>
-            <s.Icon size={14} /> {s.label}
-          </button>
-        ))}
-      </div>
-
-      {section === 'consultas' && <TabInbox />}
-      {section === 'cupones'   && <SolicitudCupones negocioId={negocioId} showToast={showToast} />}
-    </div>
-  );
-}
-
-
 // ════════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════
@@ -3596,15 +3377,17 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
   const [showComprar, setShowComprar] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [toast, setToast]         = useState(null);
-  const [credits, setCredits]     = useState(7);
-  const [addonTotal, setAddonTotal] = useState(0);
   const [puntos, setPuntos] = useState(0);
 
-  const notifCount = MOCK_NOTIFS.length;
-  const ofertasActivasCount = promos.length > 0
-    ? promos.filter(p => p.activo !== false).length
-    : MOCK_OFERTAS.filter(o => o.activa).length;
-  const navCounts = { ofertas: ofertasActivasCount };
+  // Los contadores del sidebar salen de datos reales o no salen (2026-08-16):
+  //  · `notifCount` era MOCK_NOTIFS.length, o sea un 5 clavado sobre la
+  //    campanita para cualquier socio, siempre. No hay fuente real todavía.
+  //  · las ofertas activas caían a MOCK_OFERTAS cuando el socio no tenía
+  //    ninguna, así que uno recién registrado leía "2" al lado de "Creadas
+  //    por mí" con el panel vacío.
+  const navCounts = { ofertas: promos.filter(p => p.activo !== false).length };
+  // Mismo criterio que usa el Sidebar para `alojOnly`.
+  const esAlojAdmin = negocio?.tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
 
   useEffect(() => { cargarTodo(); }, []);
 
@@ -3664,22 +3447,17 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
     <div style={{ display:'flex', minHeight:'100vh', background:BG, fontFamily:FONT }}>
       <Sidebar
         tab={tab} setTab={setTab} negocio={negocio} perfil={perfil}
-        notifCount={notifCount} saldoTokens={saldoTokens} puntos={puntos} navCounts={navCounts}
+        saldoTokens={saldoTokens} puntos={puntos} navCounts={navCounts}
         setShowComprar={setShowComprar} onVolver={onVolver}
         onGoHome={onGoHome} onLogout={handleLogout}
       />
 
       <main style={{ flex:1, padding:28, overflowY:'auto', maxWidth:'100%' }}>
-        {tab === 'cuenta'      && <TabCuenta credits={credits} addonTotal={addonTotal} setShowComprar={setShowComprar} perfil={perfil} negocio={negocio} setNegocio={setNegocio} showToast={showToast} onCuentaEliminada={handleLogout}/>}
-        {tab === 'notif'       && <TabNovedades credits={credits} setCredits={setCredits} onGoToVentas={() => setTab('solicitudes')}/>}
+        {tab === 'cuenta'      && <TabCuenta credits={saldoTokens} perfil={perfil} negocio={negocio} setNegocio={setNegocio} showToast={showToast} onCuentaEliminada={handleLogout}/>}
         {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} negocioTipo={negocio?.tipo} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens}/>}
-        {tab === 'canjes'      && <TabCanjes negocio={negocio} showToast={showToast}/>}
+        {tab === 'canjes'      && <TabVentasYCanjes negocio={negocio} negocioId={perfil?.negocio_id} esAloj={esAlojAdmin} showToast={showToast}/>}
         {tab === 'stats'       && <TabEstadisticas negocio={negocio}/>}
-        {tab === 'solicitudes' && <TabVentas negocioId={perfil?.negocio_id} showToast={showToast}/>}
-        {tab === 'empresa' && <TabEmpresa negocio={negocio} showToast={showToast}/>}
-        {tab === 'galeria' && <TabGaleria negocio={negocio} showToast={showToast}/>}
-        {tab === 'inbox'       && <TabInbox negocio={negocio} showToast={showToast}/>}
-        {tab === 'addons'      && <TabAddons addonTotal={addonTotal} setAddonTotal={setAddonTotal} showToast={showToast}/>}
+        {tab === 'empresa' && <TabMiNegocio negocio={negocio} showToast={showToast}/>}
       </main>
 
       <Toast toast={toast}/>

@@ -7,10 +7,9 @@
 //  (con email si lo deja, o solo el destino si no) para planificar la
 //  expansión. Ver src/lib/demanda.js.
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { buscarDestinosAr } from '../lib/geoAr';
 import { registrarDemandaDestino, completarEmailDemanda } from '../lib/demanda';
-
 const A = {
   primary:     '#475BE1',
   primaryDark: '#3347C8',
