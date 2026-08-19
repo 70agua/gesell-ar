@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import AvisosBell from './AvisosBell';
-import { FAMILIAS_PACK, MAS_PACKS } from '../lib/familiasPack';
+import SelectorRegion from './SelectorRegion';
 import { useCarrito } from '../lib/carrito';
 import { EXPERIENCIAS_SALIDAS } from '../lib/datos';
 import Icono from './Icono';
@@ -32,6 +32,10 @@ const NAURYZ = "'NauryzRedkeds', 'Inter', sans-serif";
 const NAV_TOP     = 12;
 const NAV_TOP_MIN = 8;
 const NAV_W_MAX   = 1240;
+// Sin pastilla los elementos respiran a todo el ancho útil del sitio, como
+// en cualquier navbar plana; encerrarlos en 1240 los dejaría flotando en el
+// medio con aire muerto a los costados y se leería como una pastilla sin fondo.
+const NAV_W_HERO  = 1600;
 const NAV_W_MIN   = 1020;
 const NAV_H_MAX   = 56;
 const NAV_H_MIN   = 48;
@@ -41,10 +45,8 @@ const NAV_EASE    = 'cubic-bezier(.4,0,.2,1)';
 const SHRINK_FALLBACK_Y = 150;
 // Píxeles de subida seguida que hacen falta para esconder la navbar en la home
 // (bajar la muestra al toque). Ver el useEffect de dirección de scroll.
-const OCULTAR_TRAS_SUBIR = 500;
 // Milisegundos de mouse quieto que hacen falta para esconder la navbar en la
 // home. Ver el useEffect de mouse quieto, más abajo.
-const OCULTAR_TRAS_QUIETO_MS = 5000;
 
 // ─── Chevrons ────────────────────────────────────────────────
 function ChevD({ size = 12 }) {
@@ -526,7 +528,14 @@ function AventDrop({ onNavigate }) {
 }
 
 // ─── Logo dinámico según dominio ─────────────────────────────
-function siteHost() {
+// Exportado (2026-08-18, brief de scope regional): el consumo de esto se
+// mudó a Footer.jsx ("La red Cuponear", discreto, al pie) porque el logo
+// dejó de abrir este dropdown — colisionaba con la pill de región nueva,
+// dos selectores geográficos a 40px de distancia. La definición se queda
+// acá a propósito (dejar SITIOS_RED/siteHost donde están, mover sólo quién
+// las consume): son datos de RED (dominios), no de navegación del viajero,
+// así que no tienen nada que ver con src/lib/scope.js.
+export function siteHost() {
   return typeof window !== 'undefined'
     ? window.location.hostname.replace('www.', '').replace('localhost', 'gesell.ar')
     : 'gesell.ar';
@@ -538,7 +547,7 @@ function siteHost() {
 // Con el logo mostrando CUPONEaR, si no estuviera acá no habría forma de
 // llegar a gesell.ar desde otro sitio de la red. Va primero por ser el
 // principal.
-const SITIOS_RED = [
+export const SITIOS_RED = [
   'gesell.ar',
   'marazul.ar',
   'lasgaviotas.ar',
@@ -547,42 +556,6 @@ const SITIOS_RED = [
   'alquileresmardelplata.ar',
   'costaatlantica.ar',
 ];
-
-// Sin encabezado (2026-08-10): el "CUPONEaR es:" que iba arriba repetía, a un
-// palmo de distancia, la misma marca que acaba de leerse en el logo que abre
-// este drop. La lista sola se entiende.
-function SitiosDrop() {
-  const host = siteHost();
-  return (
-    <div style={{ padding: '8px 0', minWidth: 220 }}>
-      {/* Todos los dominios, sin filtrar el actual (ver la nota de
-          SITIOS_RED). El de este sitio se marca en vez de esconderse: la
-          lista es "de qué se compone la red", y una lista a la que le falta
-          justo donde estás parado se lee como incompleta. Además va sin
-          href —ya estás acá— para no abrir una pestaña al mismo lugar. */}
-      {SITIOS_RED.map(dominio => {
-        const actual = dominio === host;
-        const base = { width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', fontSize: 14, textDecoration: 'none', fontFamily: A.font };
-        if (actual) return (
-          <div key={dominio} style={{ ...base, fontWeight: 700, color: A.primary, background: A.primarySoft, cursor: 'default' }}>
-            <span style={{ flexShrink: 0, display: 'flex', width: 14, justifyContent: 'center' }}>•</span>
-            {dominio}
-          </div>
-        );
-        return (
-          <a key={dominio} href={`https://${dominio}`} target="_blank" rel="noopener noreferrer"
-            style={{ ...base, fontWeight: 500, color: A.ink2, cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
-          >
-            <span style={{ opacity: 0.6, flexShrink: 0, display: 'flex' }}>{EXT_ICON}</span>
-            {dominio}
-          </a>
-        );
-      })}
-    </div>
-  );
-}
 
 // ─── Dropdown "Planes y suscripción" ─────────────────────────
 // Tres intenciones que no se parecen, en el orden en que conviene ofrecerlas:
@@ -596,41 +569,47 @@ const PLANES_OPCIONES = [
   {
     id: 'contratar',
     titulo: 'Cupon PASS',
-    bajada: 'Comprá tu pase y aprovechá los descuentos que se ofrecen en la zona.',
+    bajada: 'Todos los descuentos en la zona.',
     vista: 'checkout-pase',
     // Sin preguntarPerfil: este ítem YA es la elección de "soy turista" — el
     // alojamiento tiene su propia entrada al lado ('hoteleria', abajo). El
     // rótulo genérico "Planes y suscripción" (el botón que abre este
     // desplegable) sigue preguntando, porque ESE click no eligió nada todavía.
     opts: {},
+    // Recoloreado a primary (2026-08-18): el archivo traía #3243D4, un azul
+    // parecido pero no el de marca — no se notaba solo, al lado de gift.svg
+    // y codigo.svg (los dos ya en #475BE1) sí.
     icono: '/iconos/cupon-line-05.svg',
-    lado: 40,
+    lado: 50,
   },
   {
     id: 'hoteleria',
-    titulo: 'Cuponear PRO',
-    bajada: 'Regalá el Pase a tus clientes.',
+    titulo: 'Regalá Gift PASS',
+    bajada: 'Regalá a tus clientes todos los descuentos de la zona.',
     vista: 'checkout-hotelero',
     opts: {},
-    // La misma casita que el bloque de alojamiento de la home.
-    icono: '/iconos/cabania.json',
-    lado: 37,
+    // Antes la casita de cabania.json (Lottie, tono #2D44DD — off-primary
+    // también). gift.svg ya viene en #475BE1, sin nada que recolorear.
+    // Vive en /public directo, no en /iconos — mismo lugar que codigo.svg.
+    icono: '/gift.svg',
+    lado: 40,
+    badge: 'EMPRESAS',
   },
   {
     id: 'regalo',
-    titulo: 'Me regalaron un Pase',
-    bajada: 'Activala con el código de 6 números.',
+    titulo: 'Me regalaron un PASS',
+    bajada: 'Activalo con el código de 6 números.',
     vista: 'canjear-regalo',
     opts: {},
-    icono: '/iconos/regalo.json',
-    lado: 41,
+    icono: '/codigo.svg',
+    lado: 40,
   },
 ];
 
 function PlanesDrop({ onNavigate }) {
   return (
     <div style={{ padding: 8, width: 340 }}>
-      {PLANES_OPCIONES.map(({ id, titulo, bajada, vista, opts, icono, lado = 46 }) => (
+      {PLANES_OPCIONES.map(({ id, titulo, bajada, vista, opts, icono, lado = 46, badge }) => (
         <button
           key={id}
           onClick={() => onNavigate(vista, opts)}
@@ -646,43 +625,27 @@ function PlanesDrop({ onNavigate }) {
               azul claro se ensuciaban. Los Lottie corren solos (`animar`), sin
               esperar el hover. `lado` afina cada dibujo por separado: vienen
               con distinto aire interno y al mismo tamaño no pesan lo mismo.
-              La casilla queda fija en 46 para que los tres textos arranquen
-              alineados. */}
-          <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 46, height: 46 }}>
+              La casilla creció a 50 (2026-08-18, era 46) para que el ícono
+              de Cupon PASS entrara a su nuevo tamaño sin recortarse; los
+              otros dos siguen centrados adentro con su `lado` propio. */}
+          <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 50, height: 50 }}>
             <Icono src={icono} animar style={{ width: lado, height: lado, display: 'block' }} />
           </span>
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{titulo}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: A.ink, lineHeight: 1.3 }}>{titulo}</span>
+              {/* EMPRESAS marca que ese camino no es del turista — mismo
+                  patrón visual que el badge GRATIS del menú de usuario, pero
+                  en tono primary (no es una promo, es un dato de a quién
+                  le habla la opción). */}
+              {badge && (
+                <span style={{ fontSize: 9.5, fontWeight: 800, color: A.primary, background: A.primarySoft, borderRadius: 999, padding: '2px 7px', letterSpacing: '0.04em' }}>{badge}</span>
+              )}
+            </span>
             <span style={{ display: 'block', fontSize: 12.5, color: A.muted, lineHeight: 1.45, marginTop: 2 }}>{bajada}</span>
           </span>
         </button>
       ))}
-    </div>
-  );
-}
-
-// ─── Dropdown de Cupopacks ─────
-// Todo el desplegable va al 75%: ancho, paddings, gaps e íconos. El cuerpo de
-// letra NO escala — a 12,5px ya estaba en el piso legible.
-function PacksDrop({ onNavigate }) {
-  return (
-    <div style={{ padding: '23px 23px 21px', width: 555 }}>
-      {/* Sin pop de CSS sobre el ícono: la única animación del hover es la que
-          trae el propio Lottie (ver components/Icono.jsx). */}
-      <div style={{ fontSize: 14, fontWeight: 500, color: A.primary, marginBottom: 13, fontFamily: A.font }}>Experiencias con alojamiento incluído:</div>
-      {/* Íconos grandes, uno al lado del otro, con el título debajo */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-        {[...FAMILIAS_PACK, MAS_PACKS].map(f => (
-          <button key={f.label} onClick={() => onNavigate('packs', { packFamilia: f.id })}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, border: 'none', background: 'transparent', padding: '14px 5px 12px', borderRadius: 12, cursor: 'pointer', fontFamily: A.font, fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, textAlign: 'center', color: A.ink2, transition: 'background .13s, color .13s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = A.bg; e.currentTarget.style.color = A.primary; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A.ink2; }}
-          >
-            <Icono src={f.icono} hoverEn="padre" style={{ width: 48, height: 48, display: 'block' }} />
-            {f.label}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -699,7 +662,6 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   const [mobileClosing, setMobileClosing] = useState(false);
   const mobileCloseTimer = useRef(null);
   const [userMenuOpen,setUserMenuOpen]= useState(false);
-  const [condensed,   setCondensed]   = useState(false);
   // En 'home' la navbar arranca escondida —el hero queda despojado de menú a
   // propósito— y de ahí en más sigue la DIRECCIÓN del scroll (2026-08-11):
   // aparece apenas se baja, desde el primer píxel, y se esconde recién cuando
@@ -711,8 +673,19 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // punto no había forma de sacar el menú. El ancla se eliminó junto con su
   // observer; [data-navbar-shrink] sigue, que contesta otra pregunta
   // (¿terminó el hero? → condensar). En cualquier otra vista, siempre visible.
-  const [visiblePorScroll, setVisiblePorScroll] = useState(false);
-  const revealed = view !== 'home' || visiblePorScroll;
+  const [condensed,   setCondensed]   = useState(false);
+  // La navbar ya no se esconde nunca (2026-08-17). Lo que cambia en la home es
+  // su FORMA, no su presencia — ver `sobreHero`. Se deja la constante en vez de
+  // barrer los ~8 usos de `revealed`: sigue nombrando la misma pregunta.
+  const revealed = true;
+
+  // Sobre el hero la navbar se muestra SIN contenedor: los elementos sueltos
+  // sobre la imagen, sin pastilla, sin borde ni vidrio. La pastilla aparece
+  // recién al entrar en "Cuponeá antes de pagar" — que es exactamente el
+  // punto que ya marcaba `condensed` (el ancla [data-navbar-shrink] que pone
+  // HomeView al terminar el hero). Una sola medida para las dos cosas: no
+  // hace falta un segundo observer.
+  const sobreHero = view === 'home' && !condensed;
   const { openDrawer } = useCarrito();
 
   // ── Animar el tamaño SÓLO si la navbar ya estaba en pantalla ──────
@@ -733,19 +706,35 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // layout junto en una posición fija del scroll. Ahora que la navbar aparece
   // por dirección de scroll ese choque ya no es fijo, pero el criterio vale
   // igual: aparecer y redimensionar a la vez es trabajo que no se ve.)
-  const [animarTamano, setAnimarTamano] = useState(false);
+  // No se anima en dos momentos: el primer pintado y el CRUCE hero↔pastilla.
+  //
+  // En el cruce `position` salta de absolute a fixed, que no es animable —
+  // pero max-width (1600→1020), background (transparente→blanco) y box-shadow
+  // (none→sombra) sí lo son, y seguían transicionando .25–.38s. O sea que la
+  // pastilla se materializaba ancha y translúcida un instante después de haber
+  // saltado de lugar: scrolleando fuerte eso se lee como un parpadeo.
+  //
+  // No alcanza con retrasar las transiciones un frame: un setState en un
+  // efecto llega después del pintado, y el cuadro que se ve mal ya salió.
+  const [montado, setMontado] = useState(false);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setAnimarTamano(revealed));
+    const id = requestAnimationFrame(() => setMontado(true));
     return () => cancelAnimationFrame(id);
-  }, [revealed]);
+  }, []);
+  //
+  // En 'home' se apagan del todo, y no se pierde nada: ahí la navbar tiene
+  // exactamente DOS estados (suelta sobre el hero / pastilla condensada) y el
+  // único cambio posible es el cruce. No existe el condensado gradual dentro
+  // de la misma forma, que es para lo que las transiciones estaban puestas —
+  // eso sí pasa en los listados, y ahí siguen andando.
+  const animarTamano = montado && view !== 'home';
   const transLayout = (prop) => (animarTamano ? `${prop} .38s ${NAV_EASE}` : null);
 
-  const sitiosRef = useRef(null);
   const alojRef   = useRef(null);
   const gastroRef = useRef(null);
   const aventRef  = useRef(null);
   const packsRef  = useRef(null);
-  const planesRef = useRef(null);
+  const ingresarRef = useRef(null);
   const userRef   = useRef(null);
   const navRef    = useRef(null);
 
@@ -783,130 +772,59 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // La vista marca el fin del hero con <div data-navbar-shrink />. Cuando ese
   // punto cruza por debajo de la pastilla, la navbar se compacta. Las vistas que
   // no ponen el ancla —los listados— se condensan al pasar el alto del título.
+  //
+  // ⚠️ Esto era un IntersectionObserver y estaba MAL (arreglado el 2026-08-17).
+  // El ancla mide 0px de alto, así que con threshold 0 `isIntersecting` da
+  // false tanto cuando está abajo de la línea como cuando ya quedó muy arriba:
+  // son dos estados sin cruce de umbral entre sí. Si el scroll salta de uno al
+  // otro en un solo frame —un flick fuerte, un `scrollTo`, volver con el
+  // historial— el observer NO dispara ningún callback y `condensed` se queda
+  // en false para siempre. En la home eso significaba la navbar clavada en
+  // modo hero, sin pastilla, en medio del catálogo.
+  //
+  // Con listener de scroll no hay estados intermedios que perderse: se compara
+  // una posición contra una línea, y da lo mismo cómo se llegó ahí. El costo
+  // es un getBoundingClientRect por frame de scroll, acotado con rAF; se lee
+  // el ancla en vivo en vez de cachear su offset porque el hero cambia de alto
+  // cuando cargan las imágenes y un valor cacheado quedaría viejo.
   useEffect(() => {
     const linea = NAV_TOP + NAV_H_MAX; // borde inferior de la pastilla expandida
     const anchor = document.querySelector('[data-navbar-shrink]');
+    let pedido = null;
 
-    if (!anchor) {
-      const onScroll = () => setCondensed(window.scrollY > SHRINK_FALLBACK_Y);
-      onScroll();
-      window.addEventListener('scroll', onScroll, { passive: true });
-      return () => window.removeEventListener('scroll', onScroll);
-    }
-
-    const obs = new IntersectionObserver(
-      ([e]) => setCondensed(e.boundingClientRect.top <= linea),
-      { rootMargin: `-${linea}px 0px 0px 0px`, threshold: 0 }
-    );
-    obs.observe(anchor);
-    return () => obs.disconnect();
-  }, [view]);
-
-  // ── Aparece bajando, se esconde subiendo 500px ─────────────
-  // Sólo en 'home': en el resto `revealed` ya da true por la vista.
-  //
-  // La asimetría es a propósito. Bajar la muestra en el acto —el usuario está
-  // avanzando y en cualquier momento puede querer el menú—, pero subir NO la
-  // esconde enseguida: hay que acumular OCULTAR_TRAS_SUBIR px en ese sentido.
-  // Sin ese colchón, cualquier rebote del trackpad o un scroll corto hacia
-  // atrás para releer algo la haría parpadear. El contador se pone en cero
-  // apenas se vuelve a bajar, así que son 500px de subida SEGUIDA, no 500px
-  // sueltos sumados a lo largo de la página.
-  //
-  // Va con listener de scroll y no con IntersectionObserver porque acá la
-  // pregunta no es "¿dónde estoy?" sino "¿para dónde voy?", y eso no lo
-  // contesta una posición. El trabajo por evento es una resta y una
-  // comparación; los setState repetidos con el mismo valor los descarta React
-  // sin re-renderizar.
-  useEffect(() => {
-    if (view !== 'home') return;
-    let ultimoY = window.scrollY;
-    let subidaAcumulada = 0;
-    const onScroll = () => {
-      const y = window.scrollY;
-      const delta = y - ultimoY;
-      ultimoY = y;
-      if (delta > 0) {
-        subidaAcumulada = 0;
-        setVisiblePorScroll(true);
-      } else if (delta < 0) {
-        subidaAcumulada -= delta;
-        // pinnedRef: ver la nota junto a cuponear:navbar-pin, más abajo.
-        if (subidaAcumulada >= OCULTAR_TRAS_SUBIR && !pinnedRef.current) setVisiblePorScroll(false);
-      }
+    const medir = () => {
+      pedido = null;
+      setCondensed(anchor
+        ? anchor.getBoundingClientRect().top <= linea
+        : window.scrollY > SHRINK_FALLBACK_Y);
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [view]);
+    const alScrollear = () => { if (pedido == null) pedido = requestAnimationFrame(medir); };
 
-  // ── Se esconde tras un rato quieto ──────────────────────────
-  // Sólo en 'home', mismo alcance que el efecto de arriba. Es un segundo
-  // camino hacia el mismo estado (visiblePorScroll) — no toca la lógica de
-  // scroll para nada, y tampoco la revela: la actividad sólo pospone el
-  // escondido, no trae la navbar de vuelta si ya estaba oculta (eso sigue
-  // siendo sólo bajar la página, ver el efecto de arriba).
-  //
-  // El pedido decía "si se deja el mouse quieto", pero el gatillo real tiene
-  // que ser cualquier actividad, no sólo el cursor: si sólo el mousemove
-  // resetea el contador, un usuario que scrollea con rueda/trackpad SIN mover
-  // el cursor (algo normal) ve la navbar aparecer al bajar y esconderse sola
-  // dos segundos después aunque siga con el dedo en el trackpad — se lee como
-  // un bug, no como "está quieto". Por eso el scroll TAMBIÉN pospone el
-  // escondido acá (además de decidir mostrarla, en el efecto de arriba).
-  useEffect(() => {
-    if (view !== 'home') return;
-    const armar = () => setTimeout(() => { if (!pinnedRef.current) setVisiblePorScroll(false); }, OCULTAR_TRAS_QUIETO_MS);
-    // Arranca contando desde que se entra a la vista, no recién desde el
-    // primer movimiento: "quieto" es un estado, no algo que sólo empieza a
-    // medirse después de que hay actividad una vez.
-    let timer = armar();
-    const posponer = () => { clearTimeout(timer); timer = armar(); };
-    window.addEventListener('mousemove', posponer, { passive: true });
-    window.addEventListener('scroll', posponer, { passive: true });
+    medir();
+    window.addEventListener('scroll', alScrollear, { passive: true });
+    window.addEventListener('resize', alScrollear, { passive: true });
     return () => {
-      window.removeEventListener('mousemove', posponer);
-      window.removeEventListener('scroll', posponer);
-      clearTimeout(timer);
+      if (pedido != null) cancelAnimationFrame(pedido);
+      window.removeEventListener('scroll', alScrollear);
+      window.removeEventListener('resize', alScrollear);
     };
   }, [view]);
 
-  // ── Revelado manual (click en el ticket de HeroPase) ──────
-  // El disparador vive en un componente hermano (HeroPase, colgado de
-  // HomeView), no un hijo de Navbar, así que no hay prop que lo una sin
-  // subir el estado hasta App.jsx. Un evento propio en window es el atajo
-  // liviano: HeroPase lo dispara al clickear el ticket "Cupón PASS", acá sólo
-  // se escucha. Escribe el MISMO estado que el scroll y no un override aparte:
-  // si fuera pegajoso, subir 500px ya no la escondería y el click dejaría la
-  // navbar clavada para siempre.
-  useEffect(() => {
-    const onReveal = () => setVisiblePorScroll(true);
-    window.addEventListener('cuponear:navbar-reveal', onReveal);
-    return () => window.removeEventListener('cuponear:navbar-reveal', onReveal);
-  }, []);
-
-  // ── Fijada mientras dura un flujo de página completa ──────
-  // (2026-08-11) La suscripción PRO embebida de HeroPase (formulario largo,
-  // scroll propio adentro del sidebar — ver .gp-panel) necesita la navbar
-  // SIEMPRE visible, sin el vaivén de "aparece bajando, se esconde subiendo/
-  // quieta" que tiene el resto de la home: ahí ese vaivén tiene sentido
-  // porque el usuario navega la página; acá está completando un alta, y la
-  // navbar desapareciéndose a mitad de eso se siente como perder el ancla.
+  // ── Aparecer/esconderse: BORRADO el 2026-08-17 ────────────
+  // Acá vivían cuatro efectos que existían sólo para calcular
+  // `visiblePorScroll`: dirección de scroll (aparece bajando, se esconde tras
+  // 500px de subida seguida), auto-ocultado tras 5s quieta, el revelado manual
+  // por `cuponear:navbar-reveal`, y el pin/unpin que congelaba a los otros dos
+  // durante el alta embebida de HeroPase.
   //
-  // Mismo patrón que cuponear:navbar-reveal (evento en window, HeroPase no
-  // es hijo de Navbar): pin fuerza visible y CONGELA los otros dos efectos
-  // —no los reemplaza, pinnedRef es lo que ellos chequean antes de esconder—
-  // así que al des-pinear vuelven a responder exactamente donde estaban.
-  const pinnedRef = useRef(false);
-  useEffect(() => {
-    const onPin = () => { pinnedRef.current = true; setVisiblePorScroll(true); };
-    const onUnpin = () => { pinnedRef.current = false; };
-    window.addEventListener('cuponear:navbar-pin', onPin);
-    window.addEventListener('cuponear:navbar-unpin', onUnpin);
-    return () => {
-      window.removeEventListener('cuponear:navbar-pin', onPin);
-      window.removeEventListener('cuponear:navbar-unpin', onUnpin);
-    };
-  }, []);
+  // Se fueron con el cambio de criterio: la navbar ya no se esconde nunca, así
+  // que no hay nada que revelar, esconder ni fijar. Lo que cambia sobre el hero
+  // es su FORMA (sin contenedor) y eso lo decide `sobreHero`, que se apoya en
+  // el ancla [data-navbar-shrink] que ya existía.
+  //
+  // Los emisores de HeroPase se borraron con ellos (2026-08-17): no quedan
+  // `cuponear:navbar-pin`/`unpin`/`navbar-reveal` en ningún lado.
+
 
   // ── Subrayado según la sección que se está mirando ────────────
   // Las vistas marcan sus bloques con <section data-nav-section="aloj|gastro|
@@ -996,7 +914,6 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
   // Pastilla blanca: texto oscuro, marca en azul.
   const NAV_ON  = A.ink;
   const NAV_OFF = A.ink2;
-  const NAV_SEP = A.line;
 
   const navBtnSt = {
     background: 'none', border: 'none', fontSize: condensed ? 13 : 14, fontWeight: 500,
@@ -1014,10 +931,17 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
       <nav ref={navRef} className="navbar-flotante" aria-hidden={!revealed} style={{
         // Pastilla acotada y centrada: no se estira a todo el ancho.
         // Al pasar la primera sección (condensed) se estrecha y se achica.
-        position: 'fixed', top: condensed ? NAV_TOP_MIN : NAV_TOP, left: 0, right: 0, zIndex: 1000,
-        width: 'calc(100% - 44px)', maxWidth: condensed ? NAV_W_MIN : NAV_W_MAX, margin: '0 auto',
+        // Sobre el hero acompaña a la página (absolute): es una barra arriba
+        // del documento, no una capa flotante. Clavada se quedaba encima del
+        // contenido que sube —el selector de localidad le pasaba por debajo y
+        // se encimaban—, y sin contenedor no hay nada que los separe. Al
+        // cruzar a "Cuponeá" pasa a fixed y ahí sí es la pastilla que
+        // acompaña el scroll.
+        position: sobreHero ? 'absolute' : 'fixed',
+        top: sobreHero ? NAV_TOP : (condensed ? NAV_TOP_MIN : NAV_TOP), left: 0, right: 0, zIndex: 1000,
+        width: 'calc(100% - 44px)', maxWidth: sobreHero ? NAV_W_HERO : (condensed ? NAV_W_MIN : NAV_W_MAX), margin: '0 auto',
         borderRadius: 999,
-        background: condensed ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.80)',
+        background: sobreHero ? 'transparent' : (condensed ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.80)'),
         // Un backdrop-filter sobre un elemento fixed se recalcula en CADA frame
         // de scroll de toda la página —tiene que volver a muestrear y
         // desenfocar lo que pasa por detrás—, así que es de lo poco que encarece
@@ -1028,12 +952,17 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         // Las dos propiedades ahora dicen lo mismo: estaban en 8px la estándar
         // y 22px la -webkit-, o sea que el vidrio se veía distinto según el
         // navegador (Chrome tomaba la primera, Safari la segunda).
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
-        border: `1px solid ${A.line}`,
-        boxShadow: condensed
-          ? '0 14px 34px -12px rgba(11,16,32,0.22)'
-          : scrolled ? '0 10px 30px -10px rgba(11,16,32,0.18)' : '0 6px 22px -12px rgba(11,16,32,0.14)',
+        // Sobre el hero no hay vidrio que calcular: el blur de un elemento
+        // fixed se re-evalúa en cada frame de scroll de toda la página, así
+        // que apagarlo mientras no hay pastilla también es gratis en scroll.
+        backdropFilter: sobreHero ? 'none' : 'blur(4px)',
+        WebkitBackdropFilter: sobreHero ? 'none' : 'blur(4px)',
+        border: sobreHero ? '1px solid transparent' : `1px solid ${A.line}`,
+        boxShadow: sobreHero
+          ? 'none'
+          : condensed
+            ? '0 14px 34px -12px rgba(11,16,32,0.22)'
+            : scrolled ? '0 10px 30px -10px rgba(11,16,32,0.18)' : '0 6px 22px -12px rgba(11,16,32,0.14)',
         // Cross-fade con el ícono de esquina: cuando la navbar aparece (por
         // scroll o por click), se desliza .38s de -14px a su lugar. No es un
         // morph literal de las pastillas de imágenes en algo con forma de
@@ -1046,69 +975,84 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
         // opacity/transform/box-shadow/background van siempre: las resuelve el
         // compositor y no cuestan layout. max-width y top se suman recién
         // cuando la navbar ya está en pantalla — ver animarTamano arriba.
-        transition: [
-          transLayout('max-width'), transLayout('top'),
-          'box-shadow .25s', 'background .25s',
-          'opacity .38s ease', `transform .38s ${NAV_EASE}`,
-        ].filter(Boolean).join(', '),
+        transition: animarTamano
+          ? [
+              transLayout('max-width'), transLayout('top'),
+              'box-shadow .25s', 'background .25s',
+              'opacity .38s ease', `transform .38s ${NAV_EASE}`,
+            ].filter(Boolean).join(', ')
+          : 'none',
         fontFamily: A.font,
       }}>
         <div style={{
           width: '100%', boxSizing: 'border-box',
           padding: condensed ? '0 16px' : '0 22px',
           height: condensed ? NAV_H_MIN : NAV_H_MAX,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          // Aire entre los tres grupos —logo | categorías | acciones— (2026-08-17).
+          // Estaba en 14 y los tres bloques se leían como uno solo apretado.
+          gap: condensed ? 32 : 48,
           // Mismo criterio que la pastilla de afuera: height y padding son
           // layout, así que sólo animan si la navbar ya estaba visible.
           transition: [transLayout('height'), transLayout('padding')].filter(Boolean).join(', ') || 'none',
         }}>
 
-          {/* ── Logo — el dominio del sitio es la marca, con su select de red ── */}
-          <div style={{ position: 'relative', flexShrink: 0, flex: 1 }} ref={sitiosRef}
-            onMouseEnter={() => hoverOpen('sitios')}
-            onMouseLeave={hoverLeave}
-          >
-            {/* La marca es CUPONEaR, no el dominio (2026-08-10). Antes acá
-                se imprimía siteHost() —el dominio del sitio hacía de logo— y
-                por eso el drop lo excluía de la lista: habría quedado
-                repetido. Ahora que el logo no nombra ningún dominio, el drop
-                los lista TODOS (ver SitiosDrop).
-                Sin fontWeight ni letter-spacing propios: los 700 y el -0.03em
-                estaban calzados para Inter; NauryzRedkeds ya trae su peso y
-                su espaciado dibujados en los glifos, y forzarlos la
-                deforma. El casing va tal cual —en esta fuente mayúscula y
-                minúscula son glifos distintos, no la misma letra en dos
-                tamaños—. */}
-            <button
-              onClick={() => {
-                nav('home');
-                // El panel "Regalá cuponeras" (GIFT PaSS PRO) vive DENTRO de
-                // la vista home —es un overlay de estado en HeroPase, no un
-                // `view` propio— así que si ya estabas en home con ese panel
-                // abierto, `nav('home')` no hacía nada: `setView('home')`
-                // sobre un view que ya es 'home' no dispara re-render, y el
-                // panel se quedaba ahí tapando todo (bug reportado: "el logo
-                // no lleva a la home"). Mismo patrón que cuponear:navbar-pin
-                // para cruzar de Navbar a HeroPase sin prop — HeroPase lo
-                // escucha y cierra sus tres estados de overlay.
-                window.dispatchEvent(new Event('cuponear:home-reset'));
-              }}
-              aria-label="Cuponear — ir al inicio"
-              style={{ ...navBtnSt, color: A.primary, gap: 6 }}
-            >
-              <span style={{
-                fontFamily: NAURYZ, lineHeight: 1,
-                /* −15% a pedido, sobre los 19/22 originales. */
-                fontSize: condensed ? 16.2 : 18.7,
-                transition: `font-size .35s ${NAV_EASE}`,
-              }}>CUPONEaR</span>
-              <ChevD />
-            </button>
-            {(openMenu === 'sitios' || closingMenu === 'sitios') && (
-              <div style={{ ...DROP_BASE, left: 0, animation: closingMenu === 'sitios' ? 'dropFadeOut .18s ease-in forwards' : 'dropFade .15s ease-out' }}>
-                <SitiosDrop />
-              </div>
-            )}
+          {/* ── Logo + pill de región — UN solo grupo a la izquierda ──
+              Los dos van adentro del mismo wrapper flex, no como hijos
+              sueltos del row principal: ese row reparte con
+              justifyContent:'space-between' asumiendo TRES grupos (logo |
+              categorías | acciones); si la pill entrara como cuarto hijo
+              suelto, el space-between le metería aire extra a los cuatro
+              huecos por igual y separaría logo de pill tanto como de
+              categorías — exactamente lo que no se quiere (tienen que
+              leerse pegados). */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: condensed ? 10 : 14, flexShrink: 0 }}>
+            {/* ── Logo — vuelve a ser sólo "ir al inicio" (2026-08-18) ──
+                Antes abría SitiosDrop (la red de dominios). Se retiró: dos
+                selectores geográficos a 40px de distancia —éste y la pill
+                de región nueva, al lado— eran ruido, y SITIOS_RED lista
+                DOMINIOS, no scopes de catálogo — es información de
+                negocio, no navegación del viajero. La red sigue completa,
+                sólo que ahora vive en Footer.jsx ("La red Cuponear"), que
+                sí es un lugar de información institucional. */}
+            <div style={{ position: 'relative' }}>
+              {/* La marca es CUPONEaR, no el dominio (2026-08-10).
+                  Sin fontWeight ni letter-spacing propios: los 700 y el
+                  -0.03em estaban calzados para Inter; NauryzRedkeds ya
+                  trae su peso y su espaciado dibujados en los glifos, y
+                  forzarlos la deforma. El casing va tal cual —en esta
+                  fuente mayúscula y minúscula son glifos distintos, no la
+                  misma letra en dos tamaños—. */}
+              <button
+                onClick={() => {
+                  nav('home');
+                  // El panel "Regalá cuponeras" (GIFT PaSS PRO) vive DENTRO de
+                  // la vista home —es un overlay de estado en HeroPase, no un
+                  // `view` propio— así que si ya estabas en home con ese panel
+                  // abierto, `nav('home')` no hacía nada: `setView('home')`
+                  // sobre un view que ya es 'home' no dispara re-render, y el
+                  // panel se quedaba ahí tapando todo (bug reportado: "el logo
+                  // no lleva a la home"). Evento en window para cruzar de
+                  // Navbar a HeroPase sin prop —el mismo patrón que
+                  // cuponear:scroll-lock—: HeroPase lo escucha y cierra sus
+                  // tres estados de overlay.
+                  window.dispatchEvent(new Event('cuponear:home-reset'));
+                }}
+                aria-label="Cuponear — ir al inicio"
+                style={{ ...navBtnSt, color: A.primary, gap: 6 }}
+              >
+                <span style={{
+                  fontFamily: NAURYZ, lineHeight: 1,
+                  /* −15% a pedido, sobre los 19/22 originales. */
+                  fontSize: condensed ? 16.2 : 18.7,
+                  transition: `font-size .35s ${NAV_EASE}`,
+                }}>CUPONEaR</span>
+              </button>
+            </div>
+
+            {/* Pill de región (2026-08-18) — scope persistente, no un
+                filtro más. Ver src/lib/scope.js y SelectorRegion.jsx. */}
+            <SelectorRegion condensed={condensed} />
           </div>
 
           {/* ── Desktop nav links ── */}
@@ -1170,57 +1114,23 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               <NavUnderline activo={seccionActiva === 'aventura'} />
             </div>
 
-            {/* Cupopacks — en negrita: es el
-                producto propio de Cuponear, no una categoría más. */}
-            <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={packsRef}
-              onMouseEnter={() => hoverOpen('packs')}
-              onMouseLeave={hoverLeave}
-            >
-              <div style={{ position: 'relative' }}>
-                <button onClick={() => nav('packs')} style={{ ...navBtnSt, fontWeight: 700, color: colorNav('packs') }}>
-                  Cupopacks <ChevD />
-                </button>
-                {(openMenu === 'packs' || closingMenu === 'packs') && (
-                  <div ref={dropRef} style={{ ...DROP_BASE, left: '50%', transform: 'translateX(-50%)', animation: closingMenu === 'packs' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
-                    <PacksDrop onNavigate={(v, opts) => nav(v, opts)} />
-                  </div>
-                )}
-              </div>
+            {/* Cupopacks — en negrita: es el producto propio de Cuponear, no
+                una categoría más. Sin submenú (2026-08-18): lleva directo a
+                la interna de los packs, como cualquier link de una sola
+                intención. */}
+            <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={packsRef}>
+              <button onClick={() => nav('packs')} style={{ ...navBtnSt, fontWeight: 700, color: colorNav('packs') }}>
+                Cupopacks
+              </button>
               <NavUnderline activo={seccionActiva === 'packs'} />
             </div>
 
-            {/* Planes y suscripción — pricing/contratación, paso previo al
-                registro: al que ya tiene cuenta no le decimos nada nuevo.
-                Abre en dos, porque son dos intenciones que no se parecen: el
-                que va a pagar algo y el que llega con un código en la mano. */}
-            {!session && (
-              <>
-                <div style={{ width: 1, height: 18, background: NAV_SEP, margin: '0 2px', flexShrink: 0 }} />
-                <div style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={planesRef}
-                  onMouseEnter={() => hoverOpen('planes')}
-                  onMouseLeave={hoverLeave}
-                >
-                  <div style={{ position: 'relative' }}>
-                    {/* Este click SÍ es ambiguo: es el rótulo genérico, no una
-                        elección puntual. En hover se abre el desplegable con
-                        las tres intenciones (pase / hotelería / regalo), pero
-                        el click en sí —para quien no llega a hacer hover, o en
-                        touch— dispara directo sin haber elegido nada todavía.
-                        Ahí sigue haciendo falta preguntar. Los ítems concretos
-                        del desplegable (abajo, "Cupon PASS") NO
-                        preguntan: ya declaran la intención en el texto. */}
-                    <button onClick={() => nav('checkout-pase', { preguntarPerfil: true })} style={{ ...navBtnSt, fontWeight: 700, color: A.primary }}>
-                      Planes y suscripción <ChevD />
-                    </button>
-                    {(openMenu === 'planes' || closingMenu === 'planes') && (
-                      <div ref={dropRef} style={{ ...DROP_BASE, right: 0, animation: closingMenu === 'planes' ? 'dropFadeCenterOut .18s ease-in forwards' : 'dropFadeCenter .15s ease-out' }}>
-                        <PlanesDrop onNavigate={(v, opts) => nav(v, opts)} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+            {/* "Planes y suscripción" se borró el 2026-08-17. Era un rótulo
+                genérico que no decía nada por sí solo y que además obligaba a
+                preguntar la intención en el click. Sus tres caminos se mudaron
+                enteros al desplegable de "Ingresar", que es donde el visitante
+                anónimo ya va a buscar por dónde entrar. */}
+
 
           </div>
 
@@ -1302,11 +1212,73 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
                     derecha sigue siendo la del socio, que es la acción que el
                     negocio quiere empujar. Ingresar no compite, sólo tiene que
                     estar. */}
-                <button onClick={() => onLoginClick?.('ingresar')}
-                  style={{ ...navBtnSt, color: A.ink, fontWeight: 600 }}
-                  onMouseEnter={e => e.currentTarget.style.color = A.primary}
-                  onMouseLeave={e => e.currentTarget.style.color = A.ink}
-                >Ingresar</button>
+                {/* Botón blanco con desplegable (2026-08-17): absorbió los tres
+                    caminos que estaban en "Planes y suscripción". El anónimo
+                    tiene UNA sola puerta y adentro elige, en vez de dos rótulos
+                    arriba compitiendo por el mismo click.
+                    Blanco con borde y no relleno: la pastilla llena de la
+                    derecha sigue siendo la del socio, que es la acción que el
+                    negocio empuja. Sobre el hero el borde lo despega de la
+                    imagen; dentro de la pastilla lo despega del blanco. */}
+                <div style={{ position: 'relative' }} ref={ingresarRef}>
+                  <button
+                    onClick={() => setOpenMenu(m => (m === 'ingresar' ? null : 'ingresar'))}
+                    aria-expanded={openMenu === 'ingresar'}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: '#fff', color: A.ink, border: `1px solid ${A.line}`,
+                      borderRadius: 999, cursor: 'pointer', fontFamily: A.font,
+                      fontSize: condensed ? 12.5 : 13, fontWeight: 700,
+                      padding: condensed ? '8px 16px' : '10px 20px',
+                      whiteSpace: 'nowrap',
+                      transition: `border-color .15s, padding .38s ${NAV_EASE}`,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = A.primary}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = A.line}
+                  >
+                    Ingresar
+                    <span style={{ display: 'flex', transform: openMenu === 'ingresar' ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}><ChevD /></span>
+                  </button>
+                  {openMenu === 'ingresar' && (
+                    <div style={{ ...DROP_BASE, right: 0, transform: 'none', animation: 'dropFadeRight .15s ease-out' }}>
+                      {/* "Ya tengo cuenta" pasó a ir PRIMERO y con fondo propio
+                          (2026-08-18, antes al pie y transparente): es la
+                          minoría de los clicks, pero al que ya es de acá no
+                          hay que hacerlo leer los tres caminos de alta para
+                          encontrar el suyo. El tinte primary lo separa de las
+                          tres filas de abajo, que están pensadas para leerse
+                          como una lista, no como una acción puntual. */}
+                      <div style={{ padding: 8 }}>
+                        <button
+                          onClick={() => { onLoginClick?.('ingresar'); setOpenMenu(null); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                            padding: '11px 12px', border: 'none', background: A.primarySoft, borderRadius: 12,
+                            cursor: 'pointer', fontFamily: A.font, fontSize: 13.5, fontWeight: 700, color: A.primary,
+                            transition: 'background .13s',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#E2E6FA'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = A.primarySoft; }}
+                        >
+                          <PersonIco /> Ya tengo cuenta
+                        </button>
+                      </div>
+
+                      <div style={{ height: 1, background: A.line, margin: '4px 8px' }} />
+
+                      {/* La pregunta hace explícito lo que antes decía el
+                          rótulo genérico "Planes y suscripción" sin decirlo:
+                          en los tres casos de abajo la mayoría llega SIN
+                          cuenta. "Empezá por acá" no es una categoría, es una
+                          frase — por eso va en oración y no en mayúsculas de
+                          etiqueta, como sí van los badges. */}
+                      <div style={{ padding: '10px 14px 4px', fontSize: 12.5, fontWeight: 700, color: A.muted }}>
+                        ¿Sos nuevo? Empezá por acá
+                      </div>
+                      <PlanesDrop onNavigate={(v, opts) => { nav(v, opts); setOpenMenu(null); }} />
+                    </div>
+                  )}
+                </div>
                 <button onClick={() => onRegisterClick?.('registrarse', 'comercial')}
                   style={{ background: A.ink, border: 'none', borderRadius: 999, fontSize: condensed ? 12.5 : 13, fontWeight: 700, color: '#fff', cursor: 'pointer', padding: condensed ? '8px 16px' : '10px 20px', fontFamily: A.font, whiteSpace: 'nowrap', transition: `background 0.15s, padding .38s ${NAV_EASE}` }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
@@ -1347,8 +1319,8 @@ export default function Navbar({ scrolled, view, setView, session, perfil, onLog
               { label: 'Cupopacks',        action: () => nav('packs') },
               // En mobile no hay hover: el desplegable se abre en entradas planas.
               ...(session ? [] : [
-                { label: 'Pase turista',               action: () => nav('checkout-pase', {}) },
-                { label: 'Me regalaron un Pase',  action: () => nav('canjear-regalo') },
+                { label: 'Pase para viajeros',               action: () => nav('checkout-pase', {}) },
+                { label: 'Me regalaron un PASS',  action: () => nav('canjear-regalo') },
                 { label: 'Suscripción para hotelería', action: () => nav('checkout-hotelero') },
               ]),
             ].map(item => (

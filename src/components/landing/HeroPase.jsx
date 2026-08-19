@@ -133,9 +133,9 @@
 //  Estilos responsive inyectados inline (<style> local, clases .pv3-*).
 // ============================================================
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, ArrowLeft, ArrowDown, Gift, X, MapPin, ChevronDown } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Gift, X } from 'lucide-react';
 import Lenis from 'lenis';
 import { SCROLL_SUAVE } from '../../lib/efectos';
 import CouponRain from '../hero/CouponRain';
@@ -144,7 +144,6 @@ import CheckoutHoteleroView from '../../views/CheckoutHoteleroView';
 import { COUPON_BASE_WIDTH } from '../hero/couponRain.config';
 import { subProgress } from '../hero/useScrollProgress';
 import { useLoading } from '../../lib/loading';
-import { LOCALIDADES } from '../../lib/localidades';
 import { DESTINOS } from '../hero/destinosRegalo';
 import '../hero/hero-coupons.css';
 
@@ -328,165 +327,14 @@ function TickerPalabras({ reducedMotion }) {
   );
 }
 
-// ─── Buscador de ubicación (2026-08-12) ────────────────────────
-// Reemplaza a los dos accesos que vivían acá abajo del título ("Obtener
-// pases diarios" / "Regalar pases", ver la nota junto a .pv3-gift-icon-btn
-// más abajo para dónde se mudó el segundo). Arranca en Villa Gesell —sede
-// del catálogo— y deja elegir cualquier otra de LOCALIDADES
-// (lib/localidades.js, la misma lista que usan los filtros del resto del
-// sitio) desde un desplegable simple. RADIO_KM es una constante y no
-// todavía un control: el diseño lo muestra como dato fijo ("+20km
-// alrededor"), no como un slider — si en algún momento se vuelve
-// editable, este es el único lugar que hay que tocar.
-const RADIO_KM = 20;
-
-// Aire mínimo entre el desplegable y el borde de la ventana, y separación
-// entre el botón y el desplegable. Los dos entran en la cuenta del alto
-// disponible (ver medir()).
-const MENU_AIRE = 16;
-const MENU_GAP = 8;
-// Debajo de esto no vale la pena abrir hacia abajo: si no entra ni un par de
-// ítems, conviene abrir hacia arriba (ver medir()).
-const MENU_ALTO_MIN = 160;
-
-function BuscadorUbicacion() {
-  const [localidad, setLocalidad] = useState('Villa Gesell');
-  const [abierto, setAbierto] = useState(false);
-  // Coordenadas del desplegable en el viewport — el menú va por portal a
-  // <body> (ver abajo), así que no las hereda de nadie: se miden a mano.
-  const [pos, setPos] = useState(null);
-  const wrapRef = useRef(null);
-  const menuRef = useRef(null);
-
-  // Medir contra el viewport: dónde arranca el menú y CUÁNTO ALTO tiene
-  // permitido. El alto no es una constante a ojo — es lo que queda hasta el
-  // borde de la ventana, así que la lista nunca se desborda de la pantalla
-  // (se pedía: "la lista es tan grande que queda por debajo de la sección
-  // Cuponeá"). Lo que no entra se scrollea adentro (overflow-y en
-  // .pv3-buscador-menu). Si abajo no queda casi nada y arriba hay más, se
-  // abre hacia arriba en vez de achicarse a una franja inútil.
-  const medir = useCallback(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    // Si el botón se fue de pantalla (scroll largo con el menú abierto), el
-    // desplegable queda colgado de la nada: se cierra en vez de seguir
-    // flotando pegado a un ancla que ya no se ve.
-    if (r.bottom < 0 || r.top > window.innerHeight) { setAbierto(false); return; }
-    const abajo  = window.innerHeight - r.bottom - MENU_GAP - MENU_AIRE;
-    const arriba = r.top - MENU_GAP - MENU_AIRE;
-    const haciaArriba = abajo < MENU_ALTO_MIN && arriba > abajo;
-    setPos({
-      left: r.left,
-      width: r.width,
-      haciaArriba,
-      top:    haciaArriba ? undefined : r.bottom + MENU_GAP,
-      bottom: haciaArriba ? window.innerHeight - r.top + MENU_GAP : undefined,
-      maxHeight: Math.max(MENU_ALTO_MIN, haciaArriba ? arriba : abajo),
-    });
-  }, []);
-
-  // Medir ANTES de pintar (useLayoutEffect, no useEffect): con el menú ya en
-  // el DOM pero sin posición, un frame intermedio lo mostraría pegado a la
-  // esquina superior izquierda de la página.
-  useLayoutEffect(() => {
-    if (abierto) medir();
-  }, [abierto, medir]);
-
-  // Cerrar al clickear afuera o con Escape — mismo patrón que cualquier
-  // desplegable liviano hecho a mano en este archivo (ver onDragStart de
-  // ScrollbarSutil para el mismo criterio de listeners en window/document).
-  // El menú ya no está adentro de wrapRef (vive en <body>), así que "afuera"
-  // se pregunta contra los dos nodos: si no, el mousedown sobre un ítem lo
-  // desmontaría antes de que llegue su click y no se podría elegir nada.
-  //
-  // Reposicionar en scroll y resize: position:fixed no acompaña al botón
-  // cuando la página se mueve. Va en captura porque el scroll de un
-  // contenedor interno no burbujea, y passive porque sólo lee.
-  useEffect(() => {
-    if (!abierto) return;
-    const onFuera = (e) => {
-      if (wrapRef.current?.contains(e.target)) return;
-      if (menuRef.current?.contains(e.target)) return;
-      setAbierto(false);
-    };
-    const onEsc = (e) => { if (e.key === 'Escape') setAbierto(false); };
-    document.addEventListener('mousedown', onFuera);
-    document.addEventListener('keydown', onEsc);
-    window.addEventListener('scroll', medir, { capture: true, passive: true });
-    window.addEventListener('resize', medir);
-    return () => {
-      document.removeEventListener('mousedown', onFuera);
-      document.removeEventListener('keydown', onEsc);
-      window.removeEventListener('scroll', medir, { capture: true });
-      window.removeEventListener('resize', medir);
-    };
-  }, [abierto, medir]);
-
-  return (
-    <div className="pv3-buscador" ref={wrapRef}>
-      <button
-        type="button"
-        className="pv3-buscador-btn"
-        aria-expanded={abierto}
-        aria-haspopup="listbox"
-        onClick={() => setAbierto(a => !a)}
-      >
-        <MapPin size={18} strokeWidth={2.2} className="pv3-buscador-pin" aria-hidden="true" />
-        <span className="pv3-buscador-localidad">{localidad}</span>
-        <span className="pv3-buscador-radio">+{RADIO_KM}km alrededor</span>
-        <ChevronDown size={16} strokeWidth={2.2} className="pv3-buscador-chevron" aria-hidden="true" />
-      </button>
-      {/* Portal a <body>, no hijo del botón (2026-08-12): dentro del hero el
-          desplegable NO puede quedar por encima de todo, por más z-index que
-          se le ponga. La <section> del hero lleva zIndex:0 inline y
-          position:relative, o sea que es la raíz de su propio stacking
-          context, y la sección siguiente ("Cuponeá", HomeView) es
-          position:relative con zIndex:1 — todo el hero pinta por debajo de
-          ella como bloque, y eso es a propósito (ver la nota en HomeView,
-          tapa las imágenes de la galería). El z-index de acá adentro sólo
-          ordenaba contra los hermanos del hero, nunca contra esa sección.
-          Colgado de <body> el menú queda fuera de esa trampa y su z-index es
-          absoluto. Los estilos siguen viniendo del <style> de este archivo,
-          que es global (no scopeado). */}
-      {abierto && pos && createPortal(
-        <div
-          ref={menuRef}
-          className="pv3-buscador-menu"
-          role="listbox"
-          /* Lenis (scroll suave global, ver useLenisSmoothScroll.js)
-             intercepta la rueda y mueve la página aunque el cursor esté
-             sobre un contenedor scrolleable: allowNestedScroll está apagado
-             salvo con la página bloqueada. data-lenis-prevent le dice que no
-             toque los wheel de acá adentro y los deje al scroll nativo —para
-             una lista de seis ítems no hace falta la instancia propia con
-             inercia que sí tiene .gp-panel (ver el useEffect de
-             lenisPanelRef). */
-          data-lenis-prevent
-          style={{
-            left: pos.left, width: pos.width,
-            top: pos.top, bottom: pos.bottom,
-            maxHeight: pos.maxHeight,
-          }}
-        >
-          {LOCALIDADES.map(loc => (
-            <button
-              key={loc}
-              type="button"
-              role="option"
-              aria-selected={loc === localidad}
-              className={`pv3-buscador-item${loc === localidad ? ' pv3-buscador-item--activa' : ''}`}
-              onClick={() => { setLocalidad(loc); setAbierto(false); }}
-            >
-              {loc}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
+// ─── Buscador de ubicación — RETIRADO (2026-08-18) ─────────────
+// Vivía acá desde el 2026-08-12: un desplegable local (useState('Villa
+// Gesell')) que arrancaba en Villa Gesell y no escapaba del componente —
+// puramente decorativo, no scopeaba nada. Lo reemplaza SelectorRegion.jsx
+// en la navbar (ver src/lib/scope.js): portal a <body>, medir(), apertura
+// arriba/abajo y data-lenis-prevent se reescribieron ahí, adaptados al
+// mismo mecanismo — no se inventó de cero. `RADIO_KM`/`MENU_AIRE`/
+// `MENU_GAP`/`MENU_ALTO_MIN` eran locales a esto, se fueron con la función.
 
 // ─── Panel "Pases de regalo" (ex-segundo acto) ─────────────────
 // (2026-08-10) Dejó de ser una posta del scroll-jack — ver la nota fechada
@@ -659,19 +507,6 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
     setRegaloAbierto(false);
     window.setTimeout(() => setDestinoElegido(null), PASO2_SLIDE_MS);
   };
-
-  // Fija la navbar mientras dura la suscripción PRO embebida (2026-08-11):
-  // es un alta larga, con su propio scroll adentro del sidebar — el vaivén
-  // normal de la navbar en la home (aparece/desaparece con el scroll) no
-  // tiene sentido ahí, se siente como perder el ancla a mitad del formulario.
-  // Evento en window, mismo patrón que cuponear:navbar-reveal: Navbar no es
-  // hijo de HeroPase, así que no hay prop que los una sin subir el estado
-  // hasta App.jsx.
-  useEffect(() => {
-    if (destinoElegido !== 'empresa') return;
-    window.dispatchEvent(new Event('cuponear:navbar-pin'));
-    return () => window.dispatchEvent(new Event('cuponear:navbar-unpin'));
-  }, [destinoElegido]);
 
   // Disparado por el ícono de gift pass, junto a "¿Más días?" (2026-08-12,
   // reemplaza al acceso "Regalar pases" que vivía bajo el título — ver la
@@ -1244,20 +1079,12 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
                 <span className="pv3-t-ticker">— en <TickerPalabras reducedMotion={reducedMotion} /></span>
               </h1>
 
-              {/* Buscador de ubicación (2026-08-12) — reemplaza a los
-                     accesos "Obtener pases diarios"/"Regalar pases" que
-                     vivían acá (ver BuscadorUbicacion, arriba del
-                     componente). "Obtener pases diarios" se sacó entero
-                     —los botones de pase, un poco más abajo en
-                     .pv3-cta-full, ya cubren esa acción—; "Regalar pases"
-                     se mudó a un ícono solo, junto a "¿Más días?" (ver
-                     .pv3-gift-icon-btn). "Conocé todas las ofertas" no
-                     vive acá: es hermana directa de .pv3-left y
-                     .pv3-cta-full más abajo en el JSX (ver esa nota, junto
-                     a .pv3-acceso--ofertas). */}
-              <div className="pv3-accesos">
-                <BuscadorUbicacion />
-              </div>
+              {/* .pv3-accesos (el buscador de ubicación que vivía acá) se
+                     borró entero el 2026-08-18 — no quedó un wrapper vacío
+                     animándose por nada. Ver la nota grande donde estaba
+                     BuscadorUbicacion, arriba del componente, y §5-cta más
+                     abajo para dónde quedaron "Obtener pases diarios" /
+                     "Regalar pases" / "Conocé todas las ofertas". */}
             </div>
           </div>
         </div>
@@ -1281,106 +1108,91 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
             la nota junto a .pv3-cta-full en el <style> para el porqué del
             margin:0 auto que lo reemplazó. */}
         <div className="pv3-cta-full" ref={ctaFullRef}>
-          {/* Ticket-marca (2026-08-12): se mudó acá arriba de "¿Cuánto dura
-              tu viaje?" —antes vivía sobre el título principal, en
-              .pv3-left-var, a pedido—. Ya no tiene su propia animación de
-              entrada (la tenía porque ahí arriba el resto del bloque
-              también entraba en cascada, uno por uno): acá adentro es el
-              primer hijo de .pv3-cta-full, que ya fadea como un solo
-              bloque, así que el ticket viaja con el resto sin necesitar
-              nada propio. */}
-          <div className="pv3-logo-slot">
-            <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
-          </div>
-          <p className="pv3-pretitulo">¿Cuánto dura tu viaje?</p>
+          {/* Ticket-marca (2026-08-18): pasa de vivir arriba del título a
+              vivir a su IZQUIERDA — un solo grupo horizontal, .pv3-cta-row,
+              en vez de apilado vertical (ver la nota vieja del 2026-08-12
+              más abajo, que documentaba el orden anterior). Tamaño estándar
+              150px de alto — ver .pv3-ticket. .pv3-cta-col agrupa el título
+              y los CTA aparte del logo para que el logo pueda centrarse
+              verticalmente contra todo ese bloque, no sólo contra la
+              primera línea. */}
+          <div className="pv3-cta-row">
+            <div className="pv3-logo-slot">
+              <img className="pv3-ticket" src="/cupon-pass.svg" alt="Cupon PASS" />
+            </div>
+            <div className="pv3-cta-col">
+              <p className="pv3-pretitulo">¿De cuántos días querés tu PASS?</p>
 
-          
-
-          <div className="pv3-opciones">
-            {/* .pv3-pases-par agrupa SÓLO los dos botones de pase, aparte de
-                "¿Más días?" (2026-08-11): si los tres compartieran un mismo
-                flex centrado, el ancho extra de "¿Más días?" corría el
-                conjunto entero hacia la izquierda y el aire entre pase 3 y
-                pase 7 —que tiene que quedar exactamente en el medio de la
-                sección— se desviaba con él. Ahora .pv3-opciones-botones
-                centra sólo el par (ese es el eje que importa), y "¿Más
-                días?" cuelga afuera, a la derecha, sin pesar en ese cálculo
-                —ver position:absolute en el <style>. */}
-            <div className="pv3-opciones-botones">
-              <div className="pv3-pases-par">
-                {PASES.map(pase => (
-                  <button key={pase.id} className="pv3-btn-pase"
-                    onClick={() => onComprarPase?.(pase.dias)}
-                    aria-label={`Comprar pase turista de ${pase.dias} días por ${pase.precio}`}>
-                    <b>Pase {pase.label}</b>
-                    <span className="pv3-btn-sep" aria-hidden="true" />
-                    <span className="pv3-btn-precio">{pase.precio}</span>
-                  </button>
-                ))}
-              </div>
-              {/* .pv3-pases-extra agrupa "¿Más días?" y el ícono de gift
-                  pass — ambos cuelgan afuera del centrado de
-                  .pv3-pases-par (ver la nota de arriba), a su derecha, así
-                  que los dos botones de pase siguen 100% centrados sin que
-                  el ancho de ninguno de los dos pese en ese cálculo.
-                  "¿Más días?" primero y el ícono después (2026-08-12, a
-                  pedido; antes iba al revés). El ícono reemplaza al acceso
-                  "Regalar pases" que vivía bajo el título (2026-08-12, ver
-                  BuscadorUbicacion) — mismo destino (abrirRegalo, definido
-                  arriba), sin texto: el regalito ya lo dice, como pasaba
-                  antes con el ícono de Gift en ese acceso. Fondo blanco +
-                  dorado (DORADO_GIFT, el mismo del moño de
-                  giftpass-logo.svg) en vez del primary lleno de los pases:
-                  es la puerta a OTRO producto, no otro pase. */}
-              <div className="pv3-pases-extra">
-                <button className="pv3-mas-dias" onClick={() => onComprarPase?.('custom')}>
-                  ¿Más días?
-                </button>
-                {/* .pv3-gift-slot existe sólo para colgarle la iluminación
-                    giratoria (ver el <style>): el halo va en un elemento
-                    aparte, ANTES del botón en el DOM, así el botón lo tapa
-                    por orden de pintado y sólo asoma el anillo. Adentro del
-                    propio botón no se puede — un ::before con z-index:-1
-                    pinta ENCIMA del fondo del elemento que lo contiene. */}
-                <span className="pv3-gift-slot">
-                  <span className="pv3-gift-glow" aria-hidden="true" />
-                  <button
-                    type="button"
-                    className="pv3-gift-icon-btn"
-                    aria-label="Regalar pases"
-                    onClick={abrirRegalo}
-                  >
-                    <Gift size={24} strokeWidth={2.2} />
-                  </button>
-                </span>
+              <div className="pv3-opciones">
+                {/* .pv3-pases-par agrupa SÓLO los dos botones de pase, aparte de
+                    "¿Más días?" (2026-08-11): si los tres compartieran un mismo
+                    flex centrado, el ancho extra de "¿Más días?" corría el
+                    conjunto entero hacia la izquierda y el aire entre pase 3 y
+                    pase 7 —que tiene que quedar exactamente en el medio de la
+                    sección— se desviaba con él. Ahora .pv3-opciones-botones
+                    centra sólo el par (ese es el eje que importa), y "¿Más
+                    días?" cuelga afuera, a la derecha, sin pesar en ese cálculo
+                    —ver position:absolute en el <style>. */}
+                <div className="pv3-opciones-botones">
+                  <div className="pv3-pases-par">
+                    {PASES.map(pase => (
+                      <button key={pase.id} className="pv3-btn-pase"
+                        onClick={() => onComprarPase?.(pase.dias)}
+                        aria-label={`Comprar Cupon PASS de ${pase.dias} días por ${pase.precio}`}>
+                        <b>{pase.label}</b>
+                        <span className="pv3-btn-sep" aria-hidden="true" />
+                        <span className="pv3-btn-precio">{pase.precio}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {/* .pv3-pases-extra agrupa "¿Más días?" y el ícono de gift
+                      pass — ambos cuelgan afuera del centrado de
+                      .pv3-pases-par (ver la nota de arriba), a su derecha, así
+                      que los dos botones de pase siguen 100% centrados sin que
+                      el ancho de ninguno de los dos pese en ese cálculo.
+                      "¿Más días?" primero y el ícono después (2026-08-12, a
+                      pedido; antes iba al revés). El ícono reemplaza al acceso
+                      "Regalar pases" que vivía bajo el título (2026-08-12, ver
+                      BuscadorUbicacion) — mismo destino (abrirRegalo, definido
+                      arriba), sin texto: el regalito ya lo dice, como pasaba
+                      antes con el ícono de Gift en ese acceso. Fondo blanco +
+                      dorado (DORADO_GIFT, el mismo del moño de
+                      giftpass-logo.svg) en vez del primary lleno de los pases:
+                      es la puerta a OTRO producto, no otro pase. */}
+                  <div className="pv3-pases-extra">
+                    <button className="pv3-mas-dias" onClick={() => onComprarPase?.('custom')}>
+                      ¿Más días?
+                    </button>
+                    {/* .pv3-gift-slot existe sólo para colgarle la iluminación
+                        giratoria (ver el <style>): el halo va en un elemento
+                        aparte, ANTES del botón en el DOM, así el botón lo tapa
+                        por orden de pintado y sólo asoma el anillo. Adentro del
+                        propio botón no se puede — un ::before con z-index:-1
+                        pinta ENCIMA del fondo del elemento que lo contiene. */}
+                    <span className="pv3-gift-slot">
+                      <span className="pv3-gift-glow" aria-hidden="true" />
+                      <button
+                        type="button"
+                        className="pv3-gift-icon-btn"
+                        aria-label="Regalar pases"
+                        onClick={abrirRegalo}
+                      >
+                        <Gift size={24} strokeWidth={2.2} />
+                      </button>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* "Conocé todas las ofertas" — standalone, no adentro de
-            .pv3-accesos (2026-08-12, a pedido: "alineado a los CTA de
-            pases, horizontalmente"). Antes vivía dentro de la columna de
-            accesos, con un margin-top que la separaba del grupo de arriba
-            pero sin relación real con .pv3-cta-full (otra columna del
-            grid). Ahora es HERMANA directa de .pv3-left y .pv3-cta-full
-            adentro de .pv3-inner, y usa el mismo truco que .pv3-cta-full
-            para bajar (align-self:end) — grid-column:1 la superpone sobre
-            la columna de .pv3-left en vez de cablear un cuarto hueco, así
-            que su borde de abajo cae exactamente en la misma línea que los
-            botones de pase (el padding-bottom de .pv3-inner, el ancla que
-            usa .pv3-cta-full). justify-self:start la deja pegada a la
-            izquierda, como el resto de los accesos. */}
-        <button
-          type="button"
-          className="pv3-acceso pv3-acceso--ofertas"
-          onClick={() => window.dispatchEvent(new CustomEvent('cuponear:scroll-to', { detail: { target: '[data-navbar-shrink]' } }))}
-        >
-          <span className="pv3-acceso-flecha" style={{ background: A.primary }} aria-hidden="true">
-            <ArrowDown size={18} strokeWidth={2.5} />
-          </span>
-          <span className="pv3-acceso-titulo">Conocé todas las ofertas</span>
-        </button>
+        {/* "Conocé todas las ofertas" — borrado (2026-08-18, a pedido). Vivía
+            acá, hermana de .pv3-left y .pv3-cta-full, anclada abajo con
+            align-self:end (ver la nota vieja del 2026-08-12 que documentaba
+            ese anclaje). .pv3-acceso/.pv3-acceso--ofertas y sus hijos
+            (-texto/-titulo/-sub/-flecha) se fueron enteros con ella: era el
+            único uso que les quedaba. */}
 
         <div className="pv3-mobile-deco" aria-hidden="true">
           {MOBILE_DECO.map(s => (
@@ -1499,7 +1311,7 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
         <CouponRain activo={regaloAbierto} reduced={reducedMotion}>
           {destinoElegido === 'empresa' && (
             <p className="gp-headline-cupones">
-              Regalá descuentos y beneficios a tus huéspedes
+              Regalá descuentos y beneficios a tus viajeros
             </p>
           )}
         </CouponRain>
@@ -1690,7 +1502,31 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            la clase .pv3-listo que dispara todo esto) ya se pone recién cuando
            cargaron las primeras cuatro de cada columna. */
         .pv3-hero {
-          position: relative; min-height: 100vh; overflow-x: clip;
+          position: relative;
+          /* min-height era 100vh a secas (arreglado 2026-08-18: "banda
+             blanca antes de Cuponeá" en monitores grandes). .pv3-hero es
+             display:block normal, no flex/grid — su hijo directo
+             (.pv3-slide-catalogo, position:relative sin alto propio) NO se
+             estira para llenarlo: se queda en su alto de contenido
+             (~760-800px, no depende de vh) y flota arriba. Con vh chico eso
+             no se nota porque 100vh ronda esa misma medida; en un monitor
+             alto (vh ~1300+) el min-height sigue empujando el borde de
+             abajo de la SECTION mucho más lejos que su contenido, y ese
+             sobrante queda pintado con el fondo del hero —blanco a partir
+             del 60% del gradiente— justo antes de "Cuponeá".
+             La barra celeste de bottom:0 (ver más abajo en el JSX) tampoco
+             ayuda: cuelga de .pv3-slide-catalogo, no de .pv3-hero, así que
+             marca el borde del CONTENIDO — queda pegada arriba del hueco,
+             no al final de él.
+             min() lo resuelve sin tocar nada del contenido: por debajo de
+             820px de viewport sigue siendo 100vh, igual que siempre (así
+             sigue la sensación de "hero a pantalla completa" en cualquier
+             notebook o celu); por encima, se clava en 820px —apenas arriba
+             de los ~760-800px que mide el contenido real— y el sobrante
+             desaparece. min-height es un PISO: si algún día el contenido
+             mide más que 820, la caja crece igual, nunca lo recorta. */
+          min-height: min(100vh, 820px);
+          overflow-x: clip;
 
           /* 1 · Galería: tres columnas escalonadas, cada una --gal-dur. */
           --gal-dur:  .95s;
@@ -1739,15 +1575,16 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            vivo los dos anchos que mandan. (1) La fila de los dos botones de
            pase mide 494px — por debajo de eso se apilan, que es justo lo que
            hay que evitar. (2) Los accesos miden 283px naturales (el
-           subtítulo en itálica es el que manda). Con 22vw, en el peor caso
-           del rango desktop (1180px, justo antes del breakpoint) las
-           laterales quedan en ~260px y la del medio en ~518px: entra la fila
-           de botones con aire. El precio de ese peor caso es que el
-           subtítulo de "Pases de regalo" pasa a dos líneas entre ~1180 y
-           ~1290px — es texto secundario, y vale mucho más eso que apilar los
-           botones. De 1290 para arriba entra todo en una línea. */
+           subtítulo en itálica es el que manda).
+           Achicado (2026-08-18, antes clamp(250px, 22vw, 340px)): con el
+           logo ahora al costado del título (ver .pv3-cta-row) la columna
+           del medio necesita más ancho que antes —~750px, contra los
+           ~518px de los botones solos—, y ese ancho sale de acá: nada más
+           mide contra el ancho de column 1/3 en flujo (.pv3-left-var es
+           position:absolute, así que no le importa cuánto mida su columna
+           real). */
         .pv3-inner {
-          --pv3-lado: clamp(250px, 22vw, 340px);
+          --pv3-lado: clamp(150px, 13vw, 200px);
           position: relative;
           z-index: 2;
           max-width: var(--site-max);
@@ -1815,15 +1652,19 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
 
         /* Ticket-marca. Ya viene inclinado de fábrica en el propio SVG, en
            el mismo sentido que la galería (-10°) pero con bastante más
-           gesto — no se rotula por CSS. Vive arriba de "¿Cuánto dura tu
-           viaje?" (2026-08-12, se mudó desde .pv3-left-var, arriba del
-           título principal) — .pv3-cta-full ya es text-align:center, así
-           que .pv3-logo-slot sólo necesita el margen de abajo; centrar el
-           <img> en sí lo hace margin:0 auto en .pv3-ticket. */
-        .pv3-logo-slot { margin: 0 0 20px; }
-        /* 200px → 120px (2026-08-12, a pedido: "más chico que antes, al 60%
-           del tamaño que tenía"). */
-        .pv3-ticket { width: 150px; height: auto; display: block; margin: 0 auto; }
+           gesto — no se rotula por CSS. Vive a la IZQUIERDA de "¿De
+           cuántos días...?" (2026-08-18, antes arriba del título — ver
+           .pv3-cta-row más abajo para el grupo horizontal que reemplaza al
+           apilado vertical que tenía hasta acá). flex-shrink:0 para que el
+           logo nunca ceda ancho al texto de al lado. */
+        .pv3-logo-slot { flex-shrink: 0; }
+        /* Alto estándar: 150px (2026-08-18, tal cual antes de ANCHO — pero
+           ahora fijado por ALTO para que acompañe la altura del título+CTA
+           de al lado sin importar cuánto mida el SVG de ancho; primer
+           intento del mismo día lo puso en 300px y quedó gigante, a
+           pedido). El SVG mide 98.6×73 (ratio ~1.35:1), así que a 150px de
+           alto el ancho natural ronda los 203px. */
+        .pv3-ticket { height: 150px; width: auto; display: block; }
 
         /* 2 · Título. Entra con el mismo fade del resto del bloque —ver nota
            arriba de por qué se sacó el efecto máquina de escribir—, .pv3-t-it
@@ -1873,7 +1714,9 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           opacity: 0;
         }
         .pv3-listo .pv3-t-ticker { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 2) both; }
-        .pv3-listo .pv3-accesos { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 3) both; }
+        /* .pv3-listo .pv3-accesos se borró con el buscador (2026-08-18):
+           era el 4to paso de esta cascada (índice 3) y ya no tiene nada que
+           animar. Los pasos 0-2 (título) siguen intactos. */
         /* El span en sí no tiene ancho propio más que el de "en " — el que
            cambia de ancho al tipear/borrar es .pv3-ticker-word, adentro. */
         .pv3-ticker-word {
@@ -1883,255 +1726,15 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           will-change: clip-path;
         }
 
-        /* Bajo el título (2026-08-10). Atado a --pv3-lado y no a un ancho
-           suelto: vive dentro de .pv3-left-var, que se desborda a 640px a
-           propósito (ver su nota), así que NO está limitado por el ancho
-           de su columna. */
-        /* position+z-index acá (2026-08-12, corrige un bug real: el bloque
-           entero se pintaba DEBAJO de "Conocé todas las ofertas"). Nació por
-           el desplegable de localidades, que ya no lo necesita —se fue por
-           portal a <body>, ver .pv3-buscador-menu—, pero sigue haciendo
-           falta para el botón mismo. La animación de entrada de arriba
-           (.pv3-listo .pv3-accesos, pv3FadeUp con transform) convierte a
-           este div en la raíz de su propio stacking context aunque sea
-           position:static —transform crea contexto solo, sin necesitar
-           position—, y un elemento static no puede llevar z-index: queda
-           atrapado por debajo de cualquier hermano posicionado (como
-           .pv3-acceso--ofertas, position:absolute), sin importar qué
-           z-index tenga algo adentro suyo. position:relative + z-index acá
-           saca a todo el bloque de esa trampa. */
-        /* max-width propio, ya no var(--pv3-lado) (2026-08-12, a pedido:
-           "agrandar el campo de ubicaciones, ya que una localidad larga
-           hace que colapse" — con --pv3-lado, que clampea a 340px máx, un
-           nombre como "Chacras del Mar" no entraba con el radio al lado).
-           .pv3-accesos ya no necesita calzar con el ancho de la columna del
-           grid —eso era para alinearse con "Conocé todas las ofertas",
-           que ahora es un elemento aparte, position:absolute (ver esa
-           nota)—, así que puede tomar el ancho que el contenido necesite,
-           dentro de .pv3-left-var (860px, ver esa regla). */
-        .pv3-accesos {
-          position: relative; z-index: 2;
-          margin-top: 28px; width: 100%; max-width: 420px; opacity: 0;
-          display: flex; flex-direction: column;
-        }
-        /* ─── Buscador de ubicación (2026-08-12) ──────────────────────
-           Único contenido de .pv3-accesos ahora (ver BuscadorUbicacion,
-           arriba del componente) — reemplaza a "Obtener pases
-           diarios"/"Regalar pases", que vivían acá como una lista de
-           botones píldora apilados. Mismo radio 999px y misma paleta que
-           el resto de los botones del hero (border #dbdef7, hover en
-           primary) para que se lea como parte de la misma familia, aunque
-           no navegue a nada por sí solo: sólo abre el desplegable de
-           localidades. */
-        .pv3-buscador { position: relative; width: 100%; }
-        .pv3-buscador-btn {
-          display: flex; align-items: center; gap: 10px;
-          width: 100%; padding: 14px 20px;
-          border: 1px solid #dbdef7; border-radius: 999px;
-          background: #fff; cursor: pointer;
-          font-family: inherit; text-align: left;
-          transition: border-color .15s ease;
-        }
-        .pv3-buscador-btn:hover,
-        .pv3-buscador-btn[aria-expanded="true"] { border-color: ${A.primary}; }
-        .pv3-buscador-pin { flex-shrink: 0; color: ${A.primary}; }
-        .pv3-buscador-localidad { font-size: 15px; font-weight: 700; color: ${A.ink}; white-space: nowrap; }
-        .pv3-buscador-radio { font-size: 13px; font-weight: 500; color: ${A.ink2}; white-space: nowrap; }
-        .pv3-buscador-chevron {
-          margin-left: auto; flex-shrink: 0; color: ${A.ink2};
-          transition: transform .15s ease;
-        }
-        .pv3-buscador-btn[aria-expanded="true"] .pv3-buscador-chevron { transform: rotate(180deg); }
-        @media (prefers-reduced-motion: reduce) {
-          .pv3-buscador-btn, .pv3-buscador-chevron { transition: none; }
-        }
-        /* Desplegable simple, sin librería. Cuelga de <body> por portal (ver
-           BuscadorUbicacion), así que: position FIXED contra el viewport
-           —left/top/bottom/width los calcula medir() y llegan inline—, y
-           z-index por encima de la navbar (1000/1001 en Navbar.jsx) para que
-           "quede siempre por delante de todo"; abajo del carrito (8000) y de
-           los modales (9500), que son overlays de pantalla completa y sí
-           deben taparlo. El z-index 4 de antes ordenaba sólo contra los
-           hermanos del hero (galería en 6, panel de regalo en 3) — ese es
-           justo el alcance que no alcanzaba.
-
-           max-height inline + overflow-y: la lista se recorta a lo que entra
-           en pantalla y el resto se scrollea acá adentro, en vez de seguir de
-           largo por debajo de la sección siguiente. overscroll-behavior:
-           contain corta el encadenado al llegar al tope: la rueda no le pasa
-           el sobrante a la página (que además está scrolleando suave con
-           Lenis, ver data-lenis-prevent en el JSX). */
-        .pv3-buscador-menu {
-          position: fixed;
-          z-index: 1200;
-          min-width: 220px;
-          padding: 6px;
-          border-radius: 18px;
-          background: #fff;
-          border: 1px solid #dbdef7;
-          box-shadow: 0 18px 38px -20px rgba(11,16,32,0.28);
-          overflow-y: auto;
-          overscroll-behavior: contain;
-        }
-        /* Barra fina y visible, no escondida: es la única señal de que la
-           lista sigue más abajo. Mismos valores que .cupon-scroll en
-           CupopackModal.jsx, que es el otro listado scrolleable dentro de un
-           panel redondeado. */
-        .pv3-buscador-menu::-webkit-scrollbar { width: 8px; }
-        .pv3-buscador-menu::-webkit-scrollbar-thumb {
-          background: rgba(120,130,150,0.35); border-radius: 8px;
-        }
-        .pv3-buscador-item {
-          display: block; width: 100%; padding: 10px 14px;
-          border: none; border-radius: 12px; background: none;
-          font-family: inherit; font-size: 14px; font-weight: 600; color: ${A.ink};
-          text-align: left; cursor: pointer;
-          transition: background .15s ease;
-        }
-        .pv3-buscador-item:hover { background: rgba(71, 91, 225, 0.1); }
-        .pv3-buscador-item--activa { color: ${A.primary}; background: ${A.primarySoft}; }
-        @media (prefers-reduced-motion: reduce) {
-          .pv3-buscador-item { transition: none; }
-        }
-        /* Ya no hay recuadro común: cada acceso es su propio botón píldora
-           (2026-08-11). El radio va en 999px, el mismo de .pv3-btn-pase, para
-           que los tres botones del hero se lean como una sola familia. El
-           padding izquierdo es grande y el derecho chico porque el borde
-           curvo se come el aire del extremo y la flecha ya es un círculo: con
-           padding parejo, el texto quedaba pegado a la curva y la flecha
-           suelta en el medio. */
-        .pv3-acceso {
-          position: relative;
-          display: flex; align-items: center; justify-content: space-between; gap: 12px;
-          width: 100%; padding: 6px 6px 6px 18px;
-          border: 1px solid #dbdef7; border-radius: 999px;
-          /* Blanco explícito (2026-08-12), no "none": "apagada" es un
-             estado real ahora (ver .pv3-acceso--abierta más abajo), no sólo
-             la ausencia de fondo — con "none" se veía crema, el degradé del
-             hero por detrás, no blanco. */
-          background: #fff; cursor: pointer;
-          font-family: inherit; text-align: left;
-          transition: background .15s ease, border-color .15s ease;
-        }
-        /* "Pases diarios" es el único que ya está "en curso" (clickearlo
-           siempre lleva a la misma vista de pases) — por eso es el único
-           relleno: pastilla en primary, título y círculo blancos, ícono en
-           primary (currentColor de CuponIcon hereda el color del span). Los
-           otros dos quedan con línea (.pv3-acceso, sin modificador): ese es
-           el estado desactivado, que ahora comparten "Regalá cuponeras" y
-           "Conocé todas las ofertas" por igual. Sin :hover propio (2026-08-11
-           noche, a pedido): ya está pintado como la sección abierta, un
-           hover encima sugería que hay algo más para activar. */
-        /* Único acceso que queda con esta clase: "Conocé todas las ofertas"
-           (2026-08-12: "Obtener pases diarios"/"Regalar pases", que
-           llegaron a tener un estado ABIERTA/CERRADA que alternaba entre
-           los dos —fondo primary vs. blanco—, se sacaron enteros; ver
-           BuscadorUbicacion y .pv3-gift-icon-btn para dónde quedó cada
-           uno). Fondo blanco con hover en primary clarito, sin más
-           estados. */
-        /* "Conocé todas las ofertas" es hermana directa de .pv3-left y
-           .pv3-cta-full adentro de .pv3-inner, no un hijo más de
-           .pv3-accesos (2026-08-12, a pedido: "alineado a los CTA de
-           pases, horizontalmente" — ver la nota grande en el JSX). Se
-           superpone a la columna 1 del grid (la de .pv3-left) y se ancla
-           abajo con align-self:end, el mismo truco que ya usa .pv3-cta-full
-           para apoyarse en el padding-bottom de .pv3-inner: los dos
-           terminan en la misma línea horizontal sin necesidad de calcular
-           nada a mano. justify-self:start la deja pegada a la izquierda de
-           esa columna, como el resto de los accesos.
-           Ya no es una píldora de ancho completo (2026-08-12, a pedido, ver
-           captura): justify-content pasa a flex-start (la base trae
-           space-between, para separar texto y círculo a los extremos de la
-           fila entera) y el padding baja a lo mínimo — círculo y texto
-           quedan pegados entre sí, a la izquierda, como un link con ícono,
-           no como un botón que ocupa todo el ancho de la columna. */
-        .pv3-acceso--ofertas {
-          /* position:absolute, no grid-column/grid-row (2026-08-12,
-             corrección de un bug real y grande: puesto explícitamente en
-             fila1/columna1 vía grid-column+grid-row, el algoritmo de
-             colocación de CSS Grid resuelve TODOS los ítems con posición
-             explícita antes que los auto-colocados —sin importar el orden
-             en el DOM—. Como este botón reclamaba (fila1,col1) por
-             adelantado, cuando le tocaba el turno a .pv3-left (sin posición
-             explícita, auto-colocado) esa celda ya estaba "ocupada" y el
-             cursor de auto-placement lo mandó a la SIGUIENTE celda libre:
-             columna 2 — empujando a su vez a .pv3-cta-full a la columna 3.
-             Resultado: todo el bloque de la izquierda, Y "¿Cuánto dura tu
-             viaje?", corridos hacia la derecha (bug reportado, confirmado
-             midiendo en el navegador: .pv3-left aparecía con el ancho y la
-             posición exactos de la columna 2).
-             position:absolute saca este botón del grid por completo —ya no
-             participa del auto-placement, así que no puede volver a
-             empujar a nadie— y se ancla contra .pv3-inner (position:
-             relative) directo. left/bottom van en 40px/56px, NO en 0
-             (se probó con 0 primero y quedó pegado al borde real del
-             contenedor, 40px a la izquierda y 56px más abajo de lo debido):
-             el containing block de un position:absolute es la CAJA DE
-             PADDING de su ancestro posicionado, cuyo borde exterior
-             coincide con el borde interior del border —el padding en sí
-             queda AFUERA de esa caja—, así que left:0/bottom:0 caen justo
-             ahí, antes de descontar el padding. Por eso left/bottom repiten
-             exactamente el padding-left/padding-bottom de .pv3-inner (ver
-             esa regla): con eso, el origen pasa a ser el mismo que ya usa
-             la columna 1 y el mismo piso que usa .pv3-cta-full con
-             align-self:end. left va por var(--site-pad) y no por un 40px
-             suelto (2026-08-13) justamente porque tiene que SEGUIR a ese
-             padding — cuando el aire lateral del sitio subió a 80px, un
-             40 acá clavado dejaba este acceso desalineado contra el título
-             de arriba, que sí lo sigue. */
-          position: absolute; left: var(--site-pad); bottom: 56px;
-          border-color: transparent;
-          justify-content: flex-start; gap: 10px;
-          width: auto; padding: 4px 0;
-          /* Entra con la cascada, como todo lo demás del hero (2026-08-13):
-             se había quedado afuera —aparecía servido desde el frame cero
-             mientras el resto todavía estaba entrando—. Ver la animación
-             justo abajo para el porqué del delay. */
-          opacity: 0;
-        }
-        /* ÚLTIMO de toda la entrada (a pedido). Sale un paso completo después
-           de .pv3-cta-full, que es la última pieza de la cascada de texto:
-           mismo delay + su duración, o sea que arranca justo cuando aquélla
-           terminó. Ya no hay que recalcularlo a mano cuando cambian los
-           tiempos — se mueve solo con el reloj de .pv3-hero. */
-        .pv3-listo .pv3-acceso--ofertas { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 4 + var(--txt-dur)) both; }
-        /* Va acá abajo y no en el bloque grande de prefers-reduced-motion de
-           más arriba: una media query no suma especificidad, así que aquel
-           (0,2,0) perdería contra el (0,2,0) de la regla de animación de acá,
-           que viene después en la hoja. Mismo gotcha que ya documenta
-           .pv3-col en ese bloque. Con reduced-motion, además, esperar 2.25s
-           a que aparezca un link no tiene sentido: se muestra servido. */
-        @media (prefers-reduced-motion: reduce) {
-          .pv3-listo .pv3-acceso--ofertas { animation: none; opacity: 1; transform: none; }
-        }
-        .pv3-acceso.pv3-acceso--ofertas:hover { background: none; }
-        .pv3-acceso.pv3-acceso--ofertas:hover .pv3-acceso-titulo { text-decoration: underline; }
-        /* 15% de primary (2026-08-12, a pedido: "que no sea color azul,
-           que sea un 15% de ese azul"), no el ${A.primarySoft} sólido de
-           antes — un tinte, no un color plano nuevo. Sólo pinta el estado
-           cerrado/blanco: la abierta se pisa a sí misma un poco más arriba
-           (.pv3-acceso--abierta:hover). */
-        .pv3-acceso:hover { background: rgba(71, 91, 225, 0.15) }
-        @media (prefers-reduced-motion: reduce) {
-          .pv3-acceso { transition: none; }
-        }
-        .pv3-acceso-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        /* 14px → 17px (2026-08-12, a pedido: "al tamaño del texto de los
-           botones de pases" — mismo font-size que .pv3-btn-pase). */
-        .pv3-acceso-titulo { font-size: 17px; font-weight: 700; color: ${A.primary}; }
-        .pv3-acceso-sub { font-size: 11.5px; font-weight: 500; color: ${A.ink2}; font-style: italic; }
-        /* Círculo con la flecha. 26px → 32px, ícono 14 → 18 (2026-08-12, a
-           pedido: "en proporción" al bump de .pv3-acceso-titulo — misma
-           razón, 17/14 ≈ 1.2, aplicada al círculo y al ArrowDown del JSX).
-           El color de fondo llega por style inline en el JSX (primary); el
-           ícono (lucide) hereda blanco vía currentColor. */
-        .pv3-acceso-flecha {
-          flex-shrink: 0;
-          display: grid; place-items: center;
-          width: 32px; height: 32px;
-          border-radius: 50%;
-          color: #fff;
-        }
+        /* El bloque entero de .pv3-accesos y .pv3-buscador-* se borró el
+           2026-08-18 junto con BuscadorUbicacion (ver la nota grande donde
+           vivía, arriba del componente): portal a <body>, medir(),
+           apertura arriba/abajo, todo eso se reescribió adaptado en
+           SelectorRegion.jsx (navbar), no acá. */
+        /* .pv3-acceso y sus hijos (.pv3-acceso--ofertas, -texto, -titulo,
+           -sub, -flecha) se borraron enteros el 2026-08-18: eran sólo para
+           "Conocé todas las ofertas", que se sacó del hero a pedido (ver la
+           nota en el JSX donde vivía el botón). */
 
         /* "¿Cuánto dura tu viaje?" — ver la nota fechada 2026-08-10 junto a
            TEXTO_ENTER, en el useEffect: se mudó adentro de .pv3-cta-full
@@ -2168,14 +1771,40 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           justify-self: center;
           align-self: end;
           width: 100%;
-          max-width: 620px;
-          /* Sin margen propio abajo (antes 64px): el bloque se apoya
-             directamente sobre el padding-bottom de .pv3-inner, que es lo
-             más cerca del piso que puede quedar sin invadirlo. */
-          margin-bottom: 0;
+          /* 620px → 820px (2026-08-18): con el logo ahora al costado del
+             título (ver .pv3-cta-row) el bloque necesita ancho para los
+             ~203px del ticket (150px de alto, ratio ~1.35:1) + el gap + la
+             columna de texto, que sola ya pedía 620px. */
+          max-width: 820px;
+          /* 50px de margen propio abajo (2026-08-18, antes 0 — y antes de
+             eso, 64px): a pedido, "subir 50px más" el bloque respecto de
+             la línea divisora con "Cuponeá" — más aire entre los CTA y esa
+             línea, en vez de apoyarse directo sobre el padding-bottom de
+             .pv3-inner. */
+          margin-bottom: 50px;
           text-align: center;
           opacity: 0;
         }
+        /* Logo + (título y CTA) en un solo grupo horizontal, centrado como
+           bloque único (2026-08-18) — mismo truco que .pv3-opciones-botones
+           ya usa para centrar el par de pases: width:fit-content +
+           margin-inline:auto, así el grupo entero (no cada hijo por
+           separado) queda centrado en el ancho de .pv3-cta-full, con el
+           logo y el texto pegados entre sí en vez de cada uno centrado por
+           su cuenta. align-items:center centra el texto (más bajo) contra
+           el alto del logo (300px, casi siempre el más alto de los dos). */
+        .pv3-cta-row {
+          display: flex; align-items: center; justify-content: center;
+          flex-wrap: wrap;
+          gap: 36px;
+          width: fit-content; margin-inline: auto;
+        }
+        /* Título + CTA, a la derecha del logo. text-align:left (pisa el
+           center heredado de .pv3-cta-full): con el logo al costado, el
+           texto se lee mejor arrancando parejo con el logo que centrado
+           bajo sí mismo — mismo criterio que ya usa .pv3-pretitulo en el
+           boceto. */
+        .pv3-cta-col { text-align: left; }
         .pv3-listo .pv3-cta-full { animation: pv3FadeUp var(--txt-dur) ease-out calc(var(--txt-t0) + var(--txt-paso) * 4) both; }
         /* La clase la pone el listener de animationend (ver el useEffect de
            ctaFullRef) — mismo motivo y misma forma que .pv3-listo
@@ -2362,28 +1991,31 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            (ver .pv3-inner: las columnas laterales se achican por clamp y le
            ceden lugar a esta). Cuando de verdad no hay ancho, el apilado
            vuelve, pero explícito y sólo ahí: ver la media query de 560px. */
-        /* width:fit-content + margin auto en vez de un flex a todo el ancho
-           con justify-content:center (2026-08-12): el par queda centrado
-           igual —es el único contenido en flujo—, pero ahora el borde
-           derecho del container coincide con el del pase de 7 días, que es
-           lo que .pv3-pases-extra usa de ancla (left:100%). Antes el
-           container se estiraba a todo el ancho disponible y ese borde caía
-           ~30px más a la derecha, así que el aire real hasta "¿Más días?"
-           era el margin-left MÁS un sobrante que cambiaba con el viewport. */
+        /* width:fit-content + margin auto: el conjunto (par + "¿Más días?"
+           + regalito) queda centrado como UN bloque, no el flex estirado a
+           todo el ancho disponible con justify-content:center de antes.
+           2026-08-18: .pv3-pases-extra volvió a flujo normal (antes
+           position:absolute, colgado del borde derecho del par vía
+           left:100% — ver el historial más abajo, junto a esa regla). Con
+           el logo ahora a la izquierda de todo este bloque (ver
+           .pv3-cta-row), lo que tiene que quedar centrado —con el mismo
+           margen a cada lado— es el bloque ENTERO, botones menores
+           incluidos: si "¿Más días?" y el regalito quedan afuera del
+           cálculo de ancho (que es lo que hacía el position:absolute),
+           el centrado del logo contra el resto se arma mirando sólo el
+           par de pases y el bloque completo queda visualmente corrido a
+           la derecha. */
         .pv3-opciones-botones {
-          position: relative; width: fit-content; margin-inline: auto;
+          width: fit-content; margin-inline: auto;
           display: flex; flex-wrap: nowrap; align-items: center; justify-content: center;
         }
         .pv3-pases-par { display: flex; flex-wrap: nowrap; gap: 14px; }
-        /* Cuelga afuera del centrado del par, a su derecha —ver la nota en
-           el JSX. left:100% toma como referencia el borde derecho de
-           .pv3-opciones-botones (el propio flex container, que mide
-           exactamente lo que mide .pv3-pases-par porque es su único
-           contenido en flujo), así que sigue pegado al pase de 7 días sin
-           importar cuánto se centre el conjunto — el ícono de gift pass y
-           "¿Más días?" van juntos adentro de este wrapper (2026-08-12, antes
-           era sólo "¿Más días?" el que colgaba acá), en flujo normal entre
-           ellos, así que ninguno de los dos pesa en el centrado del par.
+        /* Ex-position:absolute (ver la nota de arriba, en .pv3-opciones-botones,
+           para el porqué del cambio 2026-08-18). En flujo normal, después
+           del par, con el mismo margin-left de siempre como aire hacia el
+           par — "¿Más días?" y el regalito siguen yendo juntos adentro de
+           este wrapper (2026-08-12, antes era sólo "¿Más días?" el que
+           colgaba acá), en flujo normal entre ellos.
            Las dos distancias son asimétricas a propósito (2026-08-12, a
            pedido): "¿Más días?" queda cerca de los pases (24px, la mitad
            del aire que había) porque pertenece a esa misma decisión, y
@@ -2392,8 +2024,6 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            En mobile el gap vuelve a 16px: ahí el par se apila y la fila del
            extra es la única en horizontal, sin nada de qué despegarse. */
         .pv3-pases-extra {
-          position: absolute; left: 100%; top: 50%;
-          transform: translateY(-50%);
           margin-left: 24px;
           display: flex; align-items: center; gap: 32px;
         }
@@ -2737,6 +2367,18 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
 
         .pv3-mobile-deco { display: none; }
 
+        /* El rango intermedio que había acá (1181–1500px, logo apilado
+           arriba y achicado a 130px) se borró (2026-08-18): era una
+           precaución de cuando el logo medía 300px de alto —a ese tamaño
+           el grupo horizontal no entraba cómodo por debajo de ~1500px de
+           viewport—. Con el logo en su tamaño real (150px, ver .pv3-ticket)
+           el grupo entra sin problema en todo el rango de escritorio
+           (arriba de 1180px), así que ya no hace falta el escalón: el
+           logo queda a la izquierda del título en el mismo lugar donde se
+           pidió, sin importar si la ventana es un notebook de 1440px o un
+           monitor grande. flex-wrap:wrap en .pv3-cta-row (ver esa regla)
+           sigue como red de seguridad para el borde angosto, justo antes
+           del breakpoint mobile de acá abajo. */
         @media (max-width: 1180px) {
           /* Layout angosto = una sola columna centrada, sin "derecha" de la
              que colgarse. */
@@ -2789,25 +2431,21 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           /* -15% acá también (2026-08-12), mismo motivo que la regla base:
              21/5.6vw/33.5 × 0.85. */
           .pv3-t-bold, .pv3-t-ticker { font-size: clamp(18px, 4.76vw, 28.5px); }
-          /* Centrada contra la columna, sin más — el max-width de la regla
-             base (420px) ya le alcanza acá también, así que sólo hace
-             falta el margin-inline:auto. */
-          .pv3-accesos { margin-inline: auto; }
           /* En la regla base es la celda 2 del grid, asentada abajo con
              align-self:end + margin-bottom (ver su nota): acá, apilada bajo
              .pv3-left en una sola columna, ese margen de abajo dejaría un
              hueco enorme antes del panel siguiente y el aire hace falta
              ARRIBA, separándola de los accesos. */
           .pv3-cta-full { max-width: 620px; margin: 28px auto 0; }
-          /* "Conocé todas las ofertas" en desktop es position:absolute
-             contra .pv3-inner (ver esa regla, arriba) — acá, con una sola
-             columna centrada y todo apilado, tiene que volver a flujo
-             normal: position:static la devuelve a la posición que le toca
-             en el DOM (después de .pv3-cta-full), centrada como el resto,
-             con su propio margin-top en vez del left/bottom que la
-             anclaban al padding de .pv3-inner (acá ya no hay "misma fila"
-             que compartir con los botones de pase, quedó apilada debajo). */
-          .pv3-acceso--ofertas { position: static; margin: 20px auto 0; }
+          /* Sin ancho lateral para "logo a la izquierda" acá abajo de
+             1180px: vuelve al apilado vertical de siempre (logo arriba,
+             texto abajo, todo centrado — ver .pv3-inner de este mismo
+             breakpoint, ya en text-align:center). El logo también se
+             achica más que el estándar de 150px: acá compite por el mismo
+             ancho angosto que el título y los CTA. */
+          .pv3-cta-row { flex-direction: column; gap: 20px; }
+          .pv3-cta-col { text-align: center; }
+          .pv3-ticket { height: 100px; }
           .pv3-galwin { opacity: 0.5; --colw: clamp(112px, 15vw, 165px); }
           /* "Pases de regalo": sin pin no hay slide que animar, así que pasa
              a flujo normal, siempre visible, debajo de todo lo demás —igual
@@ -2833,14 +2471,13 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
         @media (max-width: 560px) {
           /* Los dos pases pasan a ocupar el ancho: en mobile la comparación se
              hace en vertical, uno debajo del otro. .pv3-pases-extra (ícono de
-             gift pass + "¿Más días?") vuelve al flujo normal (era
-             position:absolute para no pesar en el centrado del par, ver la
-             nota junto a esa regla) y se apila como tercer elemento,
-             centrado con el resto. */
+             gift pass + "¿Más días?") ya vive en flujo normal (ver la nota
+             junto a esa regla) y acá se apila como tercer elemento, centrado
+             con el resto. */
           .pv3-opciones-botones { width: auto; flex-direction: column; align-items: stretch; gap: 12px; }
           .pv3-pases-par { flex-direction: column; gap: 12px; }
           .pv3-btn-pase { justify-content: center; }
-          .pv3-pases-extra { position: static; transform: none; margin-left: 0; justify-content: center; gap: 16px; }
+          .pv3-pases-extra { margin-left: 0; justify-content: center; gap: 16px; }
         }
       `}</style>
     </section>
