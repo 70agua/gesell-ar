@@ -1571,20 +1571,23 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
            viewports angostos y le ceden ese ancho a la del medio, que es lo
            que mantiene los dos botones de pase en UNA fila el mayor rango
            posible (ver .pv3-opciones-botones, flex-wrap:nowrap). */
-        /* Los números del clamp y del gap no son a ojo: salen de medir en
-           vivo los dos anchos que mandan. (1) La fila de los dos botones de
-           pase mide 494px — por debajo de eso se apilan, que es justo lo que
-           hay que evitar. (2) Los accesos miden 283px naturales (el
-           subtítulo en itálica es el que manda).
-           Achicado (2026-08-18, antes clamp(250px, 22vw, 340px)): con el
-           logo ahora al costado del título (ver .pv3-cta-row) la columna
-           del medio necesita más ancho que antes —~750px, contra los
-           ~518px de los botones solos—, y ese ancho sale de acá: nada más
-           mide contra el ancho de column 1/3 en flujo (.pv3-left-var es
-           position:absolute, así que no le importa cuánto mida su columna
-           real). */
+        /* Achicado de nuevo (2026-08-18, antes clamp(150px, 13vw, 200px)):
+           medido en vivo a 1470px de viewport (notebook común) con
+           DevTools, la fila logo+columna mide 840px (202.6 de logo + 36 de
+           gap + 601.5 de columna) — más ancha que la cuenta anterior
+           (~750px) porque .pv3-pases-extra ("¿Más días?" + el regalito)
+           volvió a flujo normal (ver la nota junto a .pv3-pases-extra, más
+           abajo) y ahora SÍ pesa en el ancho de la columna. Con el clamp
+           viejo, a 1470px la columna 2 quedaba en ~880px — de sobra en el
+           papel, pero max-width (820px, ver .pv3-cta-full) la recortaba
+           por debajo de los 840 que hacen falta, y el flex-wrap de
+           .pv3-cta-row (pensado como red de seguridad, no como salida
+           normal) apilaba el logo arriba del texto en vez de dejarlo al
+           costado. Nada real vive en flujo en column 1/3 (.pv3-left-var es
+           position:absolute), así que se puede seguir achicando sin costo
+           visual. */
         .pv3-inner {
-          --pv3-lado: clamp(150px, 13vw, 200px);
+          --pv3-lado: clamp(30px, 4vw, 90px);
           position: relative;
           z-index: 2;
           max-width: var(--site-max);
@@ -1771,11 +1774,12 @@ export default function HeroPase({ onComprarPase, onSuscripcionLista }) {
           justify-self: center;
           align-self: end;
           width: 100%;
-          /* 620px → 820px (2026-08-18): con el logo ahora al costado del
-             título (ver .pv3-cta-row) el bloque necesita ancho para los
-             ~203px del ticket (150px de alto, ratio ~1.35:1) + el gap + la
-             columna de texto, que sola ya pedía 620px. */
-          max-width: 820px;
+          /* 620px → 900px (2026-08-18, pasó por 820px antes de esto):
+             medido en vivo, la fila entera (logo + gap + columna, con
+             .pv3-pases-extra ya en flujo normal) mide 840px — 820 la
+             recortaba por debajo de eso y forzaba el flex-wrap de
+             .pv3-cta-row a apilar el logo. 900px deja margen. */
+          max-width: 900px;
           /* 50px de margen propio abajo (2026-08-18, antes 0 — y antes de
              eso, 64px): a pedido, "subir 50px más" el bloque respecto de
              la línea divisora con "Cuponeá" — más aire entre los CTA y esa
