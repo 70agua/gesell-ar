@@ -19,7 +19,6 @@ import {
   Save,
   Check,
   Clock,
-  Star,
   Trash2,
   Upload,
   AlertCircle,
@@ -38,7 +37,6 @@ import {
 import { supabase } from '../lib/supabase';
 import { categoriaDeNegocio } from '../lib/datos';
 import { getSaldo, getMovimientos, calcularPrecio, calcularPrecioCupon, registrarCompra, AHORRO_MIN, PRECIO_MIN, gananciaNeta, esCuponDeEntrada } from '../lib/cobros';
-import { getPuntos } from '../lib/gamificacion';
 import TabCanjes from './socio/TabCanjes';
 import CondicionesPicker from '../components/CondicionesPicker';
 import { FOTOS_GALERIA_MAX, getPlanesPro } from '../lib/planes';
@@ -407,7 +405,7 @@ function TabInbox({ negocio, showToast }) {
     setEnCurso(null);
     if (!r.ok) return showToast(textoErrorSol(r.error), 'err');
     showToast(
-      r.estado === 'aceptada'   ? 'Confirmado. El turista ya puede usar su beneficio.'
+      r.estado === 'aceptada'   ? 'Confirmado. El viajero ya puede usar su beneficio.'
       : r.estado === 'rechazada' ? 'Le avisamos que no vas a poder.'
       : 'Le propusimos la fecha nueva.', 'ok');
     cargar();
@@ -427,7 +425,7 @@ function TabInbox({ negocio, showToast }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ background: PS, border: `1px solid ${LINE}`, borderRadius: 14, padding: '14px 16px' }}>
         <div style={{ fontFamily: FONT, fontSize: 13, color: INK2, lineHeight: 1.55 }}>
-          Todo lo que espera tu respuesta. Las <b>solicitudes de fecha</b> tienen a un turista
+          Todo lo que espera tu respuesta. Las <b>solicitudes de fecha</b> tienen a un viajero
           esperando y vencen a las 72 horas: si no contestás, se libera su beneficio y lo perdés.
         </div>
       </div>
@@ -1270,7 +1268,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
     // —recibe el comprobante y nada más—, así que esto es lo único que fija la
     // expectativa antes del mostrador. La base tiene el mismo check.
     if (!(editForm.condiciones || '').trim()) {
-      showToast('Marcá al menos una condición de canje: es lo que el turista lee antes de comprar', 'err');
+      showToast('Marcá al menos una condición de canje: es lo que el viajero lee antes de comprar', 'err');
       return false;
     }
 
@@ -1799,7 +1797,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
 
           {/* ── 6) Ahorro declarado → Precio del cupón (auto-sugerido, editable) ── */}
           <div>
-            <FieldLabel label="Ahorro estimado para el turista ($)"/>
+            <FieldLabel label="Ahorro estimado para el viajero ($)"/>
             <div style={{ position: 'relative' }}>
               <input value={editForm.ahorro} inputMode="numeric"
                 onChange={e => {
@@ -1863,7 +1861,7 @@ export function TabOfertas({ dbPromos = [], negocioId, negocioTipo = null, showT
               return (
                 <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: BG, border: `1px solid ${LINE}` }}>
                   <div style={{ fontFamily: FONT, fontSize: 12, color: INK2, lineHeight: 1.5 }}>
-                    El turista paga <b style={{ color: INK }}>${precioSug.toLocaleString('es-AR')}</b> por este cupón
+                    El viajero paga <b style={{ color: INK }}>${precioSug.toLocaleString('es-AR')}</b> por este cupón
                     {' '}y se lleva <b style={{ color: GREEN }}>${neta.toLocaleString('es-AR')}</b> de ganancia neta.
                   </div>
                   {entrada && (
@@ -2479,7 +2477,7 @@ function PackFicha({ badge, off, cred, popular}) {
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px' }}>
             <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:MUTED, whiteSpace:'nowrap' }}>Lo activás con</span>
             <span style={{ display:'inline-flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
-              <CreditCoin size={15}/><span style={{ fontSize:13, fontWeight:800, color:INK }}>{cred} créditos</span>
+              <CreditCoin size={15}/><span style={{ fontSize:13, fontWeight:800, color:INK }}>{cred} créditos publicitarios</span>
               <span style={{ fontSize:10, fontWeight:600, color:MUTED }}>(${(cred * 2420).toLocaleString('es-AR')})</span>
             </span>
           </div>
@@ -2511,7 +2509,7 @@ function MovRow({ m, last }) {
             </div>
             {m.oferta && (
               <div style={{ fontSize:11, color:MUTED, marginTop:2 }}>
-                Un turista tuyo ya está disfrutando <span style={{ fontWeight:600, color:INK2 }}>{m.oferta}</span>
+                Un viajero tuyo ya está disfrutando <span style={{ fontWeight:600, color:INK2 }}>{m.oferta}</span>
               </div>
             )}
             <div style={{ fontSize:11, color:MUTED, marginTop:2 }}>{m.date}</div>
@@ -2578,7 +2576,7 @@ function ModalEliminarCuenta({ nombreNegocio, onClose, onEliminada }) {
   );
 }
 
-function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEliminada }) {
+function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEliminada, onComprar }) {
   const [filtroMov, setFiltroMov] = useState('todo');
   const [showEliminar, setShowEliminar] = useState(false);
   const [cambiandoVisibilidad, setCambiandoVisibilidad] = useState(false);
@@ -2664,12 +2662,20 @@ function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEl
               <div style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>Créditos disponibles</div>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 <span style={{ fontFamily:FONT, fontSize:38, fontWeight:800, color:INK, lineHeight:1 }}>{credits}</span>
-                <span style={{ fontFamily:FONT, fontSize:15, fontWeight:600, color:INK2 }}>créditos</span>
+                <span style={{ fontFamily:FONT, fontSize:15, fontWeight:600, color:INK2 }}>créditos publicitarios</span>
               </div>
               {credEsteMes !== 0 && (
                 <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:GREENS, color:GREEN, fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:999, marginTop:8 }}>
                   {credEsteMes > 0 ? '+' : '−'}{Math.abs(credEsteMes)} este mes
                 </span>
+              )}
+              {/* Única entrada a la compra desde que salió del nav (2026-08-17).
+                  Va pegada al saldo: es el lugar donde el socio ya está mirando
+                  cuántos le quedan. */}
+              {negocio && (
+                <button onClick={() => onComprar?.()} style={{ marginTop:14, display:'inline-flex', alignItems:'center', gap:7, padding:'9px 16px', borderRadius:10, border:'none', background:P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                  Comprar créditos publicitarios
+                </button>
               )}
             </div>
           </div>
@@ -2702,7 +2708,7 @@ function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEl
                 ¡Compartí ofertas y sumá créditos!
               </div>
               <div style={{ fontFamily:FONT, fontSize:12, color:INK2, lineHeight:1.4, marginBottom:12 }}>
-                Tus turistas canjean ofertas en restaurantes y experiencias. Vos obtenés <b>créditos publicitarios para impulsar tus ofertas.</b>
+                Tus viajeros canjean ofertas en restaurantes y experiencias. Vos obtenés <b>créditos publicitarios para impulsar tus ofertas.</b>
               </div>
               <button style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 16px', borderRadius:10, border:'none', background:P, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
                 
@@ -2719,15 +2725,15 @@ function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEl
               <img src="/send.svg" alt="" style={{ width:35, height:35 }}/>
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontFamily:FONT, fontSize:14, fontWeight:800, color:INK }}>Enviar créditos</div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Pasale saldo a un turista o amigo al instante.</div>
+              <div style={{ fontFamily:FONT, fontSize:14, fontWeight:800, color:INK }}>Enviar créditos publicitarios</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3, lineHeight:1.4, marginBottom:12 }}>Pasale saldo a un viajero o amigo al instante.</div>
               {/* Campo de cantidad */}
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, background:BG, border:`1px solid ${LINE}`, borderRadius:10, padding:'8px 12px' }}>
                 <CreditCoin size={16}/>
                 <input type="number" min="1" placeholder="Cantidad a enviar"
                   style={{ flex:1, border:'none', background:'transparent', fontFamily:FONT, fontSize:13, color:INK, outline:'none', width:0 }}
                 />
-                <span style={{ fontFamily:FONT, fontSize:11, color:MUTED, whiteSpace:'nowrap' }}>créditos</span>
+                <span style={{ fontFamily:FONT, fontSize:11, color:MUTED, whiteSpace:'nowrap' }}>créditos publicitarios</span>
               </div>
               {/* Botones en fila */}
               <div style={{ display:'flex', gap:6 }}>
@@ -2814,7 +2820,7 @@ function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEl
               // publicitarios, que ya tiene en la billetera.
               <div style={{ background:BG, borderRadius:11, padding:'11px 14px', marginTop:14 }}>
                 {esAlojamiento ? (
-                  <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Publicás sin cargo. Contratá <b style={{ color:P }}>{planPlus?.nombre || 'PRO'}</b> (${precioMes.toLocaleString('es-AR')} + IVA/mes) y regalale el Pase a tus turistas.</span>
+                  <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Publicás sin cargo. Contratá <b style={{ color:P }}>{planPlus?.nombre || 'PRO'}</b> (${precioMes.toLocaleString('es-AR')} + IVA/mes) y regalale el Pase a tus viajeros.</span>
                 ) : (
                   <span style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>Publicar tus ofertas no tiene costo. Si querés que se vean más, comprá <b style={{ color:P }}>créditos publicitarios</b> e impulsalas — sin suscripción.</span>
                 )}
@@ -2836,8 +2842,8 @@ function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEl
           {/* Bajá tu abono — 2 packs en 2 columnas */}
           <Card style={{ flex:1 }}>
             <div>
-              <div style={{ fontFamily:FONT, fontSize:18, fontWeight:600, color:INK }}>Usá tus créditos para reducir el abono de tu plan!</div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3 }}>Agregálos a tu carrito y pagá con créditos.</div>
+              <div style={{ fontFamily:FONT, fontSize:18, fontWeight:600, color:INK }}>Usá tus créditos publicitarios para reducir el abono de tu plan!</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:INK2, marginTop:3 }}>Agregálos a tu carrito y pagá con créditos publicitarios.</div>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginTop:20 }}>
               {PACKS_ABONO.filter(p => p.badge !== '-10k').map((p, i) => <PackFicha key={p.badge} {...p} darkIdx={i}/>)}
@@ -2889,7 +2895,7 @@ function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEl
                 </div>
                 <div style={{ fontFamily:FONT, fontSize:12, color:INK2 }}>
                   {negocioActivo
-                    ? 'Aparece en listados, búsquedas y ofertas para los turistas.'
+                    ? 'Aparece en listados, búsquedas y ofertas para los viajeros.'
                     : 'No aparece en listados, búsquedas ni ofertas hasta que lo reactivés.'}
                 </div>
               </div>
@@ -2932,33 +2938,6 @@ function TabCuenta({ credits, perfil, negocio, setNegocio, showToast, onCuentaEl
 
 // ════════════════════════════════════════════════════════════
 //  RENDIMIENTO WIDGET
-// ════════════════════════════════════════════════════════════
-// Bloque de saldos — créditos publicitarios + puntos, en el sidebar (estilo oscuro)
-function SaldosWidget({ creditos = 0, puntos = 0 }) {
-  const fila = (icon, valor, label) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      {icon}
-      <div style={{ lineHeight: 1.15 }}>
-        <div style={{ fontFamily: FONT, fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{valor}</div>
-        <div style={{ fontFamily: FONT, fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>{label}</div>
-      </div>
-    </div>
-  );
-  return (
-    <div style={{ margin: '0 8px 8px', background: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {fila(<CreditCoin size={26} />, creditos, 'créditos publicitarios')}
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
-      {fila(
-        <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(245,158,11,0.18)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-          <Star size={14} color={YELLOW} fill={YELLOW} />
-        </div>,
-        puntos,
-        'puntos',
-      )}
-    </div>
-  );
-}
-
 // Tarjeta de rendimiento — vive en el grid de "Creadas por mí" (estilo claro,
 // tamaño de una minificha de oferta). Sólo se muestra si hay ≥1 oferta cargada.
 function RendimientoCard({ plan = 'free', onUpgrade }) {
@@ -2968,9 +2947,9 @@ function RendimientoCard({ plan = 'free', onUpgrade }) {
   const pct = nivel * 50;
 
   const TEXTOS = [
-    'Visibilidad Estándar. Tus ofertas se muestran en el listado general del Partido de Villa Gesell. Para llegar a más turistas en hora pico, potenciá tu alcance.',
+    'Visibilidad Estándar. Tus ofertas se muestran en el listado general del Partido de Villa Gesell. Para llegar a más viajeros en hora pico, potenciá tu alcance.',
     'Alcance Destacado. Tus cupones aparecen prioritariamente en las búsquedas de tu localidad y se envían en el resumen semanal a tus seguidores.',
-    'Exposición Total. Prioridad absoluta en la Home, notificaciones push geolocalizadas a turistas cerca de tu local y destacado visual en el mapa.',
+    'Exposición Total. Prioridad absoluta en la Home, notificaciones push geolocalizadas a viajeros cerca de tu local y destacado visual en el mapa.',
   ];
 
   const trySetNivel = (n) => {
@@ -3140,7 +3119,7 @@ function TabVentasYCanjes({ negocio, negocioId, esAloj, showToast }) {
 // ════════════════════════════════════════════════════════════
 //  SIDEBAR
 // ════════════════════════════════════════════════════════════
-function Sidebar({ tab, setTab, negocio, perfil, saldoTokens, puntos = 0, setShowComprar, onVolver, onGoHome, onLogout, navCounts = {} }) {
+function Sidebar({ tab, setTab, negocio, perfil, onVolver, onGoHome, onLogout, navCounts = {} }) {
   const esAloj = negocio?.tipo === 'alojamiento' || TIPOS_ALOJ_ADMIN.has(negocio?.tipo);
   const plan   = negocio?.plan || 'free';
 
@@ -3193,18 +3172,11 @@ function Sidebar({ tab, setTab, negocio, perfil, saldoTokens, puntos = 0, setSho
         {NAV_ITEMS.map(t => navItem(t))}
       </nav>
 
-      {/* Saldos: créditos publicitarios + puntos */}
-      <SaldosWidget creditos={saldoTokens} puntos={puntos} />
-
-      {/* Comprar créditos publicitarios — disponible para cualquier socio:
-          se usan para impulsar ofertas, no para publicarlas. */}
-      {negocio && (
-        <div style={{ margin: '0 8px 8px' }}>
-          <button onClick={() => setShowComprar(true)} style={{ width: '100%', background: P, color: '#fff', border: 'none', borderRadius: 7, padding: '7px 0', fontFamily: FONT, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-            Comprar créditos
-          </button>
-        </div>
-      )}
+      {/* Los saldos y el botón de comprar salieron de acá el 2026-08-17.
+          El nav no es el lugar: repetía el saldo en las cinco pestañas y le
+          daba a los créditos publicitarios más peso que a lo que el socio
+          viene a hacer. Su casa es la pestaña Cuenta, que ya tiene saldo,
+          compra de packs, movimientos y el descuento sobre el abono. */}
 
       {/* Footer sesión */}
       <div style={{ padding: '8px 10px 10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -3258,7 +3230,7 @@ function SolicitudCupones({ negocioId, showToast }) {
       .update({ estado_solicitud: nuevoEstado, respondido_en: new Date().toISOString(), ...extra })
       .eq('id', id);
     if (error) { showToast('Error al actualizar la solicitud', 'error'); return; }
-    showToast(nuevoEstado === 'confirmado' ? '¡Solicitud confirmada!' : nuevoEstado === 'rechazado' ? 'Solicitud rechazada. Los créditos serán devueltos.' : 'Contraoferta enviada al turista.', 'ok');
+    showToast(nuevoEstado === 'confirmado' ? '¡Solicitud confirmada!' : nuevoEstado === 'rechazado' ? 'Solicitud rechazada. Los créditos serán devueltos.' : 'Contraoferta enviada al viajero.', 'ok');
     cargar();
   }
 
@@ -3268,7 +3240,7 @@ function SolicitudCupones({ negocioId, showToast }) {
 
   return (
     <div>
-      <p style={{ fontSize: 14, color: MUTED, margin: '0 0 20px' }}>Confirmá o rechazá las solicitudes en menos de 48hs. Si no respondés, los créditos se devuelven al turista automáticamente.</p>
+      <p style={{ fontSize: 14, color: MUTED, margin: '0 0 20px' }}>Confirmá o rechazá las solicitudes en menos de 48hs. Si no respondés, los créditos se devuelven al viajero automáticamente.</p>
 
       {solicitudes.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: MUTED }}>
@@ -3278,7 +3250,7 @@ function SolicitudCupones({ negocioId, showToast }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {solicitudes.map(s => {
-            const turista = s.cuponeras?.perfiles?.nombre || 'Turista';
+            const turista = s.cuponeras?.perfiles?.nombre || 'Viajero';
             const titulo = s.promociones?.titulo || 'Cupón';
             const venceEn = s.vence_en ? new Date(s.vence_en) : null;
             const horasRestantes = venceEn ? Math.max(0, Math.round((venceEn - Date.now()) / 3600000)) : null;
@@ -3377,7 +3349,6 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
   const [showComprar, setShowComprar] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [toast, setToast]         = useState(null);
-  const [puntos, setPuntos] = useState(0);
 
   // Los contadores del sidebar salen de datos reales o no salen (2026-08-16):
   //  · `notifCount` era MOCK_NOTIFS.length, o sea un 5 clavado sobre la
@@ -3398,14 +3369,12 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
       const { data } = await supabase.from('negocios').select('*').eq('id', perfil.negocio_id).single();
       if (data) setNegocio(data);
     }
-    const [proRes, saldoRes, walletRes] = await Promise.all([
+    const [proRes, saldoRes] = await Promise.all([
       supabase.from('promociones').select('*').eq('negocio_id', perfil.negocio_id).order('creado_en', { ascending: false }),
       getSaldo(perfil.negocio_id),
-      perfil?.id ? getPuntos(perfil.id) : Promise.resolve({ balance: 0 }),
     ]);
     if (proRes.data) setPromos(proRes.data);
     setSaldoTokens(typeof saldoRes === 'number' ? saldoRes : 0);
-    setPuntos(Number(walletRes?.balance) || 0);
     setLoading(false);
   }
 
@@ -3447,13 +3416,12 @@ export default function AdminNegocioView({ perfil, onVolver, onGoHome }) {
     <div style={{ display:'flex', minHeight:'100vh', background:BG, fontFamily:FONT }}>
       <Sidebar
         tab={tab} setTab={setTab} negocio={negocio} perfil={perfil}
-        saldoTokens={saldoTokens} puntos={puntos} navCounts={navCounts}
-        setShowComprar={setShowComprar} onVolver={onVolver}
+        navCounts={navCounts} onVolver={onVolver}
         onGoHome={onGoHome} onLogout={handleLogout}
       />
 
       <main style={{ flex:1, padding:28, overflowY:'auto', maxWidth:'100%' }}>
-        {tab === 'cuenta'      && <TabCuenta credits={saldoTokens} perfil={perfil} negocio={negocio} setNegocio={setNegocio} showToast={showToast} onCuentaEliminada={handleLogout}/>}
+        {tab === 'cuenta'      && <TabCuenta credits={saldoTokens} perfil={perfil} negocio={negocio} setNegocio={setNegocio} showToast={showToast} onCuentaEliminada={handleLogout} onComprar={() => setShowComprar(true)}/>}
         {tab === 'ofertas'     && <TabOfertas dbPromos={promos} negocioId={perfil?.negocio_id} negocioTipo={negocio?.tipo} showToast={showToast} plan={negocio?.plan || 'free'} onUpgrade={() => setTab('cuenta')} saldoTokens={saldoTokens} setSaldoTokens={setSaldoTokens}/>}
         {tab === 'canjes'      && <TabVentasYCanjes negocio={negocio} negocioId={perfil?.negocio_id} esAloj={esAlojAdmin} showToast={showToast}/>}
         {tab === 'stats'       && <TabEstadisticas negocio={negocio}/>}

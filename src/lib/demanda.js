@@ -54,7 +54,12 @@ export async function completarEmailDemanda(id, email) {
 export async function getDemandaDestinos() {
   const { data } = await supabase
     .from('demanda_destinos')
-    .select('destino, provincia, tipo, session_id, email, created_at')
+    // `categoria` distingue las dos fuentes que hoy escriben acá: búsqueda
+    // libre por georef (categoria null/'ciudad'/etc., BuscarDestinoModal) y
+    // waitlist de REGIONES del selector (categoria: 'region_pass', ver
+    // FilaWaitlist en SelectorRegion.jsx — se reutiliza esta tabla en vez de
+    // abrir una segunda, ver docs/5-modelo-comercial.md §7 del brief).
+    .select('destino, provincia, tipo, session_id, email, created_at, categoria')
     .order('created_at', { ascending: false })
     .limit(5000);
   return data || [];

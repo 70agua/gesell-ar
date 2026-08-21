@@ -40,7 +40,7 @@ const SLIDES = [
   },
   {
     titulo: '¿Cómo lo comprás?',
-    texto: 'Elegís el cupón que te gusta y lo comprás al instante con tus créditos. Sin trámites, sin esperas.',
+    texto: 'Elegís el cupón que te gusta y lo comprás al instante con tus puntos. Sin trámites, sin esperas.',
     Ilustracion: () => (
       <div style={{ width: '100%', height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
         <div style={bloque()}>

@@ -43,7 +43,7 @@ const ERRORES = {
   no_cancelable:            'Esa solicitud ya no se puede cancelar.',
   ya_resuelta:              'Esa solicitud ya fue respondida.',
   no_autorizado:            'No podés responder esa solicitud.',
-  fuera_de_vigencia_del_turista: 'Esa fecha queda fuera de los días del Pase del turista. Proponé una anterior.',
+  fuera_de_vigencia_del_turista: 'Esa fecha queda fuera de los días del Pase del viajero. Proponé una anterior.',
   fecha_propuesta_invalida: 'Elegí una fecha válida.',
 };
 export const textoError = e => ERRORES[e] || 'No pudimos completar la acción. Probá de nuevo.';

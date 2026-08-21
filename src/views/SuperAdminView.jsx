@@ -57,7 +57,7 @@ const TABS = [
   { id: 'resumen',   label: 'Resumen'   },
   { id: 'socios',    label: 'Socios comerciales' },
   { id: 'pendientes', label: 'Pendientes' },
-  { id: 'turistas',  label: 'Turistas'  },
+  { id: 'turistas',  label: 'Viajeros'  },
   { id: 'marketplace', label: 'Marketplace' },
   { id: 'estadisticas', label: 'Estadísticas y ventas' },
   { id: 'consultas', label: 'Consultas' },
@@ -253,7 +253,7 @@ export default function SuperAdminView({ perfil, onEditarSocio, onGoHome }) {
     const { error } = await supabase.from('perfiles').update({ bloqueado: !estado }).eq('id', id);
     if (error) return showToast('Error al actualizar', 'error');
     setTuristas(prev => prev.map(u => u.id === id ? { ...u, bloqueado: !estado } : u));
-    showToast(estado ? 'Turista desbloqueado' : 'Turista bloqueado');
+    showToast(estado ? 'Viajero desbloqueado' : 'Viajero bloqueado');
   }
 
   async function marcarLeida(id) {
@@ -579,7 +579,7 @@ function TabPendientes({ compras, ventas, canjes, onActualizar, showToast }) {
             monto={c.ahorro_monto}
             acciones={<>
               <ABtn variant="danger" style={{ fontSize:12, padding:'7px 12px' }}
-                onClick={() => correr(c.id, () => anularCanje(c.id, c.reporte_motivo), 'Canje anulado — el cupón volvió al turista')}>
+                onClick={() => correr(c.id, () => anularCanje(c.id, c.reporte_motivo), 'Canje anulado — el cupón volvió al viajero')}>
                 {enCurso === c.id ? 'Anulando…' : 'Anular canje'}
               </ABtn>
               <ABtn style={{ fontSize:12, padding:'7px 12px' }}
@@ -905,19 +905,19 @@ function TabTuristas({ usuarios, onToggle, onActualizar }) {
                 <td style={{ padding:'10px 12px' }}>
                   <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                     {/* Ver/Editar (stub: simplemente muestra toast) */}
-                    <button onClick={() => alert('Edición de turistas (próximamente)')} title="Ver/Editar turista" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:A.primary, opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                    <button onClick={() => alert('Edición de viajeros (próximamente)')} title="Ver/Editar viajero" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:A.primary, opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
                       <Pencil size={16} />
                     </button>
                     {/* Bloquear/Desbloquear */}
-                    <button onClick={() => onToggle(u.id, u?.bloqueado)} title={u.bloqueado ? 'Desbloquear turista' : 'Bloquear turista'} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color: u.bloqueado ? '#C03030' : A.muted, opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                    <button onClick={() => onToggle(u.id, u?.bloqueado)} title={u.bloqueado ? 'Desbloquear viajero' : 'Bloquear viajero'} style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color: u.bloqueado ? '#C03030' : A.muted, opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
                       <Lock size={16} />
                     </button>
                     {/* Eliminar */}
                     <button onClick={async () => {
-                      if (!window.confirm(`¿Eliminar a "${u.nombre || 'este turista'}"?`)) return;
+                      if (!window.confirm(`¿Eliminar a "${u.nombre || 'este viajero'}"?`)) return;
                       await supabase.from('perfiles').delete().eq('id', u.id);
                       onActualizar?.();
-                    }} title="Eliminar turista" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:'#EF4444', opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+                    }} title="Eliminar viajero" style={{ background:'none', border:'none', cursor:'pointer', padding:'4px', display:'flex', alignItems:'center', color:'#EF4444', opacity:0.7, transition:'opacity 0.15s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -2131,9 +2131,21 @@ function TabEstadisticas() {
 
   if (demanda === null) return <MiniLoader />;
 
+  // Dos fuentes conviven en demanda_destinos (2026-08-18, brief de scope
+  // regional §7): búsqueda libre por georef ("cualquier pueblo del país",
+  // BuscarDestinoModal) y waitlist de REGIONES del selector nuevo
+  // (categoria: 'region_pass', ver FilaWaitlist en SelectorRegion.jsx). Se
+  // reutilizó la tabla en vez de abrir una segunda — separadas acá, cada
+  // una en su sección, porque responden preguntas distintas: la primera es
+  // "adónde más allá de la costa", la segunda es específicamente "qué
+  // región activar después" y ES la que decide el orden de expansión, no
+  // la intuición.
+  const demandaRegiones = demanda.filter(d => d.categoria === 'region_pass');
+  const demandaLibre     = demanda.filter(d => d.categoria !== 'region_pass');
+
   // ── Agregación de demanda por destino ──
   const porDestino = {};
-  demanda.forEach(d => {
+  demandaLibre.forEach(d => {
     const key = `${d.destino}||${d.provincia || ''}`;
     const g = porDestino[key] || (porDestino[key] = {
       destino: d.destino, provincia: d.provincia, tipo: d.tipo,
@@ -2148,8 +2160,20 @@ function TabEstadisticas() {
     .map(g => ({ ...g, sesiones: g.sesiones.size }))
     .sort((a, b) => b.clicks - a.clicks);
 
-  const totalBusquedas = demanda.length;
-  const emails = demanda.filter(d => d.email);
+  const totalBusquedas = demandaLibre.length;
+  const emails = demandaLibre.filter(d => d.email);
+
+  // ── Ranking de regiones en waitlist, por señales acumuladas ──
+  // Una fila = un interesado en esa región (con o sin email). El orden de
+  // esta tabla ES el orden de expansión — no una intuición.
+  const porRegion = {};
+  demandaRegiones.forEach(d => {
+    const g = porRegion[d.destino] || (porRegion[d.destino] = { region: d.destino, senales: 0, conEmail: 0, ultima: d.created_at });
+    g.senales++;
+    if (d.email) g.conEmail++;
+    if (d.created_at > g.ultima) g.ultima = d.created_at;
+  });
+  const filasRegiones = Object.values(porRegion).sort((a, b) => b.senales - a.senales);
   const fmtFecha = x => x ? new Date(x).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
 
   const th = { textAlign:'left', fontFamily:A.font, fontSize:11, fontWeight:700, color:A.muted, textTransform:'uppercase', letterSpacing:'0.04em', padding:'0 12px 8px' };
@@ -2157,6 +2181,42 @@ function TabEstadisticas() {
 
   return (
     <div>
+      {/* Va PRIMERO (2026-08-18, brief scope regional §7): esta tabla es la
+          que decide el orden de expansión, no la de abajo — esa es
+          curiosidad general ("adónde más allá de la costa"), ésta es la
+          señal concreta de qué región activar después. */}
+      {filasRegiones.length > 0 && (
+        <StatSection
+          title="Regiones en waitlist — orden de expansión"
+          subtitle="Interés acumulado por región desde el selector del header. Esta lista decide el orden, no la intuición."
+        >
+          <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:14, overflow:'hidden' }}>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:480 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...th, paddingTop:14 }}>Región</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Señales</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Con email</th>
+                    <th style={{ ...th, paddingTop:14, textAlign:'right' }}>Última</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filasRegiones.map((f, i) => (
+                    <tr key={i}>
+                      <td style={{ ...td, fontWeight:700 }}>{i === 0 && '🥇 '}{f.region}</td>
+                      <td style={{ ...td, textAlign:'right', fontWeight:700 }}>{f.senales}</td>
+                      <td style={{ ...td, textAlign:'right', color: f.conEmail > 0 ? A.green : A.muted, fontWeight: f.conEmail > 0 ? 700 : 400 }}>{f.conEmail}</td>
+                      <td style={{ ...td, textAlign:'right', color:A.muted, whiteSpace:'nowrap' }}>{fmtFecha(f.ultima)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </StatSection>
+      )}
+
       <StatSection
         title="Demanda de destinos (expansión)"
         subtitle='Búsquedas en “Buscar en el resto del país”. Cada fila es un destino que la gente pidió y al que todavía no llegamos.'

@@ -49,7 +49,7 @@ import { SCROLL_SUAVE } from '../lib/efectos';
  * `lenis.start()`), no sólo tocar CSS. Como la instancia vive acá adentro y
  * HeroPase es un componente hermano sin acceso directo a ella, se
  * comunican con el mismo patrón que ya usa el resto del sitio para esto
- * (eventos en `window`, ver `cuponear:navbar-pin`/`unpin` en Navbar.jsx):
+ * (eventos en `window`, ver `cuponear:home-reset` en Navbar.jsx):
  * `cuponear:scroll-lock` / `cuponear:scroll-unlock`.
  *
  * ── Refuerzo: allowNestedScroll (2026-08-11, segunda vuelta) ────────────

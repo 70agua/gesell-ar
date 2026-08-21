@@ -210,7 +210,7 @@ const CUPONEAR_CARDS = [
   {
     titulo: 'Traete un recuerdo',
     img: '/aldea.jpeg',
-    alt: 'Aldea de artesanos con turistas recorriendo los locales al atardecer',
+    alt: 'Aldea de artesanos con viajeros recorriendo los locales al atardecer',
     navTarget: 'compras',
   },
   {

@@ -81,8 +81,19 @@ export default function CtaPase({
   // dos Infinity siempre, así que esa cuenta deja de poder distinguir nada.
   // Se reemplaza por el dato real —`elegidasIds`, que sí vive en
   // usePasePropio()— en vez de parchear el síntoma.
-  const { elegidasIds: elegidasPropias, premiumIlimitado } = usePasePropio();
+  const { pase, elegidasIds: elegidasPropias, premiumIlimitado } = usePasePropio();
   const yaElegida = premium && elegidasPropias.includes(promo.id);
+
+  // Scope regional (2026-08-18): un PASS es de UNA región (congelado en la
+  // compra, ver usuario_pases.region_id) y esta oferta es de la región de
+  // su negocio (promo.negocioRegionId). Si no coinciden, el Cupon PASS del
+  // viajero simplemente no aplica ACÁ — "no bloquear, pero avisar" (brief
+  // §6): se ofrece comprar la oferta suelta, nunca "elegilo con tu Pase"
+  // sobre algo que la RPC de canje va a rechazar igual.
+  // Passes viejos sin region_id backfileado (null) no disparan el aviso: es
+  // más seguro no avisar de un desajuste que no se puede confirmar.
+  const paseDeOtraRegion = conPase && !!pase?.region_id && !!promo?.negocioRegionId
+    && pase.region_id !== promo.negocioRegionId;
 
   const alto  = compacto ? '11px 0' : '13px 0';
   const cuerpo = compacto ? 14 : 15;
@@ -118,6 +129,21 @@ export default function CtaPase({
           <span>Ya es tuyo. Mostrá el QR del comercio para canjearlo — tu código es <b>{cuponPropio.codigo}</b>.</span>
         </Nota>
         {boton('Canjear ahora', { accion: onCanjear })}
+      </>
+    );
+  }
+
+  // ─── Pase de otra región ─────────────────────────────────────
+  // Va antes que cualquier rama "con pase": tener un Pase no es lo mismo
+  // que poder usarlo ACÁ. Se ofrece la compra suelta, nunca "elegilo con tu
+  // Pase" sobre algo que después la RPC de canje va a rechazar igual.
+  if (paseDeOtraRegion) {
+    return (
+      <>
+        <Nota>
+          <span>Tu Cupon PASS es de otra región y no aplica acá. Podés sumar esta oferta suelta.</span>
+        </Nota>
+        {boton(precioLista > 0 ? `Sumarlo por ${fmt(precioLista)}` : 'Sumarlo a mi carrito', { accion: onSumar })}
       </>
     );
   }

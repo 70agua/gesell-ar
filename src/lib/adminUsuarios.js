@@ -11,7 +11,7 @@ import { supabase } from './supabase';
 // Capacidades que se tildan por perfil. Fuente única para los checkboxes.
 export const CAPACIDADES = [
   { id: 'socios',       label: 'Gestionar socios comerciales' },
-  { id: 'turistas',     label: 'Gestionar turistas' },
+  { id: 'turistas',     label: 'Gestionar viajeros' },
   { id: 'cupones',      label: 'Gestionar cupones' },
   { id: 'cuponeras',    label: 'Gestionar Cupopacks' },
   { id: 'estadisticas', label: 'Ver estadísticas y ventas' },

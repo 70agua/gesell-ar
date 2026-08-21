@@ -13,12 +13,6 @@ import PerfilNegocioForm from '../components/PerfilNegocioForm';
 import { perfilDesdeNegocio, perfilAPayload, validarPerfil } from '../lib/perfilNegocio';
 import { existePersonaConNombre, existeNegocioConNombre } from '../lib/validacionRegistro';
 import { TabOfertas } from './AdminNegocioView';
-// ─── Helpers ─────────────────────────────────────────────────
-function getSiteName() {
-  if (typeof window === 'undefined') return 'gesell.ar';
-  const h = window.location.hostname.replace('www.', '');
-  return h === 'localhost' ? 'gesell.ar' : h;
-}
 
 // Cupo semanal por defecto de activaciones de pase-regalo
 // (socio_alias.unidades_declaradas) — ya no se le pregunta al socio en el alta.
@@ -659,10 +653,11 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
 
       <div style={{ width: '100%', maxWidth: 480, transition: 'max-width .3s', position: 'relative', zIndex: 1 }}>
 
-        {/* Logo */}
-        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', marginBottom: 22 }}>
+        {/* Logo — sin el dominio al lado (2026-08-18, antes mostraba
+            getSiteName() en un span aparte): la marca es CUPONEaR, mismo
+            criterio que ya se aplicó en la navbar el 2026-08-10. */}
+        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', marginBottom: 22 }}>
           <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 42, width: 'auto' }} />
-          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: A.primary, fontFamily: A.font }}>{getSiteName()}</span>
         </button>
 
         <div className="login-card" style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 24, padding: '30px 30px 26px', boxShadow: '0 24px 70px -28px rgba(15,23,42,0.28), 0 2px 8px rgba(15,23,42,0.04)' }}>
@@ -731,7 +726,7 @@ export default function LoginView({ onLoginSuccess, onBack, onOnboardingComplete
                     <div style={{ fontSize: 13, color: A.muted, marginTop: 4, fontFamily: A.font }}>Elegí una opción para empezar tu registro.</div>
                   </div>
                   {[
-                    { id: 'turista',   Icon: User, titulo: 'Soy turista', desc: 'Explorá descuentos de la zona, armá tu carrito y disfrutá todos los beneficios.' },
+                    { id: 'turista',   Icon: User, titulo: 'Soy viajero', desc: 'Explorá descuentos de la zona, armá tu carrito y disfrutá todos los beneficios.' },
                     { id: 'comercial', Icon: Store,  titulo: 'Tengo un negocio',          desc: 'Armá tu ficha de negocio, publicá ofertas y sumá clientes. ¡Empezá GRATIS!' },
                   ].map(o => (
                     <button key={o.id} type="button" onClick={() => { setModoRegistro(o.id); setError(''); }}

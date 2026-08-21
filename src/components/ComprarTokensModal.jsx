@@ -64,8 +64,8 @@ export default function ComprarTokensModal({ negocioId, saldoActual, onClose, on
         {/* Header */}
         <div className="bg-slate-900 px-8 py-6 flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Comprar créditos</p>
-            <h2 className="text-white font-black text-xl">Saldo actual: {saldoActual || 0} créditos</h2>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Comprar créditos publicitarios</p>
+            <h2 className="text-white font-black text-xl">Saldo actual: {saldoActual || 0} créditos publicitarios</h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={22} /></button>
         </div>

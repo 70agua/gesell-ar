@@ -125,6 +125,10 @@ function normalizeNegocio(n) {
     image:             n.imagen_url          || (Array.isArray(n.galeria) && n.galeria.filter(Boolean)[0]) || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
     location:          n.localidad           || 'Villa Gesell',
     localidad:         n.localidad           || '',
+    // Scope regional (2026-08-18) — nunca se muestra como filtro, sólo
+    // sirve para que los listados descarten lo que no es de la región activa.
+    regionId:          n.region_id           || null,
+    ciudadId:          n.ciudad_id           || null,
     zona:              n.zona                || '',
     // `direccion` es una columna legacy que ningún flujo de alta actual completa —
     // la dirección real vive en `calle`/`numero`/`piso`/`depto` desde que se agregó
@@ -216,6 +220,8 @@ export function normalizePromo(p) {
     proveedorImage:   p.negocios?.foto_perfil || p.negocios?.imagen_url || null,
     negocioLocalidad: p.negocios?.localidad  || '',
     negocioZone:      p.negocios?.zona       || '',
+    negocioRegionId:  p.negocios?.region_id  || null,
+    negocioCiudadId:  p.negocios?.ciudad_id  || null,
     esReal:           true,
   };
 }
@@ -285,7 +291,7 @@ export async function getAventura() {
 export async function getPromos(limit = 8) {
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, categoria, localidad, zona, foto_perfil, imagen_url, activo)')
+    .select('*, negocios(nombre, tipo, categoria, localidad, zona, region_id, ciudad_id, foto_perfil, imagen_url, activo)')
     .eq('activa', true)
     .eq('aprobada', true)
     .order('creado_en', { ascending: false })
@@ -302,7 +308,7 @@ export async function getPromos(limit = 8) {
 export async function getPromosDeNegocio(negocioId) {
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
+    .select('*, negocios(nombre, tipo, localidad, zona, region_id, ciudad_id, foto_perfil, imagen_url, activo)')
     .eq('negocio_id', negocioId)
     .eq('aprobada', true)
     .eq('activa', true);
@@ -314,7 +320,7 @@ export async function getPromosDeNegocio(negocioId) {
 export async function getAlianzasPorNegocio(negocioId) {
   const { data } = await supabase
     .from('alianzas')
-    .select('*, promociones(*, negocios(nombre, localidad, foto_perfil, imagen_url, activo))')
+    .select('*, promociones(*, negocios(nombre, localidad, region_id, ciudad_id, foto_perfil, imagen_url, activo))')
     .eq('negocio_id', negocioId)
     .eq('aprobada', true);
 
@@ -333,7 +339,7 @@ export async function getPromosLocalidad(localidad, excludeNegocioId = null) {
 
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, localidad, zona, foto_perfil, imagen_url, activo)')
+    .select('*, negocios(nombre, tipo, localidad, zona, region_id, ciudad_id, foto_perfil, imagen_url, activo)')
     .eq('activa', true)
     .eq('aprobada', true)
     .in('negocios.localidad', localidades);
@@ -376,7 +382,7 @@ export async function getPromosSimilares(negocio, limite = 12) {
 
   const { data } = await supabase
     .from('promociones')
-    .select('*, negocios(nombre, tipo, localidad, zona, categoria, foto_perfil, imagen_url, activo)')
+    .select('*, negocios(nombre, tipo, localidad, zona, categoria, region_id, ciudad_id, foto_perfil, imagen_url, activo)')
     .eq('activa', true)
     .eq('aprobada', true)
     .neq('negocio_id', negocio.id);
@@ -446,6 +452,8 @@ function normalizeCuponDeCupopack(p) {
     tieneStock:       p.tiene_stock    || false,
     stockRestante:    p.stock_restante != null ? Number(p.stock_restante) : null,
     categoria:        categoriaDeNegocio(n.tipo),
+    regionId:         n.region_id || null,
+    ciudadId:         n.ciudad_id || null,
   };
 }
 
@@ -461,7 +469,7 @@ export async function getCupopacks() {
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
           ahorro_estimado, precio_manual, activa, aprobada, requiere_fecha,
           tiene_stock, stock_maximo, stock_restante,
-          negocios ( nombre, tipo, localidad, descripcion, lat, lng, galeria )
+          negocios ( nombre, tipo, localidad, region_id, ciudad_id, descripcion, lat, lng, galeria )
         )
       )
     `)
@@ -505,7 +513,7 @@ export async function getCupopacksDestacadas() {
           id, titulo, subtitulo, badge, imagen_url, descripcion, condiciones,
           ahorro_estimado, precio_manual, activa, aprobada, requiere_fecha,
           tiene_stock, stock_maximo, stock_restante,
-          negocios ( nombre, tipo, localidad, descripcion, lat, lng, galeria )
+          negocios ( nombre, tipo, localidad, region_id, ciudad_id, descripcion, lat, lng, galeria )
         )
       )
     `)

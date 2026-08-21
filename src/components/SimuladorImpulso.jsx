@@ -135,7 +135,7 @@ export default function SimuladorImpulso({ value, onChange, dias, onChangeDias }
         <img src="/credito-coin.svg" alt="" style={{ width: 40, height: 40, flexShrink: 0 }}/>
         <div style={{ fontSize: 42, fontWeight: 900, lineHeight: 1, color: INK }}>
           {Math.round(creditosAnim)}{' '}
-          <span style={{ fontSize: 20, fontWeight: 500, color: INK }}>créditos</span>{' '}
+          <span style={{ fontSize: 20, fontWeight: 500, color: INK }}>créditos publicitarios</span>{' '}
           <span style={{ fontSize: 20, fontWeight: 300, color: MUTED }}>(${Math.round(pesosAnim).toLocaleString('es-AR')})</span>
         </div>
       </div>

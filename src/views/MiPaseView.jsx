@@ -27,6 +27,7 @@ import {
   getOfertasEstadia,
 } from '../lib/pases';
 import { getMisSolicitudes, cancelarSolicitud, ESTADOS as ESTADOS_SOL, textoError as txtSol } from '../lib/solicitudes';
+import { getRegionPorId, getCiudadesDeRegion } from '../lib/scope';
 import SolicitarFecha from '../components/SolicitarFecha';
 import CupopacksParaPase from '../components/CupopacksParaPase';
 
@@ -65,6 +66,41 @@ function Dato({ label, valor, sub, acento }) {
   );
 }
 
+// ─── Alcance regional del pase (2026-08-18) ────────────────────
+// "Válido en toda la región X" + las ciudades que incluye. pase.region_id
+// queda congelado en la compra (mismo criterio que premium_ilimitado): es
+// la región del PASE, no necesariamente la que el viajero está mirando
+// ahora en el header. Sin región (pases viejos, sin backfill) no muestra
+// nada — más vale nada que un dato mal calculado.
+function RegionDelPase({ pase }) {
+  const [region, setRegion]     = useState(null);
+  const [ciudades, setCiudades] = useState([]);
+
+  useEffect(() => {
+    // getRegionPorId/getCiudadesDeRegion ya devuelven null/[] sin regionId
+    // (ver scope.js), así que no hace falta la rama especial acá — mismo
+    // ajuste que useScope.js: nunca un setState síncrono en el cuerpo del
+    // efecto, siempre a través del .then/await.
+    let vivo = true;
+    const regionId = pase?.region_id;
+    (async () => {
+      const [r, cs] = await Promise.all([getRegionPorId(regionId), getCiudadesDeRegion(regionId)]);
+      if (!vivo) return;
+      setRegion(r);
+      setCiudades(cs);
+    })();
+    return () => { vivo = false; };
+  }, [pase?.region_id]);
+
+  if (!region) return null;
+  return (
+    <div style={{ fontSize: 13, color: A.ink2, lineHeight: 1.5 }}>
+      Válido en toda la región <b style={{ color: A.ink }}>{region.nombre}</b>
+      {ciudades.length > 0 && <>: {ciudades.map(c => c.nombre).join(', ')}</>}
+    </div>
+  );
+}
+
 // ─── Pase pendiente: activar o programar ──────────────────────
 function PaseSinActivar({ pase, onActivado, onError }) {
   const [fecha, setFecha]       = useState(pase.activacion_programada || '');
@@ -95,6 +131,7 @@ function PaseSinActivar({ pase, onActivado, onError }) {
           Dura <b>{dias} días</b> desde que lo activás. Tenés 12 meses desde la compra para hacerlo,
           así que no corre nada hasta que vos digas.
         </div>
+        <div style={{ marginTop: 10 }}><RegionDelPase pase={pase} /></div>
       </div>
 
       <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 16, padding: 20 }}>
@@ -446,6 +483,8 @@ export default function MiPaseView({ session, onBack, onComprarPase, onExplorar 
         <Dato label="Ahorro del viaje" valor={fmt(ahorro)} sub={`${canjes.length} canje${canjes.length !== 1 ? 's' : ''}`} acento={A.green} />
         <Dato label="Premium" valor={premiumIlimitado ? 'Sin tope' : `${restantes}/${total}`} sub="disponibles" acento={A.primary} />
       </div>
+
+      <RegionDelPase pase={pase} />
 
       <Estadia estado={estadia} />
 

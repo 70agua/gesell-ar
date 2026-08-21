@@ -8,6 +8,8 @@ import OfertaCard from '../components/OfertaCard';
 import HeartButton from '../components/HeartButton';
 import { getPortadas, elegirPortada } from '../lib/portadas';
 import BuscarDestinoModal from '../components/BuscarDestinoModal';
+import { getLocalidadesDeCiudad } from '../lib/localidades';
+import useScope from '../hooks/useScope';
 
 // ─── Tokens ──────────────────────────────────────────────────
 const A = {
@@ -24,7 +26,9 @@ const A = {
   font:        "'Inter', system-ui, sans-serif",
 };
 
-const LOCALIDADES = ['Villa Gesell', 'Mar de las Pampas', 'Las Gaviotas', 'Mar Azul', 'Chacras del Mar', 'El Salvaje'];
+// LOCALIDADES era un array literal hardcodeado (2026-08-18: se reemplazó
+// por src/lib/localidades.js, que fetchea desde la tabla `localidades`
+// scopeada a la ciudad activa — ver getLocalidadesDeCiudad más abajo).
 
 // Subcategorías primarias (tipo de negocio agrupado)
 // Subcategorías = CATS_RUBRO (src/lib/datos.js), los valores reales que un socio
@@ -268,6 +272,19 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
   const winW    = useWindowWidth();
   const isMobile = winW < 768;
 
+  // Scope regional (2026-08-18): la región descarta lo que no es de la
+  // región activa antes de cualquier otro filtro — nunca aparece en el
+  // sidebar, ya la eligió el header.
+  const { region, ciudades } = useScope();
+  const [filtroCiudades, setFiltroCiudades] = useState([]); // ids de ciudad
+  const [localidadesDisp, setLocalidadesDisp] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    const objetivo = filtroCiudades.length > 0 ? ciudades.filter(c => filtroCiudades.includes(c.id)) : ciudades;
+    Promise.all(objetivo.map(c => getLocalidadesDeCiudad(c.id))).then(listas => { if (vivo) setLocalidadesDisp(listas.flat()); });
+    return () => { vivo = false; };
+  }, [filtroCiudades, ciudades]);
+
   // Filtros — pre-activados si viene con initialCategoria
   const [tipoAloj,    setTipoAloj]    = useState(initialCategoria === 'alojamiento');
   const [tipoSalidas,  setTipoGastro]  = useState(initialCategoria === 'salidas');
@@ -293,7 +310,7 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
 
       const { data } = await supabase
         .from('promociones')
-        .select('*, negocios(nombre, tipo, categoria, tags, localidad, zona, foto_perfil, imagen_url)')
+        .select('*, negocios(nombre, tipo, categoria, tags, localidad, zona, region_id, ciudad_id, foto_perfil, imagen_url)')
         .eq('activa', true)
         .eq('aprobada', true)
         .order('creado_en', { ascending: false });
@@ -324,6 +341,8 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
           proveedorNombre:  p.negocios?.nombre || '',
           negocioLocalidad: p.negocios?.localidad || '',
           negocioZone:      p.negocios?.zona || '',
+          negocioRegionId:  p.negocios?.region_id || null,
+          negocioCiudadId:  p.negocios?.ciudad_id || null,
           esReal:           true,
         }))
         // Flash solo si tiene fecha futura válida; sin fecha = se descarta igual
@@ -384,8 +403,9 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
     const loc = p.negocioLocalidad;
     if (loc) conteoPorDestino[loc] = (conteoPorDestino[loc] || 0) + 1;
   });
-  const destinosValidos = LOCALIDADES.filter(l => (conteoPorDestino[l] || 0) >= 4);
-  const hayOtrosDestinos = LOCALIDADES.some(l => {
+  const nombresLocalidades = localidadesDisp.map(l => l.nombre);
+  const destinosValidos = nombresLocalidades.filter(l => (conteoPorDestino[l] || 0) >= 4);
+  const hayOtrosDestinos = nombresLocalidades.some(l => {
     const n = conteoPorDestino[l] || 0;
     return n > 0 && n < 4;
   });
@@ -412,6 +432,8 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
   const hayTipo = tipoAloj || tipoSalidas || tipoExp;
   const visibles = promos
     .filter(p => {
+    if (!region || p.negocioRegionId !== region.id) return false;
+    if (filtroCiudades.length > 0 && !filtroCiudades.includes(p.negocioCiudadId)) return false;
     if (busqueda && !p.title.toLowerCase().includes(busqueda.toLowerCase()) &&
         !(p.proveedorNombre || p.subtitle || '').toLowerCase().includes(busqueda.toLowerCase())) return false;
     if (hayTipo) {
@@ -443,6 +465,8 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
 
   // ── Socios del strip: mismos filtros del sidebar (destino, tipo, servicios, búsqueda) ──
   const sociosVisibles = socios.filter(s => {
+    if (!region || s.regionId !== region.id) return false;
+    if (filtroCiudades.length > 0 && !filtroCiudades.includes(s.ciudadId)) return false;
     if (busqueda && !(s.name || '').toLowerCase().includes(busqueda.toLowerCase())) return false;
     if (localidades.length > 0) {
       const enDestino = localidades.filter(l => l !== '__otros__').includes(s.localidad);
@@ -458,10 +482,11 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
   const limpiarFiltros = () => {
     setTipoAloj(false); setTipoGastro(false); setTipoExp(false);
     setSoloFlash(false); setSoloGrupales(false); setLocalidades([]);
+    setFiltroCiudades([]);
     setSubcatPrimaria(new Set()); setSubcatSecundaria(new Set());
     setBusqueda('');
   };
-  const hayFiltros = hayTipo || soloFlash || soloGrupales || localidades.length > 0 || hayOtrosFiltros || busqueda;
+  const hayFiltros = hayTipo || soloFlash || soloGrupales || localidades.length > 0 || filtroCiudades.length > 0 || hayOtrosFiltros || busqueda;
 
   // Infinite scroll
   const filterKey = `${busqueda}|${tipoAloj}|${tipoSalidas}|${tipoExp}|${soloFlash}|${soloGrupales}|${localidades.join()}|${[...subcatPrimaria].join()}|${[...subcatSecundaria].join()}`;
@@ -562,6 +587,24 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
             <CategoriaPill label="Aventura & Relax" checked={tipoExp}     onClick={() => seleccionarCategoria('aventura_relax')} />
           </div>
         </SideSection>
+
+        {/* ── CIUDAD (2026-08-18) — primer grupo, arriba de destino/localidad:
+            es un filtro DENTRO de la región, nunca la región misma. Multi-select
+            porque el Cupon PASS vale en toda la región. */}
+        {!loading && ciudades.length > 1 && (
+          <SideSection
+            title="Ciudad"
+            onLimpiar={filtroCiudades.length > 0 ? () => setFiltroCiudades([]) : null}
+          >
+            {ciudades.map(c => (
+              <CheckRow
+                key={c.id} label={c.nombre}
+                checked={filtroCiudades.includes(c.id)}
+                onChange={() => setFiltroCiudades(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+              />
+            ))}
+          </SideSection>
+        )}
 
         {/* ── DESTINO (solo destinos con ≥4 ofertas) ── */}
         {!loading && (
@@ -770,6 +813,16 @@ export default function OfertasView({ onOpenOferta, initialCategoria = null, ini
           {loading ? (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 16 : 20 }}>
               {[1,2,3,4,5,6].map(i => <div key={i} style={{ height: 340, background: A.line, borderRadius: 20, opacity: 0.5 }} />)}
+            </div>
+          ) : visibles.length === 0 && filtroCiudades.length > 0 ? (
+            // Ciudad de la región sin catálogo todavía — nunca "sin resultados"
+            // a secas cuando la razón es que esa ciudad recién empieza.
+            <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 18, padding: '60px 24px', textAlign: 'center' }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: A.ink, margin: '0 0 6px' }}>
+                Todavía no hay cupones en {filtroCiudades.length === 1 ? (ciudades.find(c => c.id === filtroCiudades[0])?.nombre || 'esta ciudad') : 'estas ciudades'}
+              </p>
+              <p style={{ fontSize: 14, color: A.muted, margin: 0 }}>Mirá los {promos.filter(p => region && p.negocioRegionId === region.id).length} de la región</p>
+              <button onClick={() => setFiltroCiudades([])} style={{ marginTop: 14, background: A.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>Ver toda la región</button>
             </div>
           ) : visibles.length === 0 ? (
             <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 18, padding: '60px 24px', textAlign: 'center' }}>

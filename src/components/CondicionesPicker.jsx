@@ -75,8 +75,8 @@ export default function CondicionesPicker({ valor = '', categoria = null, onChan
 
       <div style={{ marginTop: 6, fontSize: 12, color: total > 0 ? '#10A36B' : '#DC2626', fontWeight: 600 }}>
         {total > 0
-          ? `${total} condición${total === 1 ? '' : 'es'} — así las va a ver el turista antes de comprar.`
-          : 'Marcá al menos una: es lo único que el turista lee antes de llegar al mostrador.'}
+          ? `${total} condición${total === 1 ? '' : 'es'} — así las va a ver el viajero antes de comprar.`
+          : 'Marcá al menos una: es lo único que el viajero lee antes de llegar al mostrador.'}
       </div>
     </div>
   );

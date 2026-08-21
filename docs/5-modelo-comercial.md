@@ -271,7 +271,7 @@ Lo que cambia:
 | **Fecha confirmada que se cae** | No existe el caso | Aviso por flag o Cuponix → anula el arranque agendado. In situ, va a la cola del superadmin, mismo patrón que `reportar_canje_erroneo` |
 | **Agregar días** | No existe | Alta nueva: $5.000 por día venga del pack que venga, y hay que **recalcular** `usuario_pases.premium_ilimitado`, que hoy se congela en la compra |
 | **Gift PASS del turista** | No existe. Regalar pases es sólo del socio | Alta nueva: compra para un tercero, entrega por mail/link/teléfono, 90 días para reclamar, alta de cuenta obligatoria |
-| **Upgrade packs** ($6.000, +1 premium) | Vigentes | A revisar: con un premium por día y el ilimitado a los 10, puede que ya no tengan lugar |
+| **Upgrade packs** ($6.000, +1 premium) | ✅ **Borrados del front el 2026-08-17** | La tabla, la RPC y `upgrade_aplicado` quedan huérfanas pero inertes hasta que se escriba el botón nuevo. ⚠️ Mientras tanto el socio ve el cupo agotarse sin nada que hacer |
 | **Revendedor** | En el CHECK de `negocios.tipo` desde `db/20260802_tipos_empresa_socio.sql` | Queda en la base, pero fuera del discurso comercial |
 
 ---

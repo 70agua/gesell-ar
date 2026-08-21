@@ -127,7 +127,7 @@ const OTROS_SERVICIOS = [
     items: [
       'Catering y organización de eventos',
       'Box de desayunos a pedido',
-      'Viandas congeladas para ofrecer a tus turistas',
+      'Viandas congeladas para ofrecer a tus viajeros',
     ],
   },
 ];
@@ -577,7 +577,7 @@ export default function SociosView({ onBack }) {
             {[
               { n: '1', t: 'Publicás tu oferta', d: 'Es el único requisito para entrar. Sin costo.' },
               { n: '2', t: 'La revisamos', d: 'Miramos que sirva y no tenga problemas legales.' },
-              { n: '3', t: 'Recibís clientes', d: 'Los turistas la compran y la canjean en tu local.' },
+              { n: '3', t: 'Recibís clientes', d: 'Los viajeros la compran y la canjean en tu local.' },
             ].map(p => (
               <div key={p.n} className="bg-emerald-900/50 border border-emerald-800 rounded-2xl p-5">
                 <div className="w-8 h-8 rounded-full bg-emerald-500 text-emerald-950 font-black grid place-items-center mb-3">{p.n}</div>

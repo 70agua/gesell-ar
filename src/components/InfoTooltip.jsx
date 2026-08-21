@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 const TEXTO = 'Monto estimado. Puede variar según fecha, disponibilidad y condiciones del proveedor.';
-const TEXTO_CREDITO = '1 crédito = $2.000 + IVA al momento de la compra. Los créditos no expiran.';
+const TEXTO_CREDITO = '1 crédito publicitario = $2.000 + IVA al momento de la compra. Los créditos publicitarios no expiran.';
 
 export function CreditTooltip() {
   return <InfoTooltip text={TEXTO_CREDITO} />;

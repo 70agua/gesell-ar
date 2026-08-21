@@ -11,7 +11,7 @@ import {
   comprarPase, activarPase, upgradePaseB2C,
   activarRegalo, elegirPremium, getElecciones,
   canjearPase, getCanjes, getAhorroPase, getMisPases,
-  getBloquePase, comprarUpgradePack, asignarUpgradePack,
+  getBloquePase,
 } from '../lib/pases';
 
 const box   = { border: '1px solid #E4DACA', borderRadius: 12, padding: 16, marginBottom: 16, background: '#fff' };
@@ -33,7 +33,6 @@ export default function PaseDebugView({ session, perfil, onBack }) {
   const [baseSel, setBaseSel]       = useState('');
   const [premiumSel, setPremiumSel] = useState('');
   const [negocioId, setNegocioId]   = useState(perfil?.negocio_id || '');
-  const [cantPack, setCantPack]     = useState(10);
   const [log, setLog]           = useState([]);
 
   const registrar = (etiqueta, data) =>
@@ -141,9 +140,6 @@ export default function PaseDebugView({ session, perfil, onBack }) {
         <input style={inp} placeholder="negocio_id" value={negocioId} onChange={e => setNegocioId(e.target.value)} size={38} />
         <div style={{ marginTop: 8 }}>
           <button style={btn2} disabled={!negocioId} onClick={run('getBloquePase', () => getBloquePase(negocioId))}>bloque pase (alias/cupo/packs)</button>
-          <input style={{ ...inp, width: 60, marginLeft: 8 }} type="number" value={cantPack} onChange={e => setCantPack(Number(e.target.value))} />
-          <button style={btn} disabled={!negocioId} onClick={run('comprarUpgradePack', () => comprarUpgradePack({ negocioId, cantidad: cantPack, pagoRef: nuevoRef('pack') }))}>comprar pack (≥10)</button>
-          <button style={btn2} disabled={!negocioId || !paseSel} onClick={run('asignarUpgradePack', () => asignarUpgradePack(paseSel).then(r => (cargarMisPases(), r)))}>asignar upgrade al pase</button>
         </div>
       </div>
 

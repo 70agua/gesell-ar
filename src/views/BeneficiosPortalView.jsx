@@ -26,7 +26,7 @@ const MOCK_NEGOCIO = {
   localidad: 'Las Gaviotas',
   logo:      null,
   portada:   'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&h=400&fit=crop',
-  descripcion: 'Beneficios exclusivos para turistas y visitantes del Apart Hotel Las Gaviotas. Disfrutá descuentos en gastronomía, actividades y servicios de la zona.',
+  descripcion: 'Beneficios exclusivos para viajeros y visitantes del Apart Hotel Las Gaviotas. Disfrutá descuentos en gastronomía, actividades y servicios de la zona.',
 };
 
 const MOCK_OFERTAS = [
@@ -208,7 +208,7 @@ export default function BeneficiosPortalView({ negocio: negocioProp, ofertas: of
           {/* Pill "beneficios exclusivos" */}
           <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(71,91,225,0.85)', backdropFilter:'blur(6px)', borderRadius:999, padding:'5px 14px', marginBottom:12 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span style={{ fontSize:11, fontWeight:800, color:'#fff', letterSpacing:'0.06em', textTransform:'uppercase' }}>Beneficios exclusivos para turistas</span>
+            <span style={{ fontSize:11, fontWeight:800, color:'#fff', letterSpacing:'0.06em', textTransform:'uppercase' }}>Beneficios exclusivos para viajeros</span>
           </div>
 
           <div style={{ display:'flex', alignItems:'flex-end', gap:16 }}>

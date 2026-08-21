@@ -144,13 +144,17 @@ where conrelid = 'public.<tabla>'::regclass and contype = 'c';
 | **Pase** | Acceso por N días: regulares ilimitados + N premium | `src/lib/pases.js` |
 | **Cupopack** | Selección curada de cupones que arma Cuponear | `src/lib/cupopacks.js`, `CupopackModal.jsx`, `PortadaCupopack.jsx` |
 
-Además: **créditos publicitarios** (del socio) y **puntos** (del turista) — nunca "créditos" ni "tokens" a secas.
+Además: **créditos publicitarios** (del socio) y **puntos** (del viajero) — nunca "créditos" ni "tokens" a secas. En el copy del socio se escribe "créditos publicitarios" completo, no "créditos".
 
 **El Pase se renombra a PASS y se parte en tres** (decisión del 2026-08-17, `docs/5-modelo-comercial.md` §2, **sin ejecutar**): **Cupon PASS** (el que el turista compra para sí), **Gift PASS** (el mismo, comprado para un tercero) y **Gift PASS PRO** (la suscripción del socio distribuidor). Los tres nombres van en comunicación, UI **y** código. "Pase" sobrevive sólo como sinónimo informal de uso escaso — no es etiqueta de pantalla. Mientras el rename no se ejecute, el código sigue diciendo `pase`/`pases`.
 
 **"Gesell PASS" está muerto en todas sus grafías** (Gesell Pass, Gesell PaSS, el logo) y **el borrado ya se ejecutó** (2026-08-17): `pases.nombre_comercial` dice "Cupon PaSS", el prop `conGesell` de `PaSSMark` pasó a `conPrefijo`, y `public/gesell-pass*.svg` se borraron. El destino **no va en el nombre del producto**: el esquema es multi-destino a propósito y una marca que se llama por su ciudad no se puede expandir sin renombrarse. Sobrevive sólo en docs históricos, como registro.
 
-**"Huésped" también se retiró del copy** (2026-07-31). El actor es **turista**, que es como ya se llama en el código. El plan no es sólo para alojamientos —también para agencias de turismo—, así que "huésped" quedaba corto. Para *contar gente* (capacidad de una unidad, cantidad en una solicitud) se dice **personas**, no "turistas": es un conteo, no el nombre del actor. Los identificadores de código y las columnas siguen igual (`unidad_precio='huesped'`, `min_huespedes`, `max_huespedes`, `num_huespedes`, `exclusivoHuespedes`).
+**El actor se llama VIAJERO en pantalla** (2026-08-17, ejecutado). Reemplaza a "turista" **y** a "huésped", que ya se había retirado el 2026-07-31 por quedarse corto: el plan no es sólo para alojamientos, también para agencias e inmobiliarias. Se barrieron las ~40 cadenas visibles; no queda ni un "huésped" ni un "turista" en copy.
+
+**En código no cambió nada, a propósito.** Siguen `rol: 'turista'`, `registrar_compra_turista`, `BienvenidaTuristaWizard.jsx`, `id: 'turista'`, `unidad_precio='huesped'`, `min_huespedes`, `max_huespedes`, `num_huespedes`, `exclusivoHuespedes`. **Al leer código, el identificador no dice el vocabulario** — mismo criterio que con "cuponera".
+
+Para *contar gente* (capacidad de una unidad, cantidad en una solicitud) se dice **personas**, no "viajeros": es un conteo, no el nombre del actor.
 
 ### Dos monedas, cuatro tablas que dicen "token"
 
@@ -242,7 +246,9 @@ Bloque en el panel del socio (`TabCanjes` → `BloquePase`), datos vía `bloque_
 
 - **Tope de regalos: global, 150/mes, igual para todos.** Vive en `configuracion.pases_regalo_tope_mensual` y se edita en SuperAdmin → General → Pase. **No es un atributo del plan**: antes el plan pago daba regalos ilimitados y eso socavaba el precio de las tandas del distribuidor. Por encima del tope, el socio compra tandas (`docs/4-socio-distribuidor.md`, sin implementar).
 - **Premium: 1 incluido, igual para todos.** `pro_1`/`pro_6`/`pro_12` son formas de **pago**, no niveles de servicio.
-- **Upgrade packs** ($6.000 c/u, mínimo 10) dan **+1 premium** cada uno sobre un pase regalo concreto, vía `asignar_upgrade_pack()` (descuento de saldo atómico). Se pueden acumular en el mismo pase. Antes sólo habilitaban puntos, que no se podía vender.
+- ~~**Upgrade packs**~~ **borrados del front el 2026-08-17.** Daban +1 premium sobre un pase regalo ($6.000 c/u, mínimo 10). Se fueron con el modelo nuevo: el socio ya no compra premium sueltos, compra pases. Quedaron **huérfanas pero inertes** en la base, a propósito: la tabla `negocio_upgrade_packs`, la RPC `asignar_upgrade_pack()` y la columna `usuario_pases.upgrade_aplicado` —que leen `otorgar_pase_regalo` y `elegir_premium` en tres migraciones—. Se limpian cuando se escriba "Quiero regalar más pases", que reescribe ese bloque igual.
+
+⚠️ **Hueco abierto:** hasta que exista ese botón, el socio ve el cupo agotándose y **no tiene nada que hacer al respecto**.
 
 > ⚠️ **Esto se convierte en el Gift PASS PRO** (2026-08-17, `docs/5-modelo-comercial.md` §5, **sin ejecutar**). El tope global de 150 pasa a ser un **cupo de 50 que el socio compra** con su suscripción y que **se pierde si no lo usa**; por encima, compra pases extra sueltos a $2.500 (`PRECIO_MIN`). El regalo deja de ser un beneficio lateral del plan: **es el producto**. El precio del abono no cambia ($45.000/$37.500/$30.000), pero **los 15 créditos mensuales desaparecen** — sólo queda el bono de bienvenida (5/20/60). ⚠️ Los pases extra chocan de nombre con los **upgrade packs** de acá arriba, que son otra cosa (+1 premium, no +1 pase): hay que renombrar antes de codear.
 

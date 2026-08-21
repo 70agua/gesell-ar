@@ -40,8 +40,6 @@ export { AHORRO_BASE_MAX };
 // El tope de pases regalo dejó de ser una constante de código y un atributo
 // del plan: es GLOBAL y vive en `configuracion.pases_regalo_tope_mensual`
 // (arranca en 150/mes), para poder calibrarlo en temporada sin deploy.
-export const UPGRADE_PACK_MIN      = 10;      // compra mayorista mínima
-export const UPGRADE_PACK_PRECIO   = 6000;    // $ por upgrade (50% de $12.000)
 export const VENTANA_ACTIVACION_MESES = 12;   // tope para activar un pase comprado
 
 // Puntos bajo pase (no aplica la tabla por tramo). Solo el pagador gana.
@@ -125,19 +123,25 @@ export const precioSueltoConPase = (precioLista) =>
 // Todos los pases vigentes de un destino, del más corto al más largo. Hoy son
 // dos duraciones (3 y 7 días); el hero y el checkout leen los precios de acá,
 // así no quedan hardcodeados en la UI.
-export async function getPasesDestino(destino = DESTINO_DEFAULT) {
-  const { data } = await supabase
+//
+// `regionId` filtra por región (brief scope regional 2026-08-18): precios y
+// duraciones son por región, así que cambiar de región tiene que refetchear.
+// Sin `regionId` trae todas las del destino, que es el comportamiento previo
+// a la regionalización — lo mantiene el que todavía no pasó `region.id`.
+export async function getPasesDestino(destino = DESTINO_DEFAULT, regionId = null) {
+  let query = supabase
     .from('pases')
     .select('*')
     .eq('destino_slug', destino)
-    .eq('activo', true)
-    .order('duracion_dias', { ascending: true });
+    .eq('activo', true);
+  if (regionId) query = query.eq('region_id', regionId);
+  const { data } = await query.order('duracion_dias', { ascending: true });
   return data || [];
 }
 
 // Un pase puntual. Sin `dias` devuelve el más largo, que es el histórico.
-export async function getPaseDestino(destino = DESTINO_DEFAULT, dias = null) {
-  const pases = await getPasesDestino(destino);
+export async function getPaseDestino(destino = DESTINO_DEFAULT, dias = null, regionId = null) {
+  const pases = await getPasesDestino(destino, regionId);
   if (!pases.length) return null;
   if (dias == null) return pases[pases.length - 1];
   return pases.find(p => p.duracion_dias === dias) || null;
@@ -150,7 +154,16 @@ export async function getPaseDestino(destino = DESTINO_DEFAULT, dias = null) {
 // ═══════════════════════════════════════════════════════════
 export async function comprarPaseAnonimo({ paseId, precio, email, telefono = null, nombre = null, apellido = null, dias = null, pagoRef = null }) {
   if (!paseId || !email) return { ok: false, error: 'datos_incompletos' };
-  const { data, error } = await supabase
+  // Sin `.select()`: encadenarlo pide el row de vuelta (RETURNING), y Postgres
+  // exige que esa fila sea visible bajo la policy de SELECT — que en
+  // `pase_compras_select_propias` filtra por `user_id = auth.uid()` o el mail
+  // del JWT. Un comprador anónimo no tiene ninguno de los dos, así que el
+  // INSERT completo (que sí pasa su propio WITH CHECK) terminaba rechazado
+  // igual, con el mismo error genérico de RLS — descubierto al verificar el
+  // checkout diferido (brief 2026-08-18 §D): antes nunca se probó sin sesión
+  // porque el registro corría ANTES de esta llamada. No hace falta el row de
+  // vuelta — nadie lo lee — así que la forma correcta es no pedirlo.
+  const { error } = await supabase
     .from('pase_compras')
     .insert({
       pase_id:  paseId,
@@ -167,11 +180,9 @@ export async function comprarPaseAnonimo({ paseId, precio, email, telefono = nul
       // Sin pasarela real: la referencia es un mock, igual que el resto de la app.
       pago_ref: pagoRef || `mock-${Date.now()}`,
       estado:   'pagado',
-    })
-    .select()
-    .single();
+    });
   if (error) return { ok: false, error: error.message };
-  return { ok: true, compra: data };
+  return { ok: true };
 }
 
 // Al terminar el registro, las compras hechas con ese mail se convierten en
@@ -188,6 +199,15 @@ export async function vincularComprasPase(userId, email) {
 
   if (!compras?.length) return { ok: true, vinculadas: 0 };
 
+  // Región congelada en la compra (2026-08-18, mismo criterio que
+  // premium_ilimitado): un mapa pase_id → region_id, una sola query para
+  // todas las compras del lote en vez de una por compra.
+  const { data: pasesInvolucrados } = await supabase
+    .from('pases')
+    .select('id, region_id')
+    .in('id', [...new Set(compras.map(c => c.pase_id))]);
+  const regionPorPase = new Map((pasesInvolucrados || []).map(p => [p.id, p.region_id]));
+
   let vinculadas = 0;
   for (const compra of compras) {
     const { data: up, error } = await supabase
@@ -198,6 +218,7 @@ export async function vincularComprasPase(userId, email) {
         tipo:          'comprado',
         estado:        'pendiente',
         pago_ref_pase: compra.pago_ref,
+        region_id:     regionPorPase.get(compra.pase_id) || null,
         // Días comprados y su cupo premium (uno por día). En null cuando la
         // compra no los trae: ahí mandan los del catálogo.
         dias:               compra.dias || null,
@@ -261,12 +282,17 @@ export async function getOfertasBase() {
 // Es un número de catálogo — cuántos cupones tenés disponibles —, no de canjes:
 // el tope de uso (1 por comercio, 1 estadía por pase) es otra regla y va aparte.
 // Devuelve ceros ante error o catálogo vacío; la UI oculta la línea, no inventa.
-export async function contarDescuentosDelPase() {
-  const { data, error } = await supabase
+// `regionId` scopea el conteo a la región del pase (2026-08-18) — antes
+// contaba el catálogo entero sin importar la región, mismo problema que
+// tenía getEstimacionAhorro().
+export async function contarDescuentosDelPase(regionId = null) {
+  let query = supabase
     .from('promociones')
-    .select('id, ahorro_estimado, tokens_costo, offer_type, fecha_fin_flash, negocios(activo)')
+    .select('id, ahorro_estimado, tokens_costo, offer_type, fecha_fin_flash, negocios!inner(activo, region_id)')
     .eq('activa', true)
     .eq('aprobada', true);
+  if (regionId) query = query.eq('negocios.region_id', regionId);
+  const { data, error } = await query;
 
   if (error) return { incluidas: 0, plus: 0, total: 0 };
 
@@ -283,9 +309,74 @@ export async function contarDescuentosDelPase() {
 
 // Atajo para la capa incluida sola, que es lo que muestra el checkout al pie
 // de cada pase. Una sola consulta y una sola regla, compartidas con el total.
-export async function contarIncluidasEnPase() {
-  const { incluidas } = await contarDescuentosDelPase();
+export async function contarIncluidasEnPase(regionId = null) {
+  const { incluidas } = await contarDescuentosDelPase(regionId);
   return incluidas;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Ahorro estimado por pase (checkout §E) — real, no fabricado: sale
+//  del catálogo vivo de la REGIÓN del pase, dedup 1 oferta por comercio
+//  (misma regla que usePaseStats, porque el canje es 1 por comercio).
+//
+//  Sólo se junta `premiumOrdenado`: el ahorro de cada comercio premium, de
+//  mayor a menor. Cada pase suma sus primeras N (una por día, ver
+//  eleccionesPremium) — es el mejor caso alcanzable con las elecciones que
+//  ese pase da, no un promedio inventado. La capa base NO se suma acá
+//  (2026-08-18): es de uso ilimitado en TODOS los negocios, así que sumar
+//  "el mejor descuento de cada uno de los N negocios" no es un ahorro que
+//  nadie va a juntar en un viaje real — daba números de siete cifras en el
+//  checkout. `Incluye` (SelectorDuracion.jsx) sigue mostrando la capa base
+//  como CONTEO ("127 descuentos incluidos"), no como plata.
+//
+//  Una sola consulta para los tres pases: se pide una vez y cada pase
+//  combina el resultado con su propia duración.
+//
+//  `regionId` filtra el catálogo a la región del pase que se está por
+//  comprar (antes consultaba TODO el catálogo sin importar la región —
+//  otro dato que este checkout mostraba sin scopear).
+// ═══════════════════════════════════════════════════════════
+export async function getEstimacionAhorro(regionId = null) {
+  let query = supabase
+    .from('promociones')
+    .select('ahorro_estimado, tokens_costo, offer_type, fecha_fin_flash, negocio_id, negocios!inner(activo, region_id)')
+    .eq('activa', true)
+    .eq('aprobada', true);
+  if (regionId) query = query.eq('negocios.region_id', regionId);
+  const { data, error } = await query;
+
+  if (error) return { premiumOrdenado: [] };
+
+  const ahora = Date.now();
+  const vigentes = (data || []).filter(p =>
+    p.negocios?.activo !== false &&
+    p.tokens_costo !== 0 &&
+    (p.offer_type !== 'Flash' || (p.fecha_fin_flash && new Date(p.fecha_fin_flash).getTime() > ahora))
+  );
+
+  const mejorPremium = new Map();
+  vigentes.forEach(p => {
+    const ahorro = Number(p.ahorro_estimado) || 0;
+    if (ahorro <= AHORRO_BASE_MAX) return; // capa base: no se suma acá, ver nota arriba
+    if (ahorro > (mejorPremium.get(p.negocio_id) || 0)) mejorPremium.set(p.negocio_id, ahorro);
+  });
+
+  return { premiumOrdenado: [...mejorPremium.values()].sort((a, b) => b - a) };
+}
+
+// Ahorro estimado de un pase de `dias` — SÓLO la capa premium (2026-08-18,
+// arreglado: sumaba también `base`, que reportó como "millones" sin
+// sentido en el checkout). `base` es la suma del mejor descuento de CADA
+// negocio de la capa incluida, y esa capa es de uso ILIMITADO — sumar
+// "el mejor de cada uno de los 60 y pico negocios" no es un ahorro real
+// que alguien vaya a juntar en un viaje, es sumar un catálogo entero.
+// `premiumOrdenado` en cambio SÍ es un número honesto: son las N mejores
+// elecciones premium, y N es exactamente el cupo real que ese pase otorga
+// (eleccionesPremium(dias), o todo si es ilimitado) — se pueden usar todas.
+export function ahorroEstimadoPase({ premiumOrdenado }, dias) {
+  return esPremiumIlimitado(dias)
+    ? premiumOrdenado.reduce((acc, v) => acc + v, 0)
+    : premiumOrdenado.slice(0, eleccionesPremium(dias)).reduce((acc, v) => acc + v, 0);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -386,6 +477,10 @@ export async function comprarPase({ userId, destino = DESTINO_DEFAULT, pagoRef =
       tipo:          'comprado',
       estado:        'pendiente',
       pago_ref_pase: pagoRef,
+      // Congelado en la compra (2026-08-18), mismo criterio que
+      // premium_ilimitado: un PASS no cambia de región si el viajero
+      // cambia el scope de navegación después.
+      region_id:     pase.region_id || null,
     })
     .select()
     .single();
@@ -607,38 +702,14 @@ export async function getBloquePase(negocioId) {
   return data;
 }
 
-// Asignar un upgrade pack a un pase regalo: +1 premium.
+// Los upgrade packs (+1 premium sobre un pase regalo, $6.000 c/u) se borraron
+// el 2026-08-17 con el modelo comercial nuevo: el socio ya no compra premium
+// sueltos, compra pases. Lo reemplaza "Quiero regalar más pases"
+// (docs/5-modelo-comercial.md §5), que todavía no existe.
 //
-// Antes esto era un read-then-write desde el cliente que podía gastar dos
-// veces el mismo saldo, y el upgrade sólo habilitaba PUNTOS — el hotel pagaba
-// $6.000 para que su turista ganara 300. Ahora otorga premium, y el descuento
-// del saldo es atómico del lado del servidor.
-export async function asignarUpgradePack(usuarioPaseId) {
-  const { data, error } = await supabase.rpc('asignar_upgrade_pack', {
-    p_usuario_pase_id: usuarioPaseId,
-  });
-  if (error) return { ok: false, error: error.message };
-  if (!data?.ok) return { ok: false, error: data?.error };
-  return { ok: true, premiumTotal: data.premium_total };
-}
-
-// La compra de packs sigue del lado del cliente porque no hay pasarela real:
-// es el mismo mock que el resto de los pagos.
-export async function comprarUpgradePack({ negocioId, cantidad, pagoRef = null }) {
-  if (!cantidad || cantidad < UPGRADE_PACK_MIN) {
-    return { ok: false, error: `minimo_${UPGRADE_PACK_MIN}` };
-  }
-  const { data: actual } = await supabase
-    .from('negocio_upgrade_packs').select('*').eq('negocio_id', negocioId).maybeSingle();
-
-  const { error } = actual
-    ? await supabase.from('negocio_upgrade_packs')
-        .update({ comprados: (actual.comprados || 0) + cantidad, pago_ref: pagoRef, updated_at: new Date().toISOString() })
-        .eq('negocio_id', negocioId)
-    : await supabase.from('negocio_upgrade_packs')
-        .insert({ negocio_id: negocioId, comprados: cantidad, usados: 0, pago_ref: pagoRef });
-
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, cantidad, total: cantidad * UPGRADE_PACK_PRECIO };
-}
+// Quedaron en pie a propósito, huérfanas pero inertes: la tabla
+// `negocio_upgrade_packs`, la RPC `asignar_upgrade_pack` y la columna
+// `usuario_pases.upgrade_aplicado` —que leen `otorgar_pase_regalo` y
+// `elegir_premium` en tres migraciones—. Se limpian cuando se escriba el
+// botón nuevo, que reescribe ese bloque igual.
 

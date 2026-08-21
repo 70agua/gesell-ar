@@ -295,7 +295,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
                   </span>
                 </div>
               ) : (
-                <p className="text-slate-400 text-xs font-medium mt-1">Se muestra en la tarjeta como “Ahorrás $X aprox.” y define los puntos que gana el turista.</p>
+                <p className="text-slate-400 text-xs font-medium mt-1">Se muestra en la tarjeta como “Ahorrás $X aprox.” y define los puntos que gana el viajero.</p>
               )}
             </div>
 
@@ -445,7 +445,7 @@ export default function OfertaEditorDrawer({ oferta, negocioId, onClose, onSave 
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-500 mb-1.5">Beneficio mejorado para sus turistas</label>
+                  <label className="block text-xs font-black text-slate-500 mb-1.5">Beneficio mejorado para sus viajeros</label>
                   <input
                     value={al.beneficio_mejorado}
                     onChange={e => actualizarAlianza(i, 'beneficio_mejorado', e.target.value)}

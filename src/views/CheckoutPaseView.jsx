@@ -1,170 +1,29 @@
 // ============================================================
 //  src/views/CheckoutPaseView.jsx
-//  Compra directa del Cupon PASS, sin cuenta: elegís duración, dejás mail y
-//  teléfono, pagás. El alta como turista viene después (paso 2), y ahí la
-//  compra se vincula al usuario recién creado.
+//  Compra directa del Cupon PASS, sin cuenta: elegís duración y dejás tu
+//  mail — el pago no pide contraseña. El alta como turista se completa
+//  DESPUÉS de pagar, en la pantalla de confirmación (brief checkout
+//  2026-08-18, §D): `comprarPaseAnonimo()` no necesita cuenta (RLS
+//  pública en `pase_compras`), así que pedirla antes de cobrar era
+//  fricción autoinfligida.
 //  El pago es MOCK, igual que el resto de la app.
 // ============================================================
 import { useEffect, useRef, useState } from 'react';
-import { Check, CreditCard, Loader2, Minus, Plus } from 'lucide-react';
-import { getPasesDestino, comprarPaseAnonimo, vincularComprasPase, eleccionesPremium, esPremiumIlimitado, contarIncluidasEnPase } from '../lib/pases';
+import { Check, Loader2 } from 'lucide-react';
+import {
+  getPasesDestino, comprarPaseAnonimo, vincularComprasPase,
+  contarIncluidasEnPase, getEstimacionAhorro, ahorroEstimadoPase,
+} from '../lib/pases';
 import { usePasePropio } from '../lib/pasePropio';
+import useScope from '../hooks/useScope';
 import CupopacksParaPase from '../components/CupopacksParaPase';
-import PaSSMark from '../components/PaSSMark';
 import Icono from '../components/Icono';
 import CaptchaDeslizar from '../components/CaptchaDeslizar';
+import ResumenPase from '../components/pase/ResumenPase';
+import SelectorDuracion, { DIAS_CUSTOM_INICIAL, DIAS_BASE_PRORRATEO } from '../components/pase/SelectorDuracion';
+import DatosCompra from '../components/pase/DatosCompra';
+import { C, fmt, redondear, inputSt, labelSt, datosCompraValidos } from '../components/pase/checkoutTokens';
 import { loginConIdentificador, pareceEmail, registrarTurista, recuperarPassword, getSession } from '../lib/auth';
-
-// Paleta acotada a la línea de la marca: primary, negro, blanco y los grises
-// que se desprenden de ahí. Sin amarillo ni navy — el checkout es la pantalla
-// de plata y tiene que leerse sobria.
-const C = {
-  primary:     '#475BE1',
-  primaryDark: '#3347C8',
-  primarySoft: '#EEF0FD',
-  ink:         '#0B1020',
-  ink2:        '#3D4255',
-  muted:       '#6B7280',
-  line:        '#E7E9EE',
-  bg:          '#F7F7F8',
-  font:        "'Inter', system-ui, sans-serif",
-};
-
-// Tercera opción: pase a medida. Arranca donde termina el de 7 días y se cobra
-// proporcional a ese pase (mismo precio por día), sin recargo ni descuento.
-const DIAS_CUSTOM_MIN = 8;
-const DIAS_CUSTOM_MAX = 30;
-// El selector arranca posicionado en 10 y no en el mínimo: es la cantidad de
-// días que el negocio quiere mostrar primero (aunque el turista pueda igual
-// bajarlo a 9 u 8 con el paso a paso). Un default != mínimo es una decisión de
-// producto, no un olvido — por eso queda como constante nombrada y no un
-// número suelto en el useState.
-const DIAS_CUSTOM_INICIAL = 10;
-const DIAS_BASE_PRORRATEO = 7;
-
-const fmt = n => `$${Math.round(Number(n) || 0).toLocaleString('es-AR')}`;
-// Redondeo a la centena para que el prorrateo no escupa precios con cifras sueltas.
-const redondear = n => Math.round((Number(n) || 0) / 100) * 100;
-const emailValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
-// Teléfono opcional: si lo cargan, que al menos tenga 8 dígitos.
-const telValido = v => !v.trim() || v.replace(/\D/g, '').length >= 8;
-
-const inputSt = {
-  width: '100%', boxSizing: 'border-box', padding: '13px 15px', borderRadius: 12,
-  border: `1px solid ${C.line}`, fontSize: 15, fontFamily: C.font, color: C.ink,
-  outline: 'none', background: '#fff',
-};
-const labelSt = { display: 'block', fontSize: 12.5, fontWeight: 700, color: C.ink2, marginBottom: 6 };
-
-// ─── Botón −/+ del pase a medida ─────────────────────────────
-function StepBtn({ children, label, disabled, onClick }) {
-  return (
-    <button
-      type="button" aria-label={label} disabled={disabled}
-      onClick={e => { e.stopPropagation(); onClick(); }}
-      style={{
-        display: 'grid', placeItems: 'center', width: 26, height: 26, flexShrink: 0,
-        borderRadius: 8, border: `1px solid ${C.line}`, background: '#475BE1',
-        color: disabled ? '#5f76ea' : C.line, cursor: disabled ? 'not-allowed' : 'pointer',
-        padding: 0, fontFamily: C.font,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ─── Ícono de la aclaración de reserva previa ────────────────
-// Uno solo, el del calendario: lo que hay que entender acá es "con fecha por
-// adelantado", no el catálogo de rubros. Es Lottie con animar (loop permanente,
-// no espera hover) y el canvas cuadrado necesita ancho explícito.
-const ICONO_RESERVA = { src: '/iconos/fecha.json', label: 'Fecha coordinada', lado: 54 };
-
-// ─── Tilde de selección, arriba a la derecha de cada tarjeta ─
-// El borde y el fondo azul ya marcan cuál está elegido, pero de reojo se
-// confunden entre tres cajas iguales. El tilde lo dice sin ambigüedad y, como
-// es redondo y hay uno solo prendido, se lee como lo que es: excluyente.
-function TildePase({ activo }) {
-  return (
-    <span aria-hidden="true"
-      style={{
-        flexShrink: 0, display: 'grid', placeItems: 'center',
-        width: 20, height: 20, borderRadius: '50%',
-        border: `1.5px solid ${activo ? C.primary : C.line}`,
-        background: activo ? C.primary : '#fff',
-        transition: 'all .15s',
-      }}
-    >
-      {activo && <Check size={12} color="#fff" strokeWidth={3.5} />}
-    </span>
-  );
-}
-
-// ─── Qué trae cada pase, al pie de su tarjeta ────────────────
-// Dos renglones, en el orden en que se entiende la oferta: primero el catálogo
-// que entra entero (igual para todos los pases, sale del catálogo vivo) y
-// después las elecciones premium, que sí crecen con los días.
-// Si el conteo de incluidas todavía no llegó (o dio 0), esa línea no se pinta.
-//
-// Desde DIAS_PREMIUM_ILIMITADO (10 días) las dos líneas se reemplazan por una
-// sola: a esa duración no hay "N descuentos premium" que contar, porque no hay
-// tope — reportar un número ahí sería inventarle un límite que no tiene.
-function Incluye({ incluidas, dias }) {
-  if (esPremiumIlimitado(dias)) {
-    return (
-      <div style={{ fontSize: 11.5, color: C.primary, fontWeight: 700, lineHeight: 1.35, marginTop: 6 }}>
-        Todo el catálogo disponible
-      </div>
-    );
-  }
-  return (
-    <div style={{ fontSize: 11.5, fontWeight: 500, color: C.muted, marginTop: 6 }}>
-      {incluidas > 0 && <div>{incluidas} descuentos incluidos</div>}
-      <div style={{ fontSize: 11.5, color: C.primary, fontWeight: 700, lineHeight: 1.35 }}>+ {eleccionesPremium(dias)} descuentos PREMIUM</div>
-    </div>
-  );
-}
-
-// ─── Cómo funciona: los tres pasos, antes de elegir nada ─────
-const PASOS = [
-  { t: 'Elegí un pase',              d: '¿Cuántos días te quedás? Pagás online, completás tus datos y el pase queda a tu nombre.' },
-  { t: 'Activá el pase o programá su activación', d: '¿Cuando llegás a destino? Elegís una fecha y se activa sola.' },
-  { t: '¡Explorás las ofertas!', d: 'Mostrá el pase en el local y el descuento se aplica al toque, las veces que quieras mientras esté activo.' },
-];
-
-function ComoFunciona() {
-  return (
-    <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '22px 22px 20px', marginBottom: 16 }}>
-      <div style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: C.primary, letterSpacing: '-0.01em', textAlign: 'center', margin: '2px 0 20px' }}>
-        ¿Cómo funciona?
-      </div>
-      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {PASOS.map((p, i) => (
-          <li key={p.t} style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
-            <span style={{ flexShrink: 0, display: 'grid', placeItems: 'center', width: 26, height: 26, borderRadius: '50%', background: C.primarySoft, color: C.primary, fontSize: 13, fontWeight: 800 }}>
-              {i + 1}
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>{p.t}</div>
-              <div style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5, marginTop: 2 }}>{p.d}</div>
-            </div>
-          </li>
-        ))}
-      </ol>
-      {/* Reserva previa: el ícono hace de ilustración de a qué se refiere */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '18px 0 0', padding: '14px 16px', background: C.bg, borderRadius: 12 }}>
-        <Icono src={ICONO_RESERVA.src} label={ICONO_RESERVA.label} animar
-          style={{ height: ICONO_RESERVA.lado, width: ICONO_RESERVA.lado, display: 'block', flexShrink: 0 }} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>Canjeá con tiempo las ofertas que requieran fecha y hora.</div>
-          <p style={{ margin: '2px 0 0', fontSize: 13, color: C.ink2, lineHeight: 1.5 }}>
-            Desde la ficha del cupón podés asegurarte por anticipado que los servicios que requieran confirmación estarán disponibles en la fecha que desées (alojamientos, masajes, una cabalgata, etc). Deberás esperar la respuesta del comercio.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Paso 0: ¿de qué lado del mostrador estás? ───────────────
 // Sólo aparece cuando se entra por "Planes y suscripción", que es la puerta
@@ -173,7 +32,7 @@ function ComoFunciona() {
 const PERFILES = [
   {
     id: 'turista',
-    titulo: 'Soy turista',
+    titulo: 'Soy viajero',
     bajada: 'Vengo unos días y quiero mi pase con todos los descuentos.',
     cta: 'Ver los pases',
     icono: '/iconos/sombrilla.svg',
@@ -181,7 +40,7 @@ const PERFILES = [
   {
     id: 'hotelero',
     titulo: 'Soy hotelero',
-    bajada: 'Quiero regalarles el pase a mis turistas y sumar mi alojamiento.',
+    bajada: 'Quiero regalarles el pase a mis viajeros y sumar mi alojamiento.',
     cta: 'Ver los planes',
     icono: '/iconos/cabania.json',
   },
@@ -224,9 +83,6 @@ function PasoPerfil({ onElegir }) {
                 e.currentTarget.style.transform = 'none';
               }}
             >
-              {/* El SVG es vertical y se dibuja con width:'auto'; el Lottie
-                  corre sobre un canvas cuadrado y necesita ancho explícito.
-                  hoverEn="padre": el mouse entra por la tarjeta, no por el ícono. */}
               <Icono src={p.icono} hoverEn="padre"
                 style={{ height: 58, width: p.icono.endsWith('.json') ? 58 : 'auto', display: 'block' }} />
               <span style={{ fontSize: 18, fontWeight: 800, color: C.ink, letterSpacing: '-0.01em' }}>{p.titulo}</span>
@@ -260,53 +116,185 @@ function OfertaPostCompra() {
   );
 }
 
+// ─── Post-pago: crear la contraseña ──────────────────────────
+// El alta se completa acá, sobre un usuario que ya convirtió y pagó — no
+// antes. `modo` cubre el caso borde de quien ya tenía cuenta con ese mail
+// (typeó "Soy nuevo" por error, o el mail coincide con una cuenta vieja):
+// si `registrarTurista` devuelve "ya existe", se le ofrece iniciar sesión
+// en el momento en vez de trabarlo con un error sin salida.
+function CrearContrasena({ nombre, email, onListo }) {
+  const [modo, setModo] = useState('crear'); // 'crear' | 'login'
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [humano, setHumano] = useState(false);
+  const [error, setError] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  async function confirmar() {
+    setError('');
+    if (modo === 'crear') {
+      if (password.length < 6) { setError('La contraseña tiene que tener al menos 6 caracteres.'); return; }
+      if (password !== password2) { setError('Las contraseñas no coinciden.'); return; }
+      if (!humano) { setError('Deslizá el control de seguridad para confirmar que no sos un robot.'); return; }
+      setCargando(true);
+      try {
+        await registrarTurista({ nombre, apellido: '', email, password });
+      } catch (e) {
+        setCargando(false);
+        const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('already')) { setModo('login'); setError('Ese mail ya tiene cuenta. Iniciá sesión para vincular tu pase.'); return; }
+        setError('No se pudo crear la cuenta. Probá de nuevo.');
+        return;
+      }
+    } else {
+      if (password.length < 6) { setError('La contraseña tiene que tener al menos 6 caracteres.'); return; }
+      setCargando(true);
+      try {
+        await loginConIdentificador(email, password);
+      } catch {
+        setCargando(false);
+        setError('Contraseña incorrecta.');
+        return;
+      }
+    }
+
+    const sesion = await getSession();
+    if (sesion?.user?.id) await vincularComprasPase(sesion.user.id, email);
+    setCargando(false);
+    onListo(!!sesion?.user?.id);
+  }
+
+  return (
+    <div style={{ marginTop: 24, paddingTop: 24, borderTop: `1px solid ${C.line}`, textAlign: 'left' }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, marginBottom: 4 }}>
+        {modo === 'crear' ? 'Creá tu contraseña' : 'Iniciá sesión'}
+      </div>
+      <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, margin: '0 0 14px' }}>
+        {modo === 'crear'
+          ? <>Para entrar la próxima vez a <strong>{email}</strong>.</>
+          : <>Ya existe una cuenta con <strong>{email}</strong>.</>}
+      </p>
+
+      {modo === 'crear' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={labelSt} htmlFor="post-pass">Contraseña</label>
+            <input id="post-pass" type="password" autoComplete="new-password"
+              value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres" style={inputSt} />
+          </div>
+          <div>
+            <label style={labelSt} htmlFor="post-pass2">Repetir contraseña</label>
+            <input id="post-pass2" type="password" autoComplete="new-password"
+              value={password2} onChange={e => setPassword2(e.target.value)}
+              placeholder="Otra vez" style={inputSt} />
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelSt} htmlFor="post-pass-login">Contraseña</label>
+          <input id="post-pass-login" type="password" autoComplete="current-password"
+            value={password} onChange={e => setPassword(e.target.value)}
+            placeholder="Tu contraseña" style={inputSt} />
+        </div>
+      )}
+
+      {modo === 'crear' && (
+        <div style={{ marginBottom: 12, maxWidth: 320, marginInline: 'auto' }}>
+          <CaptchaDeslizar verificado={humano} onVerificar={setHumano} />
+        </div>
+      )}
+
+      {error && (
+        <div style={{ background: '#FDECEC', color: '#B42318', fontSize: 13, padding: '10px 13px', borderRadius: 10, marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={confirmar}
+        disabled={cargando}
+        style={{
+          width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+          background: cargando ? C.line : C.ink, color: cargando ? C.muted : '#fff',
+          fontSize: 15, fontWeight: 800, cursor: cargando ? 'not-allowed' : 'pointer', fontFamily: C.font,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}
+      >
+        {cargando ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Un momento…</>
+          : (modo === 'crear' ? 'Crear cuenta y ver mi pase' : 'Iniciar sesión')}
+      </button>
+    </div>
+  );
+}
+
 export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero, preguntarPerfil = false }) {
   // null = todavía no contestó el paso 0. Si no hay que preguntar, entra
   // derecho como turista, que es lo que venía haciendo hasta ahora.
   const [perfil, setPerfil] = useState(preguntarPerfil ? null : 'turista');
+  const { region, ciudades } = useScope();
+  // Paso visible del checkout (2026-08-18, a pedido: "no sé si comprar o
+  // registrarme primero"). Elegir el pase y dejar tus datos dejaron de ser
+  // la MISMA pantalla — el que ya tiene sesión no pasa por 'datos', no hay
+  // nada que pedirle.
+  const [paso, setPaso] = useState('duracion'); // 'duracion' | 'datos'
   const [pases, setPases]     = useState(null);
   const [elegido, setElegido] = useState(paseDias); // nº de días, o 'custom'
   const [diasCustom, setDiasCustom] = useState(DIAS_CUSTOM_INICIAL);
   const [esNuevo, setEsNuevo] = useState(true); // pestaña nuevo / ya registrado
   const [nombreUsuario, setNombreUsuario] = useState('');
-  const [apellido, setApellido] = useState('');
   const [email, setEmail]     = useState('');
   const [usuario, setUsuario] = useState(''); // "ya tengo cuenta": mail o teléfono
-  const [password, setPassword] = useState('');
-  const [password2, setPassword2] = useState('');
-  const [humano, setHumano] = useState(false); // captcha de arrastre, sólo al registrarse
+  const [password, setPassword] = useState(''); // sólo lo usa "ya tengo cuenta"
   const [avisoReset, setAvisoReset] = useState('');
   const [telefono, setTelefono] = useState('');
   const [error, setError]     = useState('');
   const [pagando, setPagando] = useState(false);
-  const [listo, setListo]     = useState(null); // { compra, pase }
+  const [listo, setListo]     = useState(null); // { pase, precio, dias, email, ... }
+  const [sesionActiva, setSesionActiva] = useState(undefined); // undefined = todavía no se chequeó
   // Descuentos incluidos (capa base) del catálogo vivo: mismo número para los
   // tres pases, porque esa capa no se raciona.
   const [incluidas, setIncluidas] = useState(0);
+  const [estimacion, setEstimacion] = useState({ premiumOrdenado: [] });
   const customRef = useRef(null);
+
+  // Con sesión activa no hay nada que pedirle (§D): se detecta una sola vez
+  // al aterrizar, y el formulario de contacto directamente no se muestra.
+  useEffect(() => {
+    let vivo = true;
+    getSession().then(s => { if (vivo) setSesionActiva(s || null); });
+    return () => { vivo = false; };
+  }, []);
 
   useEffect(() => {
     let vivo = true;
-    getPasesDestino().then(data => {
+    // Sin región resuelta todavía no hay nada que pedir — el efecto de abajo
+    // reacciona solo cuando `region.id` cambia.
+    if (!region) return undefined;
+    getPasesDestino(undefined, region.id).then(data => {
       if (!vivo) return;
       setPases(data);
       // El pase a medida no es una fila de `pases` (se prorratea), así que
       // nunca cae en el fallback de abajo.
       if (paseDias === 'custom') return;
-      // Si el pase que venía por parámetro no existe, cae al primero vigente.
-      if (!data.some(p => p.duracion_dias === paseDias) && data[0]) setElegido(data[0].duracion_dias);
+      // Si el pase que venía por parámetro no existe en ESTA región, cae al
+      // primero vigente. Cambiar de región reseteando la elección: los días
+      // de una región no prometen nada sobre la otra (§A).
+      if (!data.some(p => p.duracion_dias === elegido) && data[0]) setElegido(data[0].duracion_dias);
     });
     return () => { vivo = false; };
-  }, [paseDias]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paseDias, region?.id]);
 
   useEffect(() => {
     let vivo = true;
-    contarIncluidasEnPase().then(n => { if (vivo) setIncluidas(n); });
+    contarIncluidasEnPase(region?.id).then(n => { if (vivo) setIncluidas(n); });
+    getEstimacionAhorro(region?.id).then(e => { if (vivo) setEstimacion(e); });
     return () => { vivo = false; };
-  }, []);
+  }, [region?.id]);
 
   // Entrada por el "+ días" del hero: el pase a medida ya viene elegido, pero
-  // la caja de duración queda debajo del "cómo funciona" — hay que traerla a la
+  // el selector de duración queda debajo del resumen — hay que traerlo a la
   // vista o el usuario aterriza en una pantalla que parece no haberlo escuchado.
   useEffect(() => {
     if (paseDias !== 'custom' || !pases?.length) return;
@@ -331,7 +319,11 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
   const pase   = esCustom ? paseProrrateo : ((pases || []).find(p => p.duracion_dias === elegido) || null);
   const dias   = esCustom ? diasCustom : (pase?.duracion_dias || 0);
   const precio = esCustom ? precioCustom : (pase?.precio_final || 0);
-  const nombre = esCustom ? `Pase x ${diasCustom} días` : (pase?.nombre_comercial || 'Total');
+  const nombrePase = esCustom ? `Pase x ${diasCustom} días` : (pase?.nombre_comercial || 'Total');
+  const ahorroEstimado = ahorroEstimadoPase(estimacion, dias);
+  // Con sesión no hay paso 'datos' — no hay nada que pedirle, así que el
+  // botón siempre cobra directo. Sin sesión, el primer click sólo avanza.
+  const necesitaContinuar = !sesionActiva && paso === 'duracion';
 
   // Link "olvidé mi contraseña": manda el mail de recuperación al que esté
   // escrito arriba, sin sacar al comprador de la pantalla. Solo sirve con mail
@@ -347,58 +339,62 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
     }
   }
 
+  // Paso 1 → 2: sólo valida que haya un pase elegido. Los datos de
+  // contacto todavía no están en pantalla en este paso, así que no hay
+  // nada más que chequear acá — eso lo hace pagar(), un paso después.
+  function continuar() {
+    setError('');
+    if (!pase) { setError('Elegí un pase para continuar.'); return; }
+    setPaso('datos');
+  }
+
   async function pagar() {
     setError(''); setAvisoReset('');
-    if (esNuevo) {
-      if (!nombreUsuario.trim() || !apellido.trim()) { setError('Completá nombre y apellido.'); return; }
-      if (!emailValido(email)) { setError('Revisá el mail: no parece válido.'); return; }
-      if (!telValido(telefono)) { setError('Revisá el teléfono: faltan dígitos.'); return; }
-      if (password !== password2) { setError('Las contraseñas no coinciden.'); return; }
-      if (!humano) { setError('Deslizá el control de seguridad para confirmar que no sos un robot.'); return; }
-    } else if (!pareceEmail(usuario) && usuario.replace(/\D/g, '').length < 8) {
-      setError('Escribí tu mail o tu teléfono.'); return;
-    }
-    if (password.length < 6) { setError('La contraseña tiene que tener al menos 6 caracteres.'); return; }
+    // Si el chequeo de sesión del montaje todavía no resolvió, se pide acá:
+    // pagar() no puede arriesgarse a tratar a alguien logueado como anónimo
+    // por una carrera de milisegundos.
+    const sesionInicial = sesionActiva !== undefined ? sesionActiva : await getSession();
+    const motivo = datosCompraValidos({ sesionActiva: sesionInicial, esNuevo, nombreUsuario, email, usuario, password, telefono });
+    if (motivo) { setError(motivo); return; }
     if (!pase) { setError('No se pudo cargar el pase. Recargá la página.'); return; }
 
     setPagando(true);
 
-    // Antes de cobrar, la cuenta: si es nuevo se crea, si ya existe se valida
-    // la contraseña. Así el pase termina en una cuenta real y no en el limbo.
-    try {
-      if (esNuevo) {
-        await registrarTurista({ nombre: nombreUsuario.trim(), apellido: apellido.trim(), email, password });
-      } else {
-        await loginConIdentificador(usuario, password);
-      }
-    } catch (e) {
-      setPagando(false);
-      const msg = String(e?.message || '').toLowerCase();
-      if (esNuevo && msg.includes('already')) setError('Ese mail ya tiene cuenta. Entrá por "Ya tengo cuenta".');
-      else if (!esNuevo) setError('Usuario o contraseña incorrectos.');
-      else setError('No se pudo crear la cuenta. Probá de nuevo.');
-      return;
-    }
+    // Con sesión, el mail ya se sabe. Sin sesión y ya registrado, hay que
+    // loguearlo ANTES de cobrar — es el único camino que todavía necesita
+    // contraseña antes del pago, porque hace falta la sesión para vincular
+    // la compra al toque. El nuevo, en cambio, paga sin cuenta: la crea
+    // después (§D).
+    let sesionParaLink = sesionInicial;
+    let emailCompra;
 
-    // Con sesión (login, o alta sin confirmación pendiente) el pase pasa a la
-    // cuenta ahí mismo. Si no, queda esperando a que confirme el mail: App.jsx
-    // lo vincula al primer ingreso.
-    const sesion = await getSession();
-    // La compra se guarda contra un mail; si entró con teléfono, sale del
-    // usuario de la sesión.
-    const emailCompra = esNuevo ? email : (sesion?.user?.email || (pareceEmail(usuario) ? usuario : ''));
-    if (!emailCompra) {
-      setPagando(false);
-      setError('Tu cuenta no tiene un mail asociado. Entrá con tu mail para comprar el pase.');
-      return;
+    if (sesionInicial) {
+      emailCompra = sesionInicial.user.email;
+    } else if (!esNuevo) {
+      try {
+        await loginConIdentificador(usuario, password);
+      } catch {
+        setPagando(false);
+        setError('Usuario o contraseña incorrectos.');
+        return;
+      }
+      sesionParaLink = await getSession();
+      emailCompra = sesionParaLink?.user?.email || (pareceEmail(usuario) ? usuario : '');
+      if (!emailCompra) {
+        setPagando(false);
+        setError('Tu cuenta no tiene un mail asociado. Entrá con tu mail para comprar el pase.');
+        return;
+      }
+    } else {
+      emailCompra = email.trim();
     }
 
     // MOCK de pago: no hay pasarela real. La referencia la genera la lib.
-    const { ok, compra, error: err } = await comprarPaseAnonimo({
-      paseId: pase.id, precio, email: emailCompra, telefono, dias,
-      // Al que ya tiene cuenta no se los pedimos: van en null.
-      nombre:   esNuevo ? nombreUsuario : null,
-      apellido: esNuevo ? apellido : null,
+    const nuevoSinCuenta = esNuevo && !sesionInicial;
+    const { ok, error: err } = await comprarPaseAnonimo({
+      paseId: pase.id, precio, email: emailCompra, dias,
+      telefono: nuevoSinCuenta ? telefono : null,
+      nombre:   nuevoSinCuenta ? nombreUsuario.trim() : null,
     });
     if (!ok) {
       setPagando(false);
@@ -406,10 +402,16 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
       return;
     }
 
-    if (sesion?.user?.id) await vincularComprasPase(sesion.user.id, emailCompra);
+    if (sesionParaLink?.user?.id) await vincularComprasPase(sesionParaLink.user.id, emailCompra);
 
     setPagando(false);
-    setListo({ compra, pase, nombre, precio, dias, email: emailCompra, conSesion: !!sesion?.user?.id });
+    setListo({
+      pase, nombre: nombrePase, precio, dias, email: emailCompra,
+      conSesion: !!sesionParaLink?.user?.id,
+      // Nuevo y sin sesión: pagó sin cuenta. Falta crear la contraseña.
+      pendienteRegistro: nuevoSinCuenta,
+      nombreUsuario: nombreUsuario.trim(),
+    });
   }
 
   // ── Paso 0: turista o hotelero ──
@@ -423,11 +425,11 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
     );
   }
 
-  // ── Paso 2: pagado, falta el registro ──
+  // ── Paso 2: pagado, falta (a veces) el registro ──
   if (listo) {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '60px 24px 100px' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '60px 24px 100px' }}>
           <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 24, padding: '40px 36px', textAlign: 'center' }}>
             <div style={{ width: 62, height: 62, borderRadius: '50%', background: C.primarySoft, display: 'grid', placeItems: 'center', margin: '0 auto 20px' }}>
               <Check size={30} color={C.primary} strokeWidth={3} />
@@ -438,19 +440,31 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
             <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.6, margin: '0 0 8px' }}>
               {listo.nombre} · {fmt(listo.precio)}
             </p>
-            <p style={{ fontSize: 15, color: C.ink2, lineHeight: 1.6, margin: '0 0 28px' }}>
-              {listo.conSesion
-                ? <>Ya está cargado en tu cuenta (<strong>{listo.email}</strong>). Activalo cuando llegues o programá la fecha.</>
-                : <>Te mandamos un mail a <strong>{listo.email}</strong> para confirmar tu cuenta. Cuando la confirmes, el pase te aparece cargado.</>}
-            </p>
-            <button
-              onClick={() => onListo?.()}
-              style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: C.ink, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', fontFamily: C.font }}
-              onMouseEnter={e => e.currentTarget.style.background = C.primary}
-              onMouseLeave={e => e.currentTarget.style.background = C.ink}
-            >
-              {listo.conSesion ? 'Empezar a explorar' : 'Volver al inicio'}
-            </button>
+
+            {listo.pendienteRegistro ? (
+              <CrearContrasena
+                nombre={listo.nombreUsuario}
+                email={listo.email}
+                onListo={conSesion => setListo(l => ({ ...l, conSesion, pendienteRegistro: false }))}
+              />
+            ) : (
+              <>
+                <p style={{ fontSize: 15, color: C.ink2, lineHeight: 1.6, margin: '0 0 28px' }}>
+                  {/* El viajero no activa nada a mano: el pase arranca solo con
+                      el primer descuento. El texto viejo prometía un botón de
+                      "activar" que no existe y generaba consultas. */}
+                  Ya está cargado en tu cuenta (<strong>{listo.email}</strong>). Se activa solo con tu primer descuento.
+                </p>
+                <button
+                  onClick={() => onListo?.()}
+                  style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: C.ink, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', fontFamily: C.font }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.primary}
+                  onMouseLeave={e => e.currentTarget.style.background = C.ink}
+                >
+                  Empezar a explorar
+                </button>
+              </>
+            )}
           </div>
 
           {/* El momento principal del Cupopack (§6 de docs/3-cupopacks.md):
@@ -458,8 +472,9 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
               porque desde la Fase 8 se eligen premium con el pase todavía sin
               activar — antes había que activarlo y eso quemaba días de viaje.
 
-              Sólo con sesión: sin cuenta el pase queda esperando a que confirme
-              el mail, y todavía no hay a qué colgarle las elecciones. */}
+              Sólo con sesión: sin cuenta todavía no hay a qué colgarle las
+              elecciones — aparece solo cuando `conSesion` pasa a true, ya sea
+              porque venía de antes o porque acaba de crear la contraseña. */}
           {listo.conSesion && <OfertaPostCompra />}
         </div>
       </div>
@@ -469,285 +484,126 @@ export default function CheckoutPaseView({ paseDias = 7, onListo, onSoyHotelero,
   // ── Paso 1: elegir pase + datos de contacto + pago ──
   return (
     <div style={{ minHeight: '100vh', background: C.bg, fontFamily: C.font, paddingTop: 70 }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px 100px' }}>
+      <div className="checkout-pase-grid" style={{ maxWidth: 1040, margin: '0 auto', padding: '36px 24px 100px' }}>
 
         {/* Título: el símbolo del hero, centrado, solo e inclinado igual que allá */}
-        <div style={{ textAlign: 'center', margin: '18px 0 40px' }}>
-          <img src="/cupon-pass.svg" alt="Cupon PASS" style={{ width: 210, maxWidth: '70%', height: 'auto', display: 'inline-block' }} />
-        </div>
-
-        {/* Cómo funciona — antes de elegir nada */}
-        <ComoFunciona />
-
-        {/* Duración */}
-        <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
-          <div style={{ ...labelSt, marginBottom: 12 }}>ELEGÍ TU PASE</div>
-          {pases === null ? (
-            <div style={{ color: C.muted, fontSize: 14, padding: '10px 0' }}>Cargando pases…</div>
-          ) : pases.length === 0 ? (
-            <div style={{ color: C.muted, fontSize: 14, padding: '10px 0' }}>No hay pases disponibles por ahora.</div>
-          ) : (
-            <div role="radiogroup" aria-label="Elegí tu pase"
-              style={{ display: 'grid', gridTemplateColumns: `repeat(${pases.length + 1}, 1fr)`, gap: 12 }}>
-              {pases.map(p => {
-                const activo = !esCustom && p.duracion_dias === elegido;
-                return (
-                  <button key={p.id} onClick={() => setElegido(p.duracion_dias)}
-                    role="radio" aria-checked={activo}
-                    style={{
-                      textAlign: 'left', padding: '16px 14px 14px', borderRadius: 16, cursor: 'pointer',
-                      background: activo ? C.primarySoft : '#fff',
-                      border: `1.5px solid ${activo ? C.primary : C.line}`,
-                      fontFamily: C.font, transition: 'all .15s',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <PaSSMark size={12} />
-                      <TildePase activo={activo} />
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: activo ? C.primary : C.ink, marginTop: 10 }}>
-                      {p.duracion_dias} días
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', marginTop: 4 }}>
-                      {fmt(p.precio_final)}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>por única vez</div>
-                    <Incluye incluidas={incluidas} dias={p.duracion_dias} />
-                  </button>
-                );
-              })}
-
-              {/* A medida: elegís los días y el precio sale proporcional al de 7 */}
-              <div
-                ref={customRef}
-                role="radio" aria-checked={esCustom} tabIndex={0}
-                onClick={() => setElegido('custom')}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setElegido('custom'); } }}
-                style={{
-                  textAlign: 'left', padding: '16px 14px 14px', borderRadius: 16, cursor: 'pointer',
-                  background: esCustom ? C.primarySoft : '#fff',
-                  border: `1.5px solid ${esCustom ? C.primary : C.line}`,
-                  fontFamily: C.font, transition: 'all .15s',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <PaSSMark size={12} />
-                  <TildePase activo={esCustom} />
-                </div>
-                {/* Sin rótulo propio: el selector ocupa el lugar del "N días" de
-                    los otros pases, así las tres cajas quedan renglón a renglón. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-                  <StepBtn
-                    label="Un día menos"
-                    disabled={diasCustom <= DIAS_CUSTOM_MIN}
-                    onClick={() => { setElegido('custom'); setDiasCustom(d => Math.max(DIAS_CUSTOM_MIN, d - 1)); }}
-                  ><Minus size={18} /></StepBtn>
-                  <span style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 800, color: esCustom ? C.primary : C.ink, whiteSpace: 'nowrap' }}>
-                    {diasCustom} días
-                  </span>
-                  <StepBtn
-                    label="Un día más"
-                    disabled={diasCustom >= DIAS_CUSTOM_MAX}
-                    onClick={() => { setElegido('custom'); setDiasCustom(d => Math.min(DIAS_CUSTOM_MAX, d + 1)); }}
-                  ><Plus size={18} /></StepBtn>
-                </div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em', marginTop: 4 }}>
-                  {fmt(precioCustom)}
-                </div>
-                <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>por única vez</div>
-                <Incluye incluidas={incluidas} dias={diasCustom} />
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* Contacto */}
-        <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: 20, marginBottom: 16 }}>
-          {/* Mismo tratamiento que "¿Cómo funciona?": itálica, centrado y en
-              primary. Los dos son títulos de sección del checkout y antes
-              tenían pesos distintos —uno de rótulo, otro de titular—, así que
-              se leían como si uno mandara sobre el otro.
-
-              El nombre va con la marca y no escrito: es el único lugar del
-              checkout donde aparece el nombre de la empresa. */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, margin: '20px 0 40px' }}>
-            <span style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: C.primary, letterSpacing: '-0.01em' }}>
-              Ingresá a
-            </span>
-            <img src="/logo-cuponear.svg" alt="Cuponear" style={{ height: 44, width: 'auto', display: 'block' }} />
+        <div className="checkout-pase-col-principal">
+          <div style={{ textAlign: 'center', margin: '18px 0 32px' }}>
+            <img src="/cupon-pass.svg" alt="Cupon PASS" style={{ width: 210, maxWidth: '70%', height: 'auto', display: 'inline-block' }} />
           </div>
 
-          {/* Nuevo vs. ya registrado: al que ya tiene cuenta no le pedimos
-              nombre — esos datos ya están en su perfil y la compra se le
-              vincula sola por mail. */}
-          <div role="tablist" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, background: C.bg, borderRadius: 12, marginBottom: 16 }}>
-            {[{ id: true, label: 'Soy nuevo' }, { id: false, label: 'Ya tengo cuenta' }].map(t => (
-              <button
-                key={t.label} role="tab" aria-selected={esNuevo === t.id}
-                onClick={() => { setEsNuevo(t.id); setError(''); }}
-                style={{
-                  padding: '13px 10px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: C.font,
-                  fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', transition: 'background .15s, color .15s',
-                  background: esNuevo === t.id ? '#fff' : 'transparent',
-                  // El inactivo en ink2 y no en muted: son sólo dos opciones y
-                  // la de al lado tiene que leerse como algo elegible, no como
-                  // un texto apagado.
-                  color: esNuevo === t.id ? C.primary : C.ink2,
-                  boxShadow: esNuevo === t.id ? '0 1px 3px rgba(11,16,32,0.12)' : 'none',
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <SelectorDuracion
+            pases={pases} elegido={elegido} setElegido={setElegido}
+            diasCustom={diasCustom} setDiasCustom={setDiasCustom}
+            incluidas={incluidas} estimacion={estimacion} customRef={customRef}
+            precioCustom={precioCustom}
+          />
 
-          {esNuevo && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-              <div>
-                <label style={labelSt} htmlFor="pase-nombre">Nombre</label>
-                <input id="pase-nombre" type="text" autoComplete="given-name"
-                  value={nombreUsuario} onChange={e => setNombreUsuario(e.target.value)}
-                  placeholder="Tu nombre" style={inputSt}
-                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
-              </div>
-              <div>
-                <label style={labelSt} htmlFor="pase-apellido">Apellido</label>
-                <input id="pase-apellido" type="text" autoComplete="family-name"
-                  value={apellido} onChange={e => setApellido(e.target.value)}
-                  placeholder="Tu apellido" style={inputSt}
-                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginBottom: 14 }}>
-            {esNuevo ? (
-              <>
-                <label style={labelSt} htmlFor="pase-email">Mail</label>
-                <input id="pase-email" type="email" inputMode="email" autoComplete="email"
-                  value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="ejemplo@mail.com" style={inputSt}
-                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
-              </>
-            ) : (
-              <>
-                <label style={labelSt} htmlFor="pase-usuario">Mail o teléfono</label>
-                <input id="pase-usuario" type="text" autoComplete="username"
-                  value={usuario} onChange={e => setUsuario(e.target.value)}
-                  placeholder="ejemplo@mail.com, ó 1155555555" style={inputSt}
-                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
-              </>
-            )}
-          </div>
-          {/* Contraseña: el nuevo la crea (con confirmación), el que ya tiene
-              cuenta la usa para entrar. */}
-          {esNuevo ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-              <div>
-                <label style={labelSt} htmlFor="pase-pass">Contraseña</label>
-                <input id="pase-pass" type="password" autoComplete="new-password"
-                  value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres" style={inputSt}
-                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
-              </div>
-              <div>
-                <label style={labelSt} htmlFor="pase-pass2">Repetir contraseña</label>
-                <input id="pase-pass2" type="password" autoComplete="new-password"
-                  value={password2} onChange={e => setPassword2(e.target.value)}
-                  placeholder="Otra vez" style={inputSt}
-                  onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                  onBlur={e => e.currentTarget.style.borderColor = C.line} />
-              </div>
-            </div>
-          ) : (
-            <div style={{ marginBottom: 14 }}>
-              <label style={labelSt} htmlFor="pase-pass">Contraseña</label>
-              <input id="pase-pass" type="password" autoComplete="current-password"
-                value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="Tu contraseña" style={inputSt}
-                onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                onBlur={e => e.currentTarget.style.borderColor = C.line} />
-              <button
-                type="button" onClick={olvideLaClave}
-                style={{ background: 'none', border: 'none', padding: '8px 0 0', color: C.primary, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: C.font }}
-              >
-                Olvidé mi contraseña
-              </button>
-              {avisoReset && (
-                <p style={{ fontSize: 12.5, color: C.ink2, margin: '4px 0 0', lineHeight: 1.5 }}>{avisoReset}</p>
+          {/* Hasta que se resuelva si hay sesión, no se muestra nada de esto:
+              a alguien ya logueado no le tiene que asomar ni un instante el
+              alta que no le corresponde.
+              Con sesión, DatosCompra es sólo una línea de confirmación —no
+              pide nada—, así que se queda siempre a la vista. Sin sesión, es
+              un formulario de verdad y se posterga al paso 'datos' (a
+              pedido: "no sé si comprar o registrarme primero" — elegir el
+              pase no puede compartir pantalla con esa pregunta). */}
+          {sesionActiva !== undefined && (sesionActiva || paso === 'datos') && (
+            <>
+              {!sesionActiva && (
+                <button type="button" onClick={() => setPaso('duracion')} style={{
+                  background: 'none', border: 'none', padding: '0 0 12px', color: C.ink2,
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: C.font,
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}>
+                  ← Volver a elegir tu pase
+                </button>
               )}
-            </div>
-          )}
-
-          {/* El teléfono solo se le pide al nuevo: del que ya tiene cuenta ya
-              lo tenemos en su perfil. */}
-          {esNuevo ? (
-            <div>
-              <label style={labelSt} htmlFor="pase-tel">Teléfono <span style={{ fontWeight: 500, color: C.muted }}>(opcional)</span></label>
-              <input id="pase-tel" type="tel" inputMode="tel" autoComplete="tel"
-                value={telefono} onChange={e => setTelefono(e.target.value)}
-                placeholder="11 5555 5555" style={inputSt}
-                onFocus={e => e.currentTarget.style.borderColor = C.primary}
-                onBlur={e => e.currentTarget.style.borderColor = C.line} />
-            </div>
-          ) : (
-            <p style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5, margin: '2px 0 0' }}>
-              El pase te queda cargado en tu cuenta, sin hacer nada más.
-            </p>
-          )}
-
-          {/* Último paso del alta, justo antes del botón de pago. Sólo para el
-              que se registra: al que ya tiene cuenta lo frena su contraseña.
-              Sin rótulo: el propio texto de la pista dice para qué es. A media
-              caja y centrado — el gesto es corto y una pista de ancho completo
-              lo hacía parecer más trabajo del que es. */}
-          {esNuevo && (
-            <div style={{ marginTop: 16, maxWidth: 320, marginInline: 'auto' }}>
-              <CaptchaDeslizar verificado={humano} onVerificar={setHumano} />
-            </div>
+              <DatosCompra
+                sesionActiva={sesionActiva}
+                esNuevo={esNuevo} setEsNuevo={setEsNuevo}
+                nombreUsuario={nombreUsuario} setNombreUsuario={setNombreUsuario}
+                email={email} setEmail={setEmail}
+                usuario={usuario} setUsuario={setUsuario}
+                password={password} setPassword={setPassword}
+                telefono={telefono} setTelefono={setTelefono}
+                avisoReset={avisoReset}
+                onOlvideLaClave={olvideLaClave}
+              />
+            </>
           )}
         </div>
 
-        {/* Total + pago */}
-        <div style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 20, padding: '22px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
-            <PaSSMark size={14} conPrefijo />
-            {dias > 0 && <span style={{ fontSize: 14, fontWeight: 800, color: C.ink2 }}>x {dias} días</span>}
+        <div className="checkout-pase-col-resumen">
+          <div className="checkout-pase-resumen-sticky">
+            <ResumenPase
+              region={region} ciudades={ciudades}
+              pase={pase} dias={dias} precio={precio} nombre={nombrePase} esCustom={esCustom}
+              incluidas={incluidas} ahorroEstimado={ahorroEstimado}
+              error={error} pagando={pagando}
+              onPagar={necesitaContinuar ? continuar : pagar}
+              ctaLabel={necesitaContinuar ? 'Continuar' : null}
+            />
           </div>
-
-          {error && (
-            <div style={{ background: '#FDECEC', color: '#B42318', fontSize: 13, padding: '10px 13px', borderRadius: 10, marginBottom: 14 }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            onClick={pagar}
-            disabled={pagando || !pase}
-            style={{
-              width: '100%', padding: '16px', borderRadius: 14, border: 'none',
-              background: pagando || !pase ? C.line : C.primary,
-              color: pagando || !pase ? C.muted : '#fff',
-              fontSize: 16, fontWeight: 800, cursor: pagando || !pase ? 'not-allowed' : 'pointer',
-              fontFamily: C.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-              transition: 'background .15s',
-            }}
-            onMouseEnter={e => { if (!pagando && pase) e.currentTarget.style.background = C.primaryDark; }}
-            onMouseLeave={e => { if (!pagando && pase) e.currentTarget.style.background = C.primary; }}
-          >
-            {pagando
-              ? <><Loader2 size={17} style={{ animation: 'spin 1s linear infinite' }} /> Procesando…</>
-              : <><CreditCard size={17} /> Pagar {pase ? fmt(precio) : ''}</>}
-          </button>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
+
+      {/* Barra fija de mobile: mismo precio y mismo CTA, siempre a mano —
+          el resumen completo (región, ahorro, leyenda) sigue en el flujo
+          arriba, esto es sólo el atajo para pagar sin tener que volver a
+          scrollear (§C). El error se repite acá: si "Pagar" se toca desde
+          la barra, el aviso de arriba puede estar fuera de pantalla. */}
+      <div className="checkout-pase-barra-movil">
+        {error && (
+          <div style={{ position: 'absolute', left: 12, right: 12, bottom: '100%', marginBottom: 8, background: '#FDECEC', color: '#B42318', fontSize: 12.5, padding: '9px 12px', borderRadius: 10, boxShadow: '0 8px 20px -10px rgba(11,16,32,0.25)' }}>
+            {error}
+          </div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombrePase}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{pase ? fmt(precio) : '—'}</div>
+        </div>
+        <button
+          onClick={necesitaContinuar ? continuar : pagar}
+          disabled={pagando || !pase}
+          style={{
+            flexShrink: 0, padding: '13px 22px', borderRadius: 12, border: 'none',
+            background: pagando || !pase ? C.line : C.primary,
+            color: pagando || !pase ? C.muted : '#fff',
+            fontSize: 14.5, fontWeight: 800, cursor: pagando || !pase ? 'not-allowed' : 'pointer',
+            fontFamily: C.font, display: 'flex', alignItems: 'center', gap: 8,
+          }}
+        >
+          {pagando ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+          {necesitaContinuar ? 'Continuar' : 'Pagar'}
+        </button>
+      </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .checkout-pase-barra-movil { display: none; }
+
+        @media (min-width: 1024px) {
+          .checkout-pase-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 380px;
+            gap: 28px;
+            align-items: start;
+          }
+          .checkout-pase-resumen-sticky { position: sticky; top: 90px; }
+        }
+
+        @media (max-width: 1023px) {
+          .checkout-pase-col-resumen { margin-top: 16px; }
+          .checkout-pase-grid { padding-bottom: 110px !important; }
+          .checkout-pase-barra-movil {
+            display: flex; align-items: center; justify-content: space-between; gap: 14px;
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+            background: #fff; border-top: 1px solid ${C.line}; padding: 12px 18px;
+            box-shadow: 0 -8px 24px -12px rgba(11,16,32,0.18);
+          }
+        }
+      `}</style>
     </div>
   );
 }

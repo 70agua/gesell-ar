@@ -5,7 +5,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import AccommodationCard from '../components/AccommodationCard';
 import OfertaCard from '../components/OfertaCard';
 import { getAlojamientos, getPromos } from '../lib/datos';
-import { LOCALIDADES, getVecinas } from '../lib/localidades';
+import { getLocalidadesDeCiudad, getVecinas } from '../lib/localidades';
+import useScope from '../hooks/useScope';
 const A = {
   primary:     '#475BE1',
   primaryDark: '#3347C8',
@@ -258,7 +259,15 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
     return () => { window.removeEventListener('resize', calc); ro.disconnect(); };
   }, []);
 
+  // Scope regional (2026-08-18): la región nunca es un filtro acá —ya la
+  // eligió el header—, sólo se usa para descartar lo que no es de la
+  // región activa antes de que llegue a ningún otro filtro. `ciudades` son
+  // las de la región activa, para el nuevo filtro de Ciudad.
+  const { region, ciudades } = useScope();
+
   // Filtros sidebar
+  const [filtroCiudades, setFiltroCiudades] = useState([]); // ids de ciudad
+  const [localidadesDisp, setLocalidadesDisp] = useState([]);
   const [filtroLocalidades, setFiltroLocalidades] = useState(() => {
     if (!initialLocalidad || initialLocalidad === 'todas') return [];
     if (initialLocalidad.startsWith('__multi__:')) {
@@ -271,6 +280,21 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
     return new Set(initialFiltro.split(',').filter(Boolean));
   });
   const [filtroServicios, setFiltroServicios] = useState(new Set());
+
+  // Las localidades disponibles son las de la(s) ciudad(es) elegidas en el
+  // filtro; sin ciudad elegida, las de TODAS las ciudades de la región
+  // (fusionadas en una sola lista, igual que se veía siempre — antes no
+  // había distinción de ciudad, ahora la hay pero el "Destino" sigue
+  // siendo una sola lista plana).
+  useEffect(() => {
+    let vivo = true;
+    const objetivo = filtroCiudades.length > 0
+      ? ciudades.filter(c => filtroCiudades.includes(c.id))
+      : ciudades;
+    Promise.all(objetivo.map(c => getLocalidadesDeCiudad(c.id)))
+      .then(listas => { if (vivo) setLocalidadesDisp(listas.flat()); });
+    return () => { vivo = false; };
+  }, [filtroCiudades, ciudades]);
 
   // Infinite scroll
   const [shownCount, setShownCount] = useState(10);
@@ -305,21 +329,28 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   }, [sentinelRef.current]);
 
   // Filtrar + ordenar alojamientos ───────────────────────
+  // matchRegion primero y sin condición para desactivarlo: si no hay región
+  // resuelta todavía no se muestra nada scopeado — mejor una lista vacía un
+  // instante que mostrar catálogo de una región que no es la elegida.
   const alojFiltrados = alojamientos.filter(item => {
+    const matchRegion    = !!region && item.regionId === region.id;
+    const matchCiudad    = filtroCiudades.length === 0 || filtroCiudades.includes(item.ciudadId);
     const matchTipo      = filtroTipos.size === 0 || filtroTipos.has(item.type);
     const matchLocalidad = filtroLocalidades.length === 0 || filtroLocalidades.includes(item.localidad);
     const matchBusq      = !busqueda || (item.name || '').toLowerCase().includes(busqueda.toLowerCase());
-    return matchTipo && matchLocalidad && matchBusq;
+    return matchRegion && matchCiudad && matchTipo && matchLocalidad && matchBusq;
   }).sort((a, b) => {
     if (orden === 'precio_asc')  return (a.precioMin || 0) - (b.precioMin || 0);
     if (orden === 'precio_desc') return (b.precioMin || 0) - (a.precioMin || 0);
     return 0;
   });
 
-  // ── Promos filtradas por localidad ──────────────────────
-  const promosPorLocalidad = promos.filter(p =>
-    filtroLocalidades.length === 0 || filtroLocalidades.includes(p.negocioLocalidad) || filtroLocalidades.includes(p.negocioZone)
-  );
+  // ── Promos filtradas por región, ciudad y localidad ──────
+  const promosPorLocalidad = promos.filter(p => {
+    if (!region || p.negocioRegionId !== region.id) return false;
+    if (filtroCiudades.length > 0 && !filtroCiudades.includes(p.negocioCiudadId)) return false;
+    return filtroLocalidades.length === 0 || filtroLocalidades.includes(p.negocioLocalidad) || filtroLocalidades.includes(p.negocioZone);
+  });
 
   // Separar por categoría
   const alojPromos  = promosPorLocalidad.filter(p => p.categoria === 'alojamiento');
@@ -392,11 +423,21 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
   });
 
   const limpiarFiltros = () => {
+    setFiltroCiudades([]);
     setFiltroLocalidades([]);
     setFiltroTipos(new Set());
     setFiltroServicios(new Set());
     setBusqueda('');
   };
+
+  // Total de la región SIN el filtro de ciudad, para el mensaje del estado
+  // vacío ("mirá los N de la región") — nunca "no hay resultados" a secas
+  // cuando la razón es que esa ciudad todavía no tiene catálogo.
+  const totalEnRegion = alojamientos.filter(a => region && a.regionId === region.id).length
+    + promos.filter(p => region && p.negocioRegionId === region.id && p.tokens_costo !== 0).length;
+  const nombreCiudadFiltrada = filtroCiudades.length === 1
+    ? ciudades.find(c => c.id === filtroCiudades[0])?.nombre
+    : null;
 
   const limpiarSecundarios = () => {
     setFiltroTipos(new Set());
@@ -469,14 +510,30 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
           </div>
         </div>
 
-        {/* DESTINO */}
+        {/* CIUDAD (2026-08-18) — primer grupo, arriba de localidad/zona: es
+            un filtro dentro de la región, nunca la región misma. Multi-select
+            porque el Cupon PASS vale en toda la región — el viajero puede
+            querer ver Gesell + Mar del Plata juntos. */}
+        {ciudades.length > 1 && (
+          <div style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: A.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Ciudad</span>
+              {filtroCiudades.length > 0 && <button onClick={() => setFiltroCiudades([])} style={{ background: 'none', border: 'none', fontSize: 11, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font, padding: 0 }}>Limpiar</button>}
+            </div>
+            {ciudades.map(c => (
+              <CheckRow key={c.id} label={c.nombre} checked={filtroCiudades.includes(c.id)} onChange={() => setFiltroCiudades(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} />
+            ))}
+          </div>
+        )}
+
+        {/* DESTINO (localidad) */}
         <div style={{ borderBottom: `1px solid ${A.line}`, paddingBottom: 16, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: A.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Destino</span>
             {filtroLocalidades.length > 0 && <button onClick={() => setFiltroLocalidades([])} style={{ background: 'none', border: 'none', fontSize: 11, color: A.primary, cursor: 'pointer', fontWeight: 600, fontFamily: A.font, padding: 0 }}>Limpiar</button>}
           </div>
-          {LOCALIDADES.map(loc => (
-            <CheckRow key={loc} label={loc} checked={filtroLocalidades.includes(loc)} onChange={() => setFiltroLocalidades(prev => prev.includes(loc) ? prev.filter(l => l !== loc) : [...prev, loc])} />
+          {localidadesDisp.map(loc => (
+            <CheckRow key={loc.id} label={loc.nombre} checked={filtroLocalidades.includes(loc.nombre)} onChange={() => setFiltroLocalidades(prev => prev.includes(loc.nombre) ? prev.filter(l => l !== loc.nombre) : [...prev, loc.nombre])} />
           ))}
         </div>
 
@@ -647,6 +704,20 @@ export default function MarketplaceView({ onBack, onOpenDetail, initialFiltro = 
                 <source src="/loading-casa.webm" type="video/webm" />
               </video>
               <span style={{ fontSize: 14, color: A.muted, fontWeight: 500 }}>Buscando resultados…</span>
+            </div>
+          ) : visibles.length === 0 && filtroCiudades.length > 0 ? (
+            // Ciudad sin catálogo todavía: no es "sin resultados" a secas,
+            // es que esa ciudad de la región recién empieza. El botón limpia
+            // sólo el filtro de ciudad, no busqueda/tipo/localidad.
+            <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 20, padding: '56px 32px', textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🗺️</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, marginBottom: 6 }}>
+                Todavía no hay cupones en {nombreCiudadFiltrada || 'esta ciudad'}
+              </div>
+              <div style={{ fontSize: 14, color: A.muted, marginBottom: 20 }}>Mirá los {totalEnRegion} de la región</div>
+              <button onClick={() => setFiltroCiudades([])} style={{ background: A.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Ver toda la región
+              </button>
             </div>
           ) : visibles.length === 0 ? (
             <div style={{ background: '#fff', border: `1px solid ${A.line}`, borderRadius: 20, padding: '56px 32px', textAlign: 'center' }}>

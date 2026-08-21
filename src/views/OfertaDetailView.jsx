@@ -754,7 +754,7 @@ export default function OfertaDetailView({ oferta, onBack, onOpenOferta, allProm
               <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl" style={{ background: '#F0FDF4' }}>
                 <ShieldCheck size={16} color={C.green} className="shrink-0 mt-0.5" />
                 <p className="text-[12px] leading-snug" style={{ color: '#15803D' }}>
-                  <span className="font-bold">Compra protegida.</span> Si no podés canjear tu cupón por alguna razón, te lo devolvemos sin preguntas en <span className="font-bold">créditos a tu favor</span>.
+                  <span className="font-bold">Compra protegida.</span> Si no podés canjear tu cupón por alguna razón, te lo devolvemos sin preguntas en <span className="font-bold">puntos</span>.
                 </p>
               </div>
 

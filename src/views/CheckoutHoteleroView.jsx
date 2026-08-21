@@ -87,7 +87,7 @@ function TildePlan({ activo }) {
 function IlustracionRegalo() {
   return (
     <Icono src="/iconos/manopla.json" animar
-      label="Tu turista recibe el Pase en su celular"
+      label="Tu viajero recibe el Pase en su celular"
       style={{ flex: '0 0 auto', width: 230, height: 230, maxWidth: '100%', display: 'block' }} />
   );
 }
@@ -233,10 +233,10 @@ function ComoFunciona({ embebido, onVolver }) {
           (embebido o página completa) tiene que seguir leyéndose en dos. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, margin: '28px 0 20px' }}>
         <Icono src="/iconos/manopla.json" animar
-          label="Tu turista recibe el Pase en su celular"
+          label="Tu viajero recibe el Pase en su celular"
           style={{ flex: '0 0 auto', width: 140, height: 140, display: 'block' }} />
         <div style={{ width: '68%', fontSize: 19, fontWeight: 500, fontStyle: 'italic', color: C.ink, letterSpacing: '-0.01em', textAlign: 'left', lineHeight: 1.32 }}>
-          El huésped canjea tu código promocional al contratar Cupon PASS
+          El viajero canjea tu código promocional al activar Cupon PASS
         </div>
       </div>
     </div>

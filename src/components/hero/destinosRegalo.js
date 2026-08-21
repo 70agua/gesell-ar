@@ -44,6 +44,6 @@ export const DESTINOS = [
     tag: 'Empresas',
     tagColor: '#475BE1',
     quien: 'Para hoteleros, agencias de turismo e inmobiliarias.',
-    detalle: 'Obsequiás acceso a todos tus huéspedes. Desde $30.000 /mes adquirí tu membresía.',
+    detalle: 'Obsequiás acceso a todos tus viajeros. Desde $30.000 /mes adquirí tu membresía.',
   },
 ];

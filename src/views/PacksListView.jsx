@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronRight, ArrowRight, Check } from 'lucide-react';
 import { getCupopacks } from '../lib/datos';
+import useScope from '../hooks/useScope';
 import { useCarrito } from '../lib/carrito';
 import { aplicarBeneficioCupopack } from '../lib/beneficiosCupopack';
 import { getBeneficioIcon } from '../lib/beneficioIconos';
@@ -172,7 +173,23 @@ export default function PacksListView({ onBack, familia = null, onFamiliaChange,
   const [cupopacks, setCupopacks] = useState(null); // null = cargando
   const [modal, setModal] = useState(null);
   const { comprarAhora } = useCarrito();
-  const visibles = familia ? (cupopacks || []).filter(c => c.familia === familia) : cupopacks;
+  const { region } = useScope();
+
+  // Scope regional (2026-08-18): sin filtro de ciudad acá —es un catálogo
+  // curado chico, no una lista filtrable por diseño ("Sin filtros" arriba)—,
+  // pero SÍ tiene que respetar la región: se descartan los cupones que no
+  // son de la región activa, y el pack que se queda sin ninguno se cae
+  // entero (mismo criterio que ya usaba getCupopacks() para packs vacíos).
+  // ⚠️ incluyeAlojamiento se calculó en datos.js sobre los cupones SIN
+  // filtrar por región — con una sola región activa da igual, pero el día
+  // que haya una segunda puede quedar desactualizado. Revisar si molesta.
+  // null mientras carga (cupopacks === null) se preserva a propósito: el
+  // render de abajo distingue "cargando" de "cargó y no hay nada".
+  const cupopacksEnRegion = cupopacks === null ? null : cupopacks
+    .map(cp => ({ ...cp, cupones: (cp.cupones || []).filter(c => !region || c.regionId === region.id) }))
+    .filter(cp => cp.cupones.length > 0);
+  const visibles = !cupopacksEnRegion ? null
+    : familia ? cupopacksEnRegion.filter(c => c.familia === familia) : cupopacksEnRegion;
 
   useEffect(() => {
     let vivo = true;

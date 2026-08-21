@@ -7,7 +7,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getGastronomia, getAventura, getPromos, CATS_RUBRO, CATS_MIMO, CATS_COMPRAS } from '../lib/datos';
 const MiniLoader = () => <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:220 }}><video autoPlay loop muted playsInline style={{ width:90, height:'auto' }}><source src="/loading-casa.webm" type="video/webm"/></video></div>;
-import { LOCALIDADES } from '../lib/localidades';
+import { getLocalidadesDeCiudad } from '../lib/localidades';
+import useScope from '../hooks/useScope';
 import OfertaCard from '../components/OfertaCard';
 
 // Fix Leaflet icons
@@ -246,12 +247,27 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
     return () => window.removeEventListener('resize', h);
   }, []);
 
+  // Scope regional (2026-08-18): region descarta lo que no es de la región
+  // activa, antes de cualquier otro filtro — nunca aparece en el sidebar.
+  const { region, ciudades } = useScope();
+
   // Sidebar filters
   const [filtroLocalidad,   setFiltroLocalidad]   = useState('');
   const [filtroTipos,       setFiltroTipos]       = useState(new Set());
   const [filtroPrecios,     setFiltroPrecios]     = useState(new Set());
   const [filtroComida,      setFiltroComida]      = useState('');
   const [filtroExperiencia, setFiltroExperiencia] = useState('');
+
+  // LOCALIDADES era un array literal; ahora se arma con las localidades de
+  // TODAS las ciudades de la región activa (esta vista no tiene filtro de
+  // ciudad propio — es un mapa, y panear/zoomear ya cumple ese rol).
+  const [localidadesDisp, setLocalidadesDisp] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    Promise.all(ciudades.map(c => getLocalidadesDeCiudad(c.id)))
+      .then(listas => { if (vivo) setLocalidadesDisp(listas.flat()); });
+    return () => { vivo = false; };
+  }, [ciudades]);
 
   // Entramos siempre con los filtros vacíos: el listado muestra todo el bucket
   // (definido por `modoAventura`) de forma inclusiva y el usuario acota sumando
@@ -306,12 +322,13 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
 
   // Filtros sidebar + búsqueda
   const gastroFiltradaBase = itemsConLatLng.filter(item => {
+    const matchRegion    = !!region && item.regionId === region.id;
     const matchFoco      = enFoco(item);
     const matchLocalidad = !filtroLocalidad || item.localidad === filtroLocalidad;
     const matchTipo      = filtroTipos.size === 0 || (item.subcategorias || []).some(sc => filtroTipos.has(sc));
     const matchPrecio    = filtroPrecios.size === 0 || filtroPrecios.has(item.priceRange);
     const matchBusq      = !busqueda || item.name.toLowerCase().includes(busqueda.toLowerCase()) || (item.description||'').toLowerCase().includes(busqueda.toLowerCase());
-    return matchFoco && matchLocalidad && matchTipo && matchPrecio && matchBusq;
+    return matchRegion && matchFoco && matchLocalidad && matchTipo && matchPrecio && matchBusq;
   });
 
   // El ranking y el mapa muestran el mismo conjunto (filtros del sidebar),
@@ -443,8 +460,8 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
                   <span style={{ fontSize:11, fontWeight:700, color:A.muted, letterSpacing:'0.06em', textTransform:'uppercase' }}>Destino</span>
                   {filtroLocalidad && <button onClick={() => setFiltroLocalidad('')} style={{ background:'none', border:'none', fontSize:11, color:A.primary, cursor:'pointer', fontWeight:600, fontFamily:A.font, padding:0 }}>Limpiar</button>}
                 </div>
-                {LOCALIDADES.map(loc => (
-                  <CheckRow key={loc} label={loc} checked={filtroLocalidad===loc} onChange={() => setFiltroLocalidad(filtroLocalidad===loc ? '' : loc)} />
+                {localidadesDisp.map(loc => (
+                  <CheckRow key={loc.id} label={loc.nombre} checked={filtroLocalidad===loc.nombre} onChange={() => setFiltroLocalidad(filtroLocalidad===loc.nombre ? '' : loc.nombre)} />
                 ))}
               </div>
 
@@ -571,7 +588,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
             foco === 'mimo' ? (
               /* ── Hacete un mimo: sólo ofertas de relax, sin ranking ── */
               (() => {
-                const ofertas = promos.filter(p => p.categoria === 'aventura_relax' && p.tokens_costo !== 0 && (p.subcategorias || []).some(s => CATS_MIMO.includes(s)));
+                const ofertas = promos.filter(p => region && p.negocioRegionId === region.id && p.categoria === 'aventura_relax' && p.tokens_costo !== 0 && (p.subcategorias || []).some(s => CATS_MIMO.includes(s)));
                 if (!ofertas.length) return (
                   <div style={{ background:'#fff', border:`1px solid ${A.line}`, borderRadius:20, padding:'48px 32px', textAlign:'center' }}>
                     <div style={{ fontSize:17, fontWeight:700, color:A.ink, marginBottom:6 }}>Todavía no hay ofertas de relax</div>
@@ -606,7 +623,7 @@ export default function GastronomyView({ onBack, session, onLoginClick, onOpenDe
             {/* ── Ofertas generales de la categoría (bajo el ranking) ── */}
             {(() => {
               const cat = modoAventura ? 'aventura_relax' : 'salidas';
-              const ofertas = promos.filter(p => p.categoria === cat && p.tokens_costo !== 0);
+              const ofertas = promos.filter(p => region && p.negocioRegionId === region.id && p.categoria === cat && p.tokens_costo !== 0);
               if (!ofertas.length) return null;
               const loc = filtroLocalidad || 'Villa Gesell';
               return (

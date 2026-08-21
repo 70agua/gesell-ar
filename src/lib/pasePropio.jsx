@@ -54,7 +54,7 @@ export function PasePropioProvider({ session, perfil, onComprarPase, children })
 
     const { data } = await supabase
       .from('usuario_pases')
-      .select('id, estado, vence_el, dias, elecciones_premium, premium_ilimitado, tipo, upgrade_aplicado, incluye_estadia, estadia_usada_el, pases(elecciones_premium, duracion_dias)')
+      .select('id, estado, vence_el, dias, elecciones_premium, premium_ilimitado, tipo, upgrade_aplicado, incluye_estadia, estadia_usada_el, region_id, pases(elecciones_premium, duracion_dias)')
       .eq('user_id', userId)
       .in('estado', ['activo', 'pendiente']);
 

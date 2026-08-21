@@ -88,7 +88,7 @@ export default function HeroCoupons({ onSuscribir }) {
             <p className="hc__eyebrow">{PREGUNTA}</p>
 
             <h1 className="hc__title">
-              <span className="hc__t-it">Suscribite y regalá pases de turista</span>
+              <span className="hc__t-it">Suscribite y regalá pases de viajero</span>
               <span className="hc__t-bold">ellos te lo van a agradecer</span>
             </h1>
 
